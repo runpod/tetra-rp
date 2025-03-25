@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "tetra"
+version = "0.1.0"
+description = "A Python library for distributed inference and serving of machine learning models"
+authors = ["Marut Pandya <pandyamarut@gmail.com>", "Patrick Rachford <prachford@icloud.com>"]
+readme = "README.md"
+license = "MIT"
+packages = [{include = "tetra"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+cloudpickle = "^3.1.1"
+protobuf = ">=5.26.1,<6.0dev"
+grpcio = "^1.70.0"
+grpcio-tools = "^1.70.0"
+runpod = "^1.7.7"
+python-dotenv = "^1.0.0"
+
+[tool.poetry.group.examples]
+optional = true
+
+[tool.poetry.group.examples.dependencies]
+pillow = "^10.2.0"
+scikit-learn = "^1.4.0"
+numpy = "^1.26.0"
+torch = "^2.2.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

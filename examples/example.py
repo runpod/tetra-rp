@@ -1,0 +1,110 @@
+import asyncio
+import os
+from dotenv import load_dotenv
+from tetra import remote, get_global_client
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Configuration for a GPU resource
+gpu_config = {
+    "api_key": os.environ.get("RUNPOD_API_KEY"),
+    "template_id": "jizsa65yn0",  # Replace with your template ID
+    "gpu_ids": "AMPERE_48",
+    "workers_min": 1,  # Key for persistence: keep worker alive
+    "workers_max": 1,
+    "name": "simple-model-server",
+}
+
+
+# Initialize the model server and save to disk
+@remote(
+    resource_config=gpu_config,
+    resource_type="serverless",
+    dependencies=["scikit-learn", "numpy", "torch"],
+)
+def initialize_model():
+    """Initialize a simple ML model and save it to disk."""
+    from sklearn.ensemble import RandomForestClassifier
+    import numpy as np
+    import pickle
+    import os
+    import torch
+
+    model_path = "/tmp/persisted_model.pkl"
+    is_cuda_available = torch.cuda.is_available()
+    device_count = torch.cuda.device_count()
+    # Only create and save model if it doesn't exist yet
+    if not os.path.exists(model_path):
+        print("Creating new model instance...")
+        # Create a simple random forest model
+        model = RandomForestClassifier(n_estimators=10)
+
+        # Train on a tiny dataset
+        X = np.array([[1, 2], [2, 3], [3, 4], [4, 5]])
+        y = np.array([0, 0, 1, 1])
+        model.fit(X, y)
+
+        # Save the model to disk
+        with open(model_path, "wb") as f:
+            pickle.dump(model, f)
+
+        print(f"Model created, trained, and saved to {model_path}")
+    else:
+        print(f"Model already exists at {model_path}")
+
+    return {
+        "status": "ready",
+        "model_path": model_path,
+        "cuda_available": is_cuda_available,
+        "device_count": device_count,
+    }
+
+
+# Make predictions using the model loaded from disk
+@remote(resource_config=gpu_config, resource_type="serverless")
+def predict(features):
+    """Make predictions using the model loaded from disk."""
+    import numpy as np
+    import pickle
+    import os
+
+    model_path = "/tmp/persisted_model.pkl"
+
+    # Check if model file exists
+    if not os.path.exists(model_path):
+        return {"error": "Model not initialized. Call initialize_model first."}
+
+    # Load the model from disk
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
+
+    # Convert features to numpy array
+    X = np.array([features])
+
+    # Make prediction
+    prediction = model.predict(X)[0]
+    probability = model.predict_proba(X)[0].tolist()
+
+    return {"prediction": int(prediction), "probability": probability}
+
+
+async def main():
+    # Step 1: Initialize the model (only needed once)
+    print("Initializing model...")
+    init_result = await initialize_model()
+    print(f"Initialization result: {init_result}")
+
+    # Step 2: Make a prediction
+    print("\nMaking first prediction...")
+    pred1 = await predict([2.5, 3.5])
+    print(f"Prediction result: {pred1}")
+
+    # Step 3: Make another prediction
+    print("\nMaking second prediction...")
+    pred2 = await predict([3.5, 4.5])
+    print(f"Prediction result: {pred2}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
