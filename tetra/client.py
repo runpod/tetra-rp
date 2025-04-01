@@ -1,5 +1,4 @@
 import json
-import os
 import hashlib
 import inspect
 import base64
@@ -14,9 +13,6 @@ import asyncio
 from .runpod import deploy_endpoint, provision_resource
 from .resource_manager import ResourceManager
 from .core.utils.singleton import SingletonMixin
-
-# Resource state file to persist deployments
-RESOURCE_STATE_FILE = os.path.expanduser("~/.tetra_resources.json")
 
 
 def get_function_source(func):

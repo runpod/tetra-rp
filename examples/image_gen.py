@@ -35,10 +35,11 @@ def generate_image(
     import io
     import base64
     from PIL import Image
+    from pathlib import Path
     import os
 
     # File-based model caching to avoid reloading
-    model_path = "/tmp/stable_diffusion_model"
+    model_path = Path("/tmp/stable_diffusion_model")
     os.makedirs(model_path, exist_ok=True)
 
     # Load pipeline
@@ -46,8 +47,8 @@ def generate_image(
     pipeline = StableDiffusionPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
         torch_dtype=torch.float16,
-        cache_dir=model_path,
-        local_files_only=os.path.exists(os.path.join(model_path, "snapshots")),
+        cache_dir=str(model_path),
+        local_files_only=(model_path / "snapshots").exists(),
     )
 
     # Move to GPU

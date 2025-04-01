@@ -1,14 +1,13 @@
 import json
 
 from typing import Any, Dict
-import hashlib
-import os
+from pathlib import Path
 
 from .runpod import deploy_endpoint
 from .core.utils.singleton import SingletonMixin
 
+RESOURCE_STATE_FILE = Path(".tetra_resources.json")
 
-RESOURCE_STATE_FILE = os.path.expanduser("~/.tetra_resources.json")
 
 class ResourceManager(SingletonMixin):
     """Manages dynamic provisioning and tracking of remote resources."""
@@ -19,7 +18,7 @@ class ResourceManager(SingletonMixin):
 
     def _load_resources(self) -> Dict[str, Dict[str, Any]]:
         """Load persisted resource information."""
-        if os.path.exists(RESOURCE_STATE_FILE):
+        if RESOURCE_STATE_FILE.exists():
             try:
                 with open(RESOURCE_STATE_FILE, "r") as f:
                     return json.load(f)
