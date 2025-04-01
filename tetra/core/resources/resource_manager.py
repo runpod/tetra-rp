@@ -1,9 +1,9 @@
 import json
 from typing import Any, Dict
 from pathlib import Path
-from .core.utils.json import normalize_for_json
-from .core.utils.singleton import SingletonMixin
-from .core.resources import DeployableResource
+from ..utils.json import normalize_for_json
+from ..utils.singleton import SingletonMixin
+from .base import DeployableResource
 
 RESOURCE_STATE_FILE = Path(".tetra_resources.json")
 

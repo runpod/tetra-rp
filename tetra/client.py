@@ -7,8 +7,8 @@ from . import remote_execution_pb2_grpc
 import random
 import grpc.aio
 from functools import wraps
-from .resource_manager import ResourceManager
-from .core.resources import ServerlessResource
+from .core.resources.resource_manager import ResourceManager
+from .core.resources.serverless import ServerlessResource
 from .core.utils.singleton import SingletonMixin
 
 

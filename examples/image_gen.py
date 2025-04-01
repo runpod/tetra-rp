@@ -1,24 +1,21 @@
 import asyncio
-import os
 import base64
 import io
 from PIL import Image
-from tetra import remote
+from tetra import remote, ServerlessResource
 
 # Configuration for a GPU resource
-sd_config = {
-    "api_key": os.environ.get("RUNPOD_API_KEY"),
-    "template_id": "jizsa65yn0",  # Replace with your template ID
-    "gpu_ids": "AMPERE_48",  # Choose an appropriate GPU type
-    "workers_min": 1,
-    "workers_max": 1,
-    "name": "stable-diffusion-server",
-}
+sd_config = ServerlessResource(
+    templateId="jizsa65yn0",  # Replace with your template ID
+    gpuIds="any",
+    # workersMin=1,  # Key for persistence: keep worker alive
+    workersMax=1,
+    name="deanq-diffusion-server",
+)
 
 
 @remote(
     resource_config=sd_config,
-    resource_type="serverless",
     dependencies=["diffusers", "transformers", "torch", "accelerate", "safetensors"],
 )
 def generate_image(

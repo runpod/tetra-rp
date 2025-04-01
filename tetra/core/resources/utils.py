@@ -1,6 +1,7 @@
 from typing import Callable, Any, List, Union
 from pydantic import BaseModel
-from . import GpuType, GpuTypeDetail, ServerlessResource
+from .gpu import GpuType, GpuTypeDetail
+from .serverless import ServerlessResource
 
 
 """

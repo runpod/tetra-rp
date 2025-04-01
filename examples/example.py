@@ -1,7 +1,6 @@
 import asyncio
 from dotenv import load_dotenv
-from tetra import remote
-from tetra.core.resources import ServerlessResource
+from tetra import remote, ServerlessResource
 
 # Load environment variables from .env file
 load_dotenv()
