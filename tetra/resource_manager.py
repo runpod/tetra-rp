@@ -4,6 +4,7 @@ from typing import Any, Dict
 from pathlib import Path
 
 from .runpod import deploy_endpoint
+from .core.utils.json import normalize_for_json
 from .core.utils.singleton import SingletonMixin
 
 RESOURCE_STATE_FILE = Path(".tetra_resources.json")
@@ -29,7 +30,7 @@ class ResourceManager(SingletonMixin):
     def _save_resources(self) -> None:
         """Persist resource information to disk."""
         with open(RESOURCE_STATE_FILE, "w") as f:
-            json.dump(self._resources, f, indent=2)
+            json.dump(normalize_for_json(self._resources), f, indent=2)
 
     def _generate_resource_id(self, config: Dict[str, Any], resource_type: str) -> str:
         """Generate a unique resource ID based on configuration."""
