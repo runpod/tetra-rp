@@ -1,17 +1,14 @@
-import json
-import hashlib
-import inspect
 import base64
 import cloudpickle
-from typing import Optional, Union, List, Dict, Any
+from typing import Union, List
+
 from . import remote_execution_pb2
 from . import remote_execution_pb2_grpc
 import random
 import grpc.aio
 from functools import wraps
-import asyncio
-from .runpod import deploy_endpoint, provision_resource
 from .resource_manager import ResourceManager
+from .core.resources import ServerlessResource
 from .core.utils.singleton import SingletonMixin
 
 
@@ -228,8 +225,7 @@ class StubWithFallback:
 
 def remote(
     fallback: Union[None, str, List[str]] = None,
-    resource_config: Dict[str, Any] = None,
-    resource_type: str = None,
+    resource_config: ServerlessResource = None,
     dependencies: List[str] = None,
 ):
     """
@@ -240,7 +236,6 @@ def remote(
         server_spec: Traditional server or pool name
         fallback: Fallback server or pool if primary fails
         resource_config: Configuration for dynamic resource provisioning
-        resource_type: Type of resource to provision (e.g., "serverless")
         dependencies: List of pip packages to install before executing the function
     """
 
@@ -251,13 +246,11 @@ def remote(
             _resource_manager = ResourceManager()
 
             # Determine if we're using dynamic provisioning or static server
-            if resource_config and resource_type:
+            if resource_config:
                 # Dynamic provisioning
                 try:
                     # Get or create the resource
-                    server_name = await _resource_manager.get_or_create_resource(
-                        resource_config, resource_type
-                    )
+                    server_name = await _resource_manager.get_or_create_resource(resource_config)
 
                     # Check if server is already registered
                     if server_name not in global_client.servers:
@@ -275,25 +268,19 @@ def remote(
 
                         resource_details = _resource_manager._resources[resource_id]
 
-                        # Register with the client based on resource type
-                        if resource_details["type"] == "serverless":
-                            # For serverless endpoints, use the endpoint URL
-                            endpoint_url = resource_details["endpoint_url"]
-                            print(
-                                f"Registering RunPod endpoint: {server_name} at {endpoint_url}"
-                            )
-                            await global_client.add_runpod_server(
-                                server_name, endpoint_url
-                            )
+                        # Register with the client
+                        endpoint_url = resource_details["endpoint_url"]
+                        print(
+                            f"Registering RunPod endpoint: {server_name} at {endpoint_url}"
+                        )
+                        await global_client.add_runpod_server(
+                            server_name, endpoint_url
+                        )
 
-                            # Ensure there's a pool for this resource
-                            pool_name = f"pool_{resource_id}"
-                            if pool_name not in global_client.pools:
-                                global_client.create_pool(pool_name, [server_name])
-                        else:
-                            raise ValueError(
-                                f"Unsupported resource type: {resource_details['type']}"
-                            )
+                        # Ensure there's a pool for this resource
+                        pool_name = f"pool_{resource_id}"
+                        if pool_name not in global_client.pools:
+                            global_client.create_pool(pool_name, [server_name])
 
                     # Use the server name for execution
                     effective_server_spec = server_name

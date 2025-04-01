@@ -2,7 +2,7 @@ import os
 import runpod
 from .base import DeployableResource
 from .gpu import GpuType, GpuTypeDetail, GpuGroups
-from .serverless import ServerlessResource, ServerlessResourceInput
+from .serverless import ServerlessResource
 from .template import TemplateResource
 from .utils import inquire
 
@@ -18,6 +18,5 @@ __all__ = [
     "GpuTypeDetail",
     "GpuGroups",
     "ServerlessResource",
-    "ServerlessResourceInput",
     "TemplateResource",
 ]

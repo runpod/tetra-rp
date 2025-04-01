@@ -1,26 +1,24 @@
 import asyncio
-import os
 from dotenv import load_dotenv
-from tetra import remote, get_global_client
+from tetra import remote
+from tetra.core.resources import ServerlessResource
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Configuration for a GPU resource
-gpu_config = {
-    "api_key": os.environ.get("RUNPOD_API_KEY"),
-    "template_id": "jizsa65yn0",  # Replace with your template ID
-    "gpu_ids": "AMPERE_48",
-    "workers_min": 1,  # Key for persistence: keep worker alive
-    "workers_max": 1,
-    "name": "simple-model-server",
-}
+gpu_config = ServerlessResource(
+    templateId="jizsa65yn0",  # Replace with your template ID
+    gpuIds="any",
+    # workersMin=1,  # Key for persistence: keep worker alive
+    workersMax=1,
+    name="deanq-model-server",
+)
 
 
 # Initialize the model server and save to disk
 @remote(
     resource_config=gpu_config,
-    resource_type="serverless",
     dependencies=["scikit-learn", "numpy", "torch"],
 )
 def initialize_model():
@@ -62,7 +60,7 @@ def initialize_model():
 
 
 # Make predictions using the model loaded from disk
-@remote(resource_config=gpu_config, resource_type="serverless")
+@remote(resource_config=gpu_config)
 def predict(features):
     """Make predictions using the model loaded from disk."""
     import numpy as np

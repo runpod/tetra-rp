@@ -2,7 +2,6 @@ from typing import Optional
 from pydantic import BaseModel
 from enum import Enum
 
-
 class GpuLowestPrice(BaseModel):
     minimumBidPrice: Optional[float] = None
     uninterruptablePrice: Optional[float] = None
@@ -40,3 +39,8 @@ class GpuGroups(Enum):
     AMPERE_48 = "AMPERE_48" # "NVIDIA A40, NVIDIA RTX A6000"
     AMPERE_80 = "AMPERE_80" # "NVIDIA A100 80GB PCIe, NVIDIA A100-SXM4-80GB"
     HOPPER_141 = "HOPPER_141" # "NVIDIA H200"
+
+    @classmethod
+    def list(cls) -> list[str]:
+        """Returns all GPU group values as a list of strings."""
+        return [g.value for g in cls]
