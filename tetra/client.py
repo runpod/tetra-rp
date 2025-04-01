@@ -13,6 +13,7 @@ from functools import wraps
 import asyncio
 from .runpod import deploy_endpoint, provision_resource
 from .resource_manager import ResourceManager
+from .core.utils.singleton import SingletonMixin
 
 # Resource state file to persist deployments
 RESOURCE_STATE_FILE = os.path.expanduser("~/.tetra_resources.json")
@@ -124,9 +125,6 @@ def get_function_source(func):
         return endpoint_url
 
 
-# Singleton resource manager
-_resource_manager = ResourceManager()
-
 
 class RunPodServerlessStub:
     """Adapter class to make RunPod endpoints look like gRPC stubs."""
@@ -231,12 +229,12 @@ class RunPodServerlessStub:
             )
 
 
-class RemoteExecutionClient:
+class RemoteExecutionClient(SingletonMixin):
     def __init__(self):
         self.servers = {}
         self.stubs = {}
         self.pools = {}
-        self.resource_manager = _resource_manager
+        self.resource_manager = ResourceManager()
 
     async def add_server(self, name: str, address: str):
         """Register a new server"""
@@ -325,9 +323,8 @@ def remote(
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            from tetra.client_manager import get_global_client
-
-            global_client = get_global_client()
+            global_client = RemoteExecutionClient()
+            _resource_manager = ResourceManager()
 
             # Determine if we're using dynamic provisioning or static server
             if resource_config and resource_type:

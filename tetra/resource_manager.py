@@ -5,12 +5,12 @@ import hashlib
 import os
 
 from .runpod import deploy_endpoint
+from .core.utils.singleton import SingletonMixin
 
 
 RESOURCE_STATE_FILE = os.path.expanduser("~/.tetra_resources.json")
 
-
-class ResourceManager:
+class ResourceManager(SingletonMixin):
     """Manages dynamic provisioning and tracking of remote resources."""
 
     def __init__(self):
