@@ -41,7 +41,7 @@ class ServerlessResourceInput(DeployableResource):
             for gpu in self.gpuIds
         )
 
-    def deploy(self) -> "ServerlessResource":
+    async def deploy(self) -> "ServerlessResource":
         """
         Deploys the serverless resource using the provided configuration.
         Returns a ServerlessResource object.

@@ -1,7 +1,5 @@
-import os
-import asyncio
-import runpod
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+from tetra.core.resources import ServerlessResourceInput
 
 
 async def deploy_endpoint(config: Dict[str, Any], type: str) -> str:
@@ -15,31 +13,12 @@ async def deploy_endpoint(config: Dict[str, Any], type: str) -> str:
     Returns:
         str: The endpoint URL
     """
-    # Set API key from config or environment
-    api_key = config.get("api_key", os.environ.get("RUNPOD_API_KEY"))
-    if not api_key:
-        raise ValueError("RunPod API key not provided in config or environment")
-
-    runpod.api_key = api_key
-
     try:
         # Create endpoint using configuration
-        new_endpoint = runpod.create_endpoint(
-            name=config.get("name", f"tetra-endpoint-{type}"),
-            template_id=config.get("template_id", "ib4coc7w60"),
-            gpu_ids=config.get("gpu_ids", "AMPERE_16"),
-            workers_min=config.get("workers_min", 0),
-            workers_max=config.get("workers_max", 1),
-        )
+        new_endpoint = ServerlessResourceInput(**config)
+        endpoint = await new_endpoint.deploy()
+        return endpoint.url
 
-        endpoint_id = new_endpoint.get("id")
-        if not endpoint_id:
-            raise ValueError("Failed to get endpoint ID from RunPod response")
-
-        endpoint_url = f"https://api.runpod.ai/v2/{endpoint_id}"
-        print(f"Endpoint created: {endpoint_url}")
-
-        return endpoint_url
     except Exception as e:
         print(f"Failed to deploy RunPod endpoint: {e}")
         raise
