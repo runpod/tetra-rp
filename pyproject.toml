@@ -30,6 +30,7 @@ pillow = "^10.2.0"
 scikit-learn = "^1.4.0"
 numpy = "^1.26.0"
 torch = "^2.2.0"
+diffusers = "^0.32.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
