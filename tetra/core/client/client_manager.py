@@ -1,15 +1,10 @@
 import base64
 import cloudpickle
-from typing import Union, List
-
-from . import remote_execution_pb2
-from . import remote_execution_pb2_grpc
-import random
-import grpc.aio
 from functools import wraps
-from .core.resources.resource_manager import ResourceManager
-from .core.resources.serverless import ServerlessResource
-from .core.utils.singleton import SingletonMixin
+from typing import Union, List
+from ..resources.serverless import ServerlessResource
+from ..resources.resource_manager import ResourceManager
+from ... import remote_execution_pb2
 
 
 def get_function_source(func):
