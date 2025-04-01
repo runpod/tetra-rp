@@ -54,77 +54,6 @@ def get_function_source(func):
 
     return function_source
 
-    # class ResourceManager:
-    """Manages dynamic provisioning and tracking of remote resources."""
-
-    def __init__(self):
-        self._resources = self._load_resources()
-        self._client = None
-
-    def _load_resources(self) -> Dict[str, Dict[str, Any]]:
-        """Load persisted resource information."""
-        if os.path.exists(RESOURCE_STATE_FILE):
-            try:
-                with open(RESOURCE_STATE_FILE, "r") as f:
-                    return json.load(f)
-            except json.JSONDecodeError:
-                return {}
-        return {}
-
-    def _save_resources(self) -> None:
-        """Persist resource information to disk."""
-        with open(RESOURCE_STATE_FILE, "w") as f:
-            json.dump(self._resources, f, indent=2)
-
-    def _generate_resource_id(self, config: Dict[str, Any], resource_type: str) -> str:
-        """Generate a unique resource ID based on configuration."""
-        config_str = json.dumps(config, sort_keys=True)
-        hash_obj = hashlib.md5(f"{config_str}:{resource_type}".encode())
-        return f"{resource_type}_{hash_obj.hexdigest()[:8]}"
-
-    async def get_or_create_resource(
-        self, config: Dict[str, Any], resource_type: str
-    ) -> str:
-        """Get existing or create new resource based on config."""
-        resource_id = self._generate_resource_id(config, resource_type)
-
-        # Check if resource already exists
-        if resource_id in self._resources:
-            print(f"Resource {resource_id} already exists, reusing.")
-            return self._resources[resource_id]["server_name"]
-
-        # Deploy new resource based on type
-        if resource_type == "serverless":
-            endpoint_url = await self._deploy_serverless(resource_id, config)
-
-            # Extract endpoint details
-            # Assuming the endpoint URL is like: https://api.runpod.ai/v2/{endpoint_id}/
-            endpoint_id = endpoint_url.split("/")[-2]
-
-            # Create a server name for this resource
-            server_name = f"server_{resource_id}"
-
-            # Store resource info
-            self._resources[resource_id] = {
-                "type": resource_type,
-                "config": config,
-                "endpoint_url": endpoint_url,
-                "endpoint_id": endpoint_id,
-                "server_name": server_name,
-            }
-
-            self._save_resources()
-            return server_name
-        else:
-            raise ValueError(f"Unsupported resource type: {resource_type}")
-
-    async def _deploy_serverless(self, resource_id: str, config: Dict[str, Any]) -> str:
-        """Deploy a serverless endpoint using the existing deploy_endpoint function."""
-        # We're using the existing deployment function
-        endpoint_url = await deploy_endpoint(config, "serverless")
-        return endpoint_url
-
-
 
 class RunPodServerlessStub:
     """Adapter class to make RunPod endpoints look like gRPC stubs."""
@@ -302,7 +231,6 @@ class StubWithFallback:
 
 
 def remote(
-    server_spec: Union[str, List[str]] = None,
     fallback: Union[None, str, List[str]] = None,
     resource_config: Dict[str, Any] = None,
     resource_type: str = None,
@@ -376,31 +304,6 @@ def remote(
 
                 except Exception as e:
                     raise Exception(f"Failed to provision resource: {str(e)}")
-            else:
-                # Traditional static server specification
-                effective_server_spec = server_spec
-
-                # Handle existing pattern where server_spec is specified as a config dict
-                if isinstance(server_spec, dict) and type is not None:
-                    # This matches your original behavior where deploy_endpoint was called directly
-                    endpoint_url = await deploy_endpoint(server_spec, type)
-                    temp_server_name = f"temp_server_{hash(str(server_spec)) % 10000}"
-
-                    # Register the endpoint
-                    if type == "serverless":
-                        await global_client.add_runpod_server(
-                            temp_server_name, endpoint_url
-                        )
-                    else:
-                        # For non-serverless, use the traditional pattern
-                        await global_client.add_server(temp_server_name, endpoint_url)
-
-                    # Create a pool for this server
-                    temp_pool_name = f"pool_{temp_server_name}"
-                    global_client.create_pool(temp_pool_name, [temp_server_name])
-
-                    # Use this pool for execution
-                    effective_server_spec = temp_pool_name
 
             source = get_function_source(func)
 

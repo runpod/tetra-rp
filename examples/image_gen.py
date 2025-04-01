@@ -3,7 +3,7 @@ import os
 import base64
 import io
 from PIL import Image
-from tetra import remote, get_global_client
+from tetra import remote
 
 # Configuration for a GPU resource
 sd_config = {
