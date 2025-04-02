@@ -23,7 +23,6 @@ class ServerlessResource(DeployableResource):
     executionTimeoutMs: Optional[int] = 0
     gpuCount: Optional[int] = 1
     gpuIds: Optional[str] = GpuGroups.ADA_24.value
-    # gpuIds: Optional[List[Union[GpuType, GpuGroups, str]]] = [GpuGroups.ADA_24]
     idleTimeout: Optional[int] = 5
     locations: Optional[str] = None
     name: str
@@ -74,18 +73,6 @@ class ServerlessResource(DeployableResource):
                 raise ValueError(f"Invalid GPU ID or group: '{id_}'")
 
         return ",".join(normalized)
-
-    # def get_gpu_ids_as_string(self) -> str:
-    #     """
-    #     Converts the gpuIds list into a comma-separated string.
-    #     Supports GpuType, GpuGroups, and string types.
-    #     """
-    #     if not self.gpuIds:
-    #         return ""
-    #     return ",".join(
-    #         gpu.id if isinstance(gpu, GpuType) else gpu.value if isinstance(gpu, GpuGroups) else gpu
-    #         for gpu in self.gpuIds
-    #     )
 
     async def deploy(self) -> "ServerlessResource":
         """
