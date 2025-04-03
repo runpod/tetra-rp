@@ -1,41 +1,38 @@
 import asyncio
-import os
 from dotenv import load_dotenv
-from tetra import remote, get_global_client
+from tetra import remote, ServerlessResource
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Configuration for a GPU resource
-gpu_config = {
-    "api_key": os.environ.get("RUNPOD_API_KEY"),
-    "template_id": "jizsa65yn0",  # Replace with your template ID
-    "gpu_ids": "AMPERE_48",
-    "workers_min": 1,  # Key for persistence: keep worker alive
-    "workers_max": 1,
-    "name": "simple-model-server",
-}
+gpu_config = ServerlessResource(
+    templateId="jizsa65yn0",  # Replace with your template ID
+    gpuIds="any",
+    # workersMin=1,  # Key for persistence: keep worker alive
+    workersMax=1,
+    name="deanq-model-server",
+)
 
 
 # Initialize the model server and save to disk
 @remote(
     resource_config=gpu_config,
-    resource_type="serverless",
     dependencies=["scikit-learn", "numpy", "torch"],
 )
 def initialize_model():
     """Initialize a simple ML model and save it to disk."""
     from sklearn.ensemble import RandomForestClassifier
+    from pathlib import Path
     import numpy as np
     import pickle
-    import os
     import torch
 
-    model_path = "/tmp/persisted_model.pkl"
+    model_path = Path("/tmp/persisted_model.pkl")
     is_cuda_available = torch.cuda.is_available()
     device_count = torch.cuda.device_count()
     # Only create and save model if it doesn't exist yet
-    if not os.path.exists(model_path):
+    if not model_path.exists():
         print("Creating new model instance...")
         # Create a simple random forest model
         model = RandomForestClassifier(n_estimators=10)
@@ -62,17 +59,17 @@ def initialize_model():
 
 
 # Make predictions using the model loaded from disk
-@remote(resource_config=gpu_config, resource_type="serverless")
+@remote(resource_config=gpu_config)
 def predict(features):
     """Make predictions using the model loaded from disk."""
     import numpy as np
     import pickle
-    import os
+    from pathlib import Path
 
-    model_path = "/tmp/persisted_model.pkl"
+    model_path = Path("/tmp/persisted_model.pkl")
 
     # Check if model file exists
-    if not os.path.exists(model_path):
+    if not model_path.exists():
         return {"error": "Model not initialized. Call initialize_model first."}
 
     # Load the model from disk

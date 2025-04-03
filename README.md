@@ -4,7 +4,7 @@ Tetra is a Python library for distributed inference and serving of machine learn
 
 ## Prerequisites
 
-- Python 3.9 or higher
+- Python 3.9 - 3.12
 - Poetry (for dependency management)
 - Docker (optional, for containerized deployment)
 - RunPod account and API key
@@ -36,7 +36,7 @@ poetry install --with examples
 1. Set up your virtual environment:
 
 ```bash
-poetry shell
+$(poetry env activate)
 ```
 
 2. Run an example:

@@ -1,24 +1,21 @@
 import asyncio
-import os
 import base64
 import io
 from PIL import Image
-from tetra import remote, get_global_client
+from tetra import remote, ServerlessResource
 
 # Configuration for a GPU resource
-sd_config = {
-    "api_key": os.environ.get("RUNPOD_API_KEY"),
-    "template_id": "jizsa65yn0",  # Replace with your template ID
-    "gpu_ids": "AMPERE_48",  # Choose an appropriate GPU type
-    "workers_min": 1,
-    "workers_max": 1,
-    "name": "stable-diffusion-server",
-}
+sd_config = ServerlessResource(
+    templateId="jizsa65yn0",  # Replace with your template ID
+    gpuIds="any",
+    # workersMin=1,  # Key for persistence: keep worker alive
+    workersMax=1,
+    name="deanq-diffusion-server",
+)
 
 
 @remote(
     resource_config=sd_config,
-    resource_type="serverless",
     dependencies=["diffusers", "transformers", "torch", "accelerate", "safetensors"],
 )
 def generate_image(
@@ -35,10 +32,11 @@ def generate_image(
     import io
     import base64
     from PIL import Image
+    from pathlib import Path
     import os
 
     # File-based model caching to avoid reloading
-    model_path = "/tmp/stable_diffusion_model"
+    model_path = Path("/tmp/stable_diffusion_model")
     os.makedirs(model_path, exist_ok=True)
 
     # Load pipeline
@@ -46,8 +44,8 @@ def generate_image(
     pipeline = StableDiffusionPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
         torch_dtype=torch.float16,
-        cache_dir=model_path,
-        local_files_only=os.path.exists(os.path.join(model_path, "snapshots")),
+        cache_dir=str(model_path),
+        local_files_only=(model_path / "snapshots").exists(),
     )
 
     # Move to GPU
