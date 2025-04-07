@@ -1,8 +1,14 @@
 import grpc.aio
 import random
-from typing import Union, List
+import logging
+import time
+from typing import Union, List, Dict, Optional
 from ..utils.singleton import SingletonMixin
 from ..resources.resource_manager import ResourceManager
+from ..utils.terminal import (
+    Spinner, print_tetra, print_success, print_error, print_warning, 
+    style_text, print_timestamp, print_step, TetraNotifier
+)
 from ... import remote_execution_pb2_grpc, remote_execution_pb2
 
 
@@ -70,22 +76,31 @@ class RunPodServerlessStub:
         import runpod
         import os
 
-        # Set RunPod API key
+        # Configure RunPod API key
         api_key = os.environ.get("RUNPOD_API_KEY")
         if not api_key:
             raise ValueError("RUNPOD_API_KEY environment variable is not set")
-
         runpod.api_key = api_key
 
+        # Get runpod logger
+        self.runpod_logger = logging.getLogger("runpod")
+        self.original_runpod_log_level = self.runpod_logger.level
+
         self.endpoint_url = endpoint_url
-        # Extract endpoint ID from URL
         self.endpoint_id = endpoint_url.strip("/").split("/")[-1]
-        print(
-            f"Initialized RunPod stub for endpoint: {endpoint_url} (ID: {self.endpoint_id})"
-        )
 
         # Initialize the RunPod endpoint
         self.endpoint = runpod.Endpoint(self.endpoint_id)
+        
+        # Job state tracking
+        self.active_jobs = {}
+
+    def _silence_runpod_logs(self):
+        self.original_runpod_log_level = self.runpod_logger.level
+        self.runpod_logger.setLevel(logging.WARNING) # Silence INFO logs
+
+    def _restore_runpod_logs(self):
+        self.runpod_logger.setLevel(self.original_runpod_log_level)
 
     async def ExecuteFunction(self, request):
         """
@@ -110,32 +125,108 @@ class RunPodServerlessStub:
         if hasattr(request, "dependencies") and request.dependencies:
             payload["dependencies"] = [dep for dep in request.dependencies]
 
-        print(f"Executing function on RunPod endpoint ID: {self.endpoint_id}")
+        # Use spinner and silence runpod logs during network operations
+        run_request = None
+        status = None
+        output = None
+        
+        # Track timing for job execution
+        job_start_time = time.time()
 
         try:
-            # Run using the RunPod SDK (non-async)
             loop = asyncio.get_event_loop()
-            run_request = await loop.run_in_executor(
-                None, lambda: self.endpoint.run({"input": payload})
+            with Spinner(
+                f"Submitting '{request.function_name}' to RunPod compute service...", 
+                spinner_type="dots", 
+                color="bright_yellow",
+                icon="rocket"
+            ):
+                self._silence_runpod_logs()
+                run_request = await loop.run_in_executor(
+                    None, lambda: self.endpoint.run({"input": payload})
+                )
+                self._restore_runpod_logs()
+            
+            # Try to extract job ID if available
+            job_id = getattr(run_request, "id", None)
+            job_id_str = f" (ID: {job_id})" if job_id else ""
+            
+            print_timestamp(
+                f"{style_text('✦', 'bright_cyan')} Job submitted to RunPod compute{job_id_str}",
+                color="bright_white"
             )
 
-            # print(f"Job submitted with ID: {run_request.id}")
-
-            # Initial status check without blocking
-            status = await loop.run_in_executor(None, lambda: run_request.status())
-
-            print(f"Initial job status: {status}")
-
-            # Wait for completion with timeout
-            if status != "COMPLETED":
-                output = await loop.run_in_executor(
-                    None,
-                    lambda: run_request.output(timeout=300),  # 5 minute timeout
+            # Show execution spinner with time tracking
+            spinner = Spinner(
+                f"Running {style_text(request.function_name, 'bright_magenta', 'bold')} on cloud compute...", 
+                spinner_type="moon", 
+                color="bright_cyan",
+                icon="compute"
+            )
+            
+            # Continuously update the spinner message with elapsed time
+            with spinner:
+                self._silence_runpod_logs()
+                # Initial status check
+                status = await loop.run_in_executor(None, lambda: run_request.status())
+                
+                # Wait for completion only if not already completed
+                if status != "COMPLETED":
+                    # Get intermediate status updates every 2 seconds
+                    remaining_time = 300  # 5 minute timeout
+                    interval = 2
+                    
+                    while status != "COMPLETED" and remaining_time > 0:
+                        # Update spinner message with elapsed time
+                        elapsed = time.time() - job_start_time
+                        spinner.update_message(
+                            f"Running {style_text(request.function_name, 'bright_magenta', 'bold')} " +
+                            f"on cloud compute... [{style_text(f'{elapsed:.1f}s', 'bright_yellow')}]"
+                        )
+                        
+                        # Wait for a bit before checking again
+                        await asyncio.sleep(interval)
+                        remaining_time -= interval
+                        
+                        # Check status
+                        status = await loop.run_in_executor(None, lambda: run_request.status())
+                        
+                        if status == "FAILED":
+                            # If status is FAILED, break early
+                            break
+                    
+                    # Get the output once we're done or timed out
+                    if status == "COMPLETED":
+                        output = await loop.run_in_executor(None, lambda: run_request.output())
+                    else:
+                        # If not completed, try with timeout
+                        output = await loop.run_in_executor(
+                            None,
+                            lambda: run_request.output(timeout=remaining_time)
+                        )
+                else:
+                    # Already completed, just get the output
+                    output = await loop.run_in_executor(None, lambda: run_request.output())
+                
+                self._restore_runpod_logs()
+            
+            # Calculate total execution time
+            execution_time = time.time() - job_start_time
+            execution_time_formatted = f"{execution_time:.2f}"
+            
+            # Show completion message
+            if status == "COMPLETED":
+                print_timestamp(
+                    f"{style_text('✓', 'bright_green')} Remote execution completed in {style_text(execution_time_formatted + 's', 'bright_yellow')}",
+                    color="bright_green"
                 )
             else:
-                output = await loop.run_in_executor(None, lambda: run_request.output())
-
-            print(f"Job completed, output received")
+                # If timeout but still got output
+                print_timestamp(
+                    f"{style_text('⚠', 'bright_yellow')} Remote execution status: {style_text(status, 'bright_yellow')} " +
+                    f"after {style_text(execution_time_formatted + 's', 'bright_yellow')}",
+                    color="bright_yellow"
+                )
 
             # Process the output
             if isinstance(output, dict) and "success" in output:
@@ -148,7 +239,7 @@ class RunPodServerlessStub:
                         success=False, error=output.get("error", "Unknown error")
                     )
             else:
-                # Direct output from RunPod
+                # Direct output from RunPod assumed successful
                 serialized_result = base64.b64encode(cloudpickle.dumps(output)).decode(
                     "utf-8"
                 )
@@ -157,10 +248,10 @@ class RunPodServerlessStub:
                 )
 
         except Exception as e:
+            self._restore_runpod_logs() # Ensure logs are restored on error
             import traceback
-
             error_traceback = traceback.format_exc()
-            print(f"Exception during RunPod execution: {str(e)}\n{error_traceback}")
+            print_error(f"Exception during RunPod execution: {str(e)}\n{error_traceback}")
             return remote_execution_pb2.FunctionResponse(
                 success=False, error=f"RunPod request failed: {str(e)}"
             )
@@ -176,7 +267,7 @@ class StubWithFallback:
         try:
             return await self.primary_stub.ExecuteFunction(request)
         except Exception as e:
-            print(f"Primary server failed: {e}, trying fallback...")
+            print_warning(f"Primary server failed: {e}, trying fallback...")
             fallback_stub = self.client.get_stub(self.fallback_spec)
             return await fallback_stub.ExecuteFunction(request)
 
