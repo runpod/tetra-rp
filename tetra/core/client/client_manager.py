@@ -6,6 +6,11 @@ from .remote_execution import RemoteExecutionClient
 from ..resources.serverless import ServerlessResource
 from ..resources.resource_manager import ResourceManager
 from ... import remote_execution_pb2
+import hashlib
+
+
+# global in memory cache, TODO: use a more robust cache in future
+_SERIALIZED_FUNCTION_CACHE = {} 
 
 
 def get_function_source(func):
@@ -39,9 +44,12 @@ def get_function_source(func):
     function_lines = lines[lineno:]
 
     # Dedent to remove any extra indentation
-    function_source = textwrap.dedent("\n".join(function_lines))
-
-    return function_source
+    function_source = textwrap.dedent("\n".join(function_lines)) 
+    
+    # Return the function hash for cache key 
+    source_hash = hashlib.sha256(function_source.encode("utf-8")).hexdigest()
+    
+    return function_source, source_hash
 
 
 def remote(
@@ -109,8 +117,15 @@ def remote(
                 except Exception as e:
                     raise Exception(f"Failed to provision resource: {str(e)}")
 
-            source = get_function_source(func)
+            source, src_hash = get_function_source(func)
+            
+            # check if the function is already cached
+            if src_hash not in _SERIALIZED_FUNCTION_CACHE:
+                # Cache the serialized function
+                _SERIALIZED_FUNCTION_CACHE[src_hash] = source
 
+            cached_src = _SERIALIZED_FUNCTION_CACHE[src_hash]
+            
             # Serialize arguments using cloudpickle instead of JSON
             serialized_args = [
                 base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
@@ -123,7 +138,7 @@ def remote(
             # Create request
             request_args = {
                 "function_name": func.__name__,
-                "function_code": source,
+                "function_code": cached_src,
                 "args": serialized_args,
                 "kwargs": serialized_kwargs,
             }
