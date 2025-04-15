@@ -1,4 +1,5 @@
-# Import all the packahges here
+from .logger import setup_logging
+setup_logging()
 
 from . import remote_execution_pb2, remote_execution_pb2_grpc
 from .core.resources.resource_manager import ResourceManager

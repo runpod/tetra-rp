@@ -1,3 +1,6 @@
+from tetra.logger import get_logger
+log = get_logger()
+
 from typing import Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
@@ -82,7 +85,7 @@ class ServerlessResource(DeployableResource):
         try:
             # If the resource is already deployed, return it
             if self.id:
-                print(f"Endpoint exists: {self.url}")
+                log.debug(f"Endpoint exists: {self.url}")
                 return self
 
             result = runpod.create_endpoint(
@@ -100,9 +103,9 @@ class ServerlessResource(DeployableResource):
             )
 
             if endpoint := ServerlessResource(**result):
-                print(f"Endpoint deployed: {endpoint.url}")
+                log.debug(f"Endpoint deployed: {endpoint.url}")
                 return endpoint
 
         except Exception as e:
-            print(f"Endpoint failed to deploy: {e}")
+            log.error(f"Endpoint failed to deploy: {e}")
             raise

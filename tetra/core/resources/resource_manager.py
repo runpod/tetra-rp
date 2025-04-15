@@ -1,3 +1,6 @@
+from tetra.logger import get_logger
+log = get_logger()
+
 import json
 from typing import Any, Dict
 from pathlib import Path
@@ -36,7 +39,7 @@ class ResourceManager(SingletonMixin):
 
         # Check if resource already exists
         if resource_id in self._resources:
-            print(f"Resource {resource_id} already exists, reusing.")
+            log.debug(f"Resource {resource_id} already exists, reusing.")
             return self._resources[resource_id]["server_name"]
 
         # Deploy new resource based on type
