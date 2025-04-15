@@ -44,7 +44,7 @@ def tetra_matrix_operations(size=1000):
         "device_name": device_name
     }
 
-# Single-process version
+# Single-process version:
 async def main():
     print("Starting large matrix operations on GPU...")
     result = await tetra_matrix_operations(1000)
@@ -62,7 +62,7 @@ async def main():
         print(f"GPU device count: {result['device_count']}")
         print(f"GPU device name: {result['device_name']}")
 
-# Uncomment below to use parallel-process version:
+# Uncomment below for parallel-process version:
 # async def main():
 #     print("Starting large matrix operations on GPU...")
     
