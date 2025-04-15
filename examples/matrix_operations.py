@@ -17,15 +17,14 @@ gpu_config = ServerlessResource(
     resource_config=gpu_config,
     dependencies=["numpy", "torch"]
 )
-def tetra_matrix_operations(size=1000):
-    """Perform large matrix operations using NumPy."""
+def tetra_matrix_operations(size):
+    """Perform large matrix operations using NumPy and check GPU availability."""
     import numpy as np
     import torch
     
-    # Check if GPU is available
-    gpu_available = torch.cuda.is_available()
-    device_count = torch.cuda.device_count() if gpu_available else 0
-    device_name = torch.cuda.get_device_name(0) if gpu_available else "N/A"
+    # Get GPU count and name
+    device_count = torch.cuda.device_count()
+    device_name = torch.cuda.get_device_name(0)
     
     # Create large random matrices
     A = np.random.rand(size, size)
@@ -39,7 +38,6 @@ def tetra_matrix_operations(size=1000):
         "result_shape": C.shape,
         "result_mean": float(np.mean(C)),
         "result_std": float(np.std(C)),
-        "gpu_available": gpu_available,
         "device_count": device_count,
         "device_name": device_name
     }
@@ -58,9 +56,8 @@ async def main():
     
     # Print GPU information
     print("\nGPU Information:")
-    if result['gpu_available']:
-        print(f"GPU device count: {result['device_count']}")
-        print(f"GPU device name: {result['device_name']}")
+    print(f"GPU device count: {result['device_count']}")
+    print(f"GPU device name: {result['device_name']}")
 
 # Uncomment below for parallel-process version:
 # async def main():
