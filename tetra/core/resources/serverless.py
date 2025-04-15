@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
 from pydantic import field_validator
-from . import runpod
+from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
 from .gpu import GpuGroups
@@ -61,19 +61,28 @@ class ServerlessResource(DeployableResource):
         Validates and normalizes the comma-separated GPU IDs.
         Ensures each value is a valid GpuType or GpuGroup.
         """
+        all_gpu_groups = GpuGroups.list()
+
         if value == "any":
-            return ",".join(GpuGroups.list())
+            return ",".join(all_gpu_groups)
 
         ids = [v.strip() for v in value.split(",") if v.strip()]
         normalized = []
 
         for id_ in ids:
-            # TODO: Check against GpuType
             # Check against GpuGroups
-            if id_ in {g.value for g in GpuGroups}:
+            if id_ in all_gpu_groups:
                 normalized.append(id_)
-            else:
-                raise ValueError(f"Invalid GPU ID or group: '{id_}'")
+                continue
+
+            # Check against GpuType
+            try:
+                if runpod.get_gpu(id_):
+                    normalized.append(id_)
+                    continue
+            except ValueError as e:
+                log.error(f"`{id_}` {e}")
+                # TODO: get all available GPU types and fuzzy match
 
         return ",".join(normalized)
 
@@ -85,7 +94,7 @@ class ServerlessResource(DeployableResource):
         try:
             # If the resource is already deployed, return it
             if self.id:
-                log.debug(f"Endpoint exists: {self.url}")
+                log.debug(f"Serverless exists: {self.url}")
                 return self
 
             result = runpod.create_endpoint(
@@ -103,9 +112,9 @@ class ServerlessResource(DeployableResource):
             )
 
             if endpoint := ServerlessResource(**result):
-                log.debug(f"Endpoint deployed: {endpoint.url}")
+                log.info(f"Serverless deployed: {endpoint.url}")
                 return endpoint
 
         except Exception as e:
-            log.error(f"Endpoint failed to deploy: {e}")
+            log.error(f"Serverless failed to deploy: {e}")
             raise
