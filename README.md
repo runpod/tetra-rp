@@ -24,7 +24,9 @@ The Tetra-RunPod integration provides seamless access to on-demand GPU resources
 ## Installation
 
 ```bash
-pip install tetra
+git clone https://github.com/runpod/tetra-rp
+cd tetra-rp 
+poetry install
 ```
 
 You'll need a RunPod API key to use this integration. Sign up at [RunPod.io](https://runpod.io) and generate an API key in your account settings. set it in ENV:
@@ -40,9 +42,8 @@ from tetra import remote, ServerlessResource
 
 # Configure RunPod resource
 runpod_config = ServerlessResource(
-    templateId="jizsa65yn0",  # Replace with your template ID
     gpuIds="any",
-    workersMin=1,  # Key for persistence: keep worker alive
+    workersMin=1, 
     workersMax=1,
     name="example-diffusion-server",
 )
@@ -84,7 +85,7 @@ if __name__ == "__main__":
 
 ### Dynamic GPU Provisioning
 
-Automatically provision GPUs on demand without manual setup:
+Automatically provision GPUs on demand without any manual setup:
 
 ```python
 @remote(
@@ -224,7 +225,6 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 | `executionTimeoutMs` | Max execution time (ms) | 0 (no limit) | 600000 (10 min) |
 | `scalerType` | Scaling strategy | QUEUE_DELAY | NONE, QUEUE_SIZE |
 | `scalerValue` | Scaling parameter value | 4 | 1-10 range typical |
-| `allowedCudaVersions` | Restrict CUDA versions | "" (any) | "11.7,11.8" |
 | `locations` | Preferred datacenter locations | None | "us-east,eu-central" |
 
 ### RunPod Configuration Options
@@ -232,33 +232,12 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 ```python
 runpod_config = ServerlessResource(
     gpuIds="any",
-    workersMin=1,  # Key for persistence: keep worker alive
+    workersMin=1,
     workersMax=1,
     name="example-diffusion-server",
    ...
 )
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-**Model Loading Failures**
-
-If model loading fails:
-
-1. Check disk space on the worker
-2. Use smaller models for testing
-3. Consider saving/loading models in chunks
-
-**Connection Errors**
-
-If you see connection errors:
-
-1. Verify your RunPod API key is valid
-2. Check endpoint status in RunPod dashboard
-3. Try deleting and recreating the endpoint
-
 ---
 
 ## License
