@@ -4,8 +4,9 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class DeployableResource(BaseModel, ABC):
-    """Base class for cloud resources."""
+class BaseResource(BaseModel):
+    """Base class for all resources."""
+
     id: Optional[str] = None
 
     @property
@@ -13,8 +14,12 @@ class DeployableResource(BaseModel, ABC):
         """Unique resource ID based on configuration."""
         resource_type = self.__class__.__name__
         config_str = self.model_dump_json(exclude_none=True)
-        hash_obj = hashlib.md5(f"{config_str}:{resource_type}".encode())
+        hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
         return f"{resource_type}_{hash_obj.hexdigest()}"
+
+
+class DeployableResource(BaseResource, ABC):
+    """Base class for deployable resources."""
 
     @property
     @abstractmethod
@@ -23,6 +28,6 @@ class DeployableResource(BaseModel, ABC):
         raise NotImplementedError("Subclasses should implement this method.")
 
     @abstractmethod
-    async def deploy(self) -> BaseModel:
+    def deploy(self) -> "DeployableResource":
         """Deploy the resource."""
         raise NotImplementedError("Subclasses should implement this method.")
