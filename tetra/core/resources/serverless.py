@@ -5,7 +5,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
-from pydantic import field_validator
+from pydantic import field_validator, BaseModel
 from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
@@ -155,6 +155,11 @@ class ServerlessResource(DeployableResource):
 
                 # check endpoint health
                 health = await asyncio.to_thread(self.endpoint.health)
+                health = ServerlessHealth(**health)
+
+                if not health.can_proceed:
+                    await asyncio.to_thread(job.cancel)
+                    raise RuntimeError("Unhealthy endpoint")
 
                 # Check job status
                 job_status = await asyncio.to_thread(job.status)
@@ -175,3 +180,36 @@ class ServerlessResource(DeployableResource):
         except Exception as e:
             log.error(f"[{log_group}] Failed: {e}")
             raise
+
+
+class ServerlessHealth(BaseModel):
+    class WorkersHealth(BaseModel):
+        idle: int
+        initializing: int
+        ready: int
+        running: int
+        throttled: int
+        unhealthy: int
+
+    class JobsHealth(BaseModel):
+        completed: int
+        failed: int
+        inProgress: int
+        inQueue: int
+        retried: int
+
+    workers: WorkersHealth
+    jobs: JobsHealth
+
+    @property
+    def can_proceed(self) -> bool:
+        """
+        Determines if the serverless endpoint can proceed with the job.
+        """
+        if any([
+            self.workers.unhealthy > self.workers.ready,
+            self.workers.throttled > self.workers.ready,
+        ]):
+            return False
+
+        return True

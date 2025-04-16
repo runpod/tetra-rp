@@ -11,7 +11,7 @@ gpu_config = ServerlessResource(
     gpuIds="any",
     # workersMin=1,  # Key for persistence: keep worker alive
     workersMax=1,
-    name="deanq-model-server",
+    name="example-tetra-server",
 )
 
 
@@ -104,4 +104,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"An error occurred: {e}")

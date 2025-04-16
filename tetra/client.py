@@ -96,20 +96,17 @@ def remote(
             }
             request = FunctionRequest(**request_args)
 
-            try:
-                resource_manager = ResourceManager()
-                remote_resource = await resource_manager.get_or_create_resource(resource_config)
+            resource_manager = ResourceManager()
+            remote_resource = await resource_manager.get_or_create_resource(resource_config)
 
-                stub = TetraServerlessStub(remote_resource)
+            stub = TetraServerlessStub(remote_resource)
 
-                response = await stub.ExecuteFunction(request)
-                if response.success:
-                    # Deserialize result using cloudpickle instead of JSON
-                    return cloudpickle.loads(base64.b64decode(response.result))
-                else:
-                    raise Exception(f"Remote execution failed: {response.error}")
-            except Exception as e:
-                raise Exception(f"All execution attempts failed: {str(e)}")
+            response = await stub.ExecuteFunction(request)
+            if response.success:
+                # Deserialize result using cloudpickle instead of JSON
+                return cloudpickle.loads(base64.b64decode(response.result))
+            else:
+                raise Exception(f"Remote execution failed: {response.error}")
 
         return wrapper
 

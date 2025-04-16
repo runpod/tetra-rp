@@ -29,7 +29,8 @@ class FunctionResponse(BaseModel):
     success: bool = Field(
         description="Indicates if the function execution was successful",
     )
-    result: str = Field(
+    result: str | None = Field(
+        default=None,
         description="Base64-encoded cloudpickle-serialized result of the function",
     )
     error: str | None = Field(
