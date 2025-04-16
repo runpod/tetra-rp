@@ -1,40 +1,46 @@
-[tool.poetry]
+[project]
 name = "tetra"
 version = "0.1.0"
 description = "A Python library for distributed inference and serving of machine learning models"
-authors = ["Marut Pandya <pandyamarut@gmail.com>", "Patrick Rachford <prachford@icloud.com>"]
+authors = [
+    { name = "Marut Pandya", email = "pandyamarut@gmail.com" },
+    { name = "Patrick Rachford", email = "prachford@icloud.com" },
+    { name = "Dean Quinanola", email = "dean.quinanola@runpod.io" },
+]
 readme = "README.md"
-license = "MIT"
-packages = [{include = "tetra"}]
+license = { text = "MIT" }
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+requires-python = ">=3.9,<3.13"
+
+dependencies = [
+    "cloudpickle>=3.1.1",
+    "protobuf>=5.26.1,<6.0dev",
+    "runpod>=1.7.7",
+    "python-dotenv>=1.0.0",
+    "orjson>=3.10.16"
+]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-cloudpickle = "^3.1.1"
-protobuf = ">=5.26.1,<6.0dev"
-grpcio = "^1.70.0"
-grpcio-tools = "^1.70.0"
-runpod = "^1.7.7"
-python-dotenv = "^1.0.0"
 
 [tool.poetry.group.examples]
 optional = true
 
 [tool.poetry.group.examples.dependencies]
-pillow = "^10.2.0"
-scikit-learn = "^1.4.0"
-numpy = "^1.26.0"
-torch = "^2.2.0"
-diffusers = "^0.32.2"
+pillow = ">=10.2.0"
+scikit-learn = ">=1.4.0"
+numpy = ">=1.26.0"
+torch = ">=2.2.0"
+diffusers = ">=0.32.2"
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
-pytest = "^8.3.5"
+black = ">=25.1.0"
+pytest = ">=8.3.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
