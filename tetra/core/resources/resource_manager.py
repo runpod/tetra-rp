@@ -19,7 +19,8 @@ class ResourceManager(SingletonMixin):
     _resources: Dict[str, BaseResource] = {}
     
     def __init__(self):
-        self._load_resources()
+        if not self._resources:
+            self._load_resources()
 
     def _load_resources(self) -> Dict[str, BaseResource]:
         """Load persisted resource information."""

@@ -165,10 +165,6 @@ class ServerlessResource(DeployableResource):
                 job_status = await asyncio.to_thread(job.status)
                 log.debug(f"[{log_subgroup}] Status: {job_status} {health}")
 
-                if health["workers"]["unhealthy"] > 0:
-                    log.info(f"[{log_subgroup}] Cancelling...")
-                    await asyncio.to_thread(job.cancel)
-
                 if job_status == "COMPLETED":
                     log.info(f"[{log_subgroup}] Status: {job_status}")
                     output = await asyncio.to_thread(job.output)
