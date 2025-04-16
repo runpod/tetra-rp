@@ -1,11 +1,10 @@
 import base64
 import cloudpickle
 from functools import wraps
-from typing import Union, List
-from .remote_execution import RemoteExecutionClient
-from ..resources.serverless import ServerlessResource
-from ..resources.resource_manager import ResourceManager
-from ... import remote_execution_pb2
+from typing import List
+from .protos.remote_execution import FunctionRequest
+from .core.resources import ServerlessResource, ResourceManager
+from .protos.stubs import TetraServerlessStub
 import hashlib
 
 
@@ -69,52 +68,6 @@ def remote(
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            global_client = RemoteExecutionClient()
-            _resource_manager = ResourceManager()
-
-            # Determine if we're using dynamic provisioning or static server
-            if resource_config:
-                # Dynamic provisioning
-                try:
-                    # Get or create the resource
-                    server_name = await _resource_manager.get_or_create_resource(resource_config)
-
-                    # Check if server is already registered
-                    if server_name not in global_client.servers:
-                        # Get resource details
-                        resource_id = None
-                        for rid, details in _resource_manager._resources.items():
-                            if details["server_name"] == server_name:
-                                resource_id = rid
-                                break
-
-                        if not resource_id:
-                            raise ValueError(
-                                f"Resource details not found for {server_name}"
-                            )
-
-                        resource_details = _resource_manager._resources[resource_id]
-
-                        # Register with the client
-                        endpoint_url = resource_details["endpoint_url"]
-                        print(
-                            f"Registering RunPod endpoint: {server_name} at {endpoint_url}"
-                        )
-                        await global_client.add_runpod_server(
-                            server_name, endpoint_url
-                        )
-
-                        # Ensure there's a pool for this resource
-                        pool_name = f"pool_{resource_id}"
-                        if pool_name not in global_client.pools:
-                            global_client.create_pool(pool_name, [server_name])
-
-                    # Use the server name for execution
-                    effective_server_spec = server_name
-
-                except Exception as e:
-                    raise Exception(f"Failed to provision resource: {str(e)}")
-
             source, src_hash = get_function_source(func)
             
             # check if the function is already cached
@@ -141,13 +94,14 @@ def remote(
                 "kwargs": serialized_kwargs,
                 "dependencies": dependencies,
             }
-
-
-            request = remote_execution_pb2.FunctionRequest(**request_args)
-
-            stub = global_client.get_stub(effective_server_spec, fallback)
+            request = FunctionRequest(**request_args)
 
             try:
+                resource_manager = ResourceManager()
+                remote_resource = await resource_manager.get_or_create_resource(resource_config)
+
+                stub = TetraServerlessStub(remote_resource)
+
                 response = await stub.ExecuteFunction(request)
                 if response.success:
                     # Deserialize result using cloudpickle instead of JSON
