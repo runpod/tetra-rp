@@ -1,10 +1,11 @@
 from tetra.logger import get_logger
 log = get_logger()
 
-from typing import Dict, List, Optional
+import asyncio
+from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
-from pydantic import field_validator
+from pydantic import field_validator, BaseModel
 from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
@@ -53,6 +54,15 @@ class ServerlessResource(DeployableResource):
         if not self.id:
             raise ValueError("Missing self.id")
         return urljoin(runpod.endpoint_url_base, self.id)
+
+    @property
+    def endpoint(self) -> runpod.Endpoint:
+        """
+        Returns the RunPod endpoint object for this serverless resource.
+        """
+        if not self.id:
+            raise ValueError("Missing self.id")
+        return runpod.Endpoint(self.id)
 
     @field_validator("gpuIds")
     @classmethod
@@ -118,3 +128,84 @@ class ServerlessResource(DeployableResource):
         except Exception as e:
             log.error(f"Serverless failed to deploy: {e}")
             raise
+
+    async def execute(self, payload: Dict[str, Any], poll_seconds=1) -> dict:
+        """
+        Executes a serverless endpoint request with the payload.
+        Returns a Job object.
+        """
+        log_group = f"Serverless:{self.id}"
+
+        try:
+            if not self.id:
+                raise ValueError("Serverless is not deployed")
+
+            log.debug(f"[{log_group}] Connecting: {self.url}")
+            # log.debug(f"[{log_group}] Payload: {payload}")
+
+            job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
+
+            log_subgroup = f"Job:{job.job_id}"
+
+            log.info(f"[{log_group}] Started {log_subgroup}")
+
+            # Poll for job status
+            while True:
+                await asyncio.sleep(poll_seconds)
+
+                # check endpoint health
+                health = await asyncio.to_thread(self.endpoint.health)
+                health = ServerlessHealth(**health)
+
+                if not health.can_proceed:
+                    await asyncio.to_thread(job.cancel)
+                    raise RuntimeError("Unhealthy endpoint")
+
+                # Check job status
+                job_status = await asyncio.to_thread(job.status)
+                log.debug(f"[{log_subgroup}] Status: {job_status} {health}")
+
+                if job_status == "COMPLETED":
+                    log.info(f"[{log_subgroup}] Status: {job_status}")
+                    output = await asyncio.to_thread(job.output)
+                    return output
+
+                elif job_status in ("FAILED", "CANCELLED"):
+                    raise RuntimeError(f"{log_subgroup} Failed: {job_status}")
+
+        except Exception as e:
+            log.error(f"[{log_group}] Failed: {e}")
+            raise
+
+
+class ServerlessHealth(BaseModel):
+    class WorkersHealth(BaseModel):
+        idle: int
+        initializing: int
+        ready: int
+        running: int
+        throttled: int
+        unhealthy: int
+
+    class JobsHealth(BaseModel):
+        completed: int
+        failed: int
+        inProgress: int
+        inQueue: int
+        retried: int
+
+    workers: WorkersHealth
+    jobs: JobsHealth
+
+    @property
+    def can_proceed(self) -> bool:
+        """
+        Determines if the serverless endpoint can proceed with the job.
+        """
+        if any([
+            self.workers.unhealthy > self.workers.ready,
+            self.workers.throttled > self.workers.ready,
+        ]):
+            return False
+
+        return True
