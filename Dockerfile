@@ -12,26 +12,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy handler code
-COPY tetra/runpod_handler.py /app/handler.py
+# Copy application code
+COPY tetra ./tetra/
+COPY README.md handler.py requirements.txt ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir \
-    runpod \
-    cloudpickle \
-    grpcio \
-    grpcio-tools \
-    "protobuf>=5.26.1,<6.0" \
-    python-dotenv \
-    numpy \
-    pillow \
-    scikit-learn
-
-# Copy the package files
-COPY tetra/__init__.py /app/tetra/
-COPY tetra/remote_execution_pb2.py /app/tetra/
-COPY tetra/remote_execution_pb2_grpc.py /app/tetra/
+# Install Python dependencies using pip
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Set the entrypoint
 CMD ["python", "handler.py"]
