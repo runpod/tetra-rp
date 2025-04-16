@@ -53,8 +53,7 @@ def get_function_source(func):
 
 
 def remote(
-    fallback: Union[None, str, List[str]] = None,
-    resource_config: ServerlessResource = None,
+    resource_config: ServerlessResource,
     dependencies: List[str] = None,
 ):
     """
@@ -63,7 +62,6 @@ def remote(
 
     Args:
         server_spec: Traditional server or pool name
-        fallback: Fallback server or pool if primary fails
         resource_config: Configuration for dynamic resource provisioning
         dependencies: List of pip packages to install before executing the function
     """
@@ -125,7 +123,7 @@ def remote(
                 _SERIALIZED_FUNCTION_CACHE[src_hash] = source
 
             cached_src = _SERIALIZED_FUNCTION_CACHE[src_hash]
-            
+
             # Serialize arguments using cloudpickle instead of JSON
             serialized_args = [
                 base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
@@ -141,11 +139,9 @@ def remote(
                 "function_code": cached_src,
                 "args": serialized_args,
                 "kwargs": serialized_kwargs,
+                "dependencies": dependencies,
             }
 
-            # Add dependencies if provided
-            if dependencies:
-                request_args["dependencies"] = dependencies
 
             request = remote_execution_pb2.FunctionRequest(**request_args)
 
