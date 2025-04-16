@@ -1,5 +1,5 @@
 from tetra.logger import get_logger
-log = get_logger()
+log = get_logger("resource_manager")
 
 import orjson
 import importlib

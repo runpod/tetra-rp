@@ -9,8 +9,15 @@ def setup_logging(level: int = logging.INFO, stream=sys.stdout, fmt: str = None)
     Sets up the root logger with a stream handler and basic formatting.
     Does nothing if handlers are already configured.
     """
+    if isinstance(level, str):
+        level = getattr(logging, level.upper(), logging.INFO)
+
     if fmt is None:
-        fmt = "%(asctime)s | %(name)s | %(levelname)s | %(message)s"
+        if level == logging.DEBUG:
+            fmt = "%(asctime)s | %(levelname)-5s | %(name)s | %(filename)s:%(lineno)d | %(message)s"
+        else:
+            # Default format for INFO level and above
+            fmt = "%(asctime)s | %(levelname)-5s | %(message)s"
 
     root_logger = logging.getLogger()
     if not root_logger.hasHandlers():

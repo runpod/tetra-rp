@@ -1,5 +1,5 @@
 from tetra.logger import get_logger
-log = get_logger()
+log = get_logger("serverless")
 
 import asyncio
 from typing import Any, Dict, List, Optional
@@ -140,14 +140,14 @@ class ServerlessResource(DeployableResource):
             if not self.id:
                 raise ValueError("Serverless is not deployed")
 
-            log.debug(f"[{log_group}] Connecting: {self.url}")
+            log.info(f"{log_group} | Executing: {self.url}")
             # log.debug(f"[{log_group}] Payload: {payload}")
 
             job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
 
             log_subgroup = f"Job:{job.job_id}"
 
-            log.info(f"[{log_group}] Started {log_subgroup}")
+            log.info(f"{log_group} | Started {log_subgroup}")
 
             # Poll for job status
             while True:
@@ -156,25 +156,29 @@ class ServerlessResource(DeployableResource):
                 # check endpoint health
                 health = await asyncio.to_thread(self.endpoint.health)
                 health = ServerlessHealth(**health)
+                log.debug(f"{log_group} | Health: {health}")
 
                 if not health.can_proceed:
+                    log.info(f"{log_subgroup} | Cancelling due to unhealthy endpoint")
                     await asyncio.to_thread(job.cancel)
                     raise RuntimeError("Unhealthy endpoint")
 
                 # Check job status
                 job_status = await asyncio.to_thread(job.status)
-                log.debug(f"[{log_subgroup}] Status: {job_status} {health}")
 
                 if job_status == "COMPLETED":
-                    log.info(f"[{log_subgroup}] Status: {job_status}")
+                    log.info(f"{log_subgroup} | Status: {job_status}")
                     output = await asyncio.to_thread(job.output)
                     return output
 
                 elif job_status in ("FAILED", "CANCELLED"):
-                    raise RuntimeError(f"{log_subgroup} Failed: {job_status}")
+                    raise RuntimeError(f"{log_subgroup} | Status: {job_status}")
+
+                else:
+                    log.debug(f"{log_subgroup} | Status: {job_status}")
 
         except Exception as e:
-            log.error(f"[{log_group}] Failed: {e}")
+            log.error(f"{log_group} | Failed: {e}")
             raise
 
 

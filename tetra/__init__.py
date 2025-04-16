@@ -1,5 +1,6 @@
+import os
 from .logger import setup_logging
-setup_logging()
+setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
 
 from . import remote_execution_pb2, remote_execution_pb2_grpc
 from .core.resources.resource_manager import ResourceManager
