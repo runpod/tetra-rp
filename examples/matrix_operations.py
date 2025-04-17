@@ -79,4 +79,7 @@ async def main():
 #         print(f"Result standard deviation: {result['result_std']:.4f}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"An error occurred: {e}")
