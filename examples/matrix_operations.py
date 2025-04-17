@@ -1,16 +1,15 @@
 import asyncio
 from dotenv import load_dotenv
-from tetra import remote, ServerlessResource
+from tetra import remote, LiveServerless
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Configuration for a GPU resource
-gpu_config = ServerlessResource(
-    templateId="jizsa65yn0",  # Replace with your template ID
-    gpuIds="any",  # Use any available GPU
+gpu_config = LiveServerless(
+    gpuIds="NVIDIA H200",
     workersMax=1,
-    name="matrix_operations_gpu",
+    name="example_matrix_operations_server",
 )
 
 @remote(
