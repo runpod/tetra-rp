@@ -10,6 +10,7 @@ from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
 from .gpu import GpuGroups
+from ..utils.backoff import get_backoff_delay
 
 
 class ServerlessScalerType(Enum):
@@ -129,7 +130,7 @@ class ServerlessResource(DeployableResource):
             log.error(f"Serverless failed to deploy: {e}")
             raise
 
-    async def execute(self, payload: Dict[str, Any], poll_seconds=1) -> dict:
+    async def execute(self, payload: Dict[str, Any]) -> dict:
         """
         Executes a serverless endpoint request with the payload.
         Returns a Job object.
@@ -149,15 +150,20 @@ class ServerlessResource(DeployableResource):
 
             log.info(f"{log_group} | Started {log_subgroup}")
 
+            current_pace = 0
+            attempt = 0
+            last_status = None
+
             # Poll for job status
             while True:
-                await asyncio.sleep(poll_seconds)
+                await asyncio.sleep(current_pace)
 
                 # check endpoint health
                 health = await asyncio.to_thread(self.endpoint.health)
                 health = ServerlessHealth(**health)
                 log.debug(f"{log_group} | Health: {health}")
 
+                # Check if the endpoint is healthy
                 if not health.can_proceed:
                     log.info(f"{log_subgroup} | Cancelling due to unhealthy endpoint")
                     await asyncio.to_thread(job.cancel)
@@ -166,16 +172,26 @@ class ServerlessResource(DeployableResource):
                 # Check job status
                 job_status = await asyncio.to_thread(job.status)
 
-                if job_status == "COMPLETED":
+                # Adjust polling pace appropriately
+                if (last_status == job_status) or (not health.is_ready):
+                    # nothing changed, increase the gap
+                    log.debug(f"{log_subgroup} | Status: {job_status}")
+                    attempt += 1
+                else:
+                    # status changed, reset the gap
                     log.info(f"{log_subgroup} | Status: {job_status}")
+                    attempt = 0
+
+                last_status = job_status
+
+                current_pace = get_backoff_delay(attempt)
+
+                if job_status == "COMPLETED":
                     output = await asyncio.to_thread(job.output)
                     return output
 
                 elif job_status in ("FAILED", "CANCELLED"):
                     raise RuntimeError(f"{log_subgroup} | Status: {job_status}")
-
-                else:
-                    log.debug(f"{log_subgroup} | Status: {job_status}")
 
         except Exception as e:
             log.error(f"{log_group} | Failed: {e}")
@@ -213,3 +229,14 @@ class ServerlessHealth(BaseModel):
             return False
 
         return True
+
+    @property
+    def is_ready(self) -> bool:
+        """
+        Determines if the serverless endpoint is ready.
+        """
+        return any([
+            self.workers.ready > self.workers.initializing,
+            self.workers.ready > self.workers.throttled,
+            self.workers.ready > self.workers.running,
+        ])
