@@ -8,9 +8,8 @@ load_dotenv()
 # Configuration for a GPU resource
 gpu_config = LiveServerless(
     gpuIds="any",
-    # workersMin=1,  # Key for persistence: keep worker alive
     workersMax=1,
-    name="example-tetra-server",
+    name="example_live_server",
 )
 
 

@@ -5,11 +5,10 @@ from PIL import Image
 from tetra import remote, LiveServerless
 
 # Configuration for a GPU resource
-    gpuIds="any",
-    # workersMin=1,  # Key for persistence: keep worker alive
 sd_config = LiveServerless(
+    gpuIds="NVIDIA GeForce RTX 4090",
     workersMax=1,
-    name="image-gen-tetra-server",
+    name="example_image_gen_server",
 )
 
 

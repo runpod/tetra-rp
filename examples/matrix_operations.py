@@ -6,10 +6,10 @@ from tetra import remote, LiveServerless
 load_dotenv()
 
 # Configuration for a GPU resource
-    gpuIds="any",  # Use any available GPU
 gpu_config = LiveServerless(
+    gpuIds="NVIDIA H200",
     workersMax=1,
-    name="matrix_operations_gpu",
+    name="example_matrix_operations_server",
 )
 
 @remote(
