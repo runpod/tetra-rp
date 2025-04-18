@@ -214,7 +214,7 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 
 | Parameter | Description | Default | Example Values |
 |-----------|-------------|---------|---------------|
-| `name` | Name for your endpoint | Required | "stable-diffusion-server" |
+| `name` | Name for your endpoint | Required | "stable-diffusion-api" |
 | `gpuIds` | Type of GPU to request | GpuGroups.ADA_24.value | GpuGroups.AMPERE_16.value, GpuGroups.ADA_80.value |
 | `gpuCount` | Number of GPUs per worker | 1 | 1, 2, 4 |
 | `workersMin` | Minimum number of workers | 0 | Set to 1 for persistence |
