@@ -99,7 +99,7 @@ def my_gpu_function(data):
 
 ### Automatic Dependency Management
 
-Specify dependencies to be installed on the serverless endpoint:
+Specify `dependencies` you need, which are automatically installed for you:
 
 ```python
 @remote(
@@ -214,8 +214,8 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 
 | Parameter | Description | Default | Example Values |
 |-----------|-------------|---------|---------------|
-| `name` | Name for your endpoint | Required | "stable-diffusion-api" |
-| `gpuIds` | Type of GPU to request | GpuGroups.ADA_24.value | GpuGroups.AMPERE_16.value, GpuGroups.ADA_80.value |
+| `name` | Name for your endpoint | Required | "stable-diffusion-server" |
+| `gpuIds` | Type of GPU to request | "any" | "any" or list of [GPU IDs](https://docs.runpod.io/references/gpu-types) (comma-separated) |
 | `gpuCount` | Number of GPUs per worker | 1 | 1, 2, 4 |
 | `workersMin` | Minimum number of workers | 0 | Set to 1 for persistence |
 | `workersMax` | Maximum number of workers | 3 | Higher for more concurrency |
