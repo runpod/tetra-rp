@@ -1,14 +1,15 @@
-# Import all the packahges here
+import os
+from .logger import setup_logging
+setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
 
-from . import remote_execution_pb2, remote_execution_pb2_grpc
 from .core.resources.resource_manager import ResourceManager
+from .core.resources.live_serverless import LiveServerless
 from .core.resources.serverless import ServerlessResource
-from .core.client.client_manager import remote
+from .client import remote
 
 __all__ = [
     "remote",
-    "remote_execution_pb2",
-    "remote_execution_pb2_grpc",
+    "LiveServerless",
     "ResourceManager",
     "ServerlessResource",
 ]

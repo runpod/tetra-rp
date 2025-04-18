@@ -2,15 +2,13 @@ import asyncio
 import base64
 import io
 from PIL import Image
-from tetra import remote, ServerlessResource
+from tetra import remote, LiveServerless
 
 # Configuration for a GPU resource
-sd_config = ServerlessResource(
-    templateId="jizsa65yn0",  # Replace with your template ID
-    gpuIds="any",
-    # workersMin=1,  # Key for persistence: keep worker alive
+sd_config = LiveServerless(
+    gpuIds="NVIDIA GeForce RTX 4090",
     workersMax=1,
-    name="deanq-diffusion-server",
+    name="example_image_gen_server",
 )
 
 
@@ -93,4 +91,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"An error occurred: {e}")
