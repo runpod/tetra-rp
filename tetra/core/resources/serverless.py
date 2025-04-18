@@ -27,7 +27,7 @@ class ServerlessResource(DeployableResource):
     env: Optional[Dict[str, str]] = None
     executionTimeoutMs: Optional[int] = 0
     gpuCount: Optional[int] = 1
-    gpuIds: Optional[str] = GpuGroups.ADA_24.value
+    gpuIds: Optional[str] = "any"
     idleTimeout: Optional[int] = 5
     locations: Optional[str] = None
     name: str
