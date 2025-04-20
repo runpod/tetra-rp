@@ -26,10 +26,10 @@ The Tetra-RunPod integration provides seamless access to on-demand GPU resources
 ```bash
 git clone https://github.com/runpod/tetra-rp
 cd tetra-rp 
-poetry install
+pip install -r requirements.txt
 ```
 
-You'll need a RunPod API key to use this integration. Sign up at [RunPod.io](https://runpod.io) and generate an API key in your account settings. set it in ENV:
+You'll need a RunPod API key to use this integration. Sign up at [RunPod.io](https://runpod.io) and generate an API key in your account settings. set it in ENV or save it in a local `.env` file:
 ```bash
 export RUNPOD_API_KEY=<YOUR_API_KEY>
 ```
@@ -42,16 +42,12 @@ from tetra import remote, ServerlessResource
 
 # Configure RunPod resource
 runpod_config = ServerlessResource(
-    gpuIds="any",
-    workersMin=1, 
-    workersMax=1,
     name="example-diffusion-server",
 )
 
 # Define a function to run on RunPod GPU
 @remote(
     resource_config=runpod_config,
-    resource_type="serverless",
     dependencies=["torch", "numpy"]
 )
 def gpu_compute(data):
@@ -78,7 +74,10 @@ async def main():
     print(f"Computed on: {result['gpu_name']} with CUDA {result['cuda_version']}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"An error occurred: {e}")
 ```
 
 ## Key Features
@@ -90,7 +89,6 @@ Automatically provision GPUs on demand without any manual setup:
 ```python
 @remote(
     resource_config=runpod_config,
-    resource_type="serverless"
 )
 def my_gpu_function(data):
     # Runs on GPU when called
@@ -104,7 +102,6 @@ Specify `dependencies` you need, which are automatically installed for you:
 ```python
 @remote(
     resource_config=runpod_config,
-    resource_type="serverless",
     dependencies=["torch==2.0.1", "transformers", "diffusers"]
 )
 def generate_image(prompt):
@@ -123,7 +120,6 @@ def generate_image(prompt):
 # Feature extraction on GPU
 @remote(
     resource_config=runpod_config,
-    resource_type="serverless",
     dependencies=["torch", "transformers"]
 )
 def extract_features(texts):
@@ -148,7 +144,6 @@ def extract_features(texts):
 # Classification on GPU
 @remote(
     resource_config=runpod_config,
-    resource_type="serverless",
     dependencies=["torch", "sklearn"]
 )
 def classify(features, labels=None):
@@ -214,7 +209,7 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 
 | Parameter | Description | Default | Example Values |
 |-----------|-------------|---------|---------------|
-| `name` | Name for your endpoint | Required | "stable-diffusion-server" |
+| `name` | (Required) Name for your endpoint | "" | "stable-diffusion-server" |
 | `gpuIds` | Type of GPU to request | "any" | "any" or list of [GPU IDs](https://docs.runpod.io/references/gpu-types) (comma-separated) |
 | `gpuCount` | Number of GPUs per worker | 1 | 1, 2, 4 |
 | `workersMin` | Minimum number of workers | 0 | Set to 1 for persistence |
@@ -227,17 +222,10 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 | `scalerValue` | Scaling parameter value | 4 | 1-10 range typical |
 | `locations` | Preferred datacenter locations | None | "us-east,eu-central" |
 
-### RunPod Configuration Options
+### Examples
 
-```python
-runpod_config = ServerlessResource(
-    gpuIds="any",
-    workersMin=1,
-    workersMax=1,
-    name="example-diffusion-server",
-   ...
-)
-```
+See more examples in the `./examples/*` folder
+
 ---
 
 ## License
