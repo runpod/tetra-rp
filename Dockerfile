@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy application code
-COPY tetra ./tetra/
+COPY src/tetra_rp ./tetra_rp
 COPY README.md handler.py requirements.txt ./
 
 # Install Python dependencies using pip

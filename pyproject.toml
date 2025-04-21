@@ -1,5 +1,5 @@
 [project]
-name = "tetra"
+name = "tetra_rp"
 version = "0.1.0"
 description = "A Python library for distributed inference and serving of machine learning models"
 authors = [

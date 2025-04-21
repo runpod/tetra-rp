@@ -38,7 +38,7 @@ export RUNPOD_API_KEY=<YOUR_API_KEY>
 ```python
 import os
 import asyncio
-from tetra import remote, ServerlessResource
+from tetra_rp import remote, ServerlessResource
 
 # Configure RunPod resource
 runpod_config = ServerlessResource(

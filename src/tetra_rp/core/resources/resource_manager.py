@@ -1,4 +1,4 @@
-from tetra.logger import get_logger
+from ...logger import get_logger
 log = get_logger("resource_manager")
 
 import orjson
@@ -30,7 +30,7 @@ class ResourceManager(SingletonMixin):
                     resources_state = orjson.loads(f.read())
                     for k, v in resources_state.items():
                         class_name = k.split("_")[0]
-                        module = importlib.import_module("tetra.core.resources")
+                        module = importlib.import_module("tetra_rp.core.resources")
                         resource_class = getattr(module, class_name)
                         if resource_class:
                             # Produce the BaseResource object

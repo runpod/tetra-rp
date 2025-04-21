@@ -1,6 +1,6 @@
 import asyncio
 from dotenv import load_dotenv
-from tetra import remote, LiveServerless
+from tetra_rp import remote, LiveServerless
 
 # Load environment variables from .env file
 load_dotenv()

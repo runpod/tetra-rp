@@ -2,7 +2,7 @@ import asyncio
 import base64
 import io
 from PIL import Image
-from tetra import remote, LiveServerless
+from tetra_rp import remote, LiveServerless
 
 # Configuration for a GPU resource
 sd_config = LiveServerless(
