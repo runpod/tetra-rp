@@ -1,0 +1,3 @@
+[submodule "tetra-examples"]
+	path = tetra-examples
+	url = https://github.com/runpod/tetra-examples
