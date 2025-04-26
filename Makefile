@@ -2,7 +2,21 @@ IMAGE = runpod/tetrarc
 TAG = latest
 FULL_IMAGE = $(IMAGE):$(TAG)
 
-.PHONY: build requirements
+.PHONY: dev
+
+# Check if 'uv' is installed
+ifeq (, $(shell which uv))
+$(error "uv is not installed. Please install it before running this Makefile.")
+endif
+
+dev:
+	uv venv && \
+	( \
+	. .venv/bin/activate && \
+	uv sync --all-groups && \
+	echo "Virtual environment created and dependencies installed." && \
+	echo "To activate the virtual environment, run: . .venv/bin/activate" \
+	)
 
 build: requirements
 	docker buildx build \
@@ -12,8 +26,7 @@ build: requirements
 	. --load
 
 requirements:
-	poetry self show plugins | grep -q export || poetry self add poetry-plugin-export
-	poetry export --without-hashes --without dev -f requirements.txt > requirements.txt
+	uv pip compile pyproject.toml > requirements.txt
 
 push:
 	docker push $(FULL_IMAGE)

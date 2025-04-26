@@ -19,29 +19,17 @@ requires-python = ">=3.9,<3.13"
 
 dependencies = [
     "cloudpickle>=3.1.1",
-    "protobuf>=5.26.1,<6.0dev",
-    "runpod>=1.7.7",
+    "runpod>=1.7.9",
     "python-dotenv>=1.0.0",
     "orjson>=3.10.16"
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-
-[tool.poetry.group.examples]
-optional = true
-
-[tool.poetry.group.examples.dependencies]
-pillow = ">=10.2.0"
-scikit-learn = ">=1.4.0"
-numpy = ">=1.26.0"
-torch = ">=2.2.0"
-diffusers = ">=0.32.2"
-
-[tool.poetry.group.dev.dependencies]
-black = ">=25.1.0"
-pytest = ">=8.3.5"
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pytest>=8.3.5",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
