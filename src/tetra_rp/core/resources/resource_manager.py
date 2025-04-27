@@ -1,13 +1,16 @@
-from ...logger import get_logger
-log = get_logger("resource_manager")
-
 import orjson
 import importlib
 from typing import Dict
 from pathlib import Path
-from ..utils.json import normalize_for_json
-from ..utils.singleton import SingletonMixin
+
+from tetra_rp import get_logger
+from tetra_rp.core.utils.json import normalize_for_json
+from tetra_rp.core.utils.singleton import SingletonMixin
+
 from .base import BaseResource, DeployableResource
+
+
+log = get_logger("resource_manager")
 
 
 RESOURCE_STATE_FILE = Path(".tetra_resources.json")
@@ -17,7 +20,7 @@ class ResourceManager(SingletonMixin):
     """Manages dynamic provisioning and tracking of remote resources."""
 
     _resources: Dict[str, BaseResource] = {}
-    
+
     def __init__(self):
         if not self._resources:
             self._load_resources()
@@ -39,9 +42,7 @@ class ResourceManager(SingletonMixin):
                     log.debug(f"Loaded saved resources from {RESOURCE_STATE_FILE}")
 
             except orjson.JSONDecodeError:
-                log.error(
-                    f"Failed to load resources from {RESOURCE_STATE_FILE}"
-                )
+                log.error(f"Failed to load resources from {RESOURCE_STATE_FILE}")
 
     def _save_resources(self) -> None:
         """Persist state of resources to disk."""

@@ -1,16 +1,19 @@
-from ...logger import get_logger
-log = get_logger("serverless")
-
 import asyncio
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
 from pydantic import field_validator, BaseModel
+
+from tetra_rp import get_logger
+from tetra_rp.core.utils.backoff import get_backoff_delay
+
 from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
 from .gpu import GpuGroups
-from ..utils.backoff import get_backoff_delay
+
+
+log = get_logger("serverless")
 
 
 class ServerlessScalerType(Enum):
@@ -222,10 +225,12 @@ class ServerlessHealth(BaseModel):
         """
         Determines if the serverless endpoint can proceed with the job.
         """
-        if any([
-            self.workers.unhealthy > self.workers.ready,
-            self.workers.throttled > self.workers.ready,
-        ]):
+        if any(
+            [
+                self.workers.unhealthy > self.workers.ready,
+                self.workers.throttled > self.workers.ready,
+            ]
+        ):
             return False
 
         return True
@@ -235,8 +240,10 @@ class ServerlessHealth(BaseModel):
         """
         Determines if the serverless endpoint is ready.
         """
-        return any([
-            self.workers.ready > self.workers.initializing,
-            self.workers.ready > self.workers.throttled,
-            self.workers.ready > self.workers.running,
-        ])
+        return any(
+            [
+                self.workers.ready > self.workers.initializing,
+                self.workers.ready > self.workers.throttled,
+                self.workers.ready > self.workers.running,
+            ]
+        )

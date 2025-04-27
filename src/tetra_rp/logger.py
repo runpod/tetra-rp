@@ -43,3 +43,6 @@ def get_logger(name: str = None) -> logging.Logger:
         name = module.__name__ if module else "__main__"
 
     return logging.getLogger(name)
+
+
+setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
