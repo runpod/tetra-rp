@@ -141,11 +141,11 @@ class ServerlessResource(DeployableResource):
         Executes a serverless endpoint request with the payload.
         Returns a Job object.
         """
-        log_group = f"Serverless:{self.id}"
+        if not self.id:
+            raise ValueError("Serverless is not deployed")
 
         try:
-            if not self.id:
-                raise ValueError("Serverless is not deployed")
+            log_group = f"Serverless:{self.id}"
 
             log.info(f"{log_group} | Executing: {self.url}")
             # log.debug(f"[{log_group}] Payload: {payload}")
@@ -158,31 +158,45 @@ class ServerlessResource(DeployableResource):
 
             current_pace = 0
             attempt = 0
-            last_status = None
+            job_status = Status.UNKNOWN
+            last_status = job_status
 
             # Poll for job status
             while True:
                 await asyncio.sleep(current_pace)
 
-                # check endpoint health
+                # Check endpoint health
                 health = await asyncio.to_thread(self.endpoint.health)
                 health = ServerlessHealth(**health)
-                log.debug(f"{log_group} | Health: {health}")
+                log.debug(f"{log_group} | Status: {health.workers.status.value}")
 
-                # Check if the endpoint is healthy
-                if not health.can_proceed:
-                    log.info(f"{log_subgroup} | Cancelling due to unhealthy endpoint")
-                    await asyncio.to_thread(job.cancel)
-                    raise RuntimeError("Unhealthy endpoint")
+                if health.is_ready:
+                    # Check job status
+                    job_status = await asyncio.to_thread(job.status)
+                else:
+                    # Check worker status
+                    job_status = health.workers.status.value
 
-                # Check job status
-                job_status = await asyncio.to_thread(job.status)
+                    if health.workers.status in [
+                        Status.THROTTLED,
+                        Status.UNHEALTHY,
+                        Status.UNKNOWN,
+                    ]:
+                        log.debug(f"{log_group} | Health {health}")
+
+                        if attempt >= 10:
+                            # Give up
+                            log.info(f"{log_subgroup} | Cancelling")
+                            await asyncio.to_thread(job.cancel)
+                            raise RuntimeError(health.workers.status.value)
 
                 # Adjust polling pace appropriately
-                if (last_status == job_status) or (not health.is_ready):
+                if last_status == job_status:
                     # nothing changed, increase the gap
-                    log.debug(f"{log_subgroup} | Status: {job_status}")
                     attempt += 1
+                    indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
+                    if indicator:
+                        log.info(f"{log_subgroup} | Status: {job_status} {indicator}")
                 else:
                     # status changed, reset the gap
                     log.info(f"{log_subgroup} | Status: {job_status}")
@@ -196,7 +210,7 @@ class ServerlessResource(DeployableResource):
                     output = await asyncio.to_thread(job.output)
                     return output
 
-                elif job_status in ("FAILED", "CANCELLED"):
+                if job_status in ("FAILED", "CANCELLED"):
                     raise RuntimeError(f"{log_subgroup} | Status: {job_status}")
 
         except Exception as e:
@@ -204,49 +218,50 @@ class ServerlessResource(DeployableResource):
             raise
 
 
+class Status(str, Enum):
+    READY = "READY"
+    INITIALIZING = "INITIALIZING"
+    THROTTLED = "THROTTLED"
+    UNHEALTHY = "UNHEALTHY"
+    UNKNOWN = "UNKNOWN"
+
+
+class WorkersHealth(BaseModel):
+    idle: int
+    initializing: int
+    ready: int
+    running: int
+    throttled: int
+    unhealthy: int
+
+    @property
+    def status(self) -> Status:
+        if self.initializing > self.ready:
+            return Status.INITIALIZING
+
+        if self.throttled > self.ready:
+            return Status.THROTTLED
+
+        if self.unhealthy > self.ready:
+            return Status.UNHEALTHY
+
+        if self.ready or self.idle or self.running:
+            return Status.READY
+
+        return Status.UNKNOWN
+
+
+class JobsHealth(BaseModel):
+    completed: int
+    failed: int
+    inProgress: int
+    inQueue: int
+    retried: int
+
 class ServerlessHealth(BaseModel):
-    class WorkersHealth(BaseModel):
-        idle: int
-        initializing: int
-        ready: int
-        running: int
-        throttled: int
-        unhealthy: int
-
-    class JobsHealth(BaseModel):
-        completed: int
-        failed: int
-        inProgress: int
-        inQueue: int
-        retried: int
-
     workers: WorkersHealth
     jobs: JobsHealth
 
     @property
-    def can_proceed(self) -> bool:
-        """
-        Determines if the serverless endpoint can proceed with the job.
-        """
-        if any(
-            [
-                self.workers.unhealthy > self.workers.ready,
-                self.workers.throttled > self.workers.ready,
-            ]
-        ):
-            return False
-
-        return True
-
-    @property
     def is_ready(self) -> bool:
-        """
-        Determines if the serverless endpoint is ready.
-        """
-        return any(
-            [
-                self.workers.ready > self.workers.initializing,
-                self.workers.ready > self.workers.throttled,
-                self.workers.ready > self.workers.running,
-            ]
-        )
+        return self.workers.status == Status.READY
