@@ -90,13 +90,16 @@ class ServerlessResource(DeployableResource):
                 continue
 
             # Check against GpuType
-            try:
-                if runpod.get_gpu(id_):
-                    normalized.append(id_)
-                    continue
-            except ValueError as e:
-                log.error(f"`{id_}` {e}")
-                # TODO: get all available GPU types and fuzzy match
+            # try:
+            #     if runpod.get_gpu(id_):
+            #         normalized.append(id_)
+            #         continue
+            # except ValueError as e:
+            #     log.error(f"`{id_}` {e}")
+            #     # TODO: get all available GPU types and fuzzy match
+
+        if not normalized:
+            raise ValueError("Invalid gpuIds provided")
 
         return ",".join(normalized)
 
