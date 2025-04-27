@@ -24,9 +24,7 @@ The Tetra-RunPod integration provides seamless access to on-demand GPU resources
 ## Installation
 
 ```bash
-git clone https://github.com/runpod/tetra-rp
-cd tetra-rp 
-pip install -r requirements.txt
+pip install tetra_rp
 ```
 
 You'll need a RunPod API key to use this integration. Sign up at [RunPod.io](https://runpod.io) and generate an API key in your account settings. set it in ENV or save it in a local `.env` file:
@@ -113,6 +111,17 @@ def generate_image(prompt):
 
 ## Examples
 
+See more examples here: [tetra-examples](https://github.com/runpod/tetra-examples)
+
+You can also install the examples as a submodule:
+
+```bash
+make examples
+cd tetra-examples
+python -m examples.example
+python -m examples.image_gen
+python -m examples.matrix_operations
+```
 
 ### Multi-Stage ML Pipeline
 

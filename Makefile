@@ -33,3 +33,12 @@ push:
 
 proto:
 # TODO: auto-generate proto files
+
+examples:
+	@if [ ! -d "tetra-examples" ]; then \
+		echo "📦 Initializing tetra-examples submodule..."; \
+		git submodule init; \
+		git submodule update; \
+	fi
+	@echo "🚀 Running make inside tetra-examples..."; \
+	$(MAKE) -C tetra-examples
