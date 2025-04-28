@@ -1,6 +1,7 @@
 # TODO: generate using betterproto
 
 from abc import ABC, abstractmethod
+from typing import List, Dict, Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -11,15 +12,15 @@ class FunctionRequest(BaseModel):
     function_code: str = Field(
         description="Source code of the function to execute",
     )
-    args: list = Field(
+    args: List = Field(
         default_factory=list,
         description="List of base64-encoded cloudpickle-serialized arguments",
     )
-    kwargs: dict = Field(
+    kwargs: Dict = Field(
         default_factory=dict,
         description="Dictionary of base64-encoded cloudpickle-serialized keyword arguments",
     )
-    dependencies: list | None = Field(
+    dependencies: Optional[List] = Field(
         default=None,
         description="Optional list of pip packages to install before executing the function",
     )
@@ -29,15 +30,15 @@ class FunctionResponse(BaseModel):
     success: bool = Field(
         description="Indicates if the function execution was successful",
     )
-    result: str | None = Field(
+    result: Optional[str] = Field(
         default=None,
         description="Base64-encoded cloudpickle-serialized result of the function",
     )
-    error: str | None = Field(
+    error: Optional[str] = Field(
         default=None,
         description="Error message if the function execution failed",
     )
-    stdout: str | None = Field(
+    stdout: Optional[str] = Field(
         default=None,
         description="Captured standard output from the function execution",
     )
