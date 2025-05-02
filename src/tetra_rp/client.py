@@ -1,11 +1,15 @@
 import base64
 import cloudpickle
+import hashlib
 from functools import wraps
 from typing import List
 from .protos.remote_execution import FunctionRequest
 from .core.resources import ServerlessResource, ResourceManager
 from .protos.stubs import TetraServerlessStub
-import hashlib
+from tetra_rp import get_logger
+
+
+log = get_logger("client")
 
 
 # global in memory cache, TODO: use a more robust cache in future
@@ -102,6 +106,11 @@ def remote(
             stub = TetraServerlessStub(remote_resource)
 
             response = await stub.ExecuteFunction(request)
+
+            if response.stdout:
+                for line in response.stdout.splitlines():
+                    log.info(f"Remote | {line}")
+
             if response.success:
                 # Deserialize result using cloudpickle instead of JSON
                 return cloudpickle.loads(base64.b64decode(response.result))
