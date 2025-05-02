@@ -14,6 +14,6 @@ proto:
 
 examples:
 	git submodule init
-	git submodule update
+	git submodule update --remote
 	@echo "🚀 Running make inside tetra-examples..."; \
 	$(MAKE) -C tetra-examples
