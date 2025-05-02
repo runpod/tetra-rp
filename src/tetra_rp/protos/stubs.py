@@ -26,16 +26,7 @@ class TetraServerlessStub(RemoteExecutorStub):
 
             output = await self.server.execute(payload)
 
-            # Process the output
-            if isinstance(output, dict) and "success" in output:
-                return FunctionResponse(**output)
-
-            else:
-                # Direct output from RunPod
-                serialized_result = base64.b64encode(cloudpickle.dumps(output)).decode(
-                    "utf-8"
-                )
-                return FunctionResponse(success=True, result=serialized_result)
+            return FunctionResponse(**output)
 
         except Exception as e:
             error_traceback = traceback.format_exc()
