@@ -24,13 +24,20 @@ class TetraServerlessStub(RemoteExecutorStub):
             # Convert the gRPC request to RunPod format
             payload = request.model_dump(exclude_none=True)
 
-            output = await self.server.execute(payload)
+            job = await self.server.execute(payload)
 
-            return FunctionResponse(**output)
+            if job.error:
+                return FunctionResponse(
+                    success=False,
+                    error=job.error,
+                    stdout=job.output.get("stdout", ""),
+                )
+            
+            return FunctionResponse(**job.output)
 
         except Exception as e:
             error_traceback = traceback.format_exc()
             return FunctionResponse(
                 success=False,
-                error=f"Tetra request failed: {str(e)}\n{error_traceback}",
+                error=f"{str(e)}\n{error_traceback}",
             )

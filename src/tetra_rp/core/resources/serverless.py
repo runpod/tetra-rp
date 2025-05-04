@@ -136,10 +136,10 @@ class ServerlessResource(DeployableResource):
             log.error(f"Serverless failed to deploy: {e}")
             raise
 
-    async def execute(self, payload: Dict[str, Any]) -> dict:
+    async def execute(self, payload: Dict[str, Any]) -> "JobOutput":
         """
         Executes a serverless endpoint request with the payload.
-        Returns a Job object.
+        Returns a JobOutput object.
         """
         if not self.id:
             raise ValueError("Serverless is not deployed")
@@ -168,14 +168,15 @@ class ServerlessResource(DeployableResource):
                 # Check endpoint health
                 health = await asyncio.to_thread(self.endpoint.health)
                 health = ServerlessHealth(**health)
-                log.debug(f"{log_group} | Status: {health.workers.status.value}")
 
                 if health.is_ready:
                     # Check job status
                     job_status = await asyncio.to_thread(job.status)
+                    log.debug(f"{log_group} | Status: {job_status}")
                 else:
                     # Check worker status
                     job_status = health.workers.status.value
+                    log.debug(f"{log_group} | Status: {job_status}")
 
                     if health.workers.status in [
                         Status.THROTTLED,
@@ -206,16 +207,26 @@ class ServerlessResource(DeployableResource):
 
                 current_pace = get_backoff_delay(attempt)
 
-                if job_status == "COMPLETED":
-                    output = await asyncio.to_thread(job.output)
-                    return output
-
-                if job_status in ("FAILED", "CANCELLED"):
-                    raise RuntimeError(f"{log_subgroup} | Status: {job_status}")
+                if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
+                    response = await asyncio.to_thread(job._fetch_job)
+                    job = JobOutput(**response)
+                    log.info(f"{log_subgroup} | Delay Time: {job.delayTime} ms")
+                    log.info(f"{log_subgroup} | Execution Time: {job.executionTime} ms")
+                    return job
 
         except Exception as e:
-            log.error(f"{log_group} | Failed: {e}")
+            log.error(f"{log_group} | Exception: {e}")
             raise
+
+
+class JobOutput(BaseModel):
+    id: str
+    workerId: str
+    status: str
+    delayTime: int
+    executionTime: int
+    output: Optional[Dict[str, Any]] = {}
+    error: Optional[str] = ""
 
 
 class Status(str, Enum):
