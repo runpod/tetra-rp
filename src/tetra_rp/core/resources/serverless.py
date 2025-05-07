@@ -2,7 +2,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
-from pydantic import field_validator, BaseModel
+from pydantic import field_validator, BaseModel, Field
 
 from tetra_rp import get_logger
 from tetra_rp.core.utils.backoff import get_backoff_delay
@@ -11,6 +11,19 @@ from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
 from .gpu import GpuGroups
+from .environment import EnvironmentVars
+
+
+# Environment variables are loaded from the .env file
+def get_env_vars() -> Dict[str, str]:
+    """
+    Returns the environment variables from the .env file. 
+    {
+        "KEY": "VALUE",
+    }
+    """
+    env_vars = EnvironmentVars()
+    return env_vars.get_env()
 
 
 log = get_logger("serverless")
@@ -27,7 +40,7 @@ class ServerlessResource(DeployableResource):
 
     # === Input Fields ===
     allowedCudaVersions: Optional[str] = ""
-    env: Optional[Dict[str, str]] = None
+    env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     executionTimeoutMs: Optional[int] = 0
     gpuCount: Optional[int] = 1
     gpuIds: Optional[str] = "any"
