@@ -11,7 +11,7 @@ from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
 from .gpu import GpuGroups
-from .enviornment import EnvironmentVars
+from .environment import EnvironmentVars
 
 
 # Environment variables are loaded from the .env file
