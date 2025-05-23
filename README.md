@@ -1,37 +1,145 @@
 # Tetra: Serverless GPU Computing for AI Workloads
 
-
 <p align="center">
   <b>Dynamic GPU provisioning for ML workloads with transparent execution</b>
 </p>
 
 <p align="center">
   <a href="#overview">Overview</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#key-features">Key Features</a> •
-  <a href="#examples">Examples</a> •
+  <a href="#getting-started">Getting Started</a> •
+  <a href="#key-features-and-concepts">Key Features and Concepts</a> •
+  <a href="#how-tetra-works">How Tetra Works</a> •
+  <a href="#common-use-cases">Common Use Cases</a> •
+  <a href="#quick-start-example">Quick Start Example</a> •
+  <a href="#examples">More Examples</a> •
   <a href="#configuration">Configuration</a> •
-  <a href="#troubleshooting">Troubleshooting</a>
 </p>
-
----
 
 ## Overview
 
-The Tetra-RunPod integration provides seamless access to on-demand GPU resources through RunPod's serverless platform. With a simple decorator-based API, you can execute functions on powerful GPUs without managing infrastructure, while Tetra handles all the complexity of provisioning, communication, and state management.
+Tetra is a Python SDK that streamlines the development and deployment of AI workflows on RunPod's Serverless infrastructure. It provides an abstraction layer that lets you define, execute, and monitor sophisticated AI pipelines using nothing but Python code and your local terminal, eliminating the need to interact with the RunPod console GUI.
 
-## Installation
+You can find a list of prebuilt Tetra examples at: [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
+
+-----
+
+## Get Started
+
+To get started with Tetra, you can follow this step-by-step tutorial to learn how to code remote workflows in both serial and parallel: [Get started with Tetra](https://runpod.notion.site/tetra-tutorial).
+
+Alternatively, you can clone the Tetra examples repository to explore and run pre-built examples:
+
+```bash
+git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runpod/tetra-examples.git)
+```
+
+### Installation
 
 ```bash
 pip install tetra_rp
 ```
 
-You'll need a RunPod API key to use this integration. Sign up at [RunPod.io](https://runpod.io) and generate an API key in your account settings. set it in ENV or save it in a local `.env` file:
+You must also set up a [RunPod API key](https://docs.runpod.io/get-started/api-keys) to use this integration. You can sign up at [RunPod.io](https://runpod.io) and generate an API key from your account settings. Set this key as an environment variable or save it in a local `.env` file:
+
 ```bash
 export RUNPOD_API_KEY=<YOUR_API_KEY>
 ```
-## Quick Start
+
+-----
+
+## Key Features and Concepts
+
+Tetra offers several advantages and introduces core concepts that simplify AI workflow development:
+
+  * **Simplified Workflow Development**: Define sophisticated AI pipelines in pure Python with minimal configuration, allowing you to concentrate on your logic rather than infrastructure complexities.
+  * **Optimized Resource Utilization**: Specify hardware requirements directly at the function level. This gives you precise control over GPU and CPU allocation for each part of your pipeline.
+  * **Seamless Deployment**: Tetra automatically manages the setup of RunPod Serverless infrastructure, including worker communication and data transfer between your local environment and remote workers.
+  * **Reduced Development Overhead**: Avoid the time-consuming tasks of writing application code for each worker, building Docker containers, and managing individual endpoints.
+  * **Intuitive Programming Model**: Utilize Python decorators to easily mark functions for remote execution on the RunPod infrastructure.
+
+### Inline Resource Configuration
+
+Tetra allows for granular hardware specification at the function level using the `LiveServerless` object. This enables detailed control over GPU allocation and worker scaling.
+
+For example:
+
+```python
+from tetra import LiveServerless
+
+# Configure a GPU endpoint
+gpu_config = LiveServerless(
+    gpuIds="any", # Use any available GPU
+    workersMax=5, # Scales up to 5 workers
+    name="parallel-processor", # Name of the endpoint that will be created or used
+)
+```
+
+Refer to the [Configuration Parameters](https://www.google.com/search?q=%23configuration-parameters) section for a full list of available settings.
+
+### Dynamic GPU Provisioning
+
+Tetra enables you to automatically provision GPUs on demand without any manual setup:
+
+```python
+@remote(
+    resource_config=gpu_config,
+)
+def my_gpu_function(data):
+    # Runs on GPU when called
+    return process(data)
+```
+
+### Automatic Dependency Management
+
+Specify necessary Python dependencies for remote workers directly within the `@remote` decorator. Tetra ensures these dependencies are installed in the execution environment.
+
+```python
+@remote(
+    resource_config=gpu_config,
+    dependencies=["torch==2.0.1", "transformers", "pillow"]
+    # dependencies=["torch==2.0.1", "transformers", "diffusers"]
+
+def model_inference(data):
+    # Libraries are automatically installed
+    from transformers import AutoModel #
+    import torch #
+    from PIL import Image #
+    # ...
+    return "inference_results"
+```
+
+Ensure that `import` statements for these dependencies are included *inside* any remote functions that require them.
+
+-----
+
+## How Tetra Works
+
+When a Tetra workflow is executed, the following steps occur:
+
+1.  The `@remote` decorator identifies functions that are designated for remote execution.
+2.  Tetra analyzes the dependencies between these functions to determine the correct order of execution.
+3.  For each remote function:
+      * Tetra provisions the necessary endpoint and worker resources on RunPod.
+      * Input data is serialized and transferred to the remote worker.
+      * The function executes on the remote infrastructure.
+      * Results are then returned to your local environment.
+4.  Data flows between functions as defined by your local Python code.
+
+-----
+
+## Common Use Cases
+
+Tetra is well-suited for a variety of AI and data processing tasks, including:
+
+  * **Multi-modal AI pipelines**: Combine text, image, and audio models into unified workflows.
+  * **Distributed model training**: Scale model training operations across multiple GPU workers.
+  * **AI research experimentation**: Quickly prototype and test complex combinations of models.
+  * **Production inference systems**: Deploy sophisticated, multi-stage inference pipelines for real-world applications.
+  * **Data processing workflows**: Process large datasets efficiently using distributed computing resources.
+
+-----
+
+## Quick Start Example
 
 ```python
 import os
@@ -65,7 +173,7 @@ def gpu_compute(data):
         "cuda_version": torch.version.cuda
     }
 
-async def main():
+async def main_quick_start():
     # Run the function on RunPod GPU
     result = await gpu_compute([1, 2, 3, 4, 5])
     print(f"Result: {result['result']}")
@@ -73,59 +181,33 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        asyncio.run(main_quick_start())
     except Exception as e:
         print(f"An error occurred: {e}")
 ```
 
-## Key Features
+-----
 
-### Dynamic GPU Provisioning
+## More Examples
 
-Automatically provision GPUs on demand without any manual setup:
-
-```python
-@remote(
-    resource_config=runpod_config,
-)
-def my_gpu_function(data):
-    # Runs on GPU when called
-    return process(data)
-```
-
-### Automatic Dependency Management
-
-Specify `dependencies` you need, which are automatically installed for you:
-
-```python
-@remote(
-    resource_config=runpod_config,
-    dependencies=["torch==2.0.1", "transformers", "diffusers"]
-)
-def generate_image(prompt):
-    # Dependencies are automatically installed
-    from diffusers import StableDiffusionPipeline
-    # Generate image...
-    return image
-```
-
-## Examples
-
-See more examples here: [tetra-examples](https://github.com/runpod/tetra-examples)
+You can find more examples in the [tetra-examples repository](https://github.com/runpod/tetra-examples).
 
 You can also install the examples as a submodule:
 
 ```bash
-make examples
+git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runpod/tetra-examples.git)
+
 cd tetra-examples
 python -m examples.example
 python -m examples.image_gen
 python -m examples.matrix_operations
 ```
 
-### Multi-Stage ML Pipeline
+### Multi-Stage ML Pipeline Example
 
 ```python
+from tetra_rp import remote
+
 # Feature extraction on GPU
 @remote(
     resource_config=runpod_config,
@@ -135,12 +217,10 @@ def extract_features(texts):
     import torch
     from transformers import AutoTokenizer, AutoModel
     
-    # Load model
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
     model = AutoModel.from_pretrained("bert-base-uncased")
     model.to("cuda")
     
-    # Process texts
     features = []
     for text in texts:
         inputs = tokenizer(text, return_tensors="pt").to("cuda")
@@ -160,37 +240,30 @@ def classify(features, labels=None):
     import numpy as np
     from sklearn.linear_model import LogisticRegression
     
-    # Convert to numpy
-    features = np.array(features)
+    features_np = np.array(features[1:] if labels is None and isinstance(features, list) and len(features)>0 and isinstance(features[0], dict) else features)
     
     if labels is not None:
-        # Training mode
-        labels = np.array(labels)
+        labels_np = np.array(labels)
         classifier = LogisticRegression()
-        classifier.fit(features, labels)
+        classifier.fit(features_np, labels_np)
         
-        # Save model coefficients (can't pickle sklearn model easily)
         coefficients = {
             "coef": classifier.coef_.tolist(),
             "intercept": classifier.intercept_.tolist(),
             "classes": classifier.classes_.tolist()
         }
-        
         return coefficients
     else:
-        # Inference mode (assuming coefficients are passed as first element)
         coefficients = features[0]
-        actual_features = features[1:]
         
-        # Recreate classifier
         classifier = LogisticRegression()
         classifier.coef_ = np.array(coefficients["coef"])
         classifier.intercept_ = np.array(coefficients["intercept"])
         classifier.classes_ = np.array(coefficients["classes"])
         
         # Predict
-        predictions = classifier.predict(actual_features)
-        probabilities = classifier.predict_proba(actual_features)
+        predictions = classifier.predict(features_np)
+        probabilities = classifier.predict_proba(features_np)
         
         return {
             "predictions": predictions.tolist(),
@@ -199,50 +272,47 @@ def classify(features, labels=None):
 
 # Complete pipeline
 async def text_classification_pipeline(train_texts, train_labels, test_texts):
-    # Extract features
     train_features = await extract_features(train_texts)
     test_features = await extract_features(test_texts)
     
-    # Train classifier
-    model = await classify(train_features, train_labels)
+    model_coeffs = await classify(train_features, train_labels)
     
-    # Predict
-    predictions = await classify([model] + test_features)
+    # For inference, pass model coefficients along with test features
+    # The classify function expects a list where the first element is the model (coeffs)
+    # and subsequent elements are features for prediction.
+    predictions = await classify([model_coeffs] + test_features)
     
     return predictions
 ```
+
+-----
 
 ## Configuration
 
 ### Configuration Parameters
 
-| Parameter | Description | Default | Example Values |
-|-----------|-------------|---------|---------------|
-| `name` | (Required) Name for your endpoint | "" | "stable-diffusion-server" |
-| `gpuIds` | Type of GPU to request | "any" | "any" or list of [GPU IDs](https://docs.runpod.io/references/gpu-types) (comma-separated) |
-| `gpuCount` | Number of GPUs per worker | 1 | 1, 2, 4 |
-| `workersMin` | Minimum number of workers | 0 | Set to 1 for persistence |
-| `workersMax` | Maximum number of workers | 3 | Higher for more concurrency |
-| `idleTimeout` | Minutes before scaling down | 5 | 10, 30, 60 |
-| `env` | Environment variables | None | `{"HF_TOKEN": "xyz"}` |
-| `networkVolumeId` | Persistent storage ID | None | "vol_abc123" |
-| `executionTimeoutMs` | Max execution time (ms) | 0 (no limit) | 600000 (10 min) |
-| `scalerType` | Scaling strategy | QUEUE_DELAY | NONE, QUEUE_SIZE |
-| `scalerValue` | Scaling parameter value | 4 | 1-10 range typical |
-| `locations` | Preferred datacenter locations | None | "us-east,eu-central" |
+The following parameters can be used with the `LiveServerless` object to configure your RunPod endpoints:
 
-### Examples
-
-See more examples in the `./examples/*` folder
-
----
+| Parameter          | Description                                     | Default       | Example Values                      |
+|--------------------|-------------------------------------------------|---------------|-------------------------------------|
+| `name`             | (Required) Name for your endpoint               | `""`          | `"stable-diffusion-server"`         |
+| `gpuIds`           | Type of GPU to request                          | `"any"`       | `"any"` or list of [GPU IDs](https://docs.runpod.io/references/gpu-types) (comma-separated) |
+| `gpuCount`         | Number of GPUs per worker                       | 1             | 1, 2, 4                             |
+| `workersMin`       | Minimum number of workers                       | 0             | Set to 1 for persistence            |
+| `workersMax`       | Maximum number of workers                       | 3             | Higher for more concurrency         |
+| `idleTimeout`      | Minutes before scaling down                     | 5             | 10, 30, 60                          |
+| `env`              | Environment variables                           | `None`        | `{"HF_TOKEN": "xyz"}`               |
+| `networkVolumeId`  | Persistent storage ID                           | `None`        | `"vol_abc123"`                      |
+| `executionTimeoutMs`| Max execution time (ms)                         | 0 (no limit)  | 600000 (10 min)                     |
+| `scalerType`       | Scaling strategy                                | `QUEUE_DELAY` | `NONE`, `QUEUE_SIZE`                |
+| `scalerValue`      | Scaling parameter value                         | 4             | 1-10 range typical                  |
+| `locations`        | Preferred datacenter locations                  | `None`        | `"us-east,eu-central"`              |
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-
----
+-----
 
 <p align="center">
   <a href="https://github.com/yourusername/tetra">Tetra</a> •
