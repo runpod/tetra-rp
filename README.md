@@ -1,4 +1,3 @@
-````markdown
 # Tetra: Serverless GPU Computing for AI Workloads
 
 <p align="center">
