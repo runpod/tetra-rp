@@ -64,7 +64,7 @@ Tetra allows for granular hardware specification at the function level using the
 For example:
 
 ```python
-from tetra import LiveServerless # In the original Readme, this was tetra_rp
+from tetra import LiveServerless
 
 # Configure a GPU endpoint
 gpu_config = LiveServerless(
@@ -94,11 +94,11 @@ def my_gpu_function(data):
 Specify necessary Python dependencies for remote workers directly within the `@remote` decorator. Tetra ensures these dependencies are installed in the execution environment.
 
 ```python
-@remote( # In the original Readme, this was tetra_rp
+@remote(
     resource_config=gpu_config, # Assuming gpu_config is defined
     dependencies=["torch==2.0.1", "transformers", "pillow"] # (Example from dev doc)
-    # dependencies=["torch==2.0.1", "transformers", "diffusers"] (Example from original Readme)
-)
+    # dependencies=["torch==2.0.1", "transformers", "diffusers"]
+
 def model_inference(data):
     # Libraries are automatically installed
     from transformers import AutoModel #
@@ -196,7 +196,7 @@ You can also install the examples as a submodule:
 
 ```bash
 git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runpod/tetra-examples.git) # This line was in the dev doc start
-# make examples # This was in the original Readme, keeping the clone command from dev doc as it's more standard.
+
 cd tetra-examples
 python -m examples.example
 python -m examples.image_gen
