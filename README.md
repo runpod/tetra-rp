@@ -31,7 +31,7 @@ Alternatively, you can clone the Tetra examples repository to explore and run pr
 
 ```bash
 git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runpod/tetra-examples.git)
-````
+```
 
 ### Installation
 
@@ -95,8 +95,8 @@ Specify necessary Python dependencies for remote workers directly within the `@r
 
 ```python
 @remote(
-    resource_config=gpu_config, # Assuming gpu_config is defined
-    dependencies=["torch==2.0.1", "transformers", "pillow"] # (Example from dev doc)
+    resource_config=gpu_config,
+    dependencies=["torch==2.0.1", "transformers", "pillow"]
     # dependencies=["torch==2.0.1", "transformers", "diffusers"]
 
 def model_inference(data):
@@ -173,7 +173,7 @@ def gpu_compute(data):
         "cuda_version": torch.version.cuda
     }
 
-async def main_quick_start(): # Renamed to avoid conflict
+async def main_quick_start():
     # Run the function on RunPod GPU
     result = await gpu_compute([1, 2, 3, 4, 5])
     print(f"Result: {result['result']}")
@@ -195,7 +195,7 @@ You can find more examples in the [tetra-examples repository](https://github.com
 You can also install the examples as a submodule:
 
 ```bash
-git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runpod/tetra-examples.git) # This line was in the dev doc start
+git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runpod/tetra-examples.git)
 
 cd tetra-examples
 python -m examples.example
@@ -206,8 +206,7 @@ python -m examples.matrix_operations
 ### Multi-Stage ML Pipeline Example
 
 ```python
-# (Assuming runpod_config is defined as in the Quick Start Example)
-# from tetra_rp import remote # Already imported
+from tetra_rp import remote
 
 # Feature extraction on GPU
 @remote(
@@ -241,7 +240,7 @@ def classify(features, labels=None):
     import numpy as np
     from sklearn.linear_model import LogisticRegression
     
-    features_np = np.array(features[1:] if labels is None and isinstance(features, list) and len(features)>0 and isinstance(features[0], dict) else features) # Adjusted for inference
+    features_np = np.array(features[1:] if labels is None and isinstance(features, list) and len(features)>0 and isinstance(features[0], dict) else features)
     
     if labels is not None:
         labels_np = np.array(labels)
@@ -255,7 +254,7 @@ def classify(features, labels=None):
         }
         return coefficients
     else:
-        coefficients = features[0] # Assuming coefficients are passed as first element for inference
+        coefficients = features[0]
         
         classifier = LogisticRegression()
         classifier.coef_ = np.array(coefficients["coef"])
@@ -276,12 +275,12 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
     train_features = await extract_features(train_texts)
     test_features = await extract_features(test_texts)
     
-    model_coeffs = await classify(train_features, train_labels) # Corrected variable name
+    model_coeffs = await classify(train_features, train_labels)
     
     # For inference, pass model coefficients along with test features
     # The classify function expects a list where the first element is the model (coeffs)
     # and subsequent elements are features for prediction.
-    predictions = await classify([model_coeffs] + test_features) # Corrected structure for inference
+    predictions = await classify([model_coeffs] + test_features)
     
     return predictions
 
