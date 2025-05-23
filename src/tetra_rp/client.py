@@ -1,7 +1,7 @@
 from functools import wraps
 from tetra_rp import get_logger
 from typing import List
-from .core.resources import ServerlessResource, ResourceManager
+from .core.resources import ServerlessEndpoint, ResourceManager
 from .stubs import stub_resource
 
 
@@ -9,7 +9,7 @@ log = get_logger("client")
 
 
 def remote(
-    resource_config: ServerlessResource,
+    resource_config: ServerlessEndpoint,
     dependencies: List[str] = None,
 ):
     """

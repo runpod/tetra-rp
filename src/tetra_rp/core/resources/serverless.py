@@ -34,7 +34,7 @@ class ServerlessScalerType(Enum):
     REQUEST_COUNT = "REQUEST_COUNT"
 
 
-class ServerlessResource(DeployableResource):
+class ServerlessEndpoint(DeployableResource):
     # Prevent mutation after creation
     model_config = {"frozen": True}
 
@@ -116,7 +116,7 @@ class ServerlessResource(DeployableResource):
 
         return ",".join(normalized)
 
-    async def deploy(self) -> "ServerlessResource":
+    async def deploy(self) -> "ServerlessEndpoint":
         """
         Deploys the serverless resource using the provided configuration.
         Returns a ServerlessResource object.
@@ -141,7 +141,7 @@ class ServerlessResource(DeployableResource):
                 flashboot=True,  # TODO: self.flashboot
             )
 
-            if endpoint := ServerlessResource(**result):
+            if endpoint := ServerlessEndpoint(**result):
                 log.info(f"Serverless deployed: {endpoint.url}")
                 return endpoint
 

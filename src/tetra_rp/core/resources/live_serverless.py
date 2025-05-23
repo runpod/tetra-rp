@@ -1,8 +1,8 @@
 # Ship serverless code as you write it. No builds, no deploys — just run.
-from .serverless import ServerlessResource
+from .serverless import ServerlessEndpoint
 
 
-class LiveServerless(ServerlessResource):
+class LiveServerless(ServerlessEndpoint):
     _locked_fields = {"templateId"}
 
     def __init__(self, **data):
