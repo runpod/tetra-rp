@@ -24,7 +24,7 @@ Tetra is a Python SDK that streamlines the development and deployment of AI work
 
 ## Get Started
 
-To begin working with Tetra, you can follow a step-by-step tutorial to learn how to code workflows in both serial and parallel fashion: [Get started with Tetra](https://runpod.notion.site/tetra-tutorial)
+To get started with Tetra, you can follow this step-by-step tutorial to learn how to code remote workflows in both serial and parallel: [Get started with Tetra](https://runpod.notion.site/tetra-tutorial).
 
 Alternatively, you can clone the Tetra examples repository to explore and run pre-built examples:
 
@@ -38,7 +38,7 @@ git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runp
 pip install tetra_rp
 ```
 
-A RunPod API key is required to use this integration. You can sign up at [RunPod.io](https://runpod.io) and generate an API key from your account settings. Set this key as an environment variable or save it in a local `.env` file:
+You must also set up a [RunPod API key](https://docs.runpod.io/get-started/api-keys) to use this integration. You can sign up at [RunPod.io](https://runpod.io) and generate an API key from your account settings. Set this key as an environment variable or save it in a local `.env` file:
 
 ```bash
 export RUNPOD_API_KEY=<YOUR_API_KEY>
