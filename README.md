@@ -283,17 +283,6 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
     predictions = await classify([model_coeffs] + test_features)
     
     return predictions
-
-# Example Usage (optional, for clarity)
-# async def run_pipeline_example():
-#     train_texts_example = ["This is a positive example.", "This is a negative sentence."]
-#     train_labels_example = [1, 0] # 1 for positive, 0 for negative
-#     test_texts_example = ["Another positive text.", "A neutral one perhaps.", "Definitely negative content."]
-#     pipeline_results = await text_classification_pipeline(train_texts_example, train_labels_example, test_texts_example)
-#     print(f"Pipeline results: {pipeline_results}")
-
-# if __name__ == "__main__":
-#     asyncio.run(run_pipeline_example())
 ```
 
 -----
