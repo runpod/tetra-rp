@@ -144,7 +144,7 @@ Tetra is well-suited for a variety of AI and data processing tasks, including:
 ```python
 import os
 import asyncio
-from tetra_rp import remote, LiveServerless # In the dev doc, this is 'from tetra import ...'
+from tetra_rp import remote, LiveServerless
 
 # Configure RunPod resource
 runpod_config = LiveServerless(
