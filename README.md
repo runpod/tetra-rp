@@ -19,7 +19,7 @@
 
 Tetra is a Python SDK that streamlines the development and deployment of AI workflows on RunPod's Serverless infrastructure. It provides an abstraction layer that lets you define, execute, and monitor sophisticated AI pipelines using nothing but Python code and your local terminal, eliminating the need to interact with the RunPod console GUI.
 
----
+-----
 
 ## Get Started
 
@@ -42,6 +42,8 @@ You must also set up a [RunPod API key](https://docs.runpod.io/get-started/api-k
 ```bash
 export RUNPOD_API_KEY=<YOUR_API_KEY>
 ```
+
+-----
 
 ## Key Features and Concepts
 
