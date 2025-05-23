@@ -119,7 +119,7 @@ class ServerlessEndpoint(DeployableResource):
     async def deploy(self) -> "ServerlessEndpoint":
         """
         Deploys the serverless resource using the provided configuration.
-        Returns a ServerlessResource object.
+        Returns a ServerlessEndpoint object.
         """
         try:
             # If the resource is already deployed, return it

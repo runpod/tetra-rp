@@ -18,7 +18,7 @@ def remote(
     This decorator allows a function to be executed in a remote serverless environment, with support for
     dynamic resource provisioning and installation of required dependencies.
 
-        resource_config (ServerlessResource): Configuration object specifying the serverless resource
+        resource_config (ServerlessEndpoint): Configuration object specifying the serverless resource
             to be provisioned or used.
         dependencies (List[str], optional): A list of pip package names to be installed in the remote
             environment before executing the function. Defaults to None.
