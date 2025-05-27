@@ -30,7 +30,7 @@ To get started with Tetra, you can follow this step-by-step tutorial to learn ho
 Alternatively, you can clone the Tetra examples repository to explore and run pre-built examples:
 
 ```bash
-git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runpod/tetra-examples.git)
+git clone https://github.com/runpod/tetra-examples.git
 ```
 
 ### Installation
