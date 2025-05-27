@@ -106,7 +106,7 @@ class LiveServerlessStub(RemoteExecutorStub):
             # Convert the gRPC request to RunPod format
             payload = request.model_dump(exclude_none=True)
 
-            job = await self.server.execute(payload)
+            job = await self.server.run(payload)
 
             if job.error:
                 return FunctionResponse(
