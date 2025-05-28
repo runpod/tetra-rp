@@ -144,9 +144,14 @@ Tetra is well-suited for a variety of AI and data processing tasks, including:
 ```python
 import os
 import asyncio
+from dotenv import load_dotenv
 from tetra_rp import remote, LiveServerless
 
-# Configure RunPod resource
+# Load environment variables from .env file
+# Make sure you .env file is in the same directory as your .py file
+load_dotenv()
+
+# Configure RunPod resources
 runpod_config = LiveServerless(
     name="example-diffusion-server",
     gpuIds="any"
@@ -207,7 +212,20 @@ python -m examples.matrix_operations
 ### Multi-Stage ML Pipeline Example
 
 ```python
-from tetra_rp import remote
+import os
+import asyncio
+from dotenv import load_dotenv
+from tetra_rp import remote, LiveServerless
+
+# Load environment variables from .env file
+# Make sure you .env file is in the same directory as your .py file
+load_dotenv()
+
+# Configure RunPod resources
+runpod_config = LiveServerless(
+    name="multi-stage-pipeline-server",
+    gpuIds="any"
+)
 
 # Feature extraction on GPU
 @remote(
