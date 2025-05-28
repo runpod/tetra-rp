@@ -149,6 +149,7 @@ from tetra_rp import remote, LiveServerless
 # Configure RunPod resource
 runpod_config = LiveServerless(
     name="example-diffusion-server",
+    gpuIds="any"
 )
 
 # Define a function to run on RunPod GPU
@@ -296,7 +297,7 @@ The following parameters can be used with the `LiveServerless` object to configu
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
 | `name`             | (Required) Name for your endpoint               | `""`          | `"stable-diffusion-server"`         |
-| `gpuIds`           | Type of GPU to request                          | `"any"`       | `"any"` or list of [GPU IDs](https://docs.runpod.io/references/gpu-types) (comma-separated) |
+| `gpuIds`           | GPU pool IDs that can be used by workers       | `"any"`       | `"any"` or list of [GPU pool IDs](https://docs.runpod.io/references/gpu-types#gpu-pools) (comma-separated) |
 | `gpuCount`         | Number of GPUs per worker                       | 1             | 1, 2, 4                             |
 | `workersMin`       | Minimum number of workers                       | 0             | Set to 1 for persistence            |
 | `workersMax`       | Maximum number of workers                       | 3             | Higher for more concurrency         |
