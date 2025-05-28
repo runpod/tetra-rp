@@ -149,6 +149,28 @@ class ServerlessResource(DeployableResource):
             log.error(f"Serverless failed to deploy: {e}")
             raise
 
+    async def run_sync(self, payload: Dict[str, Any]) -> object:
+        """
+        Executes a serverless endpoint request with the payload.
+        Returns an object.
+        """
+        if not self.id:
+            raise ValueError("Serverless is not deployed")
+
+        try:
+            log_group = f"Serverless:{self.id}"
+
+            log.info(f"{log_group} | Executing: {self.url}/run_sync")
+            # log.debug(f"[{log_group}] Payload: {payload}")
+
+            return await asyncio.to_thread(
+                self.endpoint.run_sync, request_input=payload
+            )
+
+        except Exception as e:
+            log.error(f"{log_group} | Exception: {e}")
+            raise
+
     async def run(self, payload: Dict[str, Any]) -> "JobOutput":
         """
         Executes a serverless endpoint request with the payload.
