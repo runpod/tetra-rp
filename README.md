@@ -144,7 +144,12 @@ Tetra is well-suited for a variety of AI and data processing tasks, including:
 ```python
 import os
 import asyncio
+from dotenv import load_dotenv
 from tetra_rp import remote, LiveServerless
+
+# Load environment variables from .env file
+# Make sure you .env file is in the same directory as your .py file
+load_dotenv()
 
 # Configure RunPod resource
 runpod_config = LiveServerless(
