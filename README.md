@@ -297,7 +297,7 @@ The following parameters can be used with the `LiveServerless` object to configu
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
 | `name`             | (Required) Name for your endpoint               | `""`          | `"stable-diffusion-server"`         |
-| `gpuIds`           | GPU pool IDs that will be used by workers       | `"any"`       | `"any"` or list of [GPU pool IDs](https://docs.runpod.io/references/gpu-types#gpu-pools) (comma-separated) |
+| `gpuIds`           | GPU pool IDs that can be used by workers       | `"any"`       | `"any"` or list of [GPU pool IDs](https://docs.runpod.io/references/gpu-types#gpu-pools) (comma-separated) |
 | `gpuCount`         | Number of GPUs per worker                       | 1             | 1, 2, 4                             |
 | `workersMin`       | Minimum number of workers                       | 0             | Set to 1 for persistence            |
 | `workersMax`       | Maximum number of workers                       | 3             | Higher for more concurrency         |
