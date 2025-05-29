@@ -101,12 +101,15 @@ class LiveServerlessStub(RemoteExecutorStub):
         else:
             raise Exception(f"Remote execution failed: {response.error}")
 
-    async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
+    async def ExecuteFunction(self, request: FunctionRequest, sync: bool = False) -> FunctionResponse:
         try:
             # Convert the gRPC request to RunPod format
             payload = request.model_dump(exclude_none=True)
 
-            job = await self.server.run(payload)
+            if sync:
+                job = await self.server.run_sync(payload)
+            else:
+                job = await self.server.run(payload)
 
             if job.error:
                 return FunctionResponse(

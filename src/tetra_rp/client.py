@@ -11,6 +11,7 @@ log = get_logger("client")
 def remote(
     resource_config: ServerlessEndpoint,
     dependencies: List[str] = None,
+    **extra
 ):
     """
     Decorator to enable dynamic resource provisioning and dependency management for serverless functions.
@@ -22,6 +23,7 @@ def remote(
             to be provisioned or used.
         dependencies (List[str], optional): A list of pip package names to be installed in the remote
             environment before executing the function. Defaults to None.
+        extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
 
     Returns:
         Callable: A decorator that wraps the target function, enabling remote execution with the
@@ -31,7 +33,8 @@ def remote(
     ```python
         @remote(
             resource_config=my_resource_config,
-            dependencies=["numpy", "pandas"]
+            dependencies=["numpy", "pandas"],
+            sync=True  # Optional, to run synchronously
         )
         async def my_function(data):
             # Function logic here
@@ -44,7 +47,7 @@ def remote(
             resource_manager = ResourceManager()
             remote_resource = await resource_manager.get_or_create_resource(resource_config)
 
-            stub = stub_resource(remote_resource)
+            stub = stub_resource(remote_resource, **extra)
             return await stub(func, dependencies, *args, **kwargs)
 
         return wrapper

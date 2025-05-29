@@ -268,7 +268,7 @@ class JobOutput(BaseModel):
     status: str
     delayTime: int
     executionTime: int
-    output: Optional[Dict[str, Any]] = {}
+    output: Optional[object] = None
     error: Optional[str] = ""
 
 
@@ -311,6 +311,7 @@ class JobsHealth(BaseModel):
     inProgress: int
     inQueue: int
     retried: int
+
 
 class ServerlessHealth(BaseModel):
     workers: WorkersHealth
