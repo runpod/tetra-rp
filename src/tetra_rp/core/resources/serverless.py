@@ -116,6 +116,20 @@ class ServerlessResource(DeployableResource):
 
         return ",".join(normalized)
 
+    def is_deployed(self) -> bool:
+        """
+        Checks if the serverless resource is deployed and available.
+        """
+        try:
+            if not self.id:
+                return False
+
+            response = self.endpoint.health()
+            return response is not None
+        except Exception as e:
+            log.error(f"Error checking {self.url}: {e}")
+            return False
+
     async def deploy(self) -> "ServerlessResource":
         """
         Deploys the serverless resource using the provided configuration.
@@ -123,7 +137,7 @@ class ServerlessResource(DeployableResource):
         """
         try:
             # If the resource is already deployed, return it
-            if self.id:
+            if self.is_deployed():
                 log.debug(f"Serverless exists: {self.url}")
                 return self
 

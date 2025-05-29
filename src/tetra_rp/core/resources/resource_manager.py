@@ -19,14 +19,14 @@ RESOURCE_STATE_FILE = Path(".tetra_resources.json")
 class ResourceManager(SingletonMixin):
     """Manages dynamic provisioning and tracking of remote resources."""
 
-    _resources: Dict[str, BaseResource] = {}
+    _resources: Dict[str, DeployableResource] = {}
 
     def __init__(self):
         if not self._resources:
             self._load_resources()
 
-    def _load_resources(self) -> Dict[str, BaseResource]:
         """Load persisted resource information."""
+    def _load_resources(self) -> Dict[str, DeployableResource]:
         if RESOURCE_STATE_FILE.exists():
             try:
                 with open(RESOURCE_STATE_FILE, "rb") as f:
@@ -54,15 +54,32 @@ class ResourceManager(SingletonMixin):
             f.write(orjson.dumps(normalize_for_json(resources_state)).decode("utf-8"))
             log.debug(f"Saved resources in {RESOURCE_STATE_FILE}")
 
-    def add_resource(self, uid: str, resource: BaseResource):
+    def add_resource(self, uid: str, resource: DeployableResource):
         """Add a resource to the manager."""
         self._resources[uid] = resource
         self._save_resources()
 
-    async def get_or_create_resource(self, config: DeployableResource) -> BaseResource:
+    # function to check if resource still exists remotely, else remove it
+    def remove_resource(self, uid: str):
+        """Remove a resource from the manager."""
+        if uid not in self._resources:
+            log.warning(f"Resource {uid} not found for removal")
+            return
+
+        del self._resources[uid]
+        log.debug(f"Removed resource {uid}")
+
+        self._save_resources()
+
+    async def get_or_deploy_resource(self, config: DeployableResource) -> DeployableResource:
         """Get existing or create new resource based on config."""
         uid = config.resource_id
         if existing := self._resources.get(uid):
+            if not existing.is_deployed():
+                log.warning(f"Resource {uid} is no longer valid, redeploying.")
+                self.remove_resource(uid)
+                return await self.get_or_deploy_resource(config)
+
             log.debug(f"Resource {uid} exists, reusing.")
             return existing
 

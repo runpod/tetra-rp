@@ -45,7 +45,7 @@ def remote(
         @wraps(func)
         async def wrapper(*args, **kwargs):
             resource_manager = ResourceManager()
-            remote_resource = await resource_manager.get_or_create_resource(resource_config)
+            remote_resource = await resource_manager.get_or_deploy_resource(resource_config)
 
             stub = stub_resource(remote_resource, **extra)
             return await stub(func, dependencies, *args, **kwargs)
