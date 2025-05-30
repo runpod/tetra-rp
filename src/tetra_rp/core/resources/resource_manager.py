@@ -1,10 +1,8 @@
-import orjson
-import importlib
+import cloudpickle
 from typing import Dict
 from pathlib import Path
 
 from tetra_rp import get_logger
-from tetra_rp.core.utils.json import normalize_for_json
 from tetra_rp.core.utils.singleton import SingletonMixin
 
 from .base import BaseResource, DeployableResource
@@ -12,8 +10,8 @@ from .base import BaseResource, DeployableResource
 
 log = get_logger("resource_manager")
 
-
-RESOURCE_STATE_FILE = Path(".tetra_resources.json")
+# File to persist state of resources
+RESOURCE_STATE_FILE = Path(".tetra_resources.pkl")
 
 
 class ResourceManager(SingletonMixin):
@@ -25,34 +23,22 @@ class ResourceManager(SingletonMixin):
         if not self._resources:
             self._load_resources()
 
-        """Load persisted resource information."""
     def _load_resources(self) -> Dict[str, DeployableResource]:
+        """Load persisted resource information using cloudpickle."""
         if RESOURCE_STATE_FILE.exists():
             try:
                 with open(RESOURCE_STATE_FILE, "rb") as f:
-                    resources_state = orjson.loads(f.read())
-                    for k, v in resources_state.items():
-                        class_name = k.split("_")[0]
-                        module = importlib.import_module("tetra_rp.core.resources")
-                        resource_class = getattr(module, class_name)
-                        if resource_class:
-                            # Produce the BaseResource object
-                            self._resources[k] = resource_class(**v)
-
+                    self._resources = cloudpickle.load(f)
                     log.debug(f"Loaded saved resources from {RESOURCE_STATE_FILE}")
-
-            except orjson.JSONDecodeError:
-                log.error(f"Failed to load resources from {RESOURCE_STATE_FILE}")
+            except Exception as e:
+                log.error(f"Failed to load resources from {RESOURCE_STATE_FILE}: {e}")
+        return self._resources
 
     def _save_resources(self) -> None:
-        """Persist state of resources to disk."""
-        resources_state = {
-            k: v.model_dump(exclude_none=True) for k, v in self._resources.items()
-        }
-
-        with open(RESOURCE_STATE_FILE, "w") as f:
-            f.write(orjson.dumps(normalize_for_json(resources_state)).decode("utf-8"))
-            log.debug(f"Saved resources in {RESOURCE_STATE_FILE}")
+        """Persist state of resources to disk using cloudpickle."""
+        with open(RESOURCE_STATE_FILE, "wb") as f:
+            cloudpickle.dump(self._resources, f)
+        log.debug(f"Saved resources in {RESOURCE_STATE_FILE}")
 
     def add_resource(self, uid: str, resource: DeployableResource):
         """Add a resource to the manager."""
