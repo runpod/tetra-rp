@@ -34,10 +34,10 @@ class ServerlessScalerType(Enum):
     REQUEST_COUNT = "REQUEST_COUNT"
 
 
-class ServerlessResource(DeployableResource):
     # Prevent mutation after creation
     model_config = {"frozen": True}
 
+class ServerlessResource(DeployableResource):
     # === Input Fields ===
     allowedCudaVersions: Optional[str] = ""
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
@@ -141,7 +141,7 @@ class ServerlessResource(DeployableResource):
                 flashboot=True,  # TODO: self.flashboot
             )
 
-            if endpoint := ServerlessResource(**result):
+            if endpoint := self.__class__(**result):
                 log.info(f"Serverless deployed: {endpoint.url}")
                 return endpoint
 
@@ -149,7 +149,29 @@ class ServerlessResource(DeployableResource):
             log.error(f"Serverless failed to deploy: {e}")
             raise
 
-    async def execute(self, payload: Dict[str, Any]) -> "JobOutput":
+    async def run_sync(self, payload: Dict[str, Any]) -> object:
+        """
+        Executes a serverless endpoint request with the payload.
+        Returns an object.
+        """
+        if not self.id:
+            raise ValueError("Serverless is not deployed")
+
+        try:
+            log_group = f"Serverless:{self.id}"
+
+            log.info(f"{log_group} | Executing: {self.url}/run_sync")
+            # log.debug(f"[{log_group}] Payload: {payload}")
+
+            return await asyncio.to_thread(
+                self.endpoint.run_sync, request_input=payload
+            )
+
+        except Exception as e:
+            log.error(f"{log_group} | Exception: {e}")
+            raise
+
+    async def run(self, payload: Dict[str, Any]) -> "JobOutput":
         """
         Executes a serverless endpoint request with the payload.
         Returns a JobOutput object.
@@ -160,7 +182,7 @@ class ServerlessResource(DeployableResource):
         try:
             log_group = f"Serverless:{self.id}"
 
-            log.info(f"{log_group} | Executing: {self.url}")
+            log.info(f"{log_group} | Executing: {self.url}/run")
             # log.debug(f"[{log_group}] Payload: {payload}")
 
             job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
@@ -210,7 +232,7 @@ class ServerlessResource(DeployableResource):
                     attempt += 1
                     indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
                     if indicator:
-                        log.info(f"{log_subgroup} | Status: {job_status} {indicator}")
+                        log.info(f"{log_subgroup} | {indicator}")
                 else:
                     # status changed, reset the gap
                     log.info(f"{log_subgroup} | Status: {job_status}")
@@ -232,13 +254,21 @@ class ServerlessResource(DeployableResource):
             raise
 
 
+class ServerlessEndpoint(ServerlessResource):
+    """
+    Represents a serverless endpoint distinct from a live serverless.
+    Inherits from ServerlessResource.
+    """
+    pass
+
+
 class JobOutput(BaseModel):
     id: str
     workerId: str
     status: str
     delayTime: int
     executionTime: int
-    output: Optional[Dict[str, Any]] = {}
+    output: Optional[object] = None
     error: Optional[str] = ""
 
 
@@ -281,6 +311,7 @@ class JobsHealth(BaseModel):
     inProgress: int
     inQueue: int
     retried: int
+
 
 class ServerlessHealth(BaseModel):
     workers: WorkersHealth

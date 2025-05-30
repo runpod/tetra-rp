@@ -1,121 +1,54 @@
-import base64
-import cloudpickle
-import hashlib
 from functools import wraps
-from typing import List
-from .protos.remote_execution import FunctionRequest
-from .core.resources import ServerlessResource, ResourceManager
-from .protos.stubs import TetraServerlessStub
 from tetra_rp import get_logger
+from typing import List
+from .core.resources import ServerlessEndpoint, ResourceManager
+from .stubs import stub_resource
 
 
 log = get_logger("client")
 
 
-# global in memory cache, TODO: use a more robust cache in future
-_SERIALIZED_FUNCTION_CACHE = {} 
-
-
-def get_function_source(func):
-    """Extract the function source code without the decorator."""
-    import ast
-    import inspect
-    import textwrap
-
-    # Get the source code of the decorated function
-    source = inspect.getsource(func)
-
-    # Parse the source code
-    module = ast.parse(source)
-
-    # Find the function definition node
-    function_def = None
-    for node in ast.walk(module):
-        if isinstance(node, ast.FunctionDef) and node.name == func.__name__:
-            function_def = node
-            break
-
-    if not function_def:
-        raise ValueError(f"Could not find function definition for {func.__name__}")
-
-    # Get the line and column offsets
-    lineno = function_def.lineno - 1  # Line numbers are 1-based
-    col_offset = function_def.col_offset
-
-    # Split into lines and extract just the function part
-    lines = source.split("\n")
-    function_lines = lines[lineno:]
-
-    # Dedent to remove any extra indentation
-    function_source = textwrap.dedent("\n".join(function_lines)) 
-    
-    # Return the function hash for cache key 
-    source_hash = hashlib.sha256(function_source.encode("utf-8")).hexdigest()
-    
-    return function_source, source_hash
-
-
 def remote(
-    resource_config: ServerlessResource,
+    resource_config: ServerlessEndpoint,
     dependencies: List[str] = None,
+    **extra
 ):
     """
-    Enhanced remote decorator that supports both traditional server specification
-    and dynamic resource provisioning.
+    Decorator to enable dynamic resource provisioning and dependency management for serverless functions.
 
-    Args:
-        server_spec: Traditional server or pool name
-        resource_config: Configuration for dynamic resource provisioning
-        dependencies: List of pip packages to install before executing the function
+    This decorator allows a function to be executed in a remote serverless environment, with support for
+    dynamic resource provisioning and installation of required dependencies.
+
+        resource_config (ServerlessEndpoint): Configuration object specifying the serverless resource
+            to be provisioned or used.
+        dependencies (List[str], optional): A list of pip package names to be installed in the remote
+            environment before executing the function. Defaults to None.
+        extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
+
+    Returns:
+        Callable: A decorator that wraps the target function, enabling remote execution with the
+        specified resource configuration and dependencies.
+
+    Example:
+    ```python
+        @remote(
+            resource_config=my_resource_config,
+            dependencies=["numpy", "pandas"],
+            sync=True  # Optional, to run synchronously
+        )
+        async def my_function(data):
+            # Function logic here
+            pass
+    ```
     """
-
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            source, src_hash = get_function_source(func)
-            
-            # check if the function is already cached
-            if src_hash not in _SERIALIZED_FUNCTION_CACHE:
-                # Cache the serialized function
-                _SERIALIZED_FUNCTION_CACHE[src_hash] = source
-
-            cached_src = _SERIALIZED_FUNCTION_CACHE[src_hash]
-
-            # Serialize arguments using cloudpickle instead of JSON
-            serialized_args = [
-                base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-            ]
-            serialized_kwargs = {
-                k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-                for k, v in kwargs.items()
-            }
-
-            # Create request
-            request_args = {
-                "function_name": func.__name__,
-                "function_code": cached_src,
-                "args": serialized_args,
-                "kwargs": serialized_kwargs,
-                "dependencies": dependencies,
-            }
-            request = FunctionRequest(**request_args)
-
             resource_manager = ResourceManager()
             remote_resource = await resource_manager.get_or_create_resource(resource_config)
 
-            stub = TetraServerlessStub(remote_resource)
-
-            response = await stub.ExecuteFunction(request)
-
-            if response.stdout:
-                for line in response.stdout.splitlines():
-                    log.info(f"Remote | {line}")
-
-            if response.success:
-                # Deserialize result using cloudpickle instead of JSON
-                return cloudpickle.loads(base64.b64decode(response.result))
-            else:
-                raise Exception(f"Remote execution failed: {response.error}")
+            stub = stub_resource(remote_resource, **extra)
+            return await stub(func, dependencies, *args, **kwargs)
 
         return wrapper
 

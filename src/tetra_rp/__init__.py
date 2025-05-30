@@ -2,7 +2,7 @@ from .logger import get_logger
 from .client import remote
 from .core.resources.live_serverless import LiveServerless
 from .core.resources.resource_manager import ResourceManager
-from .core.resources.serverless import ServerlessResource
+from .core.resources.serverless import ServerlessEndpoint
 
 
 __all__ = [
@@ -10,5 +10,5 @@ __all__ = [
     "remote",
     "LiveServerless",
     "ResourceManager",
-    "ServerlessResource",
+    "ServerlessEndpoint",
 ]
