@@ -33,6 +33,6 @@ class DeployableResource(BaseResource, ABC):
         raise NotImplementedError("Subclasses should implement this method.")
 
     @abstractmethod
-    def deploy(self) -> "DeployableResource":
+    async def deploy(self) -> "DeployableResource":
         """Deploy the resource."""
         raise NotImplementedError("Subclasses should implement this method.")

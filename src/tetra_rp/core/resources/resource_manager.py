@@ -5,7 +5,7 @@ from pathlib import Path
 from tetra_rp import get_logger
 from tetra_rp.core.utils.singleton import SingletonMixin
 
-from .base import BaseResource, DeployableResource
+from .base import DeployableResource
 
 
 log = get_logger("resource_manager")
@@ -72,3 +72,5 @@ class ResourceManager(SingletonMixin):
         if deployed_resource := await config.deploy():
             self.add_resource(uid, deployed_resource)
             return deployed_resource
+
+        raise RuntimeError(f"Deployment failed for resource {uid}")

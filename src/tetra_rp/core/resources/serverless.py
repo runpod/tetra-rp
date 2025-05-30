@@ -130,10 +130,10 @@ class ServerlessResource(DeployableResource):
             log.error(f"Error checking {self.url}: {e}")
             return False
 
-    async def deploy(self) -> "ServerlessResource":
+    async def deploy(self) -> "DeployableResource":
         """
         Deploys the serverless resource using the provided configuration.
-        Returns a ServerlessResource object.
+        Returns a DeployableResource object.
         """
         try:
             # If the resource is already deployed, return it
@@ -158,6 +158,8 @@ class ServerlessResource(DeployableResource):
             if endpoint := self.__class__(**result):
                 log.info(f"Serverless deployed: {endpoint.url}")
                 return endpoint
+
+            raise ValueError("Deployment failed, no endpoint was returned.")
 
         except Exception as e:
             log.error(f"Serverless failed to deploy: {e}")
