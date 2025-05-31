@@ -21,6 +21,9 @@ class BaseResource(BaseModel):
 class DeployableResource(BaseResource, ABC):
     """Base class for deployable resources."""
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}"
+
     @property
     @abstractmethod
     def url(self) -> str:

@@ -17,7 +17,7 @@ from .environment import EnvironmentVars
 # Environment variables are loaded from the .env file
 def get_env_vars() -> Dict[str, str]:
     """
-    Returns the environment variables from the .env file. 
+    Returns the environment variables from the .env file.
     {
         "KEY": "VALUE",
     }
@@ -29,13 +29,16 @@ def get_env_vars() -> Dict[str, str]:
 log = get_logger("serverless")
 
 
+CONSOLE_URL = "https://www.runpod.io/console/serverless/user/endpoint/%s"
+
+
 class ServerlessScalerType(Enum):
     QUEUE_DELAY = "QUEUE_DELAY"
     REQUEST_COUNT = "REQUEST_COUNT"
 
-
     # Prevent mutation after creation
     model_config = {"frozen": True}
+
 
 class ServerlessResource(DeployableResource):
     # === Input Fields ===
@@ -66,11 +69,20 @@ class ServerlessResource(DeployableResource):
     template: Optional[TemplateResource] = None
     userId: Optional[str] = None
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}:{self.id}"
+
     @property
     def url(self) -> str:
         if not self.id:
             raise ValueError("Missing self.id")
         return urljoin(runpod.endpoint_url_base, self.id)
+
+    @property
+    def console_url(self) -> str:
+        if not self.id:
+            raise ValueError("Missing self.id")
+        return CONSOLE_URL % self.id
 
     @property
     def endpoint(self) -> runpod.Endpoint:
@@ -127,7 +139,7 @@ class ServerlessResource(DeployableResource):
             response = self.endpoint.health()
             return response is not None
         except Exception as e:
-            log.error(f"Error checking {self.url}: {e}")
+            log.error(f"Error checking {self.console_url}: {e}")
             return False
 
     async def deploy(self) -> "DeployableResource":
@@ -138,7 +150,7 @@ class ServerlessResource(DeployableResource):
         try:
             # If the resource is already deployed, return it
             if self.is_deployed():
-                log.debug(f"Serverless exists: {self.url}")
+                log.debug(f"{self} exists")
                 return self
 
             result = runpod.create_endpoint(
@@ -156,13 +168,13 @@ class ServerlessResource(DeployableResource):
             )
 
             if endpoint := self.__class__(**result):
-                log.info(f"Serverless deployed: {endpoint.url}")
+                log.info(f"Deployed: {endpoint}")
                 return endpoint
 
             raise ValueError("Deployment failed, no endpoint was returned.")
 
         except Exception as e:
-            log.error(f"Serverless failed to deploy: {e}")
+            log.error(f"{self} failed to deploy: {e}")
             raise
 
     async def run_sync(self, payload: Dict[str, Any]) -> object:
@@ -173,10 +185,10 @@ class ServerlessResource(DeployableResource):
         if not self.id:
             raise ValueError("Serverless is not deployed")
 
-        try:
-            log_group = f"Serverless:{self.id}"
+        log_group = f"{self}"
+        log.info(f"{self.console_url} | API /run_sync")
 
-            log.info(f"{log_group} | Executing: {self.url}/run_sync")
+        try:
             # log.debug(f"[{log_group}] Payload: {payload}")
 
             return await asyncio.to_thread(
@@ -195,10 +207,10 @@ class ServerlessResource(DeployableResource):
         if not self.id:
             raise ValueError("Serverless is not deployed")
 
-        try:
-            log_group = f"Serverless:{self.id}"
+        log_group = f"{self}"
+        log.info(f"{self.console_url} | API /run")
 
-            log.info(f"{log_group} | Executing: {self.url}/run")
+        try:
             # log.debug(f"[{log_group}] Payload: {payload}")
 
             job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
@@ -275,6 +287,7 @@ class ServerlessEndpoint(ServerlessResource):
     Represents a serverless endpoint distinct from a live serverless.
     Inherits from ServerlessResource.
     """
+
     pass
 
 

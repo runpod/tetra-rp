@@ -57,16 +57,18 @@ class ResourceManager(SingletonMixin):
 
         self._save_resources()
 
-    async def get_or_deploy_resource(self, config: DeployableResource) -> DeployableResource:
+    async def get_or_deploy_resource(
+        self, config: DeployableResource
+    ) -> DeployableResource:
         """Get existing or create new resource based on config."""
         uid = config.resource_id
         if existing := self._resources.get(uid):
             if not existing.is_deployed():
-                log.warning(f"Resource {uid} is no longer valid, redeploying.")
+                log.warning(f"{existing} is no longer valid, redeploying.")
                 self.remove_resource(uid)
                 return await self.get_or_deploy_resource(config)
 
-            log.debug(f"Resource {uid} exists, reusing.")
+            log.debug(f"{existing} exists, reusing.")
             return existing
 
         if deployed_resource := await config.deploy():
