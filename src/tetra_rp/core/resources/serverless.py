@@ -6,6 +6,7 @@ from pydantic import field_validator, BaseModel, Field
 
 from tetra_rp import get_logger
 from tetra_rp.core.utils.backoff import get_backoff_delay
+from runpod.endpoint.runner import Job
 
 from .cloud import runpod
 from .base import DeployableResource
@@ -177,13 +178,18 @@ class ServerlessResource(DeployableResource):
             log.error(f"{self} failed to deploy: {e}")
             raise
 
-    async def run_sync(self, payload: Dict[str, Any]) -> object:
+    async def run_sync(self, payload: Dict[str, Any]) -> "JobOutput":
         """
         Executes a serverless endpoint request with the payload.
-        Returns an object.
+        Returns a JobOutput object.
         """
         if not self.id:
             raise ValueError("Serverless is not deployed")
+
+        def _fetch_job():
+            return self.endpoint.rp_client.post(
+                f"{self.id}/runsync", payload, timeout=60
+            )
 
         log_group = f"{self}"
         log.info(f"{self.console_url} | API /run_sync")
@@ -191,17 +197,20 @@ class ServerlessResource(DeployableResource):
         try:
             # log.debug(f"[{log_group}] Payload: {payload}")
 
-            return await asyncio.to_thread(
-                self.endpoint.run_sync, request_input=payload
-            )
+            response = await asyncio.to_thread(_fetch_job)
+            return JobOutput(**response)
 
         except Exception as e:
+            health = await asyncio.to_thread(self.endpoint.health)
+            health = ServerlessHealth(**health)
+            log.info(f"{log_group} | Health {health.workers.status}")
+
             log.error(f"{log_group} | Exception: {e}")
             raise
 
     async def run(self, payload: Dict[str, Any]) -> "JobOutput":
         """
-        Executes a serverless endpoint request with the payload.
+        Executes a serverless endpoint async request with the payload.
         Returns a JobOutput object.
         """
         if not self.id:
@@ -213,7 +222,7 @@ class ServerlessResource(DeployableResource):
         try:
             # log.debug(f"[{log_group}] Payload: {payload}")
 
-            job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
+            job: Job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
 
             log_subgroup = f"Job:{job.job_id}"
 
@@ -272,10 +281,7 @@ class ServerlessResource(DeployableResource):
 
                 if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
                     response = await asyncio.to_thread(job._fetch_job)
-                    job = JobOutput(**response)
-                    log.info(f"{log_subgroup} | Delay Time: {job.delayTime} ms")
-                    log.info(f"{log_subgroup} | Execution Time: {job.executionTime} ms")
-                    return job
+                    return JobOutput(**response)
 
         except Exception as e:
             log.error(f"{log_group} | Exception: {e}")
@@ -297,8 +303,13 @@ class JobOutput(BaseModel):
     status: str
     delayTime: int
     executionTime: int
-    output: Optional[object] = None
+    output: Optional[Any] = None
     error: Optional[str] = ""
+
+    def model_post_init(self, __context):
+        log_group = f"Worker:{self.workerId}"
+        log.info(f"{log_group} | Delay Time: {self.delayTime} ms")
+        log.info(f"{log_group} | Execution Time: {self.executionTime} ms")
 
 
 class Status(str, Enum):
