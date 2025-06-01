@@ -11,7 +11,7 @@ from runpod.endpoint.runner import Job
 from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
-from .gpu import GpuGroups
+from .gpu import GpuGroup
 from .environment import EnvironmentVars
 
 
@@ -37,9 +37,6 @@ class ServerlessScalerType(Enum):
     QUEUE_DELAY = "QUEUE_DELAY"
     REQUEST_COUNT = "REQUEST_COUNT"
 
-    # Prevent mutation after creation
-    model_config = {"frozen": True}
-
 
 class ServerlessResource(DeployableResource):
     # === Input Fields ===
@@ -47,7 +44,7 @@ class ServerlessResource(DeployableResource):
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     executionTimeoutMs: Optional[int] = 0
     gpuCount: Optional[int] = 1
-    gpuIds: Optional[str] = "any"
+    gpuIds: Optional[List[GpuGroup]] = [GpuGroup.ANY]
     idleTimeout: Optional[int] = 5
     locations: Optional[str] = None
     name: str
@@ -96,38 +93,15 @@ class ServerlessResource(DeployableResource):
 
     @field_validator("gpuIds")
     @classmethod
-    def validate_gpu_ids(cls, value: str) -> str:
+    def validate_gpu_ids(cls, value: List[GpuGroup]) -> List[GpuGroup]:
         """
         Validates and normalizes the comma-separated GPU IDs.
         Ensures each value is a valid GpuType or GpuGroup.
         """
-        all_gpu_groups = GpuGroups.list()
+        if value == [GpuGroup.ANY.value]:
+            return GpuGroup.all()
 
-        if value == "any":
-            return ",".join(all_gpu_groups)
-
-        ids = [v.strip() for v in value.split(",") if v.strip()]
-        normalized = []
-
-        for id_ in ids:
-            # Check against GpuGroups
-            if id_ in all_gpu_groups:
-                normalized.append(id_)
-                continue
-
-            # Check against GpuType
-            # try:
-            #     if runpod.get_gpu(id_):
-            #         normalized.append(id_)
-            #         continue
-            # except ValueError as e:
-            #     log.error(f"`{id_}` {e}")
-            #     # TODO: get all available GPU types and fuzzy match
-
-        if not normalized:
-            raise ValueError("Invalid gpuIds provided")
-
-        return ",".join(normalized)
+        return value
 
     def is_deployed(self) -> bool:
         """
