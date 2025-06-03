@@ -2,7 +2,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
-from pydantic import field_validator, BaseModel, Field
+from pydantic import field_validator, model_validator, BaseModel, Field
 
 from tetra_rp import get_logger
 from tetra_rp.core.utils.backoff import get_backoff_delay
@@ -39,12 +39,14 @@ class ServerlessScalerType(Enum):
 
 
 class ServerlessResource(DeployableResource):
+    # === Input-only Fields ===
+    gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     # === Input Fields ===
     allowedCudaVersions: Optional[str] = ""
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
-    executionTimeoutMs: Optional[int] = 0
+    executionTimeoutMs: Optional[int] = None
+    flashboot: Optional[bool] = True
     gpuCount: Optional[int] = 1
-    gpuIds: Optional[List[GpuGroup]] = [GpuGroup.ANY]
     idleTimeout: Optional[int] = 5
     locations: Optional[str] = None
     name: str
@@ -61,8 +63,9 @@ class ServerlessResource(DeployableResource):
     aiKey: Optional[str] = None
     computeType: Optional[str] = None
     createdAt: Optional[str] = None  # TODO: use datetime
+    gpuIds: Optional[str] = ""
     hubRelease: Optional[str] = None
-    instanceIds: Optional[List[str]] = []
+    instanceIds: Optional[List[str]] = None
     repo: Optional[str] = None
     template: Optional[TemplateResource] = None
     userId: Optional[str] = None
@@ -91,17 +94,33 @@ class ServerlessResource(DeployableResource):
             raise ValueError("Missing self.id")
         return runpod.Endpoint(self.id)
 
-    @field_validator("gpuIds")
+    @field_validator("gpus")
     @classmethod
-    def validate_gpu_ids(cls, value: List[GpuGroup]) -> List[GpuGroup]:
-        """
-        Validates and normalizes the comma-separated GPU IDs.
-        Ensures each value is a valid GpuType or GpuGroup.
-        """
-        if value == [GpuGroup.ANY.value]:
+    def validate_gpus(cls, value: List[GpuGroup]) -> List[GpuGroup]:
+        """Expand ANY to all GPU groups"""
+        if value == [GpuGroup.ANY]:
             return GpuGroup.all()
-
         return value
+
+    @model_validator(mode="after")
+    def sync_input_fields(self):
+        """Sync between temporary inputs and exported fields"""
+        if self.gpus:
+            # Convert gpus list to gpuIds string
+            self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
+        elif self.gpuIds:
+            # Convert gpuIds string to gpus list (from backend responses)
+            gpu_values = [v.strip() for v in self.gpuIds.split(",") if v.strip()]
+            self.gpus = [GpuGroup(value) for value in gpu_values]
+
+        return self
+
+    def model_dump(self, **kwargs):
+        """Override to exclude input-only fields from serialization"""
+        excluded = {"id", "env", "gpus"}
+        return super().model_dump(
+            exclude=excluded, exclude_none=True, by_alias=True, **kwargs
+        )
 
     def is_deployed(self) -> bool:
         """
@@ -128,19 +147,8 @@ class ServerlessResource(DeployableResource):
                 log.debug(f"{self} exists")
                 return self
 
-            result = runpod.create_endpoint(
-                name=self.name,  # TODO: f"<project_name>-<name>-endpoint"
-                template_id=self.templateId,
-                gpu_ids=self.gpuIds,
-                network_volume_id=self.networkVolumeId,
-                locations=self.locations,
-                idle_timeout=self.idleTimeout,
-                scaler_type=self.scalerType.value,
-                scaler_value=self.scalerValue,
-                workers_min=self.workersMin,
-                workers_max=self.workersMax,
-                flashboot=True,  # TODO: self.flashboot
-            )
+            payload = self.model_dump()
+            result = runpod.create_endpoint(**payload)
 
             if endpoint := self.__class__(**result):
                 log.info(f"Deployed: {endpoint}")

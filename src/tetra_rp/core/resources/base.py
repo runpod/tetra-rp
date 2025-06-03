@@ -11,8 +11,6 @@ class BaseResource(BaseModel):
         validate_by_name = True
         validate_default = True
         serialize_by_alias = True
-        use_enum_values = True
-        frozen = True
 
     id: Optional[str] = None
 
