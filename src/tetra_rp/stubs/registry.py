@@ -9,13 +9,16 @@ log = get_logger("stubs")
 
 
 @singledispatch
-async def stub_resource(resource, **extra):
-    return {"error": f"Cannot stub {resource.__class__.__name__}."}
+def stub_resource(resource, **extra):
+    async def fallback(*args, **kwargs):
+        return {"error": f"Cannot stub {resource.__class__.__name__}."}
+
+    return fallback
 
 
 @stub_resource.register(LiveServerless)
 def _(resource, **extra):
-    async def stubbed_resource(func, dependencies, *args, **kwargs) -> dict:
+    async def stubbed_resource(func, dependencies, *args, **kwargs):
         if args == (None,):
             # cleanup: when the function is called with no args
             args = []
@@ -30,7 +33,7 @@ def _(resource, **extra):
 
 @stub_resource.register(ServerlessEndpoint)
 def _(resource, **extra):
-    async def stubbed_resource(func, dependencies, *args, **kwargs) -> dict:
+    async def stubbed_resource(func, dependencies, *args, **kwargs):
         if args == (None,):
             # cleanup: when the function is called with no args
             args = []

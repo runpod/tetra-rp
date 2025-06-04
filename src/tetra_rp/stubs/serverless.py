@@ -1,4 +1,3 @@
-from typing import Any, Union
 from ..core.resources import ServerlessEndpoint, JobOutput
 
 class ServerlessEndpointStub:
@@ -10,22 +9,21 @@ class ServerlessEndpointStub:
     def prepare_payload(self, func, *args, **kwargs) -> dict:
         return func(*args, **kwargs)
 
-    async def execute(self, payload: dict, sync: bool = False) -> Union[JobOutput, Any]:
+    async def execute(self, payload: dict, sync: bool = False) -> JobOutput:
         """
         Executes a serverless endpoint request with the payload.
-        Returns a JobOutput object or raw response.
+        Returns a JobOutput object.
         """
         if sync:
             return await self.server.run_sync(payload)
         else:
             return await self.server.run(payload)
 
-    def handle_response(self, response: Union[JobOutput, Any]):
-        if not isinstance(response, JobOutput):
-            return response
-        
+    def handle_response(self, response: JobOutput):
         if response.output:
             return response.output
 
         if response.error:
             raise Exception(f"Remote execution failed: {response.error}")
+
+        raise ValueError("Invalid response from server")
