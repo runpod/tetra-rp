@@ -2,7 +2,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
-from pydantic import field_validator, model_validator, BaseModel, Field
+from pydantic import field_serializer, field_validator, model_validator, BaseModel, Field
 
 from tetra_rp import get_logger
 from tetra_rp.core.utils.backoff import get_backoff_delay
@@ -38,11 +38,25 @@ class ServerlessScalerType(Enum):
     REQUEST_COUNT = "REQUEST_COUNT"
 
 
+class CudaVersion(Enum):
+    V11_8 = "11.8"
+    V12_0 = "12.0"
+    V12_1 = "12.1"
+    V12_2 = "12.2"
+    V12_3 = "12.3"
+    V12_4 = "12.4"
+    V12_5 = "12.5"
+    V12_6 = "12.6"
+    V12_7 = "12.7"
+    V12_8 = "12.8"
+
+
 class ServerlessResource(DeployableResource):
     # === Input-only Fields ===
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
+    cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
+
     # === Input Fields ===
-    allowedCudaVersions: Optional[str] = ""
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     executionTimeoutMs: Optional[int] = None
     flashboot: Optional[bool] = True
@@ -61,6 +75,7 @@ class ServerlessResource(DeployableResource):
     # === Runtime Fields ===
     activeBuildid: Optional[str] = None
     aiKey: Optional[str] = None
+    allowedCudaVersions: Optional[str] = None
     computeType: Optional[str] = None
     createdAt: Optional[str] = None  # TODO: use datetime
     gpuIds: Optional[str] = ""
@@ -94,6 +109,11 @@ class ServerlessResource(DeployableResource):
             raise ValueError("Missing self.id")
         return runpod.Endpoint(self.id)
 
+    # Serialize all enum fields to their values
+    @field_serializer("scalerType")
+    def serialize_scaler_type(self, value: Optional[ServerlessScalerType]) -> Optional[str]:
+        return value.value if value is not None else None
+
     @field_validator("gpus")
     @classmethod
     def validate_gpus(cls, value: List[GpuGroup]) -> List[GpuGroup]:
@@ -113,11 +133,21 @@ class ServerlessResource(DeployableResource):
             gpu_values = [v.strip() for v in self.gpuIds.split(",") if v.strip()]
             self.gpus = [GpuGroup(value) for value in gpu_values]
 
+        if self.cudaVersions:
+            # Convert cudaVersions list to allowedCudaVersions string
+            self.allowedCudaVersions = ",".join(v.value for v in self.cudaVersions)
+        elif self.allowedCudaVersions:
+            # Convert allowedCudaVersions string to cudaVersions list (from backend responses)
+            version_values = [
+                v.strip() for v in self.allowedCudaVersions.split(",") if v.strip()
+            ]
+            self.cudaVersions = [CudaVersion(value) for value in version_values]
+
         return self
 
     def model_dump(self, **kwargs):
         """Override to exclude input-only fields from serialization"""
-        excluded = {"id", "env", "gpus"}
+        excluded = {"id", "cudaVersions", "env", "gpus"}
         return super().model_dump(
             exclude=excluded, exclude_none=True, by_alias=True, **kwargs
         )
