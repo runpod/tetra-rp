@@ -11,6 +11,7 @@ log = get_logger("client")
 def remote(
     resource_config: ServerlessEndpoint,
     dependencies: List[str] = None,
+    system_dependencies: List[str] = None,
     **extra
 ):
     """
@@ -48,7 +49,7 @@ def remote(
             remote_resource = await resource_manager.get_or_create_resource(resource_config)
 
             stub = stub_resource(remote_resource, **extra)
-            return await stub(func, dependencies, *args, **kwargs)
+            return await stub(func, dependencies, system_dependencies, *args, **kwargs)
 
         return wrapper
 
