@@ -74,7 +74,7 @@ gpu_config = LiveServerless(
 )
 ```
 
-Refer to the [Configuration Parameters](https://www.google.com/search?q=%23configuration-parameters) section for a full list of available settings.
+Refer to the [Configuration Parameters](#configuration) section for a full list of available settings.
 
 ### Dynamic GPU Provisioning
 
