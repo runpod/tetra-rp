@@ -2,22 +2,23 @@ import asyncio
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
-from pydantic import field_validator, BaseModel, Field
+from pydantic import field_serializer, field_validator, model_validator, BaseModel, Field
 
 from tetra_rp import get_logger
 from tetra_rp.core.utils.backoff import get_backoff_delay
+from runpod.endpoint.runner import Job
 
 from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
-from .gpu import GpuGroups
+from .gpu import GpuGroup
 from .environment import EnvironmentVars
 
 
 # Environment variables are loaded from the .env file
 def get_env_vars() -> Dict[str, str]:
     """
-    Returns the environment variables from the .env file. 
+    Returns the environment variables from the .env file.
     {
         "KEY": "VALUE",
     }
@@ -29,21 +30,37 @@ def get_env_vars() -> Dict[str, str]:
 log = get_logger("serverless")
 
 
+CONSOLE_URL = "https://www.runpod.io/console/serverless/user/endpoint/%s"
+
+
 class ServerlessScalerType(Enum):
     QUEUE_DELAY = "QUEUE_DELAY"
     REQUEST_COUNT = "REQUEST_COUNT"
 
 
-    # Prevent mutation after creation
-    model_config = {"frozen": True}
+class CudaVersion(Enum):
+    V11_8 = "11.8"
+    V12_0 = "12.0"
+    V12_1 = "12.1"
+    V12_2 = "12.2"
+    V12_3 = "12.3"
+    V12_4 = "12.4"
+    V12_5 = "12.5"
+    V12_6 = "12.6"
+    V12_7 = "12.7"
+    V12_8 = "12.8"
+
 
 class ServerlessResource(DeployableResource):
+    # === Input-only Fields ===
+    gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
+    cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
+
     # === Input Fields ===
-    allowedCudaVersions: Optional[str] = ""
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
-    executionTimeoutMs: Optional[int] = 0
+    executionTimeoutMs: Optional[int] = None
+    flashboot: Optional[bool] = True
     gpuCount: Optional[int] = 1
-    gpuIds: Optional[str] = "any"
     idleTimeout: Optional[int] = 5
     locations: Optional[str] = None
     name: str
@@ -58,19 +75,30 @@ class ServerlessResource(DeployableResource):
     # === Runtime Fields ===
     activeBuildid: Optional[str] = None
     aiKey: Optional[str] = None
+    allowedCudaVersions: Optional[str] = None
     computeType: Optional[str] = None
     createdAt: Optional[str] = None  # TODO: use datetime
+    gpuIds: Optional[str] = ""
     hubRelease: Optional[str] = None
-    instanceIds: Optional[List[str]] = []
+    instanceIds: Optional[List[str]] = None
     repo: Optional[str] = None
     template: Optional[TemplateResource] = None
     userId: Optional[str] = None
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}:{self.id}"
 
     @property
     def url(self) -> str:
         if not self.id:
             raise ValueError("Missing self.id")
         return urljoin(runpod.endpoint_url_base, self.id)
+
+    @property
+    def console_url(self) -> str:
+        if not self.id:
+            raise ValueError("Missing self.id")
+        return CONSOLE_URL % self.id
 
     @property
     def endpoint(self) -> runpod.Endpoint:
@@ -81,97 +109,88 @@ class ServerlessResource(DeployableResource):
             raise ValueError("Missing self.id")
         return runpod.Endpoint(self.id)
 
-    @field_validator("gpuIds")
+    # Serialize all enum fields to their values
+    @field_serializer("scalerType")
+    def serialize_scaler_type(self, value: Optional[ServerlessScalerType]) -> Optional[str]:
+        return value.value if value is not None else None
+
+    @field_validator("gpus")
     @classmethod
-    def validate_gpu_ids(cls, value: str) -> str:
+    def validate_gpus(cls, value: List[GpuGroup]) -> List[GpuGroup]:
+        """Expand ANY to all GPU groups"""
+        if value == [GpuGroup.ANY]:
+            return GpuGroup.all()
+        return value
+
+    @model_validator(mode="after")
+    def sync_input_fields(self):
+        """Sync between temporary inputs and exported fields"""
+        if self.gpus:
+            # Convert gpus list to gpuIds string
+            self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
+        elif self.gpuIds:
+            # Convert gpuIds string to gpus list (from backend responses)
+            gpu_values = [v.strip() for v in self.gpuIds.split(",") if v.strip()]
+            self.gpus = [GpuGroup(value) for value in gpu_values]
+
+        if self.cudaVersions:
+            # Convert cudaVersions list to allowedCudaVersions string
+            self.allowedCudaVersions = ",".join(v.value for v in self.cudaVersions)
+        elif self.allowedCudaVersions:
+            # Convert allowedCudaVersions string to cudaVersions list (from backend responses)
+            version_values = [
+                v.strip() for v in self.allowedCudaVersions.split(",") if v.strip()
+            ]
+            self.cudaVersions = [CudaVersion(value) for value in version_values]
+
+        return self
+
+    def model_dump(self, **kwargs):
+        """Override to exclude input-only fields from serialization"""
+        excluded = {"id", "cudaVersions", "env", "gpus"}
+        return super().model_dump(
+            exclude=excluded, exclude_none=True, by_alias=True, **kwargs
+        )
+
+    def is_deployed(self) -> bool:
         """
-        Validates and normalizes the comma-separated GPU IDs.
-        Ensures each value is a valid GpuType or GpuGroup.
+        Checks if the serverless resource is deployed and available.
         """
-        all_gpu_groups = GpuGroups.list()
+        try:
+            if not self.id:
+                return False
 
-        if value == "any":
-            return ",".join(all_gpu_groups)
+            response = self.endpoint.health()
+            return response is not None
+        except Exception as e:
+            log.error(f"Error checking {self.console_url}: {e}")
+            return False
 
-        ids = [v.strip() for v in value.split(",") if v.strip()]
-        normalized = []
-
-        for id_ in ids:
-            # Check against GpuGroups
-            if id_ in all_gpu_groups:
-                normalized.append(id_)
-                continue
-
-            # Check against GpuType
-            # try:
-            #     if runpod.get_gpu(id_):
-            #         normalized.append(id_)
-            #         continue
-            # except ValueError as e:
-            #     log.error(f"`{id_}` {e}")
-            #     # TODO: get all available GPU types and fuzzy match
-
-        if not normalized:
-            raise ValueError("Invalid gpuIds provided")
-
-        return ",".join(normalized)
-
-    async def deploy(self) -> "ServerlessResource":
+    async def deploy(self) -> "DeployableResource":
         """
         Deploys the serverless resource using the provided configuration.
-        Returns a ServerlessResource object.
+        Returns a DeployableResource object.
         """
         try:
             # If the resource is already deployed, return it
-            if self.id:
-                log.debug(f"Serverless exists: {self.url}")
+            if self.is_deployed():
+                log.debug(f"{self} exists")
                 return self
 
-            result = runpod.create_endpoint(
-                name=self.name,  # TODO: f"<project_name>-<name>-endpoint"
-                template_id=self.templateId,
-                gpu_ids=self.gpuIds,
-                network_volume_id=self.networkVolumeId,
-                locations=self.locations,
-                idle_timeout=self.idleTimeout,
-                scaler_type=self.scalerType.value,
-                scaler_value=self.scalerValue,
-                workers_min=self.workersMin,
-                workers_max=self.workersMax,
-                flashboot=True,  # TODO: self.flashboot
-            )
+            payload = self.model_dump()
+            result = runpod.create_endpoint(**payload)
 
             if endpoint := self.__class__(**result):
-                log.info(f"Serverless deployed: {endpoint.url}")
+                log.info(f"Deployed: {endpoint}")
                 return endpoint
 
-        except Exception as e:
-            log.error(f"Serverless failed to deploy: {e}")
-            raise
-
-    async def run_sync(self, payload: Dict[str, Any]) -> object:
-        """
-        Executes a serverless endpoint request with the payload.
-        Returns an object.
-        """
-        if not self.id:
-            raise ValueError("Serverless is not deployed")
-
-        try:
-            log_group = f"Serverless:{self.id}"
-
-            log.info(f"{log_group} | Executing: {self.url}/run_sync")
-            # log.debug(f"[{log_group}] Payload: {payload}")
-
-            return await asyncio.to_thread(
-                self.endpoint.run_sync, request_input=payload
-            )
+            raise ValueError("Deployment failed, no endpoint was returned.")
 
         except Exception as e:
-            log.error(f"{log_group} | Exception: {e}")
+            log.error(f"{self} failed to deploy: {e}")
             raise
 
-    async def run(self, payload: Dict[str, Any]) -> "JobOutput":
+    async def run_sync(self, payload: Dict[str, Any]) -> "JobOutput":
         """
         Executes a serverless endpoint request with the payload.
         Returns a JobOutput object.
@@ -179,13 +198,43 @@ class ServerlessResource(DeployableResource):
         if not self.id:
             raise ValueError("Serverless is not deployed")
 
-        try:
-            log_group = f"Serverless:{self.id}"
+        def _fetch_job():
+            return self.endpoint.rp_client.post(
+                f"{self.id}/runsync", payload, timeout=60
+            )
 
-            log.info(f"{log_group} | Executing: {self.url}/run")
+        log_group = f"{self}"
+        log.info(f"{self.console_url} | API /run_sync")
+
+        try:
             # log.debug(f"[{log_group}] Payload: {payload}")
 
-            job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
+            response = await asyncio.to_thread(_fetch_job)
+            return JobOutput(**response)
+
+        except Exception as e:
+            health = await asyncio.to_thread(self.endpoint.health)
+            health = ServerlessHealth(**health)
+            log.info(f"{log_group} | Health {health.workers.status}")
+
+            log.error(f"{log_group} | Exception: {e}")
+            raise
+
+    async def run(self, payload: Dict[str, Any]) -> "JobOutput":
+        """
+        Executes a serverless endpoint async request with the payload.
+        Returns a JobOutput object.
+        """
+        if not self.id:
+            raise ValueError("Serverless is not deployed")
+
+        log_group = f"{self}"
+        log.info(f"{self.console_url} | API /run")
+
+        try:
+            # log.debug(f"[{log_group}] Payload: {payload}")
+
+            job: Job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
 
             log_subgroup = f"Job:{job.job_id}"
 
@@ -244,10 +293,7 @@ class ServerlessResource(DeployableResource):
 
                 if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
                     response = await asyncio.to_thread(job._fetch_job)
-                    job = JobOutput(**response)
-                    log.info(f"{log_subgroup} | Delay Time: {job.delayTime} ms")
-                    log.info(f"{log_subgroup} | Execution Time: {job.executionTime} ms")
-                    return job
+                    return JobOutput(**response)
 
         except Exception as e:
             log.error(f"{log_group} | Exception: {e}")
@@ -259,6 +305,7 @@ class ServerlessEndpoint(ServerlessResource):
     Represents a serverless endpoint distinct from a live serverless.
     Inherits from ServerlessResource.
     """
+
     pass
 
 
@@ -268,8 +315,13 @@ class JobOutput(BaseModel):
     status: str
     delayTime: int
     executionTime: int
-    output: Optional[object] = None
+    output: Optional[Any] = None
     error: Optional[str] = ""
+
+    def model_post_init(self, __context):
+        log_group = f"Worker:{self.workerId}"
+        log.info(f"{log_group} | Delay Time: {self.delayTime} ms")
+        log.info(f"{log_group} | Execution Time: {self.executionTime} ms")
 
 
 class Status(str, Enum):

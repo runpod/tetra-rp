@@ -9,8 +9,11 @@ log = get_logger("stubs")
 
 
 @singledispatch
-async def stub_resource(resource, **extra):
-    return {"error": f"Cannot stub {resource.__class__.__name__}."}
+def stub_resource(resource, **extra):
+    async def fallback(*args, **kwargs):
+        return {"error": f"Cannot stub {resource.__class__.__name__}."}
+
+    return fallback
 
 
 @stub_resource.register(LiveServerless)

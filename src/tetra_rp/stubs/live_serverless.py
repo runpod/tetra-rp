@@ -76,7 +76,7 @@ class LiveServerlessStub(RemoteExecutorStub):
 
         request["function_code"] = _SERIALIZED_FUNCTION_CACHE[src_hash]
 
-        # Serialize arguments using cloudpickle instead of JSON
+        # Serialize arguments using cloudpickle
         if args:
             request["args"] = [
                 base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
@@ -98,6 +98,8 @@ class LiveServerlessStub(RemoteExecutorStub):
                 log.info(f"Remote | {line}")
 
         if response.success:
+            if response.result is None:
+                raise ValueError("Response result is None")
             return cloudpickle.loads(base64.b64decode(response.result))
         else:
             raise Exception(f"Remote execution failed: {response.error}")
