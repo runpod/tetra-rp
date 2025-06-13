@@ -24,6 +24,10 @@ class FunctionRequest(BaseModel):
         default=None,
         description="Optional list of pip packages to install before executing the function",
     )
+    system_dependencies: Optional[List] = Field(
+        default=None,
+        description="Optional list of system dependencies to install before executing the function",
+    )
 
 
 class FunctionResponse(BaseModel):

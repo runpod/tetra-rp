@@ -8,7 +8,12 @@ from .stubs import stub_resource
 log = get_logger("client")
 
 
-def remote(resource_config: ServerlessResource, dependencies: List[str] = [], **extra):
+def remote(
+    resource_config: ServerlessEndpoint,
+    dependencies: List[str] = None,
+    system_dependencies: List[str] = None,
+    **extra
+):
     """
     Decorator to enable dynamic resource provisioning and dependency management for serverless functions.
 
@@ -47,7 +52,7 @@ def remote(resource_config: ServerlessResource, dependencies: List[str] = [], **
             )
 
             stub = stub_resource(remote_resource, **extra)
-            return await stub(func, dependencies, *args, **kwargs)
+            return await stub(func, dependencies, system_dependencies, *args, **kwargs)
 
         return wrapper
 

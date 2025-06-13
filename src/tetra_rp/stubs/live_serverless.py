@@ -60,12 +60,13 @@ class LiveServerlessStub(RemoteExecutorStub):
     def __init__(self, server: LiveServerless):
         self.server = server
 
-    def prepare_request(self, func, dependencies, *args, **kwargs):
+    def prepare_request(self, func, dependencies, system_dependencies, *args, **kwargs):
         source, src_hash = get_function_source(func)
 
         request = {
             "function_name": func.__name__,
             "dependencies": dependencies,
+            "system_dependencies": system_dependencies,
         }
 
         # check if the function is already cached
