@@ -2,9 +2,12 @@ import inspect
 import logging
 import os
 import sys
+from typing import Union, Optional
 
 
-def setup_logging(level: int = logging.INFO, stream=sys.stdout, fmt: str = None):
+def setup_logging(
+    level: Union[int, str] = logging.INFO, stream=sys.stdout, fmt: Optional[str] = None
+):
     """
     Sets up the root logger with a stream handler and basic formatting.
     Does nothing if handlers are already configured.
@@ -32,7 +35,7 @@ def setup_logging(level: int = logging.INFO, stream=sys.stdout, fmt: str = None)
         root_logger.setLevel(env_level.upper())
 
 
-def get_logger(name: str = None) -> logging.Logger:
+def get_logger(name: Optional[str] = None) -> logging.Logger:
     """
     Returns a logger. If no name is provided, it infers the caller's module name.
     """

@@ -1,11 +1,16 @@
 import hashlib
 from abc import ABC, abstractmethod
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, alias_generators
 
 
 class BaseResource(BaseModel):
     """Base class for all resources."""
+    class Config:
+        alias_generator = alias_generators.to_snake
+        validate_by_name = True
+        validate_default = True
+        serialize_by_alias = True
 
     id: Optional[str] = None
 
@@ -21,6 +26,9 @@ class BaseResource(BaseModel):
 class DeployableResource(BaseResource, ABC):
     """Base class for deployable resources."""
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}"
+
     @property
     @abstractmethod
     def url(self) -> str:
@@ -28,6 +36,11 @@ class DeployableResource(BaseResource, ABC):
         raise NotImplementedError("Subclasses should implement this method.")
 
     @abstractmethod
-    def deploy(self) -> "DeployableResource":
+    def is_deployed(self) -> bool:
+        """Check the resource if it's still valid or available."""
+        raise NotImplementedError("Subclasses should implement this method.")
+
+    @abstractmethod
+    async def deploy(self) -> "DeployableResource":
         """Deploy the resource."""
         raise NotImplementedError("Subclasses should implement this method.")
