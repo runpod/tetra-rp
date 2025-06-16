@@ -64,12 +64,12 @@ Tetra allows for granular hardware specification at the function level using the
 For example:
 
 ```python
-from tetra import LiveServerless
+from tetra import LiveServerless, GpuGroup
 
 # Configure a GPU endpoint
 gpu_config = LiveServerless(
-    gpuIds="any", # Use any available GPU
-    workersMax=5, # Scales up to 5 workers
+    gpus=[GpuGroup.ANY], # Use any available GPU (default: .ANY)
+    workersMax=5, # Scales up to 5 workers (default: 3)
     name="parallel-processor", # Name of the endpoint that will be created or used
 )
 ```
@@ -152,10 +152,7 @@ from tetra_rp import remote, LiveServerless
 load_dotenv()
 
 # Configure RunPod resources
-runpod_config = LiveServerless(
-    name="example-diffusion-server",
-    gpuIds="any"
-)
+runpod_config = LiveServerless(name="example-diffusion-server")
 
 # Define a function to run on RunPod GPU
 @remote(
@@ -222,10 +219,7 @@ from tetra_rp import remote, LiveServerless
 load_dotenv()
 
 # Configure RunPod resources
-runpod_config = LiveServerless(
-    name="multi-stage-pipeline-server",
-    gpuIds="any"
-)
+runpod_config = LiveServerless(name="multi-stage-pipeline-server")
 
 # Feature extraction on GPU
 @remote(
@@ -315,7 +309,7 @@ The following parameters can be used with the `LiveServerless` object to configu
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
 | `name`             | (Required) Name for your endpoint               | `""`          | `"stable-diffusion-server"`         |
-| `gpuIds`           | GPU pool IDs that can be used by workers       | `"any"`       | `"any"` or list of [GPU pool IDs](https://docs.runpod.io/references/gpu-types#gpu-pools) (comma-separated) |
+| `gpus`             | GPU pool IDs that can be used by workers        | `[GpuGroup.ANY]` | `"List[GpuGroup]"` list of [GPU Pool IDs](https://docs.runpod.io/references/gpu-types#gpu-pools) |
 | `gpuCount`         | Number of GPUs per worker                       | 1             | 1, 2, 4                             |
 | `workersMin`       | Minimum number of workers                       | 0             | Set to 1 for persistence            |
 | `workersMax`       | Maximum number of workers                       | 3             | Higher for more concurrency         |
