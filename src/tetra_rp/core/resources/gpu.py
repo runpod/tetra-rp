@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 from enum import Enum
 
@@ -30,7 +30,8 @@ class GpuTypeDetail(GpuType):
 
 
 # TODO: this should be fetched from an API
-class GpuGroups(Enum):
+class GpuGroup(Enum):
+    ANY = "any" # "Any GPU"
     ADA_24 = "ADA_24" # "NVIDIA GeForce RTX 4090"
     ADA_32_PRO = "ADA_32_PRO" # "NVIDIA GeForce RTX 5090"
     ADA_48_PRO = "ADA_48_PRO" # "NVIDIA RTX 6000 Ada Generation, NVIDIA L40, NVIDIA L40S"
@@ -42,6 +43,6 @@ class GpuGroups(Enum):
     HOPPER_141 = "HOPPER_141" # "NVIDIA H200"
 
     @classmethod
-    def list(cls) -> list[str]:
-        """Returns all GPU group values as a list of strings."""
-        return [g.value for g in cls]
+    def all(cls) -> List["GpuGroup"]:
+        """Returns all GPU groups."""
+        return [cls.AMPERE_48] + [g for g in cls if g != cls.ANY]
