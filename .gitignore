@@ -173,5 +173,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-.tetra_resources.json
+.tetra_resources.pkl
 .DS_Store
