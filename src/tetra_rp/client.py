@@ -9,7 +9,7 @@ log = get_logger("client")
 
 
 def remote(
-    resource_config: ServerlessEndpoint,
+    resource_config: ServerlessResource,
     dependencies: List[str] = None,
     system_dependencies: List[str] = None,
     **extra
