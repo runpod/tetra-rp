@@ -338,17 +338,17 @@ class WorkersHealth(BaseModel):
 
     @property
     def status(self) -> Status:
-        if self.initializing > self.ready:
-            return Status.INITIALIZING
-
-        if self.throttled > self.ready:
-            return Status.THROTTLED
-
-        if self.unhealthy > self.ready:
-            return Status.UNHEALTHY
-
         if self.ready or self.idle or self.running:
             return Status.READY
+
+        if self.initializing:
+            return Status.INITIALIZING
+
+        if self.throttled:
+            return Status.THROTTLED
+
+        if self.unhealthy:
+            return Status.UNHEALTHY
 
         return Status.UNKNOWN
 
