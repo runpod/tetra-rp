@@ -45,4 +45,4 @@ class GpuGroup(Enum):
     @classmethod
     def all(cls) -> List["GpuGroup"]:
         """Returns all GPU groups."""
-        return [g for g in cls if g != cls.ANY]
+        return [cls.AMPERE_48] + [g for g in cls if g != cls.ANY]
