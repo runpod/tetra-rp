@@ -207,19 +207,15 @@ class ServerlessResource(DeployableResource):
                 if health.is_ready:
                     # Check job status
                     job_status = await asyncio.to_thread(job.status)
-                    log.debug(f"{log_group} | Status: {job_status}")
                 else:
                     # Check worker status
                     job_status = health.workers.status.value
-                    log.debug(f"{log_group} | Status: {job_status}")
 
                     if health.workers.status in [
                         Status.THROTTLED,
                         Status.UNHEALTHY,
                         Status.UNKNOWN,
                     ]:
-                        log.debug(f"{log_group} | Health {health}")
-
                         if attempt >= 10:
                             # Give up
                             log.info(f"{log_subgroup} | Cancelling")
@@ -232,10 +228,10 @@ class ServerlessResource(DeployableResource):
                     attempt += 1
                     indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
                     if indicator:
-                        log.info(f"{log_subgroup} | {indicator}")
+                        log.info(indicator)
                 else:
                     # status changed, reset the gap
-                    log.info(f"{log_subgroup} | Status: {job_status}")
+                    log.info(f"{log_group} | Status: {job_status}")
                     attempt = 0
 
                 last_status = job_status
