@@ -6,6 +6,7 @@ import hashlib
 import traceback
 import cloudpickle
 from tetra_rp import get_logger
+from tetra_rp.core.utils.rich_ui import display_remote_output, is_rich_enabled
 from ..core.resources import LiveServerless
 from ..protos.remote_execution import (
     FunctionRequest,
@@ -94,8 +95,14 @@ class LiveServerlessStub(RemoteExecutorStub):
             raise ValueError("Invalid response from server")
 
         if response.stdout:
-            for line in response.stdout.splitlines():
-                log.info(f"Remote | {line}")
+            stdout_lines = response.stdout.splitlines()
+            if is_rich_enabled():
+                # Display remote output in Rich panel
+                display_remote_output(stdout_lines)
+            else:
+                # Fallback to standard logging
+                for line in stdout_lines:
+                    log.info(f"Remote | {line}")
 
         if response.success:
             if response.result is None:

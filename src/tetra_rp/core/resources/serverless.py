@@ -6,6 +6,14 @@ from pydantic import field_serializer, field_validator, model_validator, BaseMod
 
 from tetra_rp import get_logger
 from tetra_rp.core.utils.backoff import get_backoff_delay
+from tetra_rp.core.utils.rich_ui import (
+    job_progress_tracker, 
+    create_deployment_panel, 
+    create_metrics_table,
+    format_status_text,
+    print_with_rich,
+    is_rich_enabled
+)
 from runpod.endpoint.runner import Job
 
 from .cloud import runpod
@@ -181,7 +189,11 @@ class ServerlessResource(DeployableResource):
             result = runpod.create_endpoint(**payload)
 
             if endpoint := self.__class__(**result):
-                log.info(f"Deployed: {endpoint}")
+                if is_rich_enabled():
+                    panel = create_deployment_panel(endpoint.name, endpoint.id, endpoint.console_url)
+                    print_with_rich(panel)
+                else:
+                    log.info(f"Deployed: {endpoint}")
                 return endpoint
 
             raise ValueError("Deployment failed, no endpoint was returned.")
@@ -229,7 +241,8 @@ class ServerlessResource(DeployableResource):
             raise ValueError("Serverless is not deployed")
 
         log_group = f"{self}"
-        log.info(f"{self.console_url} | API /run")
+        if not is_rich_enabled():
+            log.info(f"{self.console_url} | API /run")
 
         try:
             # log.debug(f"[{log_group}] Payload: {payload}")
@@ -238,62 +251,91 @@ class ServerlessResource(DeployableResource):
 
             log_subgroup = f"Job:{job.job_id}"
 
-            log.info(f"{log_group} | Started {log_subgroup}")
+            # Use Rich progress tracker if available
+            with job_progress_tracker(job.job_id, self.name) as tracker:
+                if not is_rich_enabled():
+                    log.info(f"{log_group} | Started {log_subgroup}")
+                elif tracker:
+                    # Initialize the progress tracker with starting status
+                    tracker.update_status("IN_QUEUE", "Job submitted, waiting for worker...")
 
-            current_pace = 0
-            attempt = 0
-            job_status = Status.UNKNOWN
-            last_status = job_status
-
-            # Poll for job status
-            while True:
-                await asyncio.sleep(current_pace)
-
-                # Check endpoint health
-                health = await asyncio.to_thread(self.endpoint.health)
-                health = ServerlessHealth(**health)
-
-                if health.is_ready:
-                    # Check job status
-                    job_status = await asyncio.to_thread(job.status)
-                    log.debug(f"{log_group} | Status: {job_status}")
-                else:
-                    # Check worker status
-                    job_status = health.workers.status.value
-                    log.debug(f"{log_group} | Status: {job_status}")
-
-                    if health.workers.status in [
-                        Status.THROTTLED,
-                        Status.UNHEALTHY,
-                        Status.UNKNOWN,
-                    ]:
-                        log.debug(f"{log_group} | Health {health}")
-
-                        if attempt >= 10:
-                            # Give up
-                            log.info(f"{log_subgroup} | Cancelling")
-                            await asyncio.to_thread(job.cancel)
-                            raise RuntimeError(health.workers.status.value)
-
-                # Adjust polling pace appropriately
-                if last_status == job_status:
-                    # nothing changed, increase the gap
-                    attempt += 1
-                    indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
-                    if indicator:
-                        log.info(f"{log_subgroup} | {indicator}")
-                else:
-                    # status changed, reset the gap
-                    log.info(f"{log_subgroup} | Status: {job_status}")
-                    attempt = 0
-
+                current_pace = 0
+                attempt = 0
+                job_status = Status.UNKNOWN
                 last_status = job_status
 
-                current_pace = get_backoff_delay(attempt)
+                # Poll for job status
+                while True:
+                    await asyncio.sleep(current_pace)
 
-                if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
-                    response = await asyncio.to_thread(job._fetch_job)
-                    return JobOutput(**response)
+                    # Check endpoint health
+                    health = await asyncio.to_thread(self.endpoint.health)
+                    health = ServerlessHealth(**health)
+
+                    if health.is_ready:
+                        # Check job status
+                        job_status = await asyncio.to_thread(job.status)
+                        if not is_rich_enabled():
+                            log.debug(f"{log_group} | Status: {job_status}")
+                    else:
+                        # Check worker status
+                        job_status = health.workers.status.value
+                        if not is_rich_enabled():
+                            log.debug(f"{log_group} | Status: {job_status}")
+
+                        if health.workers.status in [
+                            Status.THROTTLED,
+                            Status.UNHEALTHY,
+                            Status.UNKNOWN,
+                        ]:
+                            if not is_rich_enabled():
+                                log.debug(f"{log_group} | Health {health}")
+
+                            if attempt >= 10:
+                                # Give up
+                                if tracker:
+                                    tracker.update_status("CANCELLED", "Timeout after 10 attempts")
+                                else:
+                                    log.info(f"{log_subgroup} | Cancelling")
+                                await asyncio.to_thread(job.cancel)
+                                raise RuntimeError(health.workers.status.value)
+
+                    # Update Rich progress tracker or fallback to standard logging
+                    if last_status == job_status:
+                        # nothing changed, increase the gap
+                        attempt += 1
+                        if tracker:
+                            tracker.show_progress_indicator()
+                        elif not is_rich_enabled():
+                            indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
+                            if indicator:
+                                log.info(f"{log_subgroup} | {indicator}")
+                    else:
+                        # status changed, reset the gap
+                        if tracker:
+                            # Map RunPod status to user-friendly message
+                            status_message = ""
+                            if job_status == "IN_QUEUE":
+                                status_message = "Waiting for worker..."
+                            elif job_status == "INITIALIZING":
+                                status_message = "Starting up worker..."
+                            elif job_status == "RUNNING":
+                                status_message = "Executing function..."
+                            
+                            tracker.update_status(job_status, status_message)
+                        elif not is_rich_enabled():
+                            log.info(f"{log_subgroup} | Status: {job_status}")
+                        attempt = 0
+
+                    last_status = job_status
+
+                    current_pace = get_backoff_delay(attempt)
+
+                    if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
+                        if tracker:
+                            tracker.update_status(job_status)
+                        response = await asyncio.to_thread(job._fetch_job)
+                        return JobOutput(**response)
 
         except Exception as e:
             log.error(f"{log_group} | Exception: {e}")
@@ -319,9 +361,13 @@ class JobOutput(BaseModel):
     error: Optional[str] = ""
 
     def model_post_init(self, __context):
-        log_group = f"Worker:{self.workerId}"
-        log.info(f"{log_group} | Delay Time: {self.delayTime} ms")
-        log.info(f"{log_group} | Execution Time: {self.executionTime} ms")
+        if is_rich_enabled():
+            metrics_table = create_metrics_table(self.delayTime, self.executionTime, self.workerId)
+            print_with_rich(metrics_table)
+        else:
+            log_group = f"Worker:{self.workerId}"
+            log.info(f"{log_group} | Delay Time: {self.delayTime} ms")
+            log.info(f"{log_group} | Execution Time: {self.executionTime} ms")
 
 
 class Status(str, Enum):

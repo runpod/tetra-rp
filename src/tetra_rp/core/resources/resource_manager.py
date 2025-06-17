@@ -4,6 +4,7 @@ from pathlib import Path
 
 from tetra_rp import get_logger
 from tetra_rp.core.utils.singleton import SingletonMixin
+from tetra_rp.core.utils.rich_ui import is_rich_enabled, create_reused_resource_panel, print_with_rich
 
 from .base import DeployableResource
 
@@ -29,7 +30,8 @@ class ResourceManager(SingletonMixin):
             try:
                 with open(RESOURCE_STATE_FILE, "rb") as f:
                     self._resources = cloudpickle.load(f)
-                    log.debug(f"Loaded saved resources from {RESOURCE_STATE_FILE}")
+                    if not is_rich_enabled():
+                        log.debug(f"Loaded saved resources from {RESOURCE_STATE_FILE}")
             except Exception as e:
                 log.error(f"Failed to load resources from {RESOURCE_STATE_FILE}: {e}")
         return self._resources
@@ -38,7 +40,8 @@ class ResourceManager(SingletonMixin):
         """Persist state of resources to disk using cloudpickle."""
         with open(RESOURCE_STATE_FILE, "wb") as f:
             cloudpickle.dump(self._resources, f)
-        log.debug(f"Saved resources in {RESOURCE_STATE_FILE}")
+        if not is_rich_enabled():
+            log.debug(f"Saved resources in {RESOURCE_STATE_FILE}")
 
     def add_resource(self, uid: str, resource: DeployableResource):
         """Add a resource to the manager."""
@@ -68,7 +71,12 @@ class ResourceManager(SingletonMixin):
                 self.remove_resource(uid)
                 return await self.get_or_deploy_resource(config)
 
-            log.debug(f"{existing} exists, reusing.")
+            if is_rich_enabled():
+                # Show a panel for reused resources similar to fresh deployments
+                panel = create_reused_resource_panel(existing.name, existing.id, existing.console_url)
+                print_with_rich(panel)
+            else:
+                log.debug(f"{existing} exists, reusing.")
             return existing
 
         if deployed_resource := await config.deploy():

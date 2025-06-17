@@ -7,12 +7,11 @@ endif
 
 dev:
 	uv sync --all-groups
-	make examples
 
 proto:
 # TODO: auto-generate proto files
 
-examples:
+examples: dev
 	git submodule init
 	git submodule update --remote
 	@echo "🚀 Running make inside tetra-examples..."; \
