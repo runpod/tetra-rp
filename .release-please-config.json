@@ -1,0 +1,28 @@
+{
+  "release-type": "python",
+  "package-name": "tetra-rp",
+  "packages": {
+    ".": {
+      "package-name": "tetra-rp",
+      "release-type": "python"
+    }
+  },
+  "changelog-sections": [
+    {"type": "feat", "section": "Features"},
+    {"type": "fix", "section": "Bug Fixes"},
+    {"type": "perf", "section": "Performance Improvements"},
+    {"type": "revert", "section": "Reverts"},
+    {"type": "docs", "section": "Documentation"},
+    {"type": "style", "section": "Styles", "hidden": true},
+    {"type": "chore", "section": "Miscellaneous Chores", "hidden": true},
+    {"type": "refactor", "section": "Code Refactoring"},
+    {"type": "test", "section": "Tests", "hidden": true},
+    {"type": "build", "section": "Build System", "hidden": true},
+    {"type": "ci", "section": "Continuous Integration", "hidden": true}
+  ],
+  "release-as": "0.2.1",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "draft": false,
+  "prerelease": false
+}

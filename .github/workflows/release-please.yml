@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          release-type: python
+          package-name: tetra-rp
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build and publish to PyPI when a release is created
+      - name: Checkout
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        if: ${{ steps.release.outputs.release_created }}
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        if: ${{ steps.release.outputs.release_created }}
+        run: uv sync --all-groups
+
+      - name: Build and publish package
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          uv build
+          uv publish
