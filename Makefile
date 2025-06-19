@@ -1,5 +1,3 @@
-PYPI_TOKEN := $(shell python -c "import configparser; c=configparser.ConfigParser(); c.read('$(HOME)/.pypirc'); print(c.get('pypi', 'password', fallback=''))" 2>/dev/null)
-
 .PHONY: dev
 
 # Check if 'uv' is installed
@@ -26,12 +24,3 @@ clean:
 
 build: clean dev
 	uv build
-
-publish-test: build
-	@if [ -z "$(PYPI_TOKEN)" ]; then \
-		echo "Error: No PyPI token found in ~/.pypirc"; \
-		exit 1; \
-	fi
-
-publish: build
-	UV_PUBLISH_TOKEN=$(PYPI_TOKEN) uv publish
