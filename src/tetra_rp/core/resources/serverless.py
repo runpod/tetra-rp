@@ -30,7 +30,7 @@ def get_env_vars() -> Dict[str, str]:
 log = get_logger("serverless")
 
 
-CONSOLE_URL = "https://www.runpod.io/console/serverless/user/endpoint/%s"
+CONSOLE_URL = "https://console.runpod.io/serverless/user/endpoint/%s"
 
 
 class ServerlessScalerType(Enum):
