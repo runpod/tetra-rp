@@ -1,6 +1,6 @@
 [project]
 name = "tetra_rp"
-version = "0.2.0"
+version = "0.2.1"
 description = "A Python library for distributed inference and serving of machine learning models"
 authors = [
     { name = "Marut Pandya", email = "pandyamarut@gmail.com" },
