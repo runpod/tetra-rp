@@ -8,16 +8,16 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: google-github-actions/release-please-action@v4
+      - uses: googleapis/release-please-action@v4
         id: release
         with:
           release-type: python
-          package-name: tetra-rp
           token: ${{ secrets.GITHUB_TOKEN }}
 
       # Build and publish to PyPI when a release is created
