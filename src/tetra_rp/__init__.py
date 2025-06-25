@@ -11,6 +11,7 @@ from .core.resources import (
     CudaVersion,
     GpuGroup,
     LiveServerless,
+    PodTemplate,
     ResourceManager,
     ServerlessEndpoint,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "CudaVersion",
     "GpuGroup",
     "LiveServerless",
+    "PodTemplate",
     "ResourceManager",
     "ServerlessEndpoint",
 ]

@@ -1,4 +1,7 @@
 import requests
+import random
+import re
+import string
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
 
@@ -8,31 +11,28 @@ class KeyValuePair(BaseModel):
     value: str
 
 
-class TemplateResource(BaseModel):
-    advancedStart: bool
-    boundEndpointId: Optional[str] = None
-    category: str
-    config: Dict[str, Any]
-    containerDiskInGb: int
-    containerRegistryAuthId: Optional[str] = None
-    dockerArgs: str
-    earned: int
+class PodTemplate(BaseModel):
+    advancedStart: Optional[bool] = False
+    config: Optional[Dict[str, Any]] = {}
+    containerDiskInGb: Optional[int] = 50
+    containerRegistryAuthId: Optional[str] = ""
+    dockerArgs: Optional[str] = ""
     env: Optional[List[KeyValuePair]] = []
-    id: str
     imageName: str
-    isPublic: bool
-    isRunpod: bool
-    isServerless: bool
-    name: str
-    ports: str
-    readme: str
-    runtimeInMin: int
-    startJupyter: bool
-    startScript: str
-    startSsh: bool
-    userId: str
-    volumeInGb: int
-    volumeMountPath: str
+    name: Optional[str] = None
+    ports: Optional[str] = ""
+    startScript: Optional[str] = ""
+
+    class Config:
+        extra = "allow"
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        if not self.name or self.name.strip() == "":
+            # Convert a pattern like `runpod/tetra-rp:dev.0.1` to `runpod_tetra_rp_dev_0_1`
+            last_part = re.sub(r'[^a-zA-Z0-9]', '_', self.imageName)
+            rand_str = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+            self.name = f"{last_part}__template__{rand_str}"
 
 
 def update_system_dependencies(template_id, token, system_dependencies, base_entry_cmd=None):

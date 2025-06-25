@@ -11,7 +11,7 @@ from runpod.endpoint.runner import Job
 from ..api.runpod import RunpodGraphQLClient
 from .cloud import runpod
 from .base import DeployableResource
-from .template import TemplateResource
+from .template import PodTemplate
 from .gpu import GpuGroup
 from .environment import EnvironmentVars
 
@@ -88,7 +88,7 @@ class ServerlessResource(DeployableResource):
     hubRelease: Optional[str] = None
     instanceIds: Optional[List[str]] = None
     repo: Optional[str] = None
-    template: Optional[TemplateResource] = None
+    template: Optional[PodTemplate] = None
     userId: Optional[str] = None
 
     def __str__(self) -> str:
