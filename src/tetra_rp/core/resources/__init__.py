@@ -4,7 +4,6 @@ from .gpu import GpuGroup, GpuType, GpuTypeDetail
 from .resource_manager import ResourceManager
 from .live_serverless import LiveServerless
 from .serverless import ServerlessResource, ServerlessEndpoint, JobOutput, CudaVersion
-from .template import TemplateResource
 from .template import PodTemplate
 
 
