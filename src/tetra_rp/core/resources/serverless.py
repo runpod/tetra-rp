@@ -1,10 +1,10 @@
 import asyncio
+import logging
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
 from pydantic import field_serializer, field_validator, model_validator, BaseModel, Field
 
-from tetra_rp import get_logger
 from tetra_rp.core.utils.backoff import get_backoff_delay
 from runpod.endpoint.runner import Job
 
@@ -28,7 +28,7 @@ def get_env_vars() -> Dict[str, str]:
     return env_vars.get_env()
 
 
-log = get_logger("serverless")
+log = logging.getLogger(__name__)
 
 
 CONSOLE_URL = "https://console.runpod.io/serverless/user/endpoint/%s"
@@ -265,18 +265,16 @@ class ServerlessResource(DeployableResource):
                 if health.is_ready:
                     # Check job status
                     job_status = await asyncio.to_thread(job.status)
-                    log.debug(f"{log_group} | Status: {job_status}")
+
                 else:
                     # Check worker status
                     job_status = health.workers.status.value
-                    log.debug(f"{log_group} | Status: {job_status}")
 
                     if health.workers.status in [
                         Status.THROTTLED,
                         Status.UNHEALTHY,
                         Status.UNKNOWN,
                     ]:
-                        log.debug(f"{log_group} | Health {health}")
 
                         if attempt >= 10:
                             # Give up

@@ -5,7 +5,7 @@ import textwrap
 import hashlib
 import traceback
 import cloudpickle
-from tetra_rp import get_logger
+import logging
 from ..core.resources import LiveServerless
 from ..protos.remote_execution import (
     FunctionRequest,
@@ -13,7 +13,7 @@ from ..protos.remote_execution import (
     RemoteExecutorStub,
 )
 
-log = get_logger("LiveServerlessStub")
+log = logging.getLogger(__name__)
 
 
 # global in memory cache, TODO: use a more robust cache in future

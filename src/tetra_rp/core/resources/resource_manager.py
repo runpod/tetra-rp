@@ -1,14 +1,14 @@
 import cloudpickle
+import logging
 from typing import Dict
 from pathlib import Path
 
-from tetra_rp import get_logger
-from tetra_rp.core.utils.singleton import SingletonMixin
+from ..utils.singleton import SingletonMixin
 
 from .base import DeployableResource
 
 
-log = get_logger("resource_manager")
+log = logging.getLogger(__name__)
 
 # File to persist state of resources
 RESOURCE_STATE_FILE = Path(".tetra_resources.pkl")

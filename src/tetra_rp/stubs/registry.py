@@ -1,11 +1,11 @@
+import logging
 from functools import singledispatch
 from .live_serverless import LiveServerlessStub
 from .serverless import ServerlessEndpointStub
 from ..core.resources import LiveServerless, ServerlessEndpoint
-from tetra_rp import get_logger
 
 
-log = get_logger("stubs")
+log = logging.getLogger(__name__)
 
 
 @singledispatch
