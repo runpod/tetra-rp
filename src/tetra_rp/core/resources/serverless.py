@@ -8,6 +8,7 @@ from tetra_rp import get_logger
 from tetra_rp.core.utils.backoff import get_backoff_delay
 from runpod.endpoint.runner import Job
 
+from ..api.runpod import RunpodGraphQLClient
 from .cloud import runpod
 from .base import DeployableResource
 from .template import TemplateResource
@@ -52,14 +53,19 @@ class CudaVersion(Enum):
 
 
 class ServerlessResource(DeployableResource):
+    """
+    Base class for GPU serverless resources.
+    """
+    _input_only = {"id", "cudaVersions", "env", "gpus", "flashboot"}
+    
     # === Input-only Fields ===
-    gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
+    env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
+    flashboot: Optional[bool] = True
+    gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
 
     # === Input Fields ===
-    env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     executionTimeoutMs: Optional[int] = None
-    flashboot: Optional[bool] = True
     gpuCount: Optional[int] = 1
     idleTimeout: Optional[int] = 5
     locations: Optional[str] = None
@@ -67,7 +73,7 @@ class ServerlessResource(DeployableResource):
     networkVolumeId: Optional[str] = None
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
-    templateId: str
+    templateId: Optional[str] = None
     workersMax: Optional[int] = 3
     workersMin: Optional[int] = 0
     workersPFBTarget: Optional[int] = None
@@ -122,9 +128,12 @@ class ServerlessResource(DeployableResource):
             return GpuGroup.all()
         return value
 
-    @model_validator(mode="after")
+    @model_validator(mode="after") 
     def sync_input_fields(self):
         """Sync between temporary inputs and exported fields"""
+        if self.flashboot:
+            self.name += "-fb"
+
         if self.gpus:
             # Convert gpus list to gpuIds string
             self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
@@ -147,9 +156,8 @@ class ServerlessResource(DeployableResource):
 
     def model_dump(self, **kwargs):
         """Override to exclude input-only fields from serialization"""
-        excluded = {"id", "cudaVersions", "env", "gpus"}
         return super().model_dump(
-            exclude=excluded, exclude_none=True, by_alias=True, **kwargs
+            exclude=self._input_only, exclude_none=True, by_alias=True, **kwargs
         )
 
     def is_deployed(self) -> bool:
@@ -177,8 +185,9 @@ class ServerlessResource(DeployableResource):
                 log.debug(f"{self} exists")
                 return self
 
-            payload = self.model_dump()
-            result = runpod.create_endpoint(**payload)
+            async with RunpodGraphQLClient() as client:
+                payload = self.model_dump()
+                result = await client.create_endpoint(payload)
 
             if endpoint := self.__class__(**result):
                 log.info(f"Deployed: {endpoint}")

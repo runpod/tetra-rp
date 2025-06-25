@@ -1,13 +1,12 @@
 import hashlib
 from abc import ABC, abstractmethod
 from typing import Optional
-from pydantic import BaseModel, alias_generators
+from pydantic import BaseModel
 
 
 class BaseResource(BaseModel):
     """Base class for all resources."""
     class Config:
-        alias_generator = alias_generators.to_snake
         validate_by_name = True
         validate_default = True
         serialize_by_alias = True
