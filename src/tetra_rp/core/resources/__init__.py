@@ -21,6 +21,5 @@ __all__ = [
     "ResourceManager",
     "ServerlessResource",
     "ServerlessEndpoint",
-    "TemplateResource",
     "PodTemplate",
 ]
