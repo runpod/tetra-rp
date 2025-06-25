@@ -9,6 +9,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  id-token: write  # Required for OIDC
 
 jobs:
   release-please:
@@ -43,8 +44,6 @@ jobs:
 
       - name: Build and publish package
         if: ${{ steps.release.outputs.release_created }}
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: |
           uv build
-          uv publish
+          uv publish --trusted-publishing
