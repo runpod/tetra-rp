@@ -1,7 +1,7 @@
-# Tetra: Serverless GPU Computing for AI Workloads
+# Tetra: Serverless Computing for AI Workloads
 
 <p align="center">
-  <b>Dynamic GPU provisioning for ML workloads with transparent execution</b>
+  <b>Dynamic GPU and CPU provisioning for ML workloads with transparent execution</b>
 </p>
 
 <p align="center">
@@ -59,12 +59,11 @@ Tetra offers several advantages and introduces core concepts that simplify AI wo
 
 ### Inline Resource Configuration
 
-Tetra allows for granular hardware specification at the function level using the `LiveServerless` object. This enables detailed control over GPU allocation and worker scaling.
+Tetra allows for granular hardware specification at the function level using the `LiveServerless` object. This enables detailed control over GPU/CPU allocation and worker scaling.
 
-For example:
-
+#### GPU Configuration
 ```python
-from tetra import LiveServerless, GpuGroup
+from tetra_rp import LiveServerless, GpuGroup
 
 # Configure a GPU endpoint
 gpu_config = LiveServerless(
@@ -72,21 +71,67 @@ gpu_config = LiveServerless(
     workersMax=5, # Scales up to 5 workers (default: 3)
     name="parallel-processor", # Name of the endpoint that will be created or used
 )
+
+# Configure a GPU endpoint with custom Docker image (using ServerlessEndpoint)
+from tetra_rp import ServerlessEndpoint
+
+gpu_config_custom = ServerlessEndpoint(
+    gpus=[GpuGroup.AMPERE_80], # Use A100 GPUs
+    imageName="pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime", # Custom GPU image
+    name="custom-gpu-processor",
+)
+```
+
+#### CPU Configuration
+```python
+from tetra_rp import LiveServerless, CpuInstanceType
+
+# Configure a CPU endpoint
+cpu_config = LiveServerless(
+    instanceIds=[CpuInstanceType.CPU5C_8_16], # Use compute-optimized CPUs
+    workersMax=1, # Scales up to 1 worker (default: 3)
+    name="cpu-processor", # Name of the endpoint that will be created or used
+)
+
+# Configure a CPU endpoint with custom Docker image (using CpuServerlessEndpoint)
+from tetra_rp import CpuServerlessEndpoint
+
+cpu_config_custom = CpuServerlessEndpoint(
+    imageName="python:3.11-slim", # Custom Docker image
+    name="custom-cpu-processor",
+)
 ```
 
 Refer to the [Configuration Parameters](#configuration) section for a full list of available settings.
 
-### Dynamic GPU Provisioning
+**Note**: `LiveServerless` uses fixed Docker images optimized for Tetra runtime and supports full remote code execution. `ServerlessEndpoint` and `CpuServerlessEndpoint` allow custom Docker images but **only support dict payload communication** - they cannot execute arbitrary Python functions remotely and are designed for traditional endpoint usage where you send structured payloads like `{"input": {...}}`.
 
-Tetra enables you to automatically provision GPUs on demand without any manual setup:
+### Dynamic Resource Provisioning
 
+Tetra enables you to automatically provision GPUs or CPUs on demand without any manual setup:
+
+#### GPU Functions
 ```python
 @remote(
     resource_config=gpu_config,
 )
 def my_gpu_function(data):
     # Runs on GPU when called
-    return process(data)
+    import torch
+    tensor = torch.tensor(data).cuda()
+    return tensor.sum().item()
+```
+
+#### CPU Functions
+```python
+@remote(
+    resource_config=cpu_config,
+)
+def my_cpu_function(data):
+    # Runs on CPU when called
+    import pandas as pd
+    df = pd.DataFrame(data)
+    return df.describe().to_dict()
 ```
 
 ### Automatic Dependency Management
@@ -131,27 +176,29 @@ When a Tetra workflow is executed, the following steps occur:
 
 Tetra is well-suited for a variety of AI and data processing tasks, including:
 
-  * **Multi-modal AI pipelines**: Combine text, image, and audio models into unified workflows.
+  * **Multi-modal AI pipelines**: Combine text, image, and audio models into unified workflows using GPU resources.
   * **Distributed model training**: Scale model training operations across multiple GPU workers.
   * **AI research experimentation**: Quickly prototype and test complex combinations of models.
   * **Production inference systems**: Deploy sophisticated, multi-stage inference pipelines for real-world applications.
-  * **Data processing workflows**: Process large datasets efficiently using distributed computing resources.
+  * **Data processing workflows**: Process large datasets efficiently using CPU workers for general computation and GPU workers for accelerated tasks.
+  * **Hybrid GPU/CPU workflows**: Combine CPU preprocessing with GPU inference for optimal cost and performance.
 
 -----
 
-## Quick Start Example
+## Quick Start Examples
+
+### GPU Example
 
 ```python
-import os
 import asyncio
 from tetra_rp import remote, LiveServerless
 
-runpod_config = LiveServerless(name="example-diffusion-server")
 # Configure Runpod GPU resources
+gpu_config = LiveServerless(name="example-gpu-server")
 
 # Define a function to run on Runpod GPU
 @remote(
-    resource_config=runpod_config,
+    resource_config=gpu_config,
     dependencies=["torch", "numpy"]
 )
 def gpu_compute(data):
@@ -171,17 +218,64 @@ def gpu_compute(data):
         "cuda_version": torch.version.cuda
     }
 
-async def main_quick_start():
+async def main_gpu_example():
     # Run the function on Runpod GPU
     result = await gpu_compute([1, 2, 3, 4, 5])
     print(f"Result: {result['result']}")
     print(f"Computed on: {result['gpu_name']} with CUDA {result['cuda_version']}")
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main_quick_start())
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    asyncio.run(main_gpu_example())
+```
+
+### CPU Example
+
+```python
+import asyncio
+from tetra_rp import remote, LiveServerless, CpuInstanceType
+
+# Configure Runpod CPU resources
+cpu_config = LiveServerless(
+    name="example-cpu-server",
+    instanceIds=[CpuInstanceType.CPU3G_1_4, CpuInstanceType.CPU3C_1_2],
+)
+
+# Define a function to run on Runpod CPU
+@remote(
+    resource_config=cpu_config,
+    dependencies=["pandas", "numpy"]
+)
+def cpu_data_processing(data):
+    import pandas as pd
+    import numpy as np
+    import platform
+    
+    # Process data using CPU
+    df = pd.DataFrame(data)
+    
+    return {
+        "row_count": len(df),
+        "column_count": len(df.columns) if not df.empty else 0,
+        "mean_values": df.select_dtypes(include=[np.number]).mean().to_dict(),
+        "system_info": platform.processor(),
+        "platform": platform.platform()
+    }
+
+async def main_cpu_example():
+    # Sample data
+    sample_data = [
+        {"name": "Alice", "age": 30, "score": 85},
+        {"name": "Bob", "age": 25, "score": 92},
+        {"name": "Charlie", "age": 35, "score": 78}
+    ]
+    
+    # Run the function on Runpod CPU
+    result = await cpu_data_processing(sample_data)
+    print(f"Processed {result['row_count']} rows on {result['platform']}")
+    print(f"Mean values: {result['mean_values']}")
+
+if __name__ == "__main__":
+    asyncio.run(main_cpu_example())
 ```
 
 -----
@@ -292,14 +386,14 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 
 ## Configuration
 
-### Configuration Parameters
+### GPU Configuration Parameters
 
-The following parameters can be used with the `LiveServerless` object to configure your Runpod GPU endpoints:
+The following parameters can be used with `LiveServerless` (full remote code execution) and `ServerlessEndpoint` (dict payload only) to configure your Runpod GPU endpoints:
 
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
 | `name`             | (Required) Name for your endpoint               | `""`          | `"stable-diffusion-server"`         |
-| `gpus`             | GPU pool IDs that can be used by workers        | `[GpuGroup.ANY]` | `"List[GpuGroup]"` list of [GPU Pool IDs](https://docs.runpod.io/references/gpu-types#gpu-pools) |
+| `gpus`             | GPU pool IDs that can be used by workers        | `[GpuGroup.ANY]` | `[GpuGroup.ADA_24]` for RTX 4090 |
 | `gpuCount`         | Number of GPUs per worker                       | 1             | 1, 2, 4                             |
 | `workersMin`       | Minimum number of workers                       | 0             | Set to 1 for persistence            |
 | `workersMax`       | Maximum number of workers                       | 3             | Higher for more concurrency         |
@@ -307,9 +401,53 @@ The following parameters can be used with the `LiveServerless` object to configu
 | `env`              | Environment variables                           | `None`        | `{"HF_TOKEN": "xyz"}`               |
 | `networkVolumeId`  | Persistent storage ID                           | `None`        | `"vol_abc123"`                      |
 | `executionTimeoutMs`| Max execution time (ms)                         | 0 (no limit)  | 600000 (10 min)                     |
-| `scalerType`       | Scaling strategy                                | `QUEUE_DELAY` | `NONE`, `QUEUE_SIZE`                |
+| `scalerType`       | Scaling strategy                                | `QUEUE_DELAY` | `REQUEST_COUNT`                     |
 | `scalerValue`      | Scaling parameter value                         | 4             | 1-10 range typical                  |
 | `locations`        | Preferred datacenter locations                  | `None`        | `"us-east,eu-central"`              |
+| `imageName`        | Custom Docker image (ServerlessEndpoint only)   | Fixed for LiveServerless | `"pytorch/pytorch:latest"`, `"my-registry/custom:v1.0"` |
+
+### CPU Configuration Parameters
+
+The same GPU Configuration parameters above still apply to `LiveServerless` (full remote code execution) and `CpuServerlessEndpoint` (dict payload only), with the additional parameters:
+
+| Parameter          | Description                                     | Default       | Example Values                      |
+|--------------------|-------------------------------------------------|---------------|-------------------------------------|
+| `instanceIds`      | CPU Instance Types (forces a CPU Endpoint type) | `None`        | `[CpuInstanceType.CPU5C_2_4]`       |
+| `imageName`        | Custom Docker image (CpuServerlessEndpoint only) | Fixed for LiveServerless | `"python:3.11-slim"`, `"my-registry/custom:v1.0"` |
+
+### Resource Class Comparison
+
+| Feature | LiveServerless | ServerlessEndpoint | CpuServerlessEndpoint |
+|---------|----------------|-------------------|----------------------|
+| **Remote Code Execution** | ✅ Full Python function execution | ❌ Dict payloads only | ❌ Dict payloads only |
+| **Custom Docker Images** | ❌ Fixed optimized images | ✅ Any Docker image | ✅ Any Docker image |
+| **Use Case** | Dynamic remote functions | Traditional API endpoints | Traditional CPU endpoints |
+| **Function Returns** | Any Python object | Dict only | Dict only |
+| **@remote decorator** | Full functionality | Limited to payload passing | Limited to payload passing |
+
+### Available GPU Types
+
+Some common GPU groups available through `GpuGroup`:
+
+- `GpuGroup.ADA_24` - NVIDIA GeForce RTX 4090
+- `GpuGroup.AMPERE_80` - NVIDIA A100 80GB
+- `GpuGroup.AMPERE_48` - NVIDIA A40, RTX A6000
+- `GpuGroup.AMPERE_24` - NVIDIA RTX A5000, L4, RTX 3090
+- `GpuGroup.ANY` - Any available GPU (default)
+
+### Available CPU Instance Types
+- `CpuInstanceType.CPU3G_1_4` - (cpu3g-1-4) 3rd gen general purpose, 1 vCPU, 4GB RAM
+- `CpuInstanceType.CPU3G_2_8` - (cpu3g-2-8) 3rd gen general purpose, 2 vCPU, 8GB RAM
+- `CpuInstanceType.CPU3G_4_16` - (cpu3g-4-16) 3rd gen general purpose, 4 vCPU, 16GB RAM
+- `CpuInstanceType.CPU3G_8_32` - (cpu3g-8-32) 3rd gen general purpose, 8 vCPU, 32GB RAM
+- `CpuInstanceType.CPU3C_1_2` - (cpu3c-1-2) 3rd gen compute-optimized, 1 vCPU, 2GB RAM
+- `CpuInstanceType.CPU3C_2_4` - (cpu3c-2-4) 3rd gen compute-optimized, 2 vCPU, 4GB RAM
+- `CpuInstanceType.CPU3C_4_8` - (cpu3c-4-8) 3rd gen compute-optimized, 4 vCPU, 8GB RAM
+- `CpuInstanceType.CPU3C_8_16` - (cpu3c-8-16) 3rd gen compute-optimized, 8 vCPU, 16GB RAM
+- `CpuInstanceType.CPU5C_1_2` - (cpu5c-1-2) 5th gen compute-optimized, 1 vCPU, 2GB RAM
+- `CpuInstanceType.CPU5C_2_4` - (cpu5c-2-4) 5th gen compute-optimized, 2 vCPU, 4GB RAM
+- `CpuInstanceType.CPU5C_4_8` - (cpu5c-4-8) 5th gen compute-optimized, 4 vCPU, 8GB RAM
+- `CpuInstanceType.CPU5C_8_16` - (cpu5c-8-16) 5th gen compute-optimized, 8 vCPU, 16GB RAM
 
 ## License
 

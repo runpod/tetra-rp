@@ -11,6 +11,6 @@ TETRA_CPU_IMAGE = os.environ.get("TETRA_CPU_IMAGE", "runpod/tetra-rp-cpu:dev")
 class LiveServerless(ServerlessResource):
     @model_validator(mode="before")
     def set_default_template(self: dict) -> dict:
-        """Set default template if not provided."""
+        """Set default templates for Live Serverless. This can't be changed."""
         self["imageName"] = TETRA_CPU_IMAGE if self.get("instanceIds") else TETRA_GPU_IMAGE
         return self
