@@ -1,18 +1,27 @@
 import asyncio
 import logging
+import os
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from urllib.parse import urljoin
-from pydantic import field_serializer, field_validator, model_validator, BaseModel, Field
+from pydantic import (
+    field_serializer,
+    field_validator,
+    model_validator,
+    BaseModel,
+    Field,
+)
 
-from tetra_rp.core.utils.backoff import get_backoff_delay
 from runpod.endpoint.runner import Job
 
 from ..api.runpod import RunpodGraphQLClient
+from ..utils.backoff import get_backoff_delay
+
 from .cloud import runpod
 from .base import DeployableResource
 from .template import PodTemplate
 from .gpu import GpuGroup
+from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 
 
@@ -31,7 +40,8 @@ def get_env_vars() -> Dict[str, str]:
 log = logging.getLogger(__name__)
 
 
-CONSOLE_URL = "https://console.runpod.io/serverless/user/endpoint/%s"
+CONSOLE_BASE_URL = os.environ.get("CONSOLE_BASE_URL", "https://console.runpod.io")
+CONSOLE_URL = f"{CONSOLE_BASE_URL}/serverless/user/endpoint/%s"
 
 
 class ServerlessScalerType(Enum):
@@ -54,10 +64,11 @@ class CudaVersion(Enum):
 
 class ServerlessResource(DeployableResource):
     """
-    Base class for GPU serverless resources.
+    Base class for GPU serverless resource
     """
+
     _input_only = {"id", "cudaVersions", "env", "gpus", "flashboot"}
-    
+
     # === Input-only Fields ===
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
@@ -68,6 +79,7 @@ class ServerlessResource(DeployableResource):
     executionTimeoutMs: Optional[int] = None
     gpuCount: Optional[int] = 1
     idleTimeout: Optional[int] = 5
+    instanceIds: Optional[List[CpuInstanceType]] = None
     locations: Optional[str] = None
     name: str
     networkVolumeId: Optional[str] = None
@@ -86,7 +98,6 @@ class ServerlessResource(DeployableResource):
     createdAt: Optional[str] = None  # TODO: use datetime
     gpuIds: Optional[str] = ""
     hubRelease: Optional[str] = None
-    instanceIds: Optional[List[str]] = None
     repo: Optional[str] = None
     template: Optional[PodTemplate] = None
     userId: Optional[str] = None
@@ -115,10 +126,17 @@ class ServerlessResource(DeployableResource):
             raise ValueError("Missing self.id")
         return runpod.Endpoint(self.id)
 
-    # Serialize all enum fields to their values
     @field_serializer("scalerType")
-    def serialize_scaler_type(self, value: Optional[ServerlessScalerType]) -> Optional[str]:
+    def serialize_scaler_type(
+        self, value: Optional[ServerlessScalerType]
+    ) -> Optional[str]:
+        """Convert ServerlessScalerType enum to string."""
         return value.value if value is not None else None
+
+    @field_serializer("instanceIds")
+    def serialize_instance_ids(self, value: List[CpuInstanceType]) -> List[str]:
+        """Convert CpuInstanceType enums to strings."""
+        return [item.value if hasattr(item, "value") else str(item) for item in value]
 
     @field_validator("gpus")
     @classmethod
@@ -128,12 +146,19 @@ class ServerlessResource(DeployableResource):
             return GpuGroup.all()
         return value
 
-    @model_validator(mode="after") 
+    @model_validator(mode="after")
     def sync_input_fields(self):
         """Sync between temporary inputs and exported fields"""
         if self.flashboot:
             self.name += "-fb"
 
+        if self.instanceIds:
+            return self._sync_input_fields_cpu()
+        else:
+            return self._sync_input_fields_gpu()
+
+    def _sync_input_fields_gpu(self):
+        # GPU-specific fields
         if self.gpus:
             # Convert gpus list to gpuIds string
             self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
@@ -151,6 +176,14 @@ class ServerlessResource(DeployableResource):
                 v.strip() for v in self.allowedCudaVersions.split(",") if v.strip()
             ]
             self.cudaVersions = [CudaVersion(value) for value in version_values]
+
+        return self
+
+    def _sync_input_fields_cpu(self):
+        # Override GPU-specific fields for CPU
+        self.gpuCount = 0
+        self.allowedCudaVersions = ""
+        self.gpuIds = ""
 
         return self
 
@@ -314,6 +347,20 @@ class ServerlessEndpoint(ServerlessResource):
     """
 
     pass
+
+
+class CpuServerlessEndpoint(ServerlessEndpoint):
+    """
+    Convenience class for CPU serverless endpoint.
+    Represents a CPU-only serverless endpoint distinct from a live serverless.
+    Inherits from ServerlessEndpoint.
+    """
+
+    def __init__(self, **data):
+        if data.get("instanceIds", False):
+            data["instanceIds"] = [CpuInstanceType.CPU5G_2_8]
+
+        super().__init__(**data)
 
 
 class JobOutput(BaseModel):

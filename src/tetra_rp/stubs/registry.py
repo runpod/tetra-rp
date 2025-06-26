@@ -2,7 +2,11 @@ import logging
 from functools import singledispatch
 from .live_serverless import LiveServerlessStub
 from .serverless import ServerlessEndpointStub
-from ..core.resources import LiveServerless, ServerlessEndpoint
+from ..core.resources import (
+    CpuServerlessEndpoint,
+    LiveServerless,
+    ServerlessEndpoint,
+)
 
 
 log = logging.getLogger(__name__)
@@ -41,6 +45,29 @@ def _(resource, **extra):
         if dependencies or system_dependencies:
             log.warning(
                 "Dependencies are not supported for ServerlessEndpoint. "
+                "They will be ignored."
+            )
+
+        stub = ServerlessEndpointStub(resource)
+        payload = stub.prepare_payload(func, *args, **kwargs)
+        response = await stub.execute(payload, sync=extra.get("sync", False))
+        return stub.handle_response(response)
+
+    return stubbed_resource
+
+
+@stub_resource.register(CpuServerlessEndpoint)
+def _(resource, **extra):
+    async def stubbed_resource(
+        func, dependencies, system_dependencies, *args, **kwargs
+    ) -> dict:
+        if args == (None,):
+            # cleanup: when the function is called with no args
+            args = []
+
+        if dependencies or system_dependencies:
+            log.warning(
+                "Dependencies are not supported for CpuServerlessEndpoint. "
                 "They will be ignored."
             )
 

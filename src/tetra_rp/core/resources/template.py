@@ -14,7 +14,7 @@ class KeyValuePair(BaseModel):
 class PodTemplate(BaseModel):
     advancedStart: Optional[bool] = False
     config: Optional[Dict[str, Any]] = {}
-    containerDiskInGb: Optional[int] = 50
+    containerDiskInGb: Optional[int] = 10
     containerRegistryAuthId: Optional[str] = ""
     dockerArgs: Optional[str] = ""
     env: Optional[List[KeyValuePair]] = []

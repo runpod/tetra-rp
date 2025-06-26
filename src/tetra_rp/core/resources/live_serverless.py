@@ -5,15 +5,20 @@ from .template import PodTemplate
 
 
 TETRA_GPU_IMAGE = os.environ.get("TETRA_GPU_IMAGE", "runpod/tetra-rp:dev")
+TETRA_CPU_IMAGE = os.environ.get("TETRA_CPU_IMAGE", "runpod/tetra-rp-cpu:dev")
 
 
 class LiveServerless(ServerlessResource):
     def __init__(self, **data):
-        if template := data.get("template"):
-            template.imageName = TETRA_GPU_IMAGE
+        if data.get("instanceIds", False):
+            default_template = TETRA_CPU_IMAGE
         else:
-            template = PodTemplate(
-                imageName=TETRA_GPU_IMAGE,
-            )
+            default_template = TETRA_GPU_IMAGE
+
+        if template := data.get("template"):
+            template.imageName = default_template
+        else:
+            template = PodTemplate(imageName=default_template)
         data["template"] = template
+
         super().__init__(**data)
