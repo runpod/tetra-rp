@@ -1,6 +1,5 @@
 from typing import Dict, Optional
 from dotenv import dotenv_values
-import os
 
 class EnvironmentVars:
     def __init__(self):
