@@ -48,4 +48,4 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         run: |
           uv build
-          uv publish --trusted-publishing
+          uv publish --trusted-publishing automatic
