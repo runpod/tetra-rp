@@ -3,7 +3,6 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 from enum import Enum
-from urllib.parse import urljoin
 from pydantic import (
     field_serializer,
     field_validator,
@@ -110,12 +109,6 @@ class ServerlessResource(DeployableResource):
     def url(self) -> str:
         if not self.id:
             raise ValueError("Missing self.id")
-        return urljoin(runpod.endpoint_url_base, self.id)
-
-    @property
-    def console_url(self) -> str:
-        if not self.id:
-            raise ValueError("Missing self.id")
         return CONSOLE_URL % self.id
 
     @property
@@ -208,7 +201,7 @@ class ServerlessResource(DeployableResource):
             response = self.endpoint.health()
             return response is not None
         except Exception as e:
-            log.error(f"Error checking {self.console_url}: {e}")
+            log.error(f"Error checking {self}: {e}")
             return False
 
     async def deploy(self) -> "DeployableResource":
@@ -227,7 +220,6 @@ class ServerlessResource(DeployableResource):
                 result = await client.create_endpoint(payload)
 
             if endpoint := self.__class__(**result):
-                log.info(f"Deployed: {endpoint}")
                 return endpoint
 
             raise ValueError("Deployment failed, no endpoint was returned.")
@@ -249,21 +241,18 @@ class ServerlessResource(DeployableResource):
                 f"{self.id}/runsync", payload, timeout=60
             )
 
-        log_group = f"{self}"
-        log.info(f"{self.console_url} | API /run_sync")
-
         try:
             # log.debug(f"[{log_group}] Payload: {payload}")
 
+            log.info(f"{self} | API /run_sync")
             response = await asyncio.to_thread(_fetch_job)
             return JobOutput(**response)
 
         except Exception as e:
             health = await asyncio.to_thread(self.endpoint.health)
             health = ServerlessHealth(**health)
-            log.info(f"{log_group} | Health {health.workers.status}")
-
-            log.error(f"{log_group} | Exception: {e}")
+            log.info(f"{self} | Health {health.workers.status}")
+            log.error(f"{self} | Exception: {e}")
             raise
 
     async def run(self, payload: Dict[str, Any]) -> "JobOutput":
@@ -274,17 +263,17 @@ class ServerlessResource(DeployableResource):
         if not self.id:
             raise ValueError("Serverless is not deployed")
 
-        log_group = f"{self}"
-        log.info(f"{self.console_url} | API /run")
 
         try:
-            # log.debug(f"[{log_group}] Payload: {payload}")
+            # log.debug(f"[{self}] Payload: {payload}")
 
-            job: Job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
+            # Create a job using the endpoint
+            log.info(f"{self} | API /run")
+            job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
 
             log_subgroup = f"Job:{job.job_id}"
 
-            log.info(f"{log_group} | Started {log_subgroup}")
+            log.info(f"{self} | Started {log_subgroup}")
 
             current_pace = 0
             attempt = 0
@@ -333,6 +322,7 @@ class ServerlessResource(DeployableResource):
 
                 last_status = job_status
 
+                # Adjust polling pace appropriately
                 current_pace = get_backoff_delay(attempt)
 
                 if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
@@ -340,7 +330,7 @@ class ServerlessResource(DeployableResource):
                     return JobOutput(**response)
 
         except Exception as e:
-            log.error(f"{log_group} | Exception: {e}")
+            log.error(f"{self} | Exception: {e}")
             raise
 
 

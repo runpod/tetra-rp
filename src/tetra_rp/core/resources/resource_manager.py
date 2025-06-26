@@ -69,9 +69,11 @@ class ResourceManager(SingletonMixin):
                 return await self.get_or_deploy_resource(config)
 
             log.debug(f"{existing} exists, reusing.")
+            log.info(f"URL: {existing.url}")
             return existing
 
         if deployed_resource := await config.deploy():
+            log.info(f"URL: {deployed_resource.url}")
             self.add_resource(uid, deployed_resource)
             return deployed_resource
 

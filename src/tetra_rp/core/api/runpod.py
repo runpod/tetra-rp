@@ -114,7 +114,7 @@ class RunpodGraphQLClient:
 
         variables = {"input": input_data}
 
-        log.info(f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}")
+        log.debug(f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}")
 
         result = await self._execute_graphql(mutation, variables)
 
