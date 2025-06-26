@@ -1,11 +1,11 @@
+import logging
 from functools import wraps
-from tetra_rp import get_logger
 from typing import List
 from .core.resources import ServerlessResource, ResourceManager
 from .stubs import stub_resource
 
 
-log = get_logger("client")
+log = logging.getLogger(__name__)
 
 
 def remote(

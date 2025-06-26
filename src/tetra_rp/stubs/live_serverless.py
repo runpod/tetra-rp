@@ -5,7 +5,7 @@ import textwrap
 import hashlib
 import traceback
 import cloudpickle
-from tetra_rp import get_logger
+import logging
 from ..core.resources import LiveServerless
 from ..protos.remote_execution import (
     FunctionRequest,
@@ -13,7 +13,7 @@ from ..protos.remote_execution import (
     RemoteExecutorStub,
 )
 
-log = get_logger("LiveServerlessStub")
+log = logging.getLogger(__name__)
 
 
 # global in memory cache, TODO: use a more robust cache in future
@@ -55,7 +55,7 @@ def get_function_source(func):
 
 
 class LiveServerlessStub(RemoteExecutorStub):
-    """Adapter class to make RunPod endpoints look like gRPC stubs."""
+    """Adapter class to make Runpod endpoints look like gRPC stubs."""
 
     def __init__(self, server: LiveServerless):
         self.server = server
@@ -106,7 +106,7 @@ class LiveServerlessStub(RemoteExecutorStub):
 
     async def ExecuteFunction(self, request: FunctionRequest, sync: bool = False) -> FunctionResponse:
         try:
-            # Convert the gRPC request to RunPod format
+            # Convert the gRPC request to Runpod format
             payload = request.model_dump(exclude_none=True)
 
             if sync:

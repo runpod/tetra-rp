@@ -1,17 +1,26 @@
 import asyncio
+import logging
+import os
 from typing import Any, Dict, List, Optional
 from enum import Enum
-from urllib.parse import urljoin
-from pydantic import field_serializer, field_validator, model_validator, BaseModel, Field
+from pydantic import (
+    field_serializer,
+    field_validator,
+    model_validator,
+    BaseModel,
+    Field,
+)
 
-from tetra_rp import get_logger
-from tetra_rp.core.utils.backoff import get_backoff_delay
 from runpod.endpoint.runner import Job
+
+from ..api.runpod import RunpodGraphQLClient
+from ..utils.backoff import get_backoff_delay
 
 from .cloud import runpod
 from .base import DeployableResource
-from .template import TemplateResource
+from .template import PodTemplate
 from .gpu import GpuGroup
+from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 
 
@@ -27,10 +36,11 @@ def get_env_vars() -> Dict[str, str]:
     return env_vars.get_env()
 
 
-log = get_logger("serverless")
+log = logging.getLogger(__name__)
 
 
-CONSOLE_URL = "https://console.runpod.io/serverless/user/endpoint/%s"
+CONSOLE_BASE_URL = os.environ.get("CONSOLE_BASE_URL", "https://console.runpod.io")
+CONSOLE_URL = f"{CONSOLE_BASE_URL}/serverless/user/endpoint/%s"
 
 
 class ServerlessScalerType(Enum):
@@ -52,22 +62,30 @@ class CudaVersion(Enum):
 
 
 class ServerlessResource(DeployableResource):
+    """
+    Base class for GPU serverless resource
+    """
+
+    _input_only = {"id", "cudaVersions", "env", "gpus", "flashboot", "imageName"}
+
     # === Input-only Fields ===
-    gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
+    env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
+    flashboot: Optional[bool] = True
+    gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
+    imageName: Optional[str] = None  # for template.imageName
 
     # === Input Fields ===
-    env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     executionTimeoutMs: Optional[int] = None
-    flashboot: Optional[bool] = True
     gpuCount: Optional[int] = 1
     idleTimeout: Optional[int] = 5
+    instanceIds: Optional[List[CpuInstanceType]] = None
     locations: Optional[str] = None
     name: str
     networkVolumeId: Optional[str] = None
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
-    templateId: str
+    templateId: Optional[str] = None
     workersMax: Optional[int] = 3
     workersMin: Optional[int] = 0
     workersPFBTarget: Optional[int] = None
@@ -80,9 +98,8 @@ class ServerlessResource(DeployableResource):
     createdAt: Optional[str] = None  # TODO: use datetime
     gpuIds: Optional[str] = ""
     hubRelease: Optional[str] = None
-    instanceIds: Optional[List[str]] = None
     repo: Optional[str] = None
-    template: Optional[TemplateResource] = None
+    template: Optional[PodTemplate] = None
     userId: Optional[str] = None
 
     def __str__(self) -> str:
@@ -92,27 +109,28 @@ class ServerlessResource(DeployableResource):
     def url(self) -> str:
         if not self.id:
             raise ValueError("Missing self.id")
-        return urljoin(runpod.endpoint_url_base, self.id)
-
-    @property
-    def console_url(self) -> str:
-        if not self.id:
-            raise ValueError("Missing self.id")
         return CONSOLE_URL % self.id
 
     @property
     def endpoint(self) -> runpod.Endpoint:
         """
-        Returns the RunPod endpoint object for this serverless resource.
+        Returns the Runpod endpoint object for this serverless resource.
         """
         if not self.id:
             raise ValueError("Missing self.id")
         return runpod.Endpoint(self.id)
 
-    # Serialize all enum fields to their values
     @field_serializer("scalerType")
-    def serialize_scaler_type(self, value: Optional[ServerlessScalerType]) -> Optional[str]:
+    def serialize_scaler_type(
+        self, value: Optional[ServerlessScalerType]
+    ) -> Optional[str]:
+        """Convert ServerlessScalerType enum to string."""
         return value.value if value is not None else None
+
+    @field_serializer("instanceIds")
+    def serialize_instance_ids(self, value: List[CpuInstanceType]) -> List[str]:
+        """Convert CpuInstanceType enums to strings."""
+        return [item.value if hasattr(item, "value") else str(item) for item in value]
 
     @field_validator("gpus")
     @classmethod
@@ -125,6 +143,25 @@ class ServerlessResource(DeployableResource):
     @model_validator(mode="after")
     def sync_input_fields(self):
         """Sync between temporary inputs and exported fields"""
+        if self.flashboot:
+            self.name += "-fb"
+
+        if self.imageName:
+            # Ensure imageName is set to the template's imageName
+            if not self.template:
+                self.template = PodTemplate(
+                    name=self.resource_id, imageName=self.imageName
+                )
+            else:
+                self.template.imageName = self.imageName
+
+        if self.instanceIds:
+            return self._sync_input_fields_cpu()
+        else:
+            return self._sync_input_fields_gpu()
+
+    def _sync_input_fields_gpu(self):
+        # GPU-specific fields
         if self.gpus:
             # Convert gpus list to gpuIds string
             self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
@@ -145,12 +182,13 @@ class ServerlessResource(DeployableResource):
 
         return self
 
-    def model_dump(self, **kwargs):
-        """Override to exclude input-only fields from serialization"""
-        excluded = {"id", "cudaVersions", "env", "gpus"}
-        return super().model_dump(
-            exclude=excluded, exclude_none=True, by_alias=True, **kwargs
-        )
+    def _sync_input_fields_cpu(self):
+        # Override GPU-specific fields for CPU
+        self.gpuCount = 0
+        self.allowedCudaVersions = ""
+        self.gpuIds = ""
+
+        return self
 
     def is_deployed(self) -> bool:
         """
@@ -163,7 +201,7 @@ class ServerlessResource(DeployableResource):
             response = self.endpoint.health()
             return response is not None
         except Exception as e:
-            log.error(f"Error checking {self.console_url}: {e}")
+            log.error(f"Error checking {self}: {e}")
             return False
 
     async def deploy(self) -> "DeployableResource":
@@ -177,11 +215,11 @@ class ServerlessResource(DeployableResource):
                 log.debug(f"{self} exists")
                 return self
 
-            payload = self.model_dump()
-            result = runpod.create_endpoint(**payload)
+            async with RunpodGraphQLClient() as client:
+                payload = self.model_dump(exclude=self._input_only, exclude_none=True)
+                result = await client.create_endpoint(payload)
 
             if endpoint := self.__class__(**result):
-                log.info(f"Deployed: {endpoint}")
                 return endpoint
 
             raise ValueError("Deployment failed, no endpoint was returned.")
@@ -189,6 +227,62 @@ class ServerlessResource(DeployableResource):
         except Exception as e:
             log.error(f"{self} failed to deploy: {e}")
             raise
+
+    async def is_ready_for_requests(self, give_up_threshold=5) -> bool:
+        """
+        Asynchronously checks if the serverless resource is ready to handle
+        requests by polling its health endpoint.
+
+        Args:
+            give_up_threshold (int, optional): The maximum number of polling 
+            attempts before giving up and raising an error. Defaults to 5.
+
+        Returns:
+            bool: True if the serverless resource is ready for requests.
+
+        Raises:
+            ValueError: If the serverless resource is not deployed.
+            RuntimeError: If the health status is THROTTLED, UNHEALTHY, or UNKNOWN 
+            after exceeding the give_up_threshold.
+        """
+        if not self.is_deployed():
+            raise ValueError("Serverless is not deployed")
+
+        log.debug(f"{self} | API /health")
+
+        current_pace = 0
+        attempt = 0
+
+        # Poll for health status
+        while True:
+            await asyncio.sleep(current_pace)
+
+            health = await asyncio.to_thread(self.endpoint.health)
+            health = ServerlessHealth(**health)
+
+            if health.is_ready:
+                return True
+            else:
+                # nothing changed, increase the gap
+                attempt += 1
+                indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
+                if indicator:
+                    log.info(f"{self} | {indicator}")
+
+                status = health.workers.status
+                if status in [
+                    Status.THROTTLED,
+                    Status.UNHEALTHY,
+                    Status.UNKNOWN,
+                ]:
+                    log.debug(f"{self} | Health {status.value}")
+
+                    if attempt >= give_up_threshold:
+                        # Give up
+                        raise RuntimeError(f"Health {status.value}")
+
+            # Adjust polling pace appropriately
+            current_pace = get_backoff_delay(attempt)
 
     async def run_sync(self, payload: Dict[str, Any]) -> "JobOutput":
         """
@@ -203,21 +297,21 @@ class ServerlessResource(DeployableResource):
                 f"{self.id}/runsync", payload, timeout=60
             )
 
-        log_group = f"{self}"
-        log.info(f"{self.console_url} | API /run_sync")
-
         try:
             # log.debug(f"[{log_group}] Payload: {payload}")
 
+            # Poll until requests can be sent
+            await self.is_ready_for_requests()
+
+            log.info(f"{self} | API /run_sync")
             response = await asyncio.to_thread(_fetch_job)
             return JobOutput(**response)
 
         except Exception as e:
             health = await asyncio.to_thread(self.endpoint.health)
             health = ServerlessHealth(**health)
-            log.info(f"{log_group} | Health {health.workers.status}")
-
-            log.error(f"{log_group} | Exception: {e}")
+            log.info(f"{self} | Health {health.workers.status}")
+            log.error(f"{self} | Exception: {e}")
             raise
 
     async def run(self, payload: Dict[str, Any]) -> "JobOutput":
@@ -228,17 +322,21 @@ class ServerlessResource(DeployableResource):
         if not self.id:
             raise ValueError("Serverless is not deployed")
 
-        log_group = f"{self}"
-        log.info(f"{self.console_url} | API /run")
+        job: Optional[Job] = None
 
         try:
-            # log.debug(f"[{log_group}] Payload: {payload}")
+            # log.debug(f"[{self}] Payload: {payload}")
 
-            job: Job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
+            # Poll until requests can be sent
+            await self.is_ready_for_requests()
+
+            # Create a job using the endpoint
+            log.info(f"{self} | API /run")
+            job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
 
             log_subgroup = f"Job:{job.job_id}"
 
-            log.info(f"{log_group} | Started {log_subgroup}")
+            log.info(f"{self} | Started {log_subgroup}")
 
             current_pace = 0
             attempt = 0
@@ -249,33 +347,10 @@ class ServerlessResource(DeployableResource):
             while True:
                 await asyncio.sleep(current_pace)
 
-                # Check endpoint health
-                health = await asyncio.to_thread(self.endpoint.health)
-                health = ServerlessHealth(**health)
-
-                if health.is_ready:
+                if await self.is_ready_for_requests():
                     # Check job status
                     job_status = await asyncio.to_thread(job.status)
-                    log.debug(f"{log_group} | Status: {job_status}")
-                else:
-                    # Check worker status
-                    job_status = health.workers.status.value
-                    log.debug(f"{log_group} | Status: {job_status}")
 
-                    if health.workers.status in [
-                        Status.THROTTLED,
-                        Status.UNHEALTHY,
-                        Status.UNKNOWN,
-                    ]:
-                        log.debug(f"{log_group} | Health {health}")
-
-                        if attempt >= 10:
-                            # Give up
-                            log.info(f"{log_subgroup} | Cancelling")
-                            await asyncio.to_thread(job.cancel)
-                            raise RuntimeError(health.workers.status.value)
-
-                # Adjust polling pace appropriately
                 if last_status == job_status:
                     # nothing changed, increase the gap
                     attempt += 1
@@ -289,6 +364,7 @@ class ServerlessResource(DeployableResource):
 
                 last_status = job_status
 
+                # Adjust polling pace appropriately
                 current_pace = get_backoff_delay(attempt)
 
                 if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
@@ -296,7 +372,11 @@ class ServerlessResource(DeployableResource):
                     return JobOutput(**response)
 
         except Exception as e:
-            log.error(f"{log_group} | Exception: {e}")
+            if job and job.job_id:
+                log.info(f"{self} | Cancelling job {job.job_id}")
+                await asyncio.to_thread(job.cancel)
+
+            log.error(f"{self} | Exception: {e}")
             raise
 
 
@@ -307,6 +387,21 @@ class ServerlessEndpoint(ServerlessResource):
     """
 
     pass
+
+
+class CpuServerlessEndpoint(ServerlessEndpoint):
+    """
+    Convenience class for CPU serverless endpoint.
+    Represents a CPU-only serverless endpoint distinct from a live serverless.
+    Inherits from ServerlessEndpoint.
+    """
+
+    @model_validator(mode="after")
+    def set_default_template(self):
+        if not self.instanceIds:
+            self.instanceIds = [CpuInstanceType.CPU3G_2_8]
+
+        return self
 
 
 class JobOutput(BaseModel):

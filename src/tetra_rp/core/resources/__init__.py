@@ -1,15 +1,24 @@
 from .base import BaseResource, DeployableResource
 from .cloud import runpod
+from .cpu import CpuInstanceType
 from .gpu import GpuGroup, GpuType, GpuTypeDetail
 from .resource_manager import ResourceManager
 from .live_serverless import LiveServerless
-from .serverless import ServerlessResource, ServerlessEndpoint, JobOutput, CudaVersion
-from .template import TemplateResource
+from .serverless import (
+    CpuServerlessEndpoint,
+    ServerlessResource,
+    ServerlessEndpoint,
+    JobOutput,
+    CudaVersion,
+)
+from .template import PodTemplate
 
 
 __all__ = [
     "runpod",
     "BaseResource",
+    "CpuInstanceType",
+    "CpuServerlessEndpoint",
     "CudaVersion",
     "DeployableResource",
     "GpuGroup",
@@ -20,5 +29,5 @@ __all__ = [
     "ResourceManager",
     "ServerlessResource",
     "ServerlessEndpoint",
-    "TemplateResource",
+    "PodTemplate",
 ]
