@@ -1,28 +1,36 @@
 # Load .env vars from file
 # before everything else
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
-from .logger import get_logger
-from .client import remote
-from .core.resources import (
-    runpod,
+from .logger import setup_logging  # noqa: E402
+setup_logging()
+
+from .client import remote  # noqa: E402
+from .core.resources import (  # noqa: E402
+    CpuServerlessEndpoint,
+    CpuInstanceType,
     CudaVersion,
     GpuGroup,
     LiveServerless,
+    PodTemplate,
     ResourceManager,
     ServerlessEndpoint,
+    runpod,
 )
 
 
 __all__ = [
-    "get_logger",
     "remote",
-    "runpod",
+    "CpuServerlessEndpoint",
+    "CpuInstanceType",
     "CudaVersion",
     "GpuGroup",
     "LiveServerless",
+    "PodTemplate",
     "ResourceManager",
     "ServerlessEndpoint",
+    "runpod",
 ]

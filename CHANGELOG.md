@@ -29,7 +29,7 @@
 * is_deployed() to check and redeploy in case endpoint is inaccessible ([4aa0932](https://github.com/runpod/tetra-rp/commit/4aa0932c9f99b08a0d234d4d843dd6339cbc7dd1))
 * Prefer A40 for GPU list when "any" is set ([6a60418](https://github.com/runpod/tetra-rp/commit/6a60418452a39501b3142096e9ab8afa01628953))
 * preparing json.dump of complex objects with normalize_for_json ([48cedd6](https://github.com/runpod/tetra-rp/commit/48cedd64e9140d261f2b3327a3611715d2bf3e38))
-* Pydantic modeling of RunPod resources ([87067bb](https://github.com/runpod/tetra-rp/commit/87067bbae31d7de618d0edd1d78289fef1c0f6d1))
+* Pydantic modeling of Runpod resources ([87067bb](https://github.com/runpod/tetra-rp/commit/87067bbae31d7de618d0edd1d78289fef1c0f6d1))
 * remote stub for ServerlessEndpoint calls ([739aa93](https://github.com/runpod/tetra-rp/commit/739aa93775e296fbb99aa9afccc07b12ae60ea50))
 * resilient redeployments ([fd2e78d](https://github.com/runpod/tetra-rp/commit/fd2e78d42531f83cc3b66d197fb2195244d65336))
 * resilient serverless calls with retries and auto-cancellations when unhealthy/throttled ([9f53e8c](https://github.com/runpod/tetra-rp/commit/9f53e8cb36871ff58b491cd8bf1851bf3d1029cc))
