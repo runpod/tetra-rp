@@ -20,6 +20,8 @@ jobs:
         with:
           release-type: python
           token: ${{ secrets.GITHUB_TOKEN }}
+          include-component-in-tag: false
+          skip-github-pull-request: false
 
       # Build and publish to PyPI when a release is created
       - name: Checkout
