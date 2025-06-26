@@ -67,13 +67,14 @@ class ServerlessResource(DeployableResource):
     Base class for GPU serverless resource
     """
 
-    _input_only = {"id", "cudaVersions", "env", "gpus", "flashboot"}
+    _input_only = {"id", "cudaVersions", "env", "gpus", "flashboot", "imageName"}
 
     # === Input-only Fields ===
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     flashboot: Optional[bool] = True
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
+    imageName: Optional[str] = None  # for template.imageName
 
     # === Input Fields ===
     executionTimeoutMs: Optional[int] = None
@@ -152,6 +153,15 @@ class ServerlessResource(DeployableResource):
         if self.flashboot:
             self.name += "-fb"
 
+        if self.imageName:
+            # Ensure imageName is set to the template's imageName
+            if not self.template:
+                self.template = PodTemplate(
+                    name=self.resource_id, imageName=self.imageName
+                )
+            else:
+                self.template.imageName = self.imageName
+
         if self.instanceIds:
             return self._sync_input_fields_cpu()
         else:
@@ -187,12 +197,6 @@ class ServerlessResource(DeployableResource):
 
         return self
 
-    def model_dump(self, **kwargs):
-        """Override to exclude input-only fields from serialization"""
-        return super().model_dump(
-            exclude=self._input_only, exclude_none=True, by_alias=True, **kwargs
-        )
-
     def is_deployed(self) -> bool:
         """
         Checks if the serverless resource is deployed and available.
@@ -219,7 +223,7 @@ class ServerlessResource(DeployableResource):
                 return self
 
             async with RunpodGraphQLClient() as client:
-                payload = self.model_dump()
+                payload = self.model_dump(exclude=self._input_only, exclude_none=True)
                 result = await client.create_endpoint(payload)
 
             if endpoint := self.__class__(**result):
@@ -356,11 +360,12 @@ class CpuServerlessEndpoint(ServerlessEndpoint):
     Inherits from ServerlessEndpoint.
     """
 
-    def __init__(self, **data):
-        if data.get("instanceIds", False):
-            data["instanceIds"] = [CpuInstanceType.CPU5G_2_8]
+    @model_validator(mode="after")
+    def set_default_template(self):
+        if not self.instanceIds:
+            self.instanceIds = [CpuInstanceType.CPU3G_2_8]
 
-        super().__init__(**data)
+        return self
 
 
 class JobOutput(BaseModel):

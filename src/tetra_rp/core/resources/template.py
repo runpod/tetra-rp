@@ -1,17 +1,14 @@
 import requests
-import random
-import re
-import string
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
-
+from .base import BaseResource
 
 class KeyValuePair(BaseModel):
     key: str
     value: str
 
 
-class PodTemplate(BaseModel):
+class PodTemplate(BaseResource):
     advancedStart: Optional[bool] = False
     config: Optional[Dict[str, Any]] = {}
     containerDiskInGb: Optional[int] = 10
@@ -19,20 +16,13 @@ class PodTemplate(BaseModel):
     dockerArgs: Optional[str] = ""
     env: Optional[List[KeyValuePair]] = []
     imageName: str
-    name: Optional[str] = None
+    name: Optional[str] = ""
     ports: Optional[str] = ""
     startScript: Optional[str] = ""
 
-    class Config:
-        extra = "allow"
-
     def __init__(self, **data):
         super().__init__(**data)
-        if not self.name or self.name.strip() == "":
-            # Convert a pattern like `runpod/tetra-rp:dev.0.1` to `runpod_tetra_rp_dev_0_1`
-            last_part = re.sub(r'[^a-zA-Z0-9]', '_', self.imageName)
-            rand_str = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-            self.name = f"{last_part}__template__{rand_str}"
+        self.name = f"{self.name}__{self.resource_id}"
 
 
 def update_system_dependencies(template_id, token, system_dependencies, base_entry_cmd=None):
