@@ -19,6 +19,9 @@
 
 Tetra is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's Serverless infrastructure. It provides an abstraction layer that lets you define, execute, and monitor sophisticated AI pipelines using both GPU and CPU resources through nothing but Python code and your local terminal, eliminating the need to interact with the Runpod console GUI.
 
+**Latest Improvements:**
+- **Consolidated Template Management**: PodTemplate overrides now seamlessly integrate with ServerlessResource defaults, providing more consistent resource configuration and reducing deployment complexity.
+
 You can find a list of prebuilt Tetra examples at: [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
 
 -----
@@ -187,16 +190,15 @@ Tetra is well-suited for a variety of AI and data processing tasks, including:
 
 ## Quick Start Examples
 
-### GPU Example
+### Basic GPU Example
 
 ```python
 import asyncio
 from tetra_rp import remote, LiveServerless
 
-# Configure Runpod GPU resources
+# Simple GPU configuration
 gpu_config = LiveServerless(name="example-gpu-server")
 
-# Define a function to run on Runpod GPU
 @remote(
     resource_config=gpu_config,
     dependencies=["torch", "numpy"]
@@ -218,29 +220,81 @@ def gpu_compute(data):
         "cuda_version": torch.version.cuda
     }
 
-async def main_gpu_example():
-    # Run the function on Runpod GPU
+async def main():
     result = await gpu_compute([1, 2, 3, 4, 5])
     print(f"Result: {result['result']}")
     print(f"Computed on: {result['gpu_name']} with CUDA {result['cuda_version']}")
 
 if __name__ == "__main__":
-    asyncio.run(main_gpu_example())
+    asyncio.run(main())
 ```
 
-### CPU Example
+### Advanced GPU Example with Template Configuration
+
+```python
+import asyncio
+from tetra_rp import remote, LiveServerless, GpuGroup, PodTemplate
+
+# Advanced GPU configuration with consolidated template overrides
+sd_config = LiveServerless(
+    gpus=[GpuGroup.AMPERE_80],  # A100 80GB GPUs
+    name="example_image_gen_server",
+    template=PodTemplate(containerDiskInGb=100),  # Large disk for models
+    workersMax=3,
+    idleTimeout=10
+)
+
+@remote(
+    resource_config=sd_config,
+    dependencies=["diffusers", "transformers", "torch", "accelerate", "safetensors"]
+)
+def generate_image(prompt, width=512, height=512):
+    import torch
+    from diffusers import StableDiffusionPipeline
+    import io
+    import base64
+    
+    # Load pipeline (benefits from large container disk)
+    pipeline = StableDiffusionPipeline.from_pretrained(
+        "runwayml/stable-diffusion-v1-5",
+        torch_dtype=torch.float16
+    )
+    pipeline = pipeline.to("cuda")
+    
+    # Generate image
+    image = pipeline(prompt=prompt, width=width, height=height).images[0]
+    
+    # Convert to base64 for return
+    buffered = io.BytesIO()
+    image.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    
+    return {"image": img_str, "prompt": prompt}
+
+async def main():
+    result = await generate_image("A serene mountain landscape at sunset")
+    print(f"Generated image for: {result['prompt']}")
+    # Save image locally if needed
+    # img_data = base64.b64decode(result["image"])
+    # with open("output.png", "wb") as f:
+    #     f.write(img_data)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Basic CPU Example
 
 ```python
 import asyncio
 from tetra_rp import remote, LiveServerless, CpuInstanceType
 
-# Configure Runpod CPU resources
+# Simple CPU configuration
 cpu_config = LiveServerless(
     name="example-cpu-server",
-    instanceIds=[CpuInstanceType.CPU3G_1_4, CpuInstanceType.CPU3C_1_2],
+    instanceIds=[CpuInstanceType.CPU5G_2_8],  # 2 vCPU, 8GB RAM
 )
 
-# Define a function to run on Runpod CPU
 @remote(
     resource_config=cpu_config,
     dependencies=["pandas", "numpy"]
@@ -261,21 +315,211 @@ def cpu_data_processing(data):
         "platform": platform.platform()
     }
 
-async def main_cpu_example():
-    # Sample data
+async def main():
     sample_data = [
         {"name": "Alice", "age": 30, "score": 85},
         {"name": "Bob", "age": 25, "score": 92},
         {"name": "Charlie", "age": 35, "score": 78}
     ]
     
-    # Run the function on Runpod CPU
     result = await cpu_data_processing(sample_data)
     print(f"Processed {result['row_count']} rows on {result['platform']}")
     print(f"Mean values: {result['mean_values']}")
 
 if __name__ == "__main__":
-    asyncio.run(main_cpu_example())
+    asyncio.run(main())
+```
+
+### Advanced CPU Example with Template Configuration
+
+```python
+import asyncio
+import base64
+from tetra_rp import remote, LiveServerless, CpuInstanceType, PodTemplate
+
+# Advanced CPU configuration with template overrides
+data_processing_config = LiveServerless(
+    name="advanced-cpu-processor",
+    instanceIds=[CpuInstanceType.CPU5C_4_16, CpuInstanceType.CPU3C_4_8],  # Fallback options
+    template=PodTemplate(
+        containerDiskInGb=20,  # Extra disk space for data processing
+        env=[{"key": "PYTHONPATH", "value": "/workspace"}]  # Custom environment
+    ),
+    workersMax=5,
+    idleTimeout=15,
+    env={"PROCESSING_MODE": "batch", "DEBUG": "false"}  # Additional env vars
+)
+
+@remote(
+    resource_config=data_processing_config,
+    dependencies=["pandas", "numpy", "scipy", "scikit-learn"]
+)
+def advanced_data_analysis(dataset, analysis_type="full"):
+    import pandas as pd
+    import numpy as np
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.decomposition import PCA
+    import platform
+    
+    # Create DataFrame
+    df = pd.DataFrame(dataset)
+    
+    # Perform analysis based on type
+    results = {
+        "platform": platform.platform(),
+        "dataset_shape": df.shape,
+        "memory_usage": df.memory_usage(deep=True).sum()
+    }
+    
+    if analysis_type == "full":
+        # Advanced statistical analysis
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            # Standardize data
+            scaler = StandardScaler()
+            scaled_data = scaler.fit_transform(df[numeric_cols])
+            
+            # PCA analysis
+            pca = PCA(n_components=min(len(numeric_cols), 3))
+            pca_result = pca.fit_transform(scaled_data)
+            
+            results.update({
+                "correlation_matrix": df[numeric_cols].corr().to_dict(),
+                "pca_explained_variance": pca.explained_variance_ratio_.tolist(),
+                "pca_shape": pca_result.shape
+            })
+    
+    return results
+
+async def main():
+    # Generate sample dataset
+    sample_data = [
+        {"feature1": np.random.randn(), "feature2": np.random.randn(), 
+         "feature3": np.random.randn(), "category": f"cat_{i%3}"}
+        for i in range(1000)
+    ]
+    
+    result = await advanced_data_analysis(sample_data, "full")
+    print(f"Processed dataset with shape: {result['dataset_shape']}")
+    print(f"Memory usage: {result['memory_usage']} bytes")
+    print(f"PCA explained variance: {result.get('pca_explained_variance', 'N/A')}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Hybrid GPU/CPU Workflow Example
+
+```python
+import asyncio
+from tetra_rp import remote, LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
+
+# GPU configuration for model inference
+gpu_config = LiveServerless(
+    name="ml-inference-gpu",
+    gpus=[GpuGroup.AMPERE_24],  # RTX 3090/A5000
+    template=PodTemplate(containerDiskInGb=50),  # Space for models
+    workersMax=2
+)
+
+# CPU configuration for data preprocessing
+cpu_config = LiveServerless(
+    name="data-preprocessor",
+    instanceIds=[CpuInstanceType.CPU5C_4_16],  # 4 vCPU, 16GB RAM
+    template=PodTemplate(
+        containerDiskInGb=30,
+        env=[{"key": "NUMPY_NUM_THREADS", "value": "4"}]
+    ),
+    workersMax=3
+)
+
+@remote(
+    resource_config=cpu_config,
+    dependencies=["pandas", "numpy", "scikit-learn"]
+)
+def preprocess_data(raw_data):
+    import pandas as pd
+    import numpy as np
+    from sklearn.preprocessing import StandardScaler
+    
+    # Data cleaning and preprocessing
+    df = pd.DataFrame(raw_data)
+    
+    # Handle missing values
+    df = df.fillna(df.mean(numeric_only=True))
+    
+    # Normalize numeric features
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        scaler = StandardScaler()
+        df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+    
+    return {
+        "processed_data": df.to_dict('records'),
+        "shape": df.shape,
+        "columns": list(df.columns)
+    }
+
+@remote(
+    resource_config=gpu_config,
+    dependencies=["torch", "transformers", "numpy"]
+)
+def run_inference(processed_data):
+    import torch
+    import numpy as np
+    
+    # Simulate ML model inference on GPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # Convert to tensor
+    data_array = np.array([list(item.values()) for item in processed_data["processed_data"]])
+    tensor = torch.tensor(data_array, dtype=torch.float32).to(device)
+    
+    # Simple neural network simulation
+    with torch.no_grad():
+        # Simulate model computation
+        result = torch.nn.functional.softmax(tensor.mean(dim=1), dim=0)
+        predictions = result.cpu().numpy().tolist()
+    
+    return {
+        "predictions": predictions,
+        "device_used": str(device),
+        "input_shape": tensor.shape
+    }
+
+async def ml_pipeline(raw_dataset):
+    """Complete ML pipeline: CPU preprocessing -> GPU inference"""
+    print("Step 1: Preprocessing data on CPU...")
+    preprocessed = await preprocess_data(raw_dataset)
+    print(f"Preprocessed data shape: {preprocessed['shape']}")
+    
+    print("Step 2: Running inference on GPU...")
+    results = await run_inference(preprocessed)
+    print(f"Inference completed on: {results['device_used']}")
+    
+    return {
+        "preprocessing": preprocessed,
+        "inference": results
+    }
+
+async def main():
+    # Sample dataset
+    raw_data = [
+        {"feature1": np.random.randn(), "feature2": np.random.randn(), 
+         "feature3": np.random.randn(), "label": i % 2}
+        for i in range(100)
+    ]
+    
+    # Run the complete pipeline
+    results = await ml_pipeline(raw_data)
+    
+    print("\nPipeline Results:")
+    print(f"Data processed: {results['preprocessing']['shape']}")
+    print(f"Predictions generated: {len(results['inference']['predictions'])}")
+    print(f"GPU device: {results['inference']['device_used']}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 -----
@@ -287,8 +531,7 @@ You can find more examples in the [tetra-examples repository](https://github.com
 You can also install the examples as a submodule:
 
 ```bash
-git clone [https://github.com/runpod/tetra-examples.git](https://github.com/runpod/tetra-examples.git)
-
+git clone https://github.com/runpod/tetra-examples.git
 cd tetra-examples
 python -m examples.example
 python -m examples.image_gen

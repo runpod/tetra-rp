@@ -18,11 +18,10 @@ from ..utils.backoff import get_backoff_delay
 
 from .cloud import runpod
 from .base import DeployableResource
-from .template import PodTemplate
+from .template import PodTemplate, KeyValuePair
 from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
-
 
 # Environment variables are loaded from the .env file
 def get_env_vars() -> Dict[str, str]:
@@ -73,7 +72,7 @@ class ServerlessResource(DeployableResource):
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     flashboot: Optional[bool] = True
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
-    imageName: Optional[str] = None  # for template.imageName
+    imageName: Optional[str] = ""  # for template.imageName
 
     # === Input Fields ===
     executionTimeoutMs: Optional[int] = None
@@ -145,15 +144,6 @@ class ServerlessResource(DeployableResource):
         """Sync between temporary inputs and exported fields"""
         if self.flashboot:
             self.name += "-fb"
-
-        if self.imageName:
-            # Ensure imageName is set to the template's imageName
-            if not self.template:
-                self.template = PodTemplate(
-                    name=self.resource_id, imageName=self.imageName
-                )
-            else:
-                self.template.imageName = self.imageName
 
         if self.instanceIds:
             return self._sync_input_fields_cpu()
@@ -228,14 +218,14 @@ class ServerlessResource(DeployableResource):
             log.error(f"{self} failed to deploy: {e}")
             raise
 
-    async def is_ready_for_requests(self, give_up_threshold=5) -> bool:
+    async def is_ready_for_requests(self, give_up_threshold=10) -> bool:
         """
         Asynchronously checks if the serverless resource is ready to handle
         requests by polling its health endpoint.
 
         Args:
-            give_up_threshold (int, optional): The maximum number of polling 
-            attempts before giving up and raising an error. Defaults to 5.
+            give_up_threshold (int, optional): The maximum number of polling
+            attempts before giving up and raising an error. Defaults to 10.
 
         Returns:
             bool: True if the serverless resource is ready for requests.
@@ -386,7 +376,26 @@ class ServerlessEndpoint(ServerlessResource):
     Inherits from ServerlessResource.
     """
 
-    pass
+    @model_validator(mode="after")
+    def set_serverless_template(self):
+        if not any([self.imageName, self.template, self.templateId]):
+            raise ValueError("Either imageName, template, or templateId must be provided")
+
+        if not self.templateId and not self.template:
+            self.template = PodTemplate(
+                name=self.resource_id,
+                imageName=self.imageName,
+                env=KeyValuePair.from_dict(self.env or get_env_vars()),
+            )
+
+        elif self.template:
+            self.template.name = f"{self.resource_id}__{self.template.resource_id}"
+            if self.imageName:
+                self.template.imageName = self.imageName
+            if self.env:
+                self.template.env = KeyValuePair.from_dict(self.env)
+
+        return self
 
 
 class CpuServerlessEndpoint(ServerlessEndpoint):
@@ -395,13 +404,7 @@ class CpuServerlessEndpoint(ServerlessEndpoint):
     Represents a CPU-only serverless endpoint distinct from a live serverless.
     Inherits from ServerlessEndpoint.
     """
-
-    @model_validator(mode="after")
-    def set_default_template(self):
-        if not self.instanceIds:
-            self.instanceIds = [CpuInstanceType.CPU3G_2_8]
-
-        return self
+    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.CPU3G_2_8]
 
 
 class JobOutput(BaseModel):
