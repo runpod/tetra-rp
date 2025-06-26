@@ -4,6 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+from .logger import setup_logging  # noqa: E402
+setup_logging()
+
 from .client import remote  # noqa: E402
 from .core.resources import (  # noqa: E402
     CpuServerlessEndpoint,
