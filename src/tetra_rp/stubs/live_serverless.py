@@ -5,7 +5,7 @@ import textwrap
 import hashlib
 import traceback
 import cloudpickle
-from tetra_rp import get_logger
+import logging
 from tetra_rp.core.utils.rich_ui import display_remote_output, is_rich_enabled
 from ..core.resources import LiveServerless
 from ..protos.remote_execution import (

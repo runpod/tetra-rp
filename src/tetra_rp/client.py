@@ -1,6 +1,5 @@
 import logging
 from functools import wraps
-from tetra_rp import get_logger
 from tetra_rp.core.utils.rich_ui import capture_local_prints
 from typing import List
 from .core.resources import ServerlessResource, ResourceManager

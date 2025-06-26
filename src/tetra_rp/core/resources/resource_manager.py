@@ -3,9 +3,8 @@ import logging
 from typing import Dict
 from pathlib import Path
 
-from tetra_rp import get_logger
-from tetra_rp.core.utils.singleton import SingletonMixin
-from tetra_rp.core.utils.rich_ui import is_rich_enabled, create_reused_resource_panel, print_with_rich
+from ..utils.singleton import SingletonMixin
+from ..utils.rich_ui import is_rich_enabled, create_reused_resource_panel, print_with_rich
 
 from .base import DeployableResource
 

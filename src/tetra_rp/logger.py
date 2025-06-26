@@ -62,19 +62,3 @@ def setup_logging(
             from .core.utils.rich_ui import RichLoggingFilter
             global_filter = RichLoggingFilter()
             root_logger.addFilter(global_filter)
-
-
-def get_logger(name: Optional[str] = None) -> logging.Logger:
-    """
-    Returns a logger. If no name is provided, it infers the caller's module name.
-    """
-    if name is None:
-        # Get the caller's module name.
-        frame = inspect.stack()[1]
-        module = inspect.getmodule(frame[0])
-        name = module.__name__ if module else "__main__"
-
-    return logging.getLogger(name)
-
-
-setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
