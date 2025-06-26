@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/runpod/tetra-rp/compare/v0.4.1...v0.4.2) (2025-06-26)
+
+
+### Bug Fixes
+
+* consolidate PodTemplate overrides with the defaults per ServerlessResource ([2b8dc16](https://github.com/runpod/tetra-rp/commit/2b8dc165c46ce5d70651f7060075815977034557))
+* template overrides ([0fd6429](https://github.com/runpod/tetra-rp/commit/0fd6429ee1ad5ade9df5bfc4bbbdc9f29683b75b))
+
 ## [0.4.1](https://github.com/runpod/tetra-rp/compare/v0.4.0...v0.4.1) (2025-06-26)
 
 
