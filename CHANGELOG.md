@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/runpod/tetra-rp/compare/v0.4.0...v0.4.1) (2025-06-26)
+
+
+### Bug Fixes
+
+* uv publish ([6c4f9a9](https://github.com/runpod/tetra-rp/commit/6c4f9a9d4deeffc4733798208e771cd136ab2e80))
+* uv publish ([55ae7c0](https://github.com/runpod/tetra-rp/commit/55ae7c08d70e079bb0abe2938b0d13771de3dce1))
+
 ## [0.4.0](https://github.com/runpod/tetra-rp/compare/v0.3.0...v0.4.0) (2025-06-26)
 
 
