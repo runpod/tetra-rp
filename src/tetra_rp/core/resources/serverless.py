@@ -3,16 +3,12 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 from enum import Enum
-from urllib.parse import urljoin
 from pydantic import field_serializer, field_validator, model_validator, BaseModel, Field
 
-from tetra_rp import get_logger
-from tetra_rp.core.utils.backoff import get_backoff_delay
 from tetra_rp.core.utils.rich_ui import (
     job_progress_tracker, 
     create_deployment_panel, 
     create_metrics_table,
-    format_status_text,
     print_with_rich,
     is_rich_enabled
 )
@@ -216,7 +212,7 @@ class ServerlessResource(DeployableResource):
 
             if endpoint := self.__class__(**result):
                 if is_rich_enabled():
-                    panel = create_deployment_panel(endpoint.name, endpoint.id, endpoint.console_url)
+                    panel = create_deployment_panel(endpoint.name, endpoint.id, endpoint.url)
                     print_with_rich(panel)
                 else:
                     log.info(f"Deployed: {endpoint}")
@@ -339,7 +335,7 @@ class ServerlessResource(DeployableResource):
             # Use Rich progress tracker if available
             with job_progress_tracker(job.job_id, self.name) as tracker:
                 if not is_rich_enabled():
-                    log.info(f"{log_group} | Started {log_subgroup}")
+                    log.info(f"{self} | Started {log_subgroup}")
                 elif tracker:
                     # Initialize the progress tracker with starting status
                     tracker.update_status("IN_QUEUE", "Job submitted, waiting for worker...")
@@ -353,25 +349,25 @@ class ServerlessResource(DeployableResource):
                 while True:
                     await asyncio.sleep(current_pace)
 
-                if await self.is_ready_for_requests():
-                    # Check job status
-                    job_status = await asyncio.to_thread(job.status)
+                    if await self.is_ready_for_requests():
+                        # Check job status
+                        job_status = await asyncio.to_thread(job.status)
 
-                if last_status == job_status:
-                    # nothing changed, increase the gap
-                    attempt += 1
-                    indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
-                    if indicator:
-                        log.info(f"{log_subgroup} | {indicator}")
-                else:
-                    # status changed, reset the gap
-                    log.info(f"{log_subgroup} | Status: {job_status}")
-                    attempt = 0
+                    if last_status == job_status:
+                        # nothing changed, increase the gap
+                        attempt += 1
+                        indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
+                        if indicator:
+                            log.info(f"{log_subgroup} | {indicator}")
+                    else:
+                        # status changed, reset the gap
+                        log.info(f"{log_subgroup} | Status: {job_status}")
+                        attempt = 0
 
-                    last_status = job_status
+                        last_status = job_status
 
-                # Adjust polling pace appropriately
-                current_pace = get_backoff_delay(attempt)
+                    # Adjust polling pace appropriately
+                    current_pace = get_backoff_delay(attempt)
 
                     if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
                         if tracker:
