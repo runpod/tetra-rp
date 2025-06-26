@@ -55,7 +55,7 @@ def get_function_source(func):
 
 
 class LiveServerlessStub(RemoteExecutorStub):
-    """Adapter class to make RunPod endpoints look like gRPC stubs."""
+    """Adapter class to make Runpod endpoints look like gRPC stubs."""
 
     def __init__(self, server: LiveServerless):
         self.server = server
@@ -106,7 +106,7 @@ class LiveServerlessStub(RemoteExecutorStub):
 
     async def ExecuteFunction(self, request: FunctionRequest, sync: bool = False) -> FunctionResponse:
         try:
-            # Convert the gRPC request to RunPod format
+            # Convert the gRPC request to Runpod format
             payload = request.model_dump(exclude_none=True)
 
             if sync:

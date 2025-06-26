@@ -1,5 +1,5 @@
 """
-Direct GraphQL communication with RunPod API.
+Direct GraphQL communication with Runpod API.
 Bypasses the outdated runpod-python SDK limitations.
 """
 
@@ -16,8 +16,8 @@ RUNPOD_API_BASE_URL = os.environ.get("RUNPOD_API_BASE_URL", "https://api.runpod.
 
 class RunpodGraphQLClient:
     """
-    Runpod GraphQL client for RunPod API.
-    Communicates directly with RunPod's GraphQL endpoint without SDK limitations.
+    Runpod GraphQL client for Runpod API.
+    Communicates directly with Runpod's GraphQL endpoint without SDK limitations.
     """
 
     GRAPHQL_URL = f"{RUNPOD_API_BASE_URL}/graphql"
@@ -25,7 +25,7 @@ class RunpodGraphQLClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
         if not self.api_key:
-            raise ValueError("RunPod API key is required")
+            raise ValueError("Runpod API key is required")
 
         self.session: Optional[aiohttp.ClientSession] = None
 

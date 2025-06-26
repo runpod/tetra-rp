@@ -17,7 +17,7 @@
 
 ## Overview
 
-Tetra is a Python SDK that streamlines the development and deployment of AI workflows on RunPod's Serverless infrastructure. It provides an abstraction layer that lets you define, execute, and monitor sophisticated AI pipelines using nothing but Python code and your local terminal, eliminating the need to interact with the RunPod console GUI.
+Tetra is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's Serverless infrastructure. It provides an abstraction layer that lets you define, execute, and monitor sophisticated AI pipelines using both GPU and CPU resources through nothing but Python code and your local terminal, eliminating the need to interact with the Runpod console GUI.
 
 You can find a list of prebuilt Tetra examples at: [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
 
@@ -39,7 +39,7 @@ git clone https://github.com/runpod/tetra-examples.git
 pip install tetra_rp
 ```
 
-You must also set up a [RunPod API key](https://docs.runpod.io/get-started/api-keys) to use this integration. You can sign up at [RunPod.io](https://runpod.io) and generate an API key from your account settings. Set this key as an environment variable or save it in a local `.env` file:
+You must also set up a [Runpod API key](https://docs.runpod.io/get-started/api-keys) to use this integration. You can sign up at [Runpod.io](https://runpod.io) and generate an API key from your account settings. Set this key as an environment variable or save it in a local `.env` file:
 
 ```bash
 export RUNPOD_API_KEY=<YOUR_API_KEY>
@@ -53,9 +53,9 @@ Tetra offers several advantages and introduces core concepts that simplify AI wo
 
   * **Simplified Workflow Development**: Define sophisticated AI pipelines in pure Python with minimal configuration, allowing you to concentrate on your logic rather than infrastructure complexities.
   * **Optimized Resource Utilization**: Specify hardware requirements directly at the function level. This gives you precise control over GPU and CPU allocation for each part of your pipeline.
-  * **Seamless Deployment**: Tetra automatically manages the setup of RunPod Serverless infrastructure, including worker communication and data transfer between your local environment and remote workers.
+  * **Seamless Deployment**: Tetra automatically manages the setup of Runpod Serverless infrastructure, including worker communication and data transfer between your local environment and remote workers.
   * **Reduced Development Overhead**: Avoid the time-consuming tasks of writing application code for each worker, building Docker containers, and managing individual endpoints.
-  * **Intuitive Programming Model**: Utilize Python decorators to easily mark functions for remote execution on the RunPod infrastructure.
+  * **Intuitive Programming Model**: Utilize Python decorators to easily mark functions for remote execution on the Runpod infrastructure.
 
 ### Inline Resource Configuration
 
@@ -119,7 +119,7 @@ When a Tetra workflow is executed, the following steps occur:
 1.  The `@remote` decorator identifies functions that are designated for remote execution.
 2.  Tetra analyzes the dependencies between these functions to determine the correct order of execution.
 3.  For each remote function:
-      * Tetra provisions the necessary endpoint and worker resources on RunPod.
+      * Tetra provisions the necessary endpoint and worker resources on Runpod.
       * Input data is serialized and transferred to the remote worker.
       * The function executes on the remote infrastructure.
       * Results are then returned to your local environment.
@@ -146,10 +146,10 @@ import os
 import asyncio
 from tetra_rp import remote, LiveServerless
 
-# Configure RunPod resources
 runpod_config = LiveServerless(name="example-diffusion-server")
+# Configure Runpod GPU resources
 
-# Define a function to run on RunPod GPU
+# Define a function to run on Runpod GPU
 @remote(
     resource_config=runpod_config,
     dependencies=["torch", "numpy"]
@@ -172,7 +172,7 @@ def gpu_compute(data):
     }
 
 async def main_quick_start():
-    # Run the function on RunPod GPU
+    # Run the function on Runpod GPU
     result = await gpu_compute([1, 2, 3, 4, 5])
     print(f"Result: {result['result']}")
     print(f"Computed on: {result['gpu_name']} with CUDA {result['cuda_version']}")
@@ -208,7 +208,7 @@ import os
 import asyncio
 from tetra_rp import remote, LiveServerless
 
-# Configure RunPod resources
+# Configure Runpod resources
 runpod_config = LiveServerless(name="multi-stage-pipeline-server")
 
 # Feature extraction on GPU
@@ -294,7 +294,7 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 
 ### Configuration Parameters
 
-The following parameters can be used with the `LiveServerless` object to configure your RunPod endpoints:
+The following parameters can be used with the `LiveServerless` object to configure your Runpod GPU endpoints:
 
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
@@ -319,5 +319,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <p align="center">
   <a href="https://github.com/yourusername/tetra">Tetra</a> •
-  <a href="https://runpod.io">RunPod</a>
+  <a href="https://runpod.io">Runpod</a>
 </p>

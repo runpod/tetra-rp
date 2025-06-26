@@ -1,7 +1,7 @@
 from ..core.resources import ServerlessEndpoint, JobOutput
 
 class ServerlessEndpointStub:
-    """Adapter class to make RunPod endpoints requests."""
+    """Adapter class to make Runpod endpoints requests."""
 
     def __init__(self, server: ServerlessEndpoint):
         self.server = server

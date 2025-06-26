@@ -120,7 +120,7 @@ class ServerlessResource(DeployableResource):
     @property
     def endpoint(self) -> runpod.Endpoint:
         """
-        Returns the RunPod endpoint object for this serverless resource.
+        Returns the Runpod endpoint object for this serverless resource.
         """
         if not self.id:
             raise ValueError("Missing self.id")
