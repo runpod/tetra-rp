@@ -16,3 +16,11 @@ examples: dev
 	git submodule update --remote
 	@echo "🚀 Running make inside tetra-examples..."; \
 	$(MAKE) -C tetra-examples
+
+clean:
+	rm -rf dist build *.egg-info .tetra_resources.pkl
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+
+build: clean dev
+	uv build

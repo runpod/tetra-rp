@@ -1,48 +1,49 @@
 import requests
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel
-
+from pydantic import BaseModel, model_validator
+from .base import BaseResource
 
 class KeyValuePair(BaseModel):
     key: str
     value: str
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, str]) -> 'List[KeyValuePair]':
+        """
+        Create a list of KeyValuePair instances from a dictionary.
+        """
+        if not isinstance(data, dict):
+            raise ValueError("Input must be a dictionary.")
 
-class TemplateResource(BaseModel):
-    advancedStart: bool
-    boundEndpointId: Optional[str] = None
-    category: str
-    config: Dict[str, Any]
-    containerDiskInGb: int
-    containerRegistryAuthId: Optional[str] = None
-    dockerArgs: str
-    earned: int
+        return [cls(key=key, value=value) for key, value in data.items()]
+
+
+class PodTemplate(BaseResource):
+    advancedStart: Optional[bool] = False
+    config: Optional[Dict[str, Any]] = {}
+    containerDiskInGb: Optional[int] = 10
+    containerRegistryAuthId: Optional[str] = ""
+    dockerArgs: Optional[str] = ""
     env: Optional[List[KeyValuePair]] = []
-    id: str
-    imageName: str
-    isPublic: bool
-    isRunpod: bool
-    isServerless: bool
-    name: str
-    ports: str
-    readme: str
-    runtimeInMin: int
-    startJupyter: bool
-    startScript: str
-    startSsh: bool
-    userId: str
-    volumeInGb: int
-    volumeMountPath: str
+    imageName: Optional[str] = ""
+    name: Optional[str] = ""
+    ports: Optional[str] = ""
+    startScript: Optional[str] = ""
+
+    @model_validator(mode="after")
+    def sync_input_fields(self):
+        self.name = f"{self.name}__{self.resource_id}"
+        return self
 
 
 def update_system_dependencies(template_id, token, system_dependencies, base_entry_cmd=None):
     """
-    Updates RunPod template with system dependencies installed via apt-get,
+    Updates Runpod template with system dependencies installed via apt-get,
     and appends the app start command.
 
     Args:
-        template_id (str): RunPod template ID.
-        token (str): RunPod API token.
+        template_id (str): Runpod template ID.
+        token (str): Runpod API token.
         system_dependencies (List[str]): List of apt packages to install.
         base_entry_cmd (List[str]): The default command to run the app, e.g. ["uv", "run", "handler.py"]
     Returns:

@@ -1,15 +1,28 @@
 # Ship serverless code as you write it. No builds, no deploys — just run.
-from .serverless import ServerlessResource
+import os
+from pydantic import model_validator
+from .serverless import ServerlessEndpoint
 
 
-class LiveServerless(ServerlessResource):
-    _locked_fields = {"templateId"}
+TETRA_GPU_IMAGE = os.environ.get("TETRA_GPU_IMAGE", "runpod/tetra-rp:dev")
+TETRA_CPU_IMAGE = os.environ.get("TETRA_CPU_IMAGE", "runpod/tetra-rp-cpu:dev")
 
-    def __init__(self, **data):
-        data.pop("templateId", None) # Remove templateId from data
-        super().__init__(templateId="tetradev", **data)
 
-    def __setattr__(self, name, value):
-        if name in self._locked_fields and hasattr(self, name):
-            raise AttributeError(f"Field '{name}' is locked and cannot be changed.")
-        super().__setattr__(name, value)
+class LiveServerless(ServerlessEndpoint):
+    @model_validator(mode="before")
+    @classmethod
+    def set_live_serverless_template(cls, data: dict):
+        """Set default templates for Live Serverless. This can't be changed."""
+        # Always set imageName based on instanceIds presence
+        data["imageName"] = TETRA_CPU_IMAGE if data.get("instanceIds") else TETRA_GPU_IMAGE
+        return data
+
+    @property
+    def imageName(self):
+        # Lock imageName to always reflect instanceIds
+        return TETRA_CPU_IMAGE if getattr(self, "instanceIds", None) else TETRA_GPU_IMAGE
+
+    @imageName.setter
+    def imageName(self, value):
+        # Prevent manual setting of imageName
+        pass

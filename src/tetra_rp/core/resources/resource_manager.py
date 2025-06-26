@@ -1,4 +1,5 @@
 import cloudpickle
+import logging
 from typing import Dict
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from tetra_rp.core.utils.rich_ui import is_rich_enabled, create_reused_resource_
 from .base import DeployableResource
 
 
-log = get_logger("resource_manager")
+log = logging.getLogger(__name__)
 
 # File to persist state of resources
 RESOURCE_STATE_FILE = Path(".tetra_resources.pkl")
@@ -80,6 +81,7 @@ class ResourceManager(SingletonMixin):
             return existing
 
         if deployed_resource := await config.deploy():
+            log.info(f"URL: {deployed_resource.url}")
             self.add_resource(uid, deployed_resource)
             return deployed_resource
 
