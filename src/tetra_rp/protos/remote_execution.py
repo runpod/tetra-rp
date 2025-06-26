@@ -1,7 +1,7 @@
 # TODO: generate using betterproto
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional
 from pydantic import BaseModel, Field
 
 

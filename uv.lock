@@ -1962,12 +1962,18 @@ wheels = [
 
 [[package]]
 name = "tetra-rp"
-version = "0.3.0"
+version = "0.4.2"
 source = { editable = "." }
 dependencies = [
     { name = "cloudpickle" },
     { name = "python-dotenv" },
+    { name = "rich" },
     { name = "runpod" },
+]
+
+[package.optional-dependencies]
+rich = [
+    { name = "rich" },
 ]
 
 [package.dev-dependencies]
@@ -1980,8 +1986,11 @@ dev = [
 requires-dist = [
     { name = "cloudpickle", specifier = ">=3.1.1" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "rich", specifier = ">=14.0.0" },
+    { name = "rich", marker = "extra == 'rich'", specifier = ">=13.0.0" },
     { name = "runpod", specifier = "~=1.7.9" },
 ]
+provides-extras = ["rich"]
 
 [package.metadata.requires-dev]
 dev = [
