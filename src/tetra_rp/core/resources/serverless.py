@@ -263,6 +263,7 @@ class ServerlessResource(DeployableResource):
         if not self.id:
             raise ValueError("Serverless is not deployed")
 
+        job: Optional[Job] = None
 
         try:
             # log.debug(f"[{self}] Payload: {payload}")
@@ -330,6 +331,10 @@ class ServerlessResource(DeployableResource):
                     return JobOutput(**response)
 
         except Exception as e:
+            if job and job.job_id:
+                log.info(f"{self} | Cancelling job {job.job_id}")
+                await asyncio.to_thread(job.cancel)
+
             log.error(f"{self} | Exception: {e}")
             raise
 
