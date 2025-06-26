@@ -21,8 +21,11 @@ try:
 except ImportError:
     RICH_AVAILABLE = False
     # Create dummy classes for type hints when Rich is not available
-    class Console: pass
-    class Status: pass
+    class Console:
+        pass
+    
+    class Status:
+        pass
 
 
 class TetraStatus(str, Enum):
@@ -42,7 +45,8 @@ def is_rich_enabled() -> bool:
     """Check if Rich UI should be enabled based on environment and availability"""
     return (
         RICH_AVAILABLE and 
-        os.environ.get("TETRA_RICH_UI", "false").lower() in ("true", "1", "yes")
+        os.environ.get("LOG_LEVEL", "INFO").upper() == "INFO"
+        # os.environ.get("TETRA_RICH_UI", "false").lower() in ("true", "1", "yes")
     )
 
 
@@ -440,3 +444,37 @@ def capture_local_prints() -> Generator[None, None, None]:
             panel = create_user_output_panel(captured, "Local")
             if panel:
                 print_with_rich(panel)
+
+
+def format_api_info(endpoint_name: str, endpoint_id: str, api_path: str) -> None:
+    """Display API endpoint info in Rich format"""
+    if rich_ui.enabled and rich_ui.console:
+        rich_ui.console.print(f"🔗 [cyan]{endpoint_name}[/cyan]:[dim]{endpoint_id}[/dim] [green]→[/green] [bold yellow]{api_path}[/bold yellow]")
+    else:
+        print(f"{endpoint_name}:{endpoint_id} | API {api_path}")
+
+
+def format_job_status(job_id: str, status: str) -> None:
+    """Display job status in Rich format"""
+    if rich_ui.enabled and rich_ui.console:
+        color = get_status_color(status)
+        short_job_id = job_id.split('-')[0] if '-' in job_id else job_id[:8]
+        rich_ui.console.print(f"⚡ Job [dim]{short_job_id}[/dim]: [{color}]{status}[/{color}]")
+    else:
+        print(f"Job:{job_id} | Status: {status}")
+
+
+def format_console_url(url: str) -> None:
+    """Display console URL in Rich format"""
+    if rich_ui.enabled and rich_ui.console:
+        rich_ui.console.print(f"🌐 [link={url}]Console Dashboard[/link]")
+    else:
+        print(f"URL: {url}")
+
+
+def format_endpoint_created(endpoint_id: str, endpoint_name: str) -> None:
+    """Display endpoint creation in Rich format"""
+    if rich_ui.enabled and rich_ui.console:
+        rich_ui.console.print(f"✨ Created endpoint [cyan]{endpoint_name}[/cyan] [dim]({endpoint_id})[/dim]")
+    else:
+        print(f"Created endpoint: {endpoint_id} - {endpoint_name}")

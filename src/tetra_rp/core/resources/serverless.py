@@ -23,6 +23,8 @@ from .template import PodTemplate, KeyValuePair
 from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
+from ..utils.rich_ui import rich_ui, format_api_info, format_job_status
+
 
 # Environment variables are loaded from the .env file
 def get_env_vars() -> Dict[str, str]:
@@ -143,7 +145,7 @@ class ServerlessResource(DeployableResource):
     @model_validator(mode="after")
     def sync_input_fields(self):
         """Sync between temporary inputs and exported fields"""
-        if self.flashboot:
+        if self.flashboot and not self.name.endswith("-fb"):
             self.name += "-fb"
 
         if self.instanceIds:
@@ -212,7 +214,7 @@ class ServerlessResource(DeployableResource):
 
             if endpoint := self.__class__(**result):
                 if is_rich_enabled():
-                    panel = create_deployment_panel(endpoint.name, endpoint.id, endpoint.url)
+                    panel = create_deployment_panel(endpoint.name, endpoint.id or "", endpoint.url)
                     print_with_rich(panel)
                 else:
                     log.info(f"Deployed: {endpoint}")
@@ -261,9 +263,10 @@ class ServerlessResource(DeployableResource):
             else:
                 # nothing changed, increase the gap
                 attempt += 1
-                indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
-                if indicator:
-                    log.info(f"{self} | {indicator}")
+                if not rich_ui.enabled:
+                    indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
+                    if indicator:
+                        log.info(f"{self} | {indicator}")
 
                 status = health.workers.status
                 if status in [
@@ -299,7 +302,7 @@ class ServerlessResource(DeployableResource):
             # Poll until requests can be sent
             await self.is_ready_for_requests()
 
-            log.info(f"{self} | API /run_sync")
+            format_api_info(str(self), self.id or "", "/run_sync")
             response = await asyncio.to_thread(_fetch_job)
             return JobOutput(**response)
 
@@ -327,7 +330,7 @@ class ServerlessResource(DeployableResource):
             await self.is_ready_for_requests()
 
             # Create a job using the endpoint
-            log.info(f"{self} | API /run")
+            format_api_info(str(self), self.id or "", "/run")
             job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
 
             log_subgroup = f"Job:{job.job_id}"
@@ -356,12 +359,16 @@ class ServerlessResource(DeployableResource):
                     if last_status == job_status:
                         # nothing changed, increase the gap
                         attempt += 1
-                        indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
-                        if indicator:
-                            log.info(f"{log_subgroup} | {indicator}")
+                        if tracker:
+                            tracker.show_progress_indicator()
+                        else:
+                            if not rich_ui.enabled:
+                                indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
+                                if indicator:
+                                    log.info(f"{log_subgroup} | {indicator}")
                     else:
                         # status changed, reset the gap
-                        log.info(f"{log_subgroup} | Status: {job_status}")
+                        format_job_status(job.job_id, job_status)
                         attempt = 0
 
                         last_status = job_status

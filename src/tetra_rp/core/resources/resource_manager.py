@@ -4,7 +4,12 @@ from typing import Dict
 from pathlib import Path
 
 from ..utils.singleton import SingletonMixin
-from ..utils.rich_ui import is_rich_enabled, create_reused_resource_panel, print_with_rich
+from ..utils.rich_ui import (
+    create_reused_resource_panel,
+    format_console_url,
+    is_rich_enabled,
+    print_with_rich,
+)
 
 from .base import DeployableResource
 
@@ -73,14 +78,14 @@ class ResourceManager(SingletonMixin):
 
             if is_rich_enabled():
                 # Show a panel for reused resources similar to fresh deployments
-                panel = create_reused_resource_panel(existing.name, existing.id, existing.console_url)
+                panel = create_reused_resource_panel(existing.name, existing.id, existing.url)
                 print_with_rich(panel)
             else:
                 log.debug(f"{existing} exists, reusing.")
             return existing
 
         if deployed_resource := await config.deploy():
-            log.info(f"URL: {deployed_resource.url}")
+            format_console_url(deployed_resource.url)
             self.add_resource(uid, deployed_resource)
             return deployed_resource
 
