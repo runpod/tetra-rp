@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/runpod/tetra-rp/compare/v0.3.0...v0.4.0) (2025-06-26)
+
+
+### Features
+
+* CPU Endpoints and Live Serverless ([c335fd1](https://github.com/runpod/tetra-rp/commit/c335fd11cbc65c4a18edabe007982506bee5e6c3))
+
+
+### Bug Fixes
+
+* CpuInstanceType values ([9cf958b](https://github.com/runpod/tetra-rp/commit/9cf958b381d56b4aa5d42c0393500818d6de3c34))
+
 ## [0.3.0](https://github.com/runpod/tetra-rp/compare/v0.2.1...v0.3.0) (2025-06-23)
 
 
