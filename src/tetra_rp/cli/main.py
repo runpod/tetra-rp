@@ -35,6 +35,14 @@ deploy_app = typer.Typer(
     no_args_is_help=True,
 )
 
+# command: tetra deploy *
+deploy_app.command("list")(deploy.list_command)
+deploy_app.command("new")(deploy.new_command)
+deploy_app.command("send")(deploy.send_command)
+deploy_app.command("report")(deploy.report_command)
+deploy_app.command("rollback")(deploy.rollback_command)
+deploy_app.command("remove")(deploy.remove_command)
+
 app.add_typer(deploy_app, name="deploy")
 
 
