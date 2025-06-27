@@ -1,7 +1,13 @@
+"""Main CLI entry point for Tetra."""
+
 import typer
 from importlib import metadata
 from rich.console import Console
 from rich.panel import Panel
+
+from .commands import (
+    deploy,
+)
 
 
 def get_version() -> str:
@@ -21,6 +27,15 @@ app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+
+# command: tetra deploy
+deploy_app = typer.Typer(
+    name="deploy",
+    help="Deployment environment management commands",
+    no_args_is_help=True,
+)
+
+app.add_typer(deploy_app, name="deploy")
 
 
 @app.callback(invoke_without_command=True)
