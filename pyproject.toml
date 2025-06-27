@@ -21,6 +21,9 @@ dependencies = [
     "cloudpickle>=3.1.1",
     "runpod~=1.7.9",
     "python-dotenv>=1.0.0",
+    "rich>=14.0.0",
+    "typer>=0.12.0",
+    "questionary>=2.0.0",
 ]
 
 [dependency-groups]
@@ -28,6 +31,9 @@ dev = [
     "pytest>=8.4.1",
     "ruff>=0.11.9",
 ]
+
+[project.scripts]
+tetra = "tetra_rp.cli.main:app"
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
