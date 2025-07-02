@@ -1,20 +1,21 @@
 # =============================================================================
-# UPDATED remote_execution.py WITH CLASS SUPPORT
-# Add these fields to your existing FunctionRequest and FunctionResponse
+# UPDATED remote_execution.py WITH CLASS SUPPORT AND OPTIONAL FUNCTION FIELDS
 # =============================================================================
 
 # TODO: generate using betterproto
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class FunctionRequest(BaseModel):
-    # EXISTING FIELDS (unchanged)
-    function_name: str = Field(
+    # MADE OPTIONAL - can be None for class-only execution
+    function_name: Optional[str] = Field(
+        default=None,
         description="Name of the function to execute",
     )
-    function_code: str = Field(
+    function_code: Optional[str] = Field(
+        default=None,
         description="Source code of the function to execute",
     )
     args: List = Field(
@@ -33,7 +34,7 @@ class FunctionRequest(BaseModel):
         default=None,
         description="Optional list of system dependencies to install before executing the function",
     )
-    
+        
     # NEW FIELDS FOR CLASS SUPPORT
     execution_type: str = Field(
         default="function",
@@ -68,6 +69,26 @@ class FunctionRequest(BaseModel):
         description="Whether to create a new instance or reuse existing one"
     )
 
+    @validator('function_name', 'function_code')
+    def validate_function_fields(cls, v, values, field):
+        """Validate that function fields are provided when execution_type is 'function'"""
+        execution_type = values.get('execution_type', 'function')
+        
+        if execution_type == 'function' and v is None:
+            raise ValueError(f'{field.name} is required when execution_type is "function"')
+        
+        return v
+
+    @validator('class_name', 'class_code')
+    def validate_class_fields(cls, v, values, field):
+        """Validate that class fields are provided when execution_type is 'class'"""
+        execution_type = values.get('execution_type', 'function')
+        
+        if execution_type == 'class' and v is None:
+            raise ValueError(f'{field.name} is required when execution_type is "class"')
+        
+        return v
+
 
 class FunctionResponse(BaseModel):
     # EXISTING FIELDS (unchanged)
@@ -86,7 +107,7 @@ class FunctionResponse(BaseModel):
         default=None,
         description="Captured standard output from the function execution",
     )
-    
+        
     # NEW FIELDS FOR CLASS SUPPORT
     instance_id: Optional[str] = Field(
         default=None,
@@ -100,7 +121,7 @@ class FunctionResponse(BaseModel):
 
 class RemoteExecutorStub(ABC):
     """Abstract base class for remote execution."""
-
+    
     @abstractmethod
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """Execute a function on the remote resource."""

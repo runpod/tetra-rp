@@ -1,6 +1,6 @@
 from functools import wraps
-from tetra_rp import get_logger
 from typing import List, Union, Type
+import logging
 import inspect
 import uuid
 import base64
@@ -9,7 +9,7 @@ from .core.resources import ServerlessEndpoint, ResourceManager
 from .stubs import stub_resource
 from .protos.remote_execution import FunctionRequest
 
-log = get_logger("client")
+log = logging.getLogger(__name__)
 
 def remote(
     resource_config: ServerlessEndpoint,
@@ -44,7 +44,7 @@ def remote(
             @wraps(func_or_class)
             async def wrapper(*args, **kwargs):
                 resource_manager = ResourceManager()
-                remote_resource = await resource_manager.get_or_create_resource(resource_config)
+                remote_resource = await resource_manager.get_or_deploy_resource(resource_config)
                 
                 stub = stub_resource(remote_resource, **extra)
                 return await stub(func_or_class, dependencies, system_dependencies, *args, **kwargs)
@@ -78,7 +78,7 @@ def _create_remote_class(cls: Type, resource_config: ServerlessEndpoint, depende
             
             # Get remote resource
             resource_manager = ResourceManager()
-            remote_resource = await resource_manager.get_or_create_resource(self._resource_config)
+            remote_resource = await resource_manager.get_or_deploy_resource(self._resource_config)
             self._stub = stub_resource(remote_resource, **self._extra)
             
             # Create the remote instance by calling a method (which will trigger instance creation)
