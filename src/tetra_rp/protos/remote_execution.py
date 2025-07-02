@@ -5,7 +5,8 @@
 # TODO: generate using betterproto
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Any
 
 
 class FunctionRequest(BaseModel):
@@ -69,25 +70,22 @@ class FunctionRequest(BaseModel):
         description="Whether to create a new instance or reuse existing one"
     )
 
-    @validator('function_name', 'function_code')
-    def validate_function_fields(cls, v, values, field):
-        """Validate that function fields are provided when execution_type is 'function'"""
-        execution_type = values.get('execution_type', 'function')
+    @model_validator(mode='after')
+    def validate_execution_requirements(self) -> 'FunctionRequest':
+        """Validate that required fields are provided based on execution_type"""
+        if self.execution_type == 'function':
+            if self.function_name is None:
+                raise ValueError('function_name is required when execution_type is "function"')
+            if self.function_code is None:
+                raise ValueError('function_code is required when execution_type is "function"')
         
-        if execution_type == 'function' and v is None:
-            raise ValueError(f'{field.name} is required when execution_type is "function"')
+        elif self.execution_type == 'class':
+            if self.class_name is None:
+                raise ValueError('class_name is required when execution_type is "class"')
+            if self.class_code is None:
+                raise ValueError('class_code is required when execution_type is "class"')
         
-        return v
-
-    @validator('class_name', 'class_code')
-    def validate_class_fields(cls, v, values, field):
-        """Validate that class fields are provided when execution_type is 'class'"""
-        execution_type = values.get('execution_type', 'function')
-        
-        if execution_type == 'class' and v is None:
-            raise ValueError(f'{field.name} is required when execution_type is "class"')
-        
-        return v
+        return self
 
 
 class FunctionResponse(BaseModel):
