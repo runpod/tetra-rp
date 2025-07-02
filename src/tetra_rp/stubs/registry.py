@@ -22,16 +22,25 @@ def stub_resource(resource, **extra):
 
 @stub_resource.register(LiveServerless)
 def _(resource, **extra):
+    stub = LiveServerlessStub(resource)
+    
+    # Original function execution
     async def stubbed_resource(func, dependencies, system_dependencies, *args, **kwargs) -> dict:
         if args == (None,):
-            # cleanup: when the function is called with no args
             args = []
 
-        stub = LiveServerlessStub(resource)
         request = stub.prepare_request(func, dependencies, system_dependencies, *args, **kwargs)
         response = await stub.ExecuteFunction(request)
         return stub.handle_response(response)
-
+    
+    # NEW: Class method execution
+    async def execute_class_method(request):
+        response = await stub.ExecuteFunction(request)  # Your runtime already supports this!
+        return stub.handle_response(response)
+    
+    # Attach the method to the function
+    stubbed_resource.execute_class_method = execute_class_method
+    
     return stubbed_resource
 
 

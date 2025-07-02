@@ -8,6 +8,7 @@ import cloudpickle
 from .core.resources import ServerlessEndpoint, ResourceManager
 from .stubs import stub_resource
 from .protos.remote_execution import FunctionRequest
+import textwrap
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +54,69 @@ def remote(
     
     return decorator
 
+def extract_class_code_simple(cls: Type) -> str:
+    """Extract clean class code without decorators and proper indentation"""
+    try:
+        # Get source code
+        source = inspect.getsource(cls)
+        
+        # Split into lines
+        lines = source.split('\n')
+        
+        # Find the class definition line (starts with 'class' and contains ':')
+        class_start_idx = -1
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith('class ') and ':' in stripped:
+                class_start_idx = i
+                break
+        
+        if class_start_idx == -1:
+            raise ValueError("Could not find class definition")
+        
+        # Take lines from class definition onwards (ignore everything before)
+        class_lines = lines[class_start_idx:]
+        
+        # Remove empty lines at the end
+        while class_lines and not class_lines[-1].strip():
+            class_lines.pop()
+        
+        # Join back and dedent to remove any leading indentation
+        class_code = '\n'.join(class_lines)
+        class_code = textwrap.dedent(class_code)
+        
+        # Validate the code by trying to compile it
+        compile(class_code, '<string>', 'exec')
+        
+        print(f"Successfully extracted class code for {cls.__name__}")
+        return class_code
+        
+    except Exception as e:
+        print(f"Warning: Could not extract class code for {cls.__name__}: {e}")
+        print("Falling back to basic class structure")
+        
+        # Enhanced fallback: try to preserve method signatures
+        fallback_methods = []
+        for name, method in inspect.getmembers(cls, predicate=inspect.isfunction):
+            try:
+                sig = inspect.signature(method)
+                fallback_methods.append(f"    def {name}{sig}:")
+                fallback_methods.append(f"        pass")
+                fallback_methods.append("")
+            except:
+                fallback_methods.append(f"    def {name}(self, *args, **kwargs):")
+                fallback_methods.append(f"        pass")
+                fallback_methods.append("")
+        
+        fallback_code = f"""class {cls.__name__}:
+    def __init__(self, *args, **kwargs):
+        pass
+
+{chr(10).join(fallback_methods)}"""
+        
+        return fallback_code
+
+
 def _create_remote_class(cls: Type, resource_config: ServerlessEndpoint, dependencies: List[str], system_dependencies: List[str], extra: dict):
     """
     Create a remote class wrapper.
@@ -68,6 +132,8 @@ def _create_remote_class(cls: Type, resource_config: ServerlessEndpoint, depende
             self._constructor_kwargs = kwargs
             self._instance_id = f"{cls.__name__}_{uuid.uuid4().hex[:8]}"
             self._initialized = False
+            
+            self._clean_class_code = extract_class_code_simple(cls)
             
             log.info(f"Created remote class wrapper for {cls.__name__}")
         
@@ -95,7 +161,8 @@ def _create_remote_class(cls: Type, resource_config: ServerlessEndpoint, depende
                 
                 # Create class method request
                 
-                class_code = inspect.getsource(self._class_type)
+                # class_code = inspect.getsource(self._class_type)
+                class_code = self._clean_class_code
                 
                 request = FunctionRequest(
                     execution_type="class",
