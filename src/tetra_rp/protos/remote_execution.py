@@ -1,11 +1,16 @@
-# TODO: generate using betterproto
+# =============================================================================
+# UPDATED remote_execution.py WITH CLASS SUPPORT
+# Add these fields to your existing FunctionRequest and FunctionResponse
+# =============================================================================
 
+# TODO: generate using betterproto
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Union
 from pydantic import BaseModel, Field
 
 
 class FunctionRequest(BaseModel):
+    # EXISTING FIELDS (unchanged)
     function_name: str = Field(
         description="Name of the function to execute",
     )
@@ -28,9 +33,44 @@ class FunctionRequest(BaseModel):
         default=None,
         description="Optional list of system dependencies to install before executing the function",
     )
+    
+    # NEW FIELDS FOR CLASS SUPPORT
+    execution_type: str = Field(
+        default="function",
+        description="Type of execution: 'function' or 'class'"
+    )
+    class_name: Optional[str] = Field(
+        default=None,
+        description="Name of the class to instantiate (for class execution)"
+    )
+    class_code: Optional[str] = Field(
+        default=None,
+        description="Source code of the class to instantiate (for class execution)"
+    )
+    constructor_args: Optional[List] = Field(
+        default_factory=list,
+        description="List of base64-encoded cloudpickle-serialized constructor arguments"
+    )
+    constructor_kwargs: Optional[Dict] = Field(
+        default_factory=dict,
+        description="Dictionary of base64-encoded cloudpickle-serialized constructor keyword arguments"
+    )
+    method_name: str = Field(
+        default="__call__",
+        description="Name of the method to call on the class instance"
+    )
+    instance_id: Optional[str] = Field(
+        default=None,
+        description="Unique identifier for the class instance (for persistence)"
+    )
+    create_new_instance: bool = Field(
+        default=True,
+        description="Whether to create a new instance or reuse existing one"
+    )
 
 
 class FunctionResponse(BaseModel):
+    # EXISTING FIELDS (unchanged)
     success: bool = Field(
         description="Indicates if the function execution was successful",
     )
@@ -45,6 +85,16 @@ class FunctionResponse(BaseModel):
     stdout: Optional[str] = Field(
         default=None,
         description="Captured standard output from the function execution",
+    )
+    
+    # NEW FIELDS FOR CLASS SUPPORT
+    instance_id: Optional[str] = Field(
+        default=None,
+        description="ID of the class instance that was used/created"
+    )
+    instance_info: Optional[Dict] = Field(
+        default=None,
+        description="Metadata about the class instance (creation time, call count, etc.)"
     )
 
 
