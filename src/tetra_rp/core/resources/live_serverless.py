@@ -4,7 +4,7 @@ from pydantic import model_validator
 from .serverless import ServerlessEndpoint
 
 
-TETRA_GPU_IMAGE = os.environ.get("TETRA_GPU_IMAGE", "mwiki/tetra-rp:local")
+TETRA_GPU_IMAGE = os.environ.get("TETRA_GPU_IMAGE", "runpod/tetra-rp:dev")
 TETRA_CPU_IMAGE = os.environ.get("TETRA_CPU_IMAGE", "runpod/tetra-rp-cpu:dev")
 
 
