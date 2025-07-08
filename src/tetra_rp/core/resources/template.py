@@ -9,7 +9,7 @@ class KeyValuePair(BaseModel):
     value: str
 
     @classmethod
-    def from_dict(cls, data: Dict[str, str]) -> 'List[KeyValuePair]':
+    def from_dict(cls, data: Dict[str, str]) -> "List[KeyValuePair]":
         """
         Create a list of KeyValuePair instances from a dictionary.
         """
@@ -37,7 +37,9 @@ class PodTemplate(BaseResource):
         return self
 
 
-def update_system_dependencies(template_id, token, system_dependencies, base_entry_cmd=None):
+def update_system_dependencies(
+    template_id, token, system_dependencies, base_entry_cmd=None
+):
     """
     Updates Runpod template with system dependencies installed via apt-get,
     and appends the app start command.
@@ -78,7 +80,7 @@ def update_system_dependencies(template_id, token, system_dependencies, base_ent
         "ports": ["8888/http", "22/tcp"],
         "readme": "",
         "volumeInGb": 20,
-        "volumeMountPath": "/workspace"
+        "volumeMountPath": "/workspace",
     }
 
     headers = {
@@ -94,4 +96,3 @@ def update_system_dependencies(template_id, token, system_dependencies, base_ent
         return response.json()
     except Exception:
         return {"error": "Invalid JSON response", "text": response.text}
-

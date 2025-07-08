@@ -117,7 +117,9 @@ class RunpodGraphQLClient:
 
         variables = {"input": input_data}
 
-        log.debug(f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}")
+        log.debug(
+            f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
 
         result = await self._execute_graphql(mutation, variables)
 
@@ -145,11 +147,13 @@ class RunpodGraphQLClient:
             }
         }
         """
-        
+
         result = await self._execute_graphql(query)
         return result.get("cpuTypes", [])
 
-    async def get_gpu_types(self, gpu_filter: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def get_gpu_types(
+        self, gpu_filter: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Get available GPU types."""
         query = """
         query getGpuTypes($input: GpuTypeFilter) {
@@ -174,7 +178,7 @@ class RunpodGraphQLClient:
             }
         }
         """
-        
+
         variables = {"input": gpu_filter} if gpu_filter else {}
         result = await self._execute_graphql(query, variables)
         return result.get("gpuTypes", [])
