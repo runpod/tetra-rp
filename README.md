@@ -1,10 +1,10 @@
 # Tetra: Serverless computing for AI workloads
 
-Tetra is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's Serverless infrastructure. Write Python functions locally, and Tetra handles the infrastructure, provisioning GPUs and CPUs, managing dependencies, and transferring data, allowing you to focus on building AI applications.
+Tetra is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's [Serverless infrastructure](http://docs.runpod.io/serverless/overview). Write Python functions locally, and Tetra handles the infrastructure, provisioning GPUs and CPUs, managing dependencies, and transferring data, allowing you to focus on building AI applications.
 
-You can find a repository of prebuilt Tetra examples at: [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
+You can find a repository of prebuilt Tetra examples at [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
 
-**What's new**
+**What's new:**
 - **Consolidated template management**: PodTemplate overrides now seamlessly integrate with ServerlessResource defaults, providing more consistent resource configuration and reducing deployment complexity.
 
 ## Table of contents
@@ -192,7 +192,7 @@ Tetra is well-suited for a diverse range of AI and data processing workloads:
 
 ### Custom Docker images
 
-For specialized environments, use `ServerlessEndpoint` or `CpuServerlessEndpoint`:
+`LiveServerless` resources use a fixed Docker image that's optimized for Tetra runtime, and supports full remote code execution. For specialized environments that require a custom Docker image, use `ServerlessEndpoint` or `CpuServerlessEndpoint`:
 
 ```python
 from tetra_rp import ServerlessEndpoint
@@ -204,7 +204,7 @@ custom_gpu = ServerlessEndpoint(
 )
 ```
 
-Note: Custom endpoints only support dictionary payloads, not arbitrary Python functions.
+Unlike `LiveServerless`, these endpoints only support dictionary payloads in the form of `{"input": {...}}` (similar to a traditional [Serverless endpoint request](https://docs.runpod.io/serverless/endpoints/send-requests)), and cannot execute arbitrary Python functions remotely.
 
 ### Persistent storage
 
@@ -233,7 +233,7 @@ config = LiveServerless(
 
 ### GPU configuration parameters
 
-The following parameters can be used with `LiveServerless` (full remote code execution) and `ServerlessEndpoint` (dict payload only) to configure your Runpod GPU endpoints:
+The following parameters can be used with `LiveServerless` (full remote code execution) and `ServerlessEndpoint` (Dictionary payload only) to configure your Runpod GPU endpoints:
 
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
@@ -253,7 +253,7 @@ The following parameters can be used with `LiveServerless` (full remote code exe
 
 ### CPU configuration parameters
 
-The same GPU configuration parameters above apply to `LiveServerless` (full remote code execution) and `CpuServerlessEndpoint` (dict payload only), with these additional CPU-specific parameters:
+The same GPU configuration parameters above apply to `LiveServerless` (full remote code execution) and `CpuServerlessEndpoint` (dictionary payload only), with these additional CPU-specific parameters:
 
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
@@ -264,10 +264,10 @@ The same GPU configuration parameters above apply to `LiveServerless` (full remo
 
 | Feature | LiveServerless | ServerlessEndpoint | CpuServerlessEndpoint |
 |---------|----------------|-------------------|----------------------|
-| **Remote code execution** | ✅ Full Python function execution | ❌ Dict payloads only | ❌ Dict payloads only |
+| **Remote code execution** | ✅ Full Python function execution | ❌ Dictionary payloads only | ❌ Dictionary payloads only |
 | **Custom Docker images** | ❌ Fixed optimized images | ✅ Any Docker image | ✅ Any Docker image |
 | **Use case** | Dynamic remote functions | Traditional API endpoints | Traditional CPU endpoints |
-| **Function returns** | Any Python object | Dict only | Dict only |
+| **Function returns** | Any Python object | Dictionary only | Dictionary only |
 | **@remote decorator** | Full functionality | Limited to payload passing | Limited to payload passing |
 
 ### Available GPU types
