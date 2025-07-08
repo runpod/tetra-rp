@@ -1,6 +1,4 @@
-import uuid
 import time
-from enum import Enum
 from worker import Worker
 from job import Job
 

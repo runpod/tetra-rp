@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 class BaseResource(BaseModel):
     """Base class for all resources."""
+
     class Config:
         validate_by_name = True
         validate_default = True

@@ -23,6 +23,7 @@ from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 
+
 # Environment variables are loaded from the .env file
 def get_env_vars() -> Dict[str, str]:
     """
@@ -232,7 +233,7 @@ class ServerlessResource(DeployableResource):
 
         Raises:
             ValueError: If the serverless resource is not deployed.
-            RuntimeError: If the health status is THROTTLED, UNHEALTHY, or UNKNOWN 
+            RuntimeError: If the health status is THROTTLED, UNHEALTHY, or UNKNOWN
             after exceeding the give_up_threshold.
         """
         if not self.is_deployed():
@@ -379,7 +380,9 @@ class ServerlessEndpoint(ServerlessResource):
     @model_validator(mode="after")
     def set_serverless_template(self):
         if not any([self.imageName, self.template, self.templateId]):
-            raise ValueError("Either imageName, template, or templateId must be provided")
+            raise ValueError(
+                "Either imageName, template, or templateId must be provided"
+            )
 
         if not self.templateId and not self.template:
             self.template = PodTemplate(
@@ -404,6 +407,7 @@ class CpuServerlessEndpoint(ServerlessEndpoint):
     Represents a CPU-only serverless endpoint distinct from a live serverless.
     Inherits from ServerlessEndpoint.
     """
+
     instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.CPU3G_2_8]
 
 
