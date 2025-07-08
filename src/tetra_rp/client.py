@@ -12,7 +12,7 @@ def remote(
     resource_config: ServerlessResource,
     dependencies: List[str] = None,
     system_dependencies: List[str] = None,
-    **extra
+    **extra,
 ):
     """
     Decorator to enable dynamic resource provisioning and dependency management for serverless functions.

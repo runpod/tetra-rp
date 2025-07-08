@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write  # For posting coverage comments
+  issues: write
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-groups
+
+      - name: Run linting
+        run: |
+          uv run ruff check src/ tests/
+          uv run ruff format --check src/ tests/
+
+      - name: Run type checking
+        run: |
+          uv run mypy src/ --ignore-missing-imports || true
+
+      - name: Run tests
+        run: |
+          uv run pytest tests/
+
+      # - name: Run tests with coverage
+      #   run: |
+      #     uv run pytest tests/ \
+      #       --cov=src/tetra_rp \
+      #       --cov-report=xml \
+      #       --cov-report=term-missing \
+      #       --cov-fail-under=90 \
+      #       -v
+
+      # - name: Upload coverage to Codecov
+      #   if: matrix.python-version == '3.11'
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     file: ./coverage.xml
+      #     fail_ci_if_error: false
+
+      # - name: Upload test results
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: test-results-${{ matrix.python-version }}
+      #     path: |
+      #       coverage.xml
+      #       htmlcov/
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run Bandit security scan
+        run: |
+          uv add --group test bandit[toml]
+          uv run bandit -r src/ -f json -o bandit-report.json || true
+
+      - name: Upload security scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: bandit-report.json
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Build package
+        run: |
+          uv build
+
+      - name: Verify package
+        run: |
+          uv run twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # Job that runs only on PRs to check if tests pass
+  pr-checks:
+    name: PR Checks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: [test, security, build]
+    steps:
+      - name: All checks passed
+        run: |
+          echo "All CI checks passed!"
+          echo "This PR is ready for review and merge!"
