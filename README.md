@@ -5,8 +5,7 @@ Tetra is a Python SDK that streamlines the development and deployment of AI work
 You can find a repository of prebuilt Tetra examples at [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
 
 > [!Note]
-> **What's new:**
-> - **Consolidated template management**: PodTemplate overrides now seamlessly integrate with ServerlessResource defaults, providing more consistent resource configuration and reducing deployment complexity.
+> **New feature - Consolidated template management:** `PodTemplate` overrides now seamlessly integrate with `ServerlessResource` defaults, providing more consistent resource configuration and reducing deployment complexity.
 
 ## Table of contents
 
