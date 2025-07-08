@@ -1,3 +1,5 @@
+> NOTE: delete contents after reading below...
+
 # Guidelines
 
 This guide applies to commit messages and pull request titles.
