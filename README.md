@@ -56,7 +56,7 @@ import asyncio
 from tetra_rp import remote, LiveServerless
 
 # Configure GPU resources
-gpu_config = LiveServerless(name="my-first-tetra")
+gpu_config = LiveServerless(name="tetra-quickstart")
 
 @remote(
     resource_config=gpu_config,
