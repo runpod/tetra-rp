@@ -44,7 +44,6 @@
   "skip-github-pull-request": false,
   "always-link-local": false,
   "group-pull-request-title-pattern": "chore${scope}: release${component} ${version}",
-  "release-as": "0.2.1",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": false,
   "draft": false,
