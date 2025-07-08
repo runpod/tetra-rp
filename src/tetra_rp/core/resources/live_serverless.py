@@ -14,13 +14,17 @@ class LiveServerless(ServerlessEndpoint):
     def set_live_serverless_template(cls, data: dict):
         """Set default templates for Live Serverless. This can't be changed."""
         # Always set imageName based on instanceIds presence
-        data["imageName"] = TETRA_CPU_IMAGE if data.get("instanceIds") else TETRA_GPU_IMAGE
+        data["imageName"] = (
+            TETRA_CPU_IMAGE if data.get("instanceIds") else TETRA_GPU_IMAGE
+        )
         return data
 
     @property
     def imageName(self):
         # Lock imageName to always reflect instanceIds
-        return TETRA_CPU_IMAGE if getattr(self, "instanceIds", None) else TETRA_GPU_IMAGE
+        return (
+            TETRA_CPU_IMAGE if getattr(self, "instanceIds", None) else TETRA_GPU_IMAGE
+        )
 
     @imageName.setter
     def imageName(self, value):
