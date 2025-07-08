@@ -3,14 +3,20 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 from enum import Enum
-from pydantic import field_serializer, field_validator, model_validator, BaseModel, Field
+from pydantic import (
+    field_serializer,
+    field_validator,
+    model_validator,
+    BaseModel,
+    Field,
+)
 
 from tetra_rp.core.utils.rich_ui import (
-    job_progress_tracker, 
-    create_deployment_panel, 
+    job_progress_tracker,
+    create_deployment_panel,
     create_metrics_table,
     print_with_rich,
-    is_rich_enabled
+    is_rich_enabled,
 )
 from runpod.endpoint.runner import Job
 
@@ -24,7 +30,6 @@ from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 from ..utils.rich_ui import rich_ui, format_api_info, format_job_status
-
 
 
 # Environment variables are loaded from the .env file
@@ -215,7 +220,9 @@ class ServerlessResource(DeployableResource):
 
             if endpoint := self.__class__(**result):
                 if is_rich_enabled():
-                    panel = create_deployment_panel(endpoint.name, endpoint.id or "", endpoint.url)
+                    panel = create_deployment_panel(
+                        endpoint.name, endpoint.id or "", endpoint.url
+                    )
                     print_with_rich(panel)
                 else:
                     log.info(f"Deployed: {endpoint}")
@@ -342,7 +349,9 @@ class ServerlessResource(DeployableResource):
                     log.info(f"{self} | Started {log_subgroup}")
                 elif tracker:
                     # Initialize the progress tracker with starting status
-                    tracker.update_status("IN_QUEUE", "Job submitted, waiting for worker...")
+                    tracker.update_status(
+                        "IN_QUEUE", "Job submitted, waiting for worker..."
+                    )
 
                 current_pace = 0
                 attempt = 0
@@ -364,7 +373,9 @@ class ServerlessResource(DeployableResource):
                             tracker.show_progress_indicator()
                         else:
                             if not rich_ui.enabled:
-                                indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
+                                indicator = (
+                                    "." * (attempt // 2) if attempt % 2 == 0 else ""
+                                )
                                 if indicator:
                                     log.info(f"{log_subgroup} | {indicator}")
                     else:
@@ -443,7 +454,9 @@ class JobOutput(BaseModel):
 
     def model_post_init(self, __context):
         if is_rich_enabled():
-            metrics_table = create_metrics_table(self.delayTime, self.executionTime, self.workerId)
+            metrics_table = create_metrics_table(
+                self.delayTime, self.executionTime, self.workerId
+            )
             print_with_rich(metrics_table)
         else:
             log_group = f"Worker:{self.workerId}"

@@ -21,7 +21,7 @@ from .core.resources import (  # noqa: E402
     ServerlessEndpoint,
     runpod,
 )
-from .core.utils.rich_ui import capture_local_prints
+from .core.utils.rich_ui import capture_local_prints  # noqa: E402
 
 
 __all__ = [

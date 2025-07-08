@@ -78,7 +78,9 @@ class ResourceManager(SingletonMixin):
 
             if is_rich_enabled():
                 # Show a panel for reused resources similar to fresh deployments
-                panel = create_reused_resource_panel(existing.name, existing.id, existing.url)
+                panel = create_reused_resource_panel(
+                    existing.name, existing.id, existing.url
+                )
                 print_with_rich(panel)
             else:
                 log.debug(f"{existing} exists, reusing.")

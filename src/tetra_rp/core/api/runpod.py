@@ -127,12 +127,11 @@ class RunpodGraphQLClient:
             raise Exception("Unexpected GraphQL response structure")
 
         endpoint_data = result["saveEndpoint"]
-        
+
         # Use Rich formatting if available
         try:
             format_endpoint_created(
-                endpoint_data.get('id', 'unknown'),
-                endpoint_data.get('name', 'unnamed')
+                endpoint_data.get("id", "unknown"), endpoint_data.get("name", "unnamed")
             )
         except ImportError:
             log.info(
