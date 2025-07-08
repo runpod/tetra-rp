@@ -115,7 +115,9 @@ class RunpodGraphQLClient:
 
         variables = {"input": input_data}
 
-        log.debug(f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}")
+        log.debug(
+            f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
 
         result = await self._execute_graphql(mutation, variables)
 
@@ -143,11 +145,13 @@ class RunpodGraphQLClient:
             }
         }
         """
-        
+
         result = await self._execute_graphql(query)
         return result.get("cpuTypes", [])
 
-    async def get_gpu_types(self, gpu_filter: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def get_gpu_types(
+        self, gpu_filter: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Get available GPU types."""
         query = """
         query getGpuTypes($input: GpuTypeFilter) {
@@ -172,7 +176,7 @@ class RunpodGraphQLClient:
             }
         }
         """
-        
+
         variables = {"input": gpu_filter} if gpu_filter else {}
         result = await self._execute_graphql(query, variables)
         return result.get("gpuTypes", [])
@@ -235,8 +239,9 @@ class RunpodRestClient:
             )
         return self.session
 
-    
-    async def _execute_rest(self, method: str, url: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def _execute_rest(
+        self, method: str, url: str, data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Execute a REST API request."""
         session = await self._get_session()
 
@@ -260,29 +265,26 @@ class RunpodRestClient:
         except aiohttp.ClientError as e:
             log.error(f"HTTP client error: {e}")
             raise Exception(f"HTTP request failed: {e}")
-    
-    
-    async def create_network_volume(self, datacenter_id: str, name: str, size_gb: int) -> Dict[str, Any]:
+
+    async def create_network_volume(
+        self, datacenter_id: str, name: str, size_gb: int
+    ) -> Dict[str, Any]:
         """
         Create a network volume in Runpod.
-        
+
         Args:
             datacenter_id (str): The ID of the datacenter where the volume will be created.
             name (str): The name of the network volume.
             size_gb (int): The size of the volume in GB.
-        
+
         Returns:
             Dict[str, Any]: The created network volume details.
         """
         url = f"{RUNPOD_REST_API_URL}/network-volumes"
-        data = {
-            "datacenterId": datacenter_id,
-            "name": name,
-            "sizeGb": size_gb
-        }
-        
+        data = {"datacenterId": datacenter_id, "name": name, "sizeGb": size_gb}
+
         return await self._execute_rest("POST", url, data)
-    
+
     async def close(self):
         """Close the HTTP session."""
         if self.session and not self.session.closed:
