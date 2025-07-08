@@ -1,15 +1,17 @@
 import hashlib
 from abc import ABC, abstractmethod
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class BaseResource(BaseModel):
     """Base class for all resources."""
-    class Config:
-        validate_by_name = True
-        validate_default = True
-        serialize_by_alias = True
+
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_default=True,
+        serialize_by_alias=True,
+    )
 
     id: Optional[str] = None
 
