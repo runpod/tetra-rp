@@ -237,19 +237,19 @@ The following parameters can be used with `LiveServerless` (full remote code exe
 
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
-| `name`             | (Required) Name for your endpoint.               | `""`          | `"stable-diffusion-server"`         |
-| `gpus`             | GPU pool IDs that can be used by workers.        | `[GpuGroup.ANY]` | `[GpuGroup.ADA_24]` for RTX 4090 |
-| `gpuCount`         | Number of GPUs per worker.                       | 1             | 1, 2, 4                             |
-| `workersMin`       | Minimum number of workers.                       | 0             | Set to 1 for persistence            |
-| `workersMax`       | Maximum number of workers.                       | 3             | Higher for more concurrency         |
-| `idleTimeout`      | Minutes before scaling down.                     | 5             | 10, 30, 60                          |
-| `env`              | Environment variables.                           | `None`        | `{"HF_TOKEN": "xyz"}`               |
-| `networkVolumeId`  | Persistent storage ID.                           | `None`        | `"vol_abc123"`                      |
-| `executionTimeoutMs`| Max execution time (ms).                         | 0 (no limit)  | 600000 (10 min)                     |
-| `scalerType`       | Scaling strategy.                                | `QUEUE_DELAY` | `REQUEST_COUNT`                     |
-| `scalerValue`      | Scaling parameter value.                         | 4             | 1-10 range typical                  |
-| `locations`        | Preferred datacenter locations.                  | `None`        | `"us-east,eu-central"`              |
-| `imageName`        | Custom Docker image (`ServerlessEndpoint` only).   | Fixed for LiveServerless | `"pytorch/pytorch:latest"`, `"my-registry/custom:v1.0"` |
+| `name`             | (Required) Name for your endpoint               | `""`          | `"stable-diffusion-server"`         |
+| `gpus`             | GPU pool IDs that can be used by workers        | `[GpuGroup.ANY]` | `[GpuGroup.ADA_24]` for RTX 4090 |
+| `gpuCount`         | Number of GPUs per worker                       | 1             | 1, 2, 4                             |
+| `workersMin`       | Minimum number of workers                       | 0             | Set to 1 for persistence            |
+| `workersMax`       | Maximum number of workers                       | 3             | Higher for more concurrency         |
+| `idleTimeout`      | Minutes before scaling down                     | 5             | 10, 30, 60                          |
+| `env`              | Environment variables                           | `None`        | `{"HF_TOKEN": "xyz"}`               |
+| `networkVolumeId`  | Persistent storage ID                           | `None`        | `"vol_abc123"`                      |
+| `executionTimeoutMs`| Max execution time (ms)                        | 0 (no limit)  | 600000 (10 min)                     |
+| `scalerType`       | Scaling strategy                                | `QUEUE_DELAY` | `REQUEST_COUNT`                     |
+| `scalerValue`      | Scaling parameter value                         | 4             | 1-10 range typical                  |
+| `locations`        | Preferred datacenter locations                  | `None`        | `"us-east,eu-central"`              |
+| `imageName`        | Custom Docker image (`ServerlessEndpoint` only)   | Fixed for LiveServerless | `"pytorch/pytorch:latest"`, `"my-registry/custom:v1.0"` |
 
 ### CPU configuration parameters
 
