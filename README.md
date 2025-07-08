@@ -1,196 +1,303 @@
-# Tetra: Serverless Computing for AI Workloads
+# Tetra: Serverless computing for AI workloads
 
-<p align="center">
-  <b>Dynamic GPU and CPU provisioning for ML workloads with transparent execution</b>
-</p>
+Tetra is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's [Serverless infrastructure](http://docs.runpod.io/serverless/overview). Write Python functions locally, and Tetra handles the infrastructure, provisioning GPUs and CPUs, managing dependencies, and transferring data, allowing you to focus on building AI applications.
 
-<p align="center">
-  <a href="#overview">Overview</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#key-features-and-concepts">Key Features and Concepts</a> •
-  <a href="#how-tetra-works">How Tetra Works</a> •
-  <a href="#common-use-cases">Common Use Cases</a> •
-  <a href="#quick-start-example">Quick Start Example</a> •
-  <a href="#examples">More Examples</a> •
-  <a href="#configuration">Configuration</a> •
-</p>
+You can find a repository of prebuilt Tetra examples at [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
 
-## Overview
+> [!Note]
+> **New feature - Consolidated template management:** `PodTemplate` overrides now seamlessly integrate with `ServerlessResource` defaults, providing more consistent resource configuration and reducing deployment complexity.
 
-Tetra is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's Serverless infrastructure. It provides an abstraction layer that lets you define, execute, and monitor sophisticated AI pipelines using both GPU and CPU resources through nothing but Python code and your local terminal, eliminating the need to interact with the Runpod console GUI.
+## Table of contents
 
-**Latest Improvements:**
-- **Consolidated Template Management**: PodTemplate overrides now seamlessly integrate with ServerlessResource defaults, providing more consistent resource configuration and reducing deployment complexity.
+- [Requirements](#requirements)
+- [Getting started](#getting-started)
+- [Key concepts](#key-concepts)
+- [How it works](#how-it-works)
+- [Use cases](#use-cases)
+- [Advanced features](#advanced-features)
+- [Configuration](#configuration)
+- [Workflow examples](#workflow-examples)
+- [Troubleshooting](#troubleshooting)
 
-You can find a list of prebuilt Tetra examples at: [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
+## Getting started
 
------
+Before you can use Tetra, you'll need:
 
-## Get Started
+- Python 3.9 (or higher) installed on your local machine.
+- A Runpod account with API key ([sign up here](https://runpod.io/console)).
+- Basic knowledge of Python and async programming.
 
-To get started with Tetra, you can follow this step-by-step tutorial to learn how to code remote workflows in both serial and parallel: [Get started with Tetra](https://runpod.notion.site/tetra-tutorial).
-
-Alternatively, you can clone the Tetra examples repository to explore and run pre-built examples:
-
-```bash
-git clone https://github.com/runpod/tetra-examples.git
-```
-
-### Installation
+### Step 1: Install Tetra
 
 ```bash
 pip install tetra_rp
 ```
 
-You must also set up a [Runpod API key](https://docs.runpod.io/get-started/api-keys) to use this integration. You can sign up at [Runpod.io](https://runpod.io) and generate an API key from your account settings. Set this key as an environment variable or save it in a local `.env` file:
+### Step 2: Set your API key
+
+Generate an API key from the [Runpod account settings](https://docs.runpod.io/get-started/api-keys) page and set it as an environment variable:
 
 ```bash
-export RUNPOD_API_KEY=<YOUR_API_KEY>
+export RUNPOD_API_KEY=[YOUR_API_KEY]
 ```
 
------
+Or save it in a `.env` file in your project directory:
 
-## Key Features and Concepts
-
-Tetra offers several advantages and introduces core concepts that simplify AI workflow development:
-
-  * **Simplified Workflow Development**: Define sophisticated AI pipelines in pure Python with minimal configuration, allowing you to concentrate on your logic rather than infrastructure complexities.
-  * **Optimized Resource Utilization**: Specify hardware requirements directly at the function level. This gives you precise control over GPU and CPU allocation for each part of your pipeline.
-  * **Seamless Deployment**: Tetra automatically manages the setup of Runpod Serverless infrastructure, including worker communication and data transfer between your local environment and remote workers.
-  * **Reduced Development Overhead**: Avoid the time-consuming tasks of writing application code for each worker, building Docker containers, and managing individual endpoints.
-  * **Intuitive Programming Model**: Utilize Python decorators to easily mark functions for remote execution on the Runpod infrastructure.
-
-### Inline Resource Configuration
-
-Tetra allows for granular hardware specification at the function level using the `LiveServerless` object. This enables detailed control over GPU/CPU allocation and worker scaling.
-
-#### GPU Configuration
-```python
-from tetra_rp import LiveServerless, GpuGroup
-
-# Configure a GPU endpoint
-gpu_config = LiveServerless(
-    gpus=[GpuGroup.ANY], # Use any available GPU (default: .ANY)
-    workersMax=5, # Scales up to 5 workers (default: 3)
-    name="parallel-processor", # Name of the endpoint that will be created or used
-)
-
-# Configure a GPU endpoint with custom Docker image (using ServerlessEndpoint)
-from tetra_rp import ServerlessEndpoint
-
-gpu_config_custom = ServerlessEndpoint(
-    gpus=[GpuGroup.AMPERE_80], # Use A100 GPUs
-    imageName="pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime", # Custom GPU image
-    name="custom-gpu-processor",
-)
+```bash
+echo "RUNPOD_API_KEY=[YOUR_API_KEY]" > .env
 ```
 
-#### CPU Configuration
+### Step 3: Write your first Tetra function
+
+Add the following code to a new Python file:
+
 ```python
-from tetra_rp import LiveServerless, CpuInstanceType
+import asyncio
+from tetra_rp import remote, LiveServerless
 
-# Configure a CPU endpoint
-cpu_config = LiveServerless(
-    instanceIds=[CpuInstanceType.CPU5C_8_16], # Use compute-optimized CPUs
-    workersMax=1, # Scales up to 1 worker (default: 3)
-    name="cpu-processor", # Name of the endpoint that will be created or used
-)
+# Configure GPU resources
+gpu_config = LiveServerless(name="tetra-quickstart")
 
-# Configure a CPU endpoint with custom Docker image (using CpuServerlessEndpoint)
-from tetra_rp import CpuServerlessEndpoint
-
-cpu_config_custom = CpuServerlessEndpoint(
-    imageName="python:3.11-slim", # Custom Docker image
-    name="custom-cpu-processor",
-)
-```
-
-Refer to the [Configuration Parameters](#configuration) section for a full list of available settings.
-
-**Note**: `LiveServerless` uses fixed Docker images optimized for Tetra runtime and supports full remote code execution. `ServerlessEndpoint` and `CpuServerlessEndpoint` allow custom Docker images but **only support dict payload communication** - they cannot execute arbitrary Python functions remotely and are designed for traditional endpoint usage where you send structured payloads like `{"input": {...}}`.
-
-### Dynamic Resource Provisioning
-
-Tetra enables you to automatically provision GPUs or CPUs on demand without any manual setup:
-
-#### GPU Functions
-```python
 @remote(
     resource_config=gpu_config,
+    dependencies=["torch", "numpy"]
 )
-def my_gpu_function(data):
-    # Runs on GPU when called
+def gpu_compute(data):
     import torch
-    tensor = torch.tensor(data).cuda()
-    return tensor.sum().item()
+    import numpy as np
+    
+    # This runs on a GPU in Runpod's cloud
+    tensor = torch.tensor(data, device="cuda")
+    result = tensor.sum().item()
+    
+    return {
+        "result": result,
+        "device": torch.cuda.get_device_name(0)
+    }
+
+async def main():
+    # This runs locally
+    result = await gpu_compute([1, 2, 3, 4, 5])
+    print(f"Sum: {result['result']}")
+    print(f"Computed on: {result['device']}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
-#### CPU Functions
+Run the example:
+
+```bash
+python your_script.py
+```
+
+## Key concepts
+
+### Remote functions
+
+Tetra's `@remote` decorator marks functions for execution on Runpod's infrastructure. Everything inside the decorated function runs remotely, while code outside runs locally.
+
 ```python
-@remote(
-    resource_config=cpu_config,
-)
-def my_cpu_function(data):
-    # Runs on CPU when called
+@remote(resource_config=config, dependencies=["pandas"])
+def process_data(data):
+    # This code runs remotely
     import pandas as pd
     df = pd.DataFrame(data)
     return df.describe().to_dict()
+
+async def main():
+    # This code runs locally
+    result = await process_data(my_data)
 ```
 
-### Automatic Dependency Management
+### Resource configuration
 
-Specify necessary Python dependencies for remote workers directly within the `@remote` decorator. Tetra ensures these dependencies are installed in the execution environment.
+Tetra provides fine-grained control over hardware allocation through configuration objects:
+
+```python
+from tetra_rp import LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
+
+# GPU configuration
+gpu_config = LiveServerless(
+    name="ml-inference",
+    gpus=[GpuGroup.AMPERE_80],  # A100 80GB
+    workersMax=5,
+    template=PodTemplate(containerDiskInGb=100)  # Extra disk space
+)
+
+# CPU configuration
+cpu_config = LiveServerless(
+    name="data-processor",
+    instanceIds=[CpuInstanceType.CPU5C_4_16],  # 4 vCPU, 16GB RAM
+    workersMax=3
+)
+```
+
+### Dependency management
+
+Specify Python packages in the decorator, and Tetra installs them automatically:
 
 ```python
 @remote(
     resource_config=gpu_config,
-    dependencies=["torch==2.0.1", "transformers", "pillow"]
-    # dependencies=["torch==2.0.1", "transformers", "diffusers"]
-
-def model_inference(data):
-    # Libraries are automatically installed
-    from transformers import AutoModel #
-    import torch #
-    from PIL import Image #
-    # ...
-    return "inference_results"
+    dependencies=["transformers==4.36.0", "torch", "pillow"]
+)
+def generate_image(prompt):
+    # Import inside the function
+    from transformers import pipeline
+    import torch
+    from PIL import Image
+    
+    # Your code here
 ```
 
-Ensure that `import` statements for these dependencies are included *inside* any remote functions that require them.
+### Parallel execution
 
------
+Run multiple remote functions concurrently using Python's async capabilities:
 
-## How Tetra Works
+```python
+# Process multiple items in parallel
+results = await asyncio.gather(
+    process_item(item1),
+    process_item(item2),
+    process_item(item3)
+)
+```
 
-When a Tetra workflow is executed, the following steps occur:
+## How it works
 
-1.  The `@remote` decorator identifies functions that are designated for remote execution.
-2.  Tetra analyzes the dependencies between these functions to determine the correct order of execution.
-3.  For each remote function:
-      * Tetra provisions the necessary endpoint and worker resources on Runpod.
-      * Input data is serialized and transferred to the remote worker.
-      * The function executes on the remote infrastructure.
-      * Results are then returned to your local environment.
-4.  Data flows between functions as defined by your local Python code.
+Tetra orchestrates workflow execution through a sophisticated multi-step process:
 
------
+1. **Function identification**: The `@remote` decorator marks functions for remote execution, enabling Tetra to distinguish between local and remote operations.
+2. **Dependency analysis**: Tetra automatically analyzes function dependencies to construct an optimal execution order, ensuring data flows correctly between sequential and parallel operations.
+3. **Resource provisioning and execution**: For each remote function, Tetra:
+   - Dynamically provisions endpoint and worker resources on Runpod's infrastructure.
+   - Serializes and securely transfers input data to the remote worker.
+   - Executes the function on the remote infrastructure with the specified GPU or CPU resources.
+   - Returns results to your local environment for further processing.
+4. **Data orchestration**: Results flow seamlessly between functions according to your local Python code structure, maintaining the same programming model whether functions run locally or remotely.
 
-## Common Use Cases
+## Use cases
 
-Tetra is well-suited for a variety of AI and data processing tasks, including:
+Tetra is well-suited for a diverse range of AI and data processing workloads:
 
-  * **Multi-modal AI pipelines**: Combine text, image, and audio models into unified workflows using GPU resources.
-  * **Distributed model training**: Scale model training operations across multiple GPU workers.
-  * **AI research experimentation**: Quickly prototype and test complex combinations of models.
-  * **Production inference systems**: Deploy sophisticated, multi-stage inference pipelines for real-world applications.
-  * **Data processing workflows**: Process large datasets efficiently using CPU workers for general computation and GPU workers for accelerated tasks.
-  * **Hybrid GPU/CPU workflows**: Combine CPU preprocessing with GPU inference for optimal cost and performance.
+- **Multi-modal AI pipelines**: Orchestrate unified workflows combining text, image, and audio models with GPU acceleration.
+- **Distributed model training**: Scale training operations across multiple GPU workers for faster model development.
+- **AI research experimentation**: Rapidly prototype and test complex model combinations without infrastructure overhead.
+- **Production inference systems**: Deploy sophisticated multi-stage inference pipelines for real-world applications.
+- **Data processing workflows**: Efficiently process large datasets using CPU workers for general computation and GPU workers for accelerated tasks.
+- **Hybrid GPU/CPU workflows**: Optimize cost and performance by combining CPU preprocessing with GPU inference.
 
------
+## Advanced features
 
-## Quick Start Examples
+### Custom Docker images
 
-### Basic GPU Example
+`LiveServerless` resources use a fixed Docker image that's optimized for Tetra runtime, and supports full remote code execution. For specialized environments that require a custom Docker image, use `ServerlessEndpoint` or `CpuServerlessEndpoint`:
+
+```python
+from tetra_rp import ServerlessEndpoint
+
+custom_gpu = ServerlessEndpoint(
+    name="custom-ml-env",
+    imageName="pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime",
+    gpus=[GpuGroup.AMPERE_80]
+)
+```
+
+Unlike `LiveServerless`, these endpoints only support dictionary payloads in the form of `{"input": {...}}` (similar to a traditional [Serverless endpoint request](https://docs.runpod.io/serverless/endpoints/send-requests)), and cannot execute arbitrary Python functions remotely.
+
+### Persistent storage
+
+Attach network volumes for model caching:
+
+```python
+config = LiveServerless(
+    name="model-server",
+    networkVolumeId="vol_abc123",  # Your volume ID
+    template=PodTemplate(containerDiskInGb=100)
+)
+```
+
+### Environment variables
+
+Pass configuration to remote functions:
+
+```python
+config = LiveServerless(
+    name="api-worker",
+    env={"HF_TOKEN": "your_token", "MODEL_ID": "gpt2"}
+)
+```
+
+## Configuration
+
+### GPU configuration parameters
+
+The following parameters can be used with `LiveServerless` (full remote code execution) and `ServerlessEndpoint` (Dictionary payload only) to configure your Runpod GPU endpoints:
+
+| Parameter          | Description                                     | Default       | Example Values                      |
+|--------------------|-------------------------------------------------|---------------|-------------------------------------|
+| `name`             | (Required) Name for your endpoint               | `""`          | `"stable-diffusion-server"`         |
+| `gpus`             | GPU pool IDs that can be used by workers        | `[GpuGroup.ANY]` | `[GpuGroup.ADA_24]` for RTX 4090 |
+| `gpuCount`         | Number of GPUs per worker                       | 1             | 1, 2, 4                             |
+| `workersMin`       | Minimum number of workers                       | 0             | Set to 1 for persistence            |
+| `workersMax`       | Maximum number of workers                       | 3             | Higher for more concurrency         |
+| `idleTimeout`      | Minutes before scaling down                     | 5             | 10, 30, 60                          |
+| `env`              | Environment variables                           | `None`        | `{"HF_TOKEN": "xyz"}`               |
+| `networkVolumeId`  | Persistent storage ID                           | `None`        | `"vol_abc123"`                      |
+| `executionTimeoutMs`| Max execution time (ms)                        | 0 (no limit)  | 600000 (10 min)                     |
+| `scalerType`       | Scaling strategy                                | `QUEUE_DELAY` | `REQUEST_COUNT`                     |
+| `scalerValue`      | Scaling parameter value                         | 4             | 1-10 range typical                  |
+| `locations`        | Preferred datacenter locations                  | `None`        | `"us-east,eu-central"`              |
+| `imageName`        | Custom Docker image (`ServerlessEndpoint` only)   | Fixed for LiveServerless | `"pytorch/pytorch:latest"`, `"my-registry/custom:v1.0"` |
+
+### CPU configuration parameters
+
+The same GPU configuration parameters above apply to `LiveServerless` (full remote code execution) and `CpuServerlessEndpoint` (dictionary payload only), with these additional CPU-specific parameters:
+
+| Parameter          | Description                                     | Default       | Example Values                      |
+|--------------------|-------------------------------------------------|---------------|-------------------------------------|
+| `instanceIds`      | CPU Instance Types (forces a CPU endpoint type) | `None`        | `[CpuInstanceType.CPU5C_2_4]`       |
+| `imageName`        | Custom Docker image (`CpuServerlessEndpoint` only) | Fixed for `LiveServerless` | `"python:3.11-slim"`, `"my-registry/custom:v1.0"` |
+
+### Resource class comparison
+
+| Feature | LiveServerless | ServerlessEndpoint | CpuServerlessEndpoint |
+|---------|----------------|-------------------|----------------------|
+| **Remote code execution** | ✅ Full Python function execution | ❌ Dictionary payloads only | ❌ Dictionary payloads only |
+| **Custom Docker images** | ❌ Fixed optimized images | ✅ Any Docker image | ✅ Any Docker image |
+| **Use case** | Dynamic remote functions | Traditional API endpoints | Traditional CPU endpoints |
+| **Function returns** | Any Python object | Dictionary only | Dictionary only |
+| **@remote decorator** | Full functionality | Limited to payload passing | Limited to payload passing |
+
+### Available GPU types
+
+Some common GPU groups available through `GpuGroup`:
+
+- `GpuGroup.ANY` - Any available GPU (default)
+- `GpuGroup.ADA_24` - NVIDIA GeForce RTX 4090
+- `GpuGroup.AMPERE_80` - NVIDIA A100 80GB
+- `GpuGroup.AMPERE_48` - NVIDIA A40, RTX A6000
+- `GpuGroup.AMPERE_24` - NVIDIA RTX A5000, L4, RTX 3090
+
+
+### Available CPU instance types
+- `CpuInstanceType.CPU3G_1_4` - (cpu3g-1-4) 3rd gen general purpose, 1 vCPU, 4GB RAM
+- `CpuInstanceType.CPU3G_2_8` - (cpu3g-2-8) 3rd gen general purpose, 2 vCPU, 8GB RAM
+- `CpuInstanceType.CPU3G_4_16` - (cpu3g-4-16) 3rd gen general purpose, 4 vCPU, 16GB RAM
+- `CpuInstanceType.CPU3G_8_32` - (cpu3g-8-32) 3rd gen general purpose, 8 vCPU, 32GB RAM
+- `CpuInstanceType.CPU3C_1_2` - (cpu3c-1-2) 3rd gen compute-optimized, 1 vCPU, 2GB RAM
+- `CpuInstanceType.CPU3C_2_4` - (cpu3c-2-4) 3rd gen compute-optimized, 2 vCPU, 4GB RAM
+- `CpuInstanceType.CPU3C_4_8` - (cpu3c-4-8) 3rd gen compute-optimized, 4 vCPU, 8GB RAM
+- `CpuInstanceType.CPU3C_8_16` - (cpu3c-8-16) 3rd gen compute-optimized, 8 vCPU, 16GB RAM
+- `CpuInstanceType.CPU5C_1_2` - (cpu5c-1-2) 5th gen compute-optimized, 1 vCPU, 2GB RAM
+- `CpuInstanceType.CPU5C_2_4` - (cpu5c-2-4) 5th gen compute-optimized, 2 vCPU, 4GB RAM
+- `CpuInstanceType.CPU5C_4_8` - (cpu5c-4-8) 5th gen compute-optimized, 4 vCPU, 8GB RAM
+- `CpuInstanceType.CPU5C_8_16` - (cpu5c-8-16) 5th gen compute-optimized, 8 vCPU, 16GB RAM
+
+## Workflow examples
+
+### Basic GPU workflow
 
 ```python
 import asyncio
@@ -229,7 +336,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Advanced GPU Example with Template Configuration
+### Advanced GPU workflow with template configuration
 
 ```python
 import asyncio
@@ -283,7 +390,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Basic CPU Example
+### Basic CPU workflow
 
 ```python
 import asyncio
@@ -330,7 +437,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Advanced CPU Example with Template Configuration
+### Advanced CPU workflow with template configuration
 
 ```python
 import asyncio
@@ -408,7 +515,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Hybrid GPU/CPU Workflow Example
+### Hybrid GPU/CPU workflow
 
 ```python
 import asyncio
@@ -522,23 +629,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
------
-
-## More Examples
-
-You can find more examples in the [tetra-examples repository](https://github.com/runpod/tetra-examples).
-
-You can also install the examples as a submodule:
-
-```bash
-git clone https://github.com/runpod/tetra-examples.git
-cd tetra-examples
-python -m examples.example
-python -m examples.image_gen
-python -m examples.matrix_operations
-```
-
-### Multi-Stage ML Pipeline Example
+### Multi-stage ML pipeline example
 
 ```python
 import os
@@ -625,78 +716,50 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
     return predictions
 ```
 
------
+### More examples
 
-## Configuration
+You can find many more examples in the [tetra-examples repository](https://github.com/runpod/tetra-examples).
 
-### GPU Configuration Parameters
+You can also install the examples as a submodule:
 
-The following parameters can be used with `LiveServerless` (full remote code execution) and `ServerlessEndpoint` (dict payload only) to configure your Runpod GPU endpoints:
+```bash
+git clone https://github.com/runpod/tetra-examples.git
+cd tetra-examples
+python -m examples.example
+python -m examples.image_gen
+python -m examples.matrix_operations
+```
 
-| Parameter          | Description                                     | Default       | Example Values                      |
-|--------------------|-------------------------------------------------|---------------|-------------------------------------|
-| `name`             | (Required) Name for your endpoint               | `""`          | `"stable-diffusion-server"`         |
-| `gpus`             | GPU pool IDs that can be used by workers        | `[GpuGroup.ANY]` | `[GpuGroup.ADA_24]` for RTX 4090 |
-| `gpuCount`         | Number of GPUs per worker                       | 1             | 1, 2, 4                             |
-| `workersMin`       | Minimum number of workers                       | 0             | Set to 1 for persistence            |
-| `workersMax`       | Maximum number of workers                       | 3             | Higher for more concurrency         |
-| `idleTimeout`      | Minutes before scaling down                     | 5             | 10, 30, 60                          |
-| `env`              | Environment variables                           | `None`        | `{"HF_TOKEN": "xyz"}`               |
-| `networkVolumeId`  | Persistent storage ID                           | `None`        | `"vol_abc123"`                      |
-| `executionTimeoutMs`| Max execution time (ms)                         | 0 (no limit)  | 600000 (10 min)                     |
-| `scalerType`       | Scaling strategy                                | `QUEUE_DELAY` | `REQUEST_COUNT`                     |
-| `scalerValue`      | Scaling parameter value                         | 4             | 1-10 range typical                  |
-| `locations`        | Preferred datacenter locations                  | `None`        | `"us-east,eu-central"`              |
-| `imageName`        | Custom Docker image (ServerlessEndpoint only)   | Fixed for LiveServerless | `"pytorch/pytorch:latest"`, `"my-registry/custom:v1.0"` |
+## Troubleshooting
 
-### CPU Configuration Parameters
+### Authentication errors
 
-The same GPU Configuration parameters above still apply to `LiveServerless` (full remote code execution) and `CpuServerlessEndpoint` (dict payload only), with the additional parameters:
+Verify your API key is set correctly:
 
-| Parameter          | Description                                     | Default       | Example Values                      |
-|--------------------|-------------------------------------------------|---------------|-------------------------------------|
-| `instanceIds`      | CPU Instance Types (forces a CPU Endpoint type) | `None`        | `[CpuInstanceType.CPU5C_2_4]`       |
-| `imageName`        | Custom Docker image (CpuServerlessEndpoint only) | Fixed for LiveServerless | `"python:3.11-slim"`, `"my-registry/custom:v1.0"` |
+```bash
+echo $RUNPOD_API_KEY  # Should show your key
+```
 
-### Resource Class Comparison
+### Import errors in remote functions
 
-| Feature | LiveServerless | ServerlessEndpoint | CpuServerlessEndpoint |
-|---------|----------------|-------------------|----------------------|
-| **Remote Code Execution** | ✅ Full Python function execution | ❌ Dict payloads only | ❌ Dict payloads only |
-| **Custom Docker Images** | ❌ Fixed optimized images | ✅ Any Docker image | ✅ Any Docker image |
-| **Use Case** | Dynamic remote functions | Traditional API endpoints | Traditional CPU endpoints |
-| **Function Returns** | Any Python object | Dict only | Dict only |
-| **@remote decorator** | Full functionality | Limited to payload passing | Limited to payload passing |
+Remember to import packages inside remote functions:
 
-### Available GPU Types
+```python
+@remote(dependencies=["requests"])
+def fetch_data(url):
+    import requests  # Import here, not at top of file
+    return requests.get(url).json()
+```
 
-Some common GPU groups available through `GpuGroup`:
+### Performance optimization
 
-- `GpuGroup.ADA_24` - NVIDIA GeForce RTX 4090
-- `GpuGroup.AMPERE_80` - NVIDIA A100 80GB
-- `GpuGroup.AMPERE_48` - NVIDIA A40, RTX A6000
-- `GpuGroup.AMPERE_24` - NVIDIA RTX A5000, L4, RTX 3090
-- `GpuGroup.ANY` - Any available GPU (default)
-
-### Available CPU Instance Types
-- `CpuInstanceType.CPU3G_1_4` - (cpu3g-1-4) 3rd gen general purpose, 1 vCPU, 4GB RAM
-- `CpuInstanceType.CPU3G_2_8` - (cpu3g-2-8) 3rd gen general purpose, 2 vCPU, 8GB RAM
-- `CpuInstanceType.CPU3G_4_16` - (cpu3g-4-16) 3rd gen general purpose, 4 vCPU, 16GB RAM
-- `CpuInstanceType.CPU3G_8_32` - (cpu3g-8-32) 3rd gen general purpose, 8 vCPU, 32GB RAM
-- `CpuInstanceType.CPU3C_1_2` - (cpu3c-1-2) 3rd gen compute-optimized, 1 vCPU, 2GB RAM
-- `CpuInstanceType.CPU3C_2_4` - (cpu3c-2-4) 3rd gen compute-optimized, 2 vCPU, 4GB RAM
-- `CpuInstanceType.CPU3C_4_8` - (cpu3c-4-8) 3rd gen compute-optimized, 4 vCPU, 8GB RAM
-- `CpuInstanceType.CPU3C_8_16` - (cpu3c-8-16) 3rd gen compute-optimized, 8 vCPU, 16GB RAM
-- `CpuInstanceType.CPU5C_1_2` - (cpu5c-1-2) 5th gen compute-optimized, 1 vCPU, 2GB RAM
-- `CpuInstanceType.CPU5C_2_4` - (cpu5c-2-4) 5th gen compute-optimized, 2 vCPU, 4GB RAM
-- `CpuInstanceType.CPU5C_4_8` - (cpu5c-4-8) 5th gen compute-optimized, 4 vCPU, 8GB RAM
-- `CpuInstanceType.CPU5C_8_16` - (cpu5c-8-16) 5th gen compute-optimized, 8 vCPU, 16GB RAM
+- Set `workersMin=1` to keep workers warm and avoid cold starts
+- Use `idleTimeout` to balance cost and responsiveness
+- Choose appropriate GPU types for your workload
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
------
 
 <p align="center">
   <a href="https://github.com/yourusername/tetra">Tetra</a> •
