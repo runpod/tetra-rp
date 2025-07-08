@@ -114,7 +114,7 @@ def extract_class_code_simple(cls: Type) -> str:
                 fallback_methods.append(f"    def {name}{sig}:")
                 fallback_methods.append("        pass")
                 fallback_methods.append("")
-            except:
+            except:  # noqa: E722
                 fallback_methods.append(f"    def {name}(self, *args, **kwargs):")
                 fallback_methods.append("        pass")
                 fallback_methods.append("")
