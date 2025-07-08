@@ -14,8 +14,8 @@ You can find a repository of prebuilt Tetra examples at [runpod/tetra-examples](
 - [Key concepts](#key-concepts)
 - [How it works](#how-it-works)
 - [Use cases](#use-cases)
-- [Configuration](#configuration)
 - [Advanced features](#advanced-features)
+- [Configuration](#configuration)
 - [Workflow examples](#workflow-examples)
 - [Troubleshooting](#troubleshooting)
 
