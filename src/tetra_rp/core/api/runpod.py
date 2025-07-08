@@ -12,6 +12,7 @@ import logging
 log = logging.getLogger(__name__)
 
 RUNPOD_API_BASE_URL = os.environ.get("RUNPOD_API_BASE_URL", "https://api.runpod.io")
+RUNPOD_REST_API_URL = os.environ.get("RUNPOD_REST_API_URL", "https://rest.runpod.io/v1")
 
 
 class RunpodGraphQLClient:
@@ -196,6 +197,92 @@ class RunpodGraphQLClient:
         result = await self._execute_graphql(mutation, variables)
         return {"success": result.get("deleteEndpoint") is not None}
 
+    async def close(self):
+        """Close the HTTP session."""
+        if self.session and not self.session.closed:
+            await self.session.close()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+
+class RunpodRestClient:
+    """
+    Runpod REST client for Runpod API.
+    Provides methods to interact with Runpod's REST endpoints.
+    """
+
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
+        if not self.api_key:
+            raise ValueError("Runpod API key is required")
+
+        self.session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create an aiohttp session."""
+        if self.session is None or self.session.closed:
+            timeout = aiohttp.ClientTimeout(total=300)  # 5 minute timeout
+            self.session = aiohttp.ClientSession(
+                timeout=timeout,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
+        return self.session
+
+    
+    async def _execute_rest(self, method: str, url: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Execute a REST API request."""
+        session = await self._get_session()
+
+        log.debug(f"REST Request: {method} {url}")
+        log.debug(f"REST Data: {json.dumps(data, indent=2) if data else 'None'}")
+
+        try:
+            async with session.request(method, url, json=data) as response:
+                response_data = await response.json()
+
+                log.debug(f"REST Response Status: {response.status}")
+                log.debug(f"REST Response: {json.dumps(response_data, indent=2)}")
+
+                if response.status >= 400:
+                    raise Exception(
+                        f"REST request failed: {response.status} - {response_data}"
+                    )
+
+                return response_data
+
+        except aiohttp.ClientError as e:
+            log.error(f"HTTP client error: {e}")
+            raise Exception(f"HTTP request failed: {e}")
+    
+    
+    async def create_network_volume(self, datacenter_id: str, name: str, size_gb: int) -> Dict[str, Any]:
+        """
+        Create a network volume in Runpod.
+        
+        Args:
+            datacenter_id (str): The ID of the datacenter where the volume will be created.
+            name (str): The name of the network volume.
+            size_gb (int): The size of the volume in GB.
+        
+        Returns:
+            Dict[str, Any]: The created network volume details.
+        """
+        url = f"{RUNPOD_REST_API_URL}/network-volumes"
+        data = {
+            "datacenterId": datacenter_id,
+            "name": name,
+            "sizeGb": size_gb
+        }
+        
+        return await self._execute_rest("POST", url, data)
+    
     async def close(self):
         """Close the HTTP session."""
         if self.session and not self.session.closed:
