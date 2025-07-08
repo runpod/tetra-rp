@@ -4,6 +4,7 @@ from pydantic import BaseModel, model_validator
 from .base import BaseResource
 from ..utils.user_agent import get_tetra_user_agent
 
+
 class KeyValuePair(BaseModel):
     key: str
     value: str
