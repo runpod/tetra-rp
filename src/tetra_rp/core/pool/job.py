@@ -1,5 +1,4 @@
 import uuid
-from enum import Enum
 from dataclass import JobStatus
 
 
