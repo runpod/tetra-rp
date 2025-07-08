@@ -267,7 +267,7 @@ class RunpodRestClient:
             raise Exception(f"HTTP request failed: {e}")
 
     async def create_network_volume(
-        self, datacenter_id: str, name: str, size_gb: int
+        self, datacenter_id: str, name: str, size: int
     ) -> Dict[str, Any]:
         """
         Create a network volume in Runpod.
@@ -280,8 +280,8 @@ class RunpodRestClient:
         Returns:
             Dict[str, Any]: The created network volume details.
         """
-        url = f"{RUNPOD_REST_API_URL}/network-volumes"
-        data = {"datacenterId": datacenter_id, "name": name, "sizeGb": size_gb}
+        url = f"{RUNPOD_REST_API_URL}/networkvolumes"
+        data = {"dataCenterId": datacenter_id, "name": name, "size": size}
 
         return await self._execute_rest("POST", url, data)
 
