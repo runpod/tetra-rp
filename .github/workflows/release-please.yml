@@ -140,7 +140,7 @@ jobs:
         run: uv publish --trusted-publishing automatic
 
       - name: Upload build artifacts to release
-        if: success()
+        if: success() && needs.release-please.outputs.tag_name
         run: |
           gh release upload ${{ needs.release-please.outputs.tag_name }} dist/* --clobber
         env:
