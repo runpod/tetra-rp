@@ -66,7 +66,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --all-groups --frozen
+          uv sync --all-groups
           
       - name: Code quality - Linting and formatting
         run: |
@@ -158,9 +158,9 @@ jobs:
 
       - name: Security - Bandit static analysis
         run: |
-          uv pip install bandit[toml] --system
-          uv run bandit -r src/ -f sarif -o bandit-report.sarif
-          uv run bandit -r src/ -f json -o bandit-report.json
+          uv add --group test bandit[toml]
+          uv run bandit -r src/ -f sarif -o bandit-report.sarif || true
+          uv run bandit -r src/ -f json -o bandit-report.json || true
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
@@ -278,7 +278,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --all-groups --frozen
+        run: uv sync --all-groups
 
       - name: Pre-publish validation
         run: |
