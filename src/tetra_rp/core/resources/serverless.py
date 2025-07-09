@@ -23,6 +23,7 @@ from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 
+
 # Environment variables are loaded from the .env file
 def get_env_vars() -> Dict[str, str]:
     """
@@ -232,7 +233,7 @@ class ServerlessResource(DeployableResource):
 
         Raises:
             ValueError: If the serverless resource is not deployed.
-            RuntimeError: If the health status is THROTTLED, UNHEALTHY, or UNKNOWN 
+            RuntimeError: If the health status is THROTTLED, UNHEALTHY, or UNKNOWN
             after exceeding the give_up_threshold.
         """
         if not self.is_deployed():
@@ -379,7 +380,9 @@ class ServerlessEndpoint(ServerlessResource):
     @model_validator(mode="after")
     def set_serverless_template(self):
         if not any([self.imageName, self.template, self.templateId]):
-            raise ValueError("Either imageName, template, or templateId must be provided")
+            raise ValueError(
+                "Either imageName, template, or templateId must be provided"
+            )
 
         if not self.templateId and not self.template:
             self.template = PodTemplate(
@@ -404,6 +407,7 @@ class CpuServerlessEndpoint(ServerlessEndpoint):
     Represents a CPU-only serverless endpoint distinct from a live serverless.
     Inherits from ServerlessEndpoint.
     """
+
     instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.CPU3G_2_8]
 
 
@@ -471,33 +475,32 @@ class ServerlessHealth(BaseModel):
     def is_ready(self) -> bool:
         return self.workers.status == Status.READY
 
-class NetworkVolumeConfig(BaseModel):
-    """
-    NetworkvolumeConfig Represents a network volume configuration for serverless resources.
-    """
-    size: int  # Size in GB
-    datacenter_id: str
-    name: str
 
-
-class NetworkVolumeResource(DeployableResource):
+class NetworkVolume(DeployableResource):
     """
     NetworkVolume resource for creating and managing Runpod netowrk volumes.
-    
+
     This class handles the creation, deployment, and management of network volumes
     that can be attached to serverless resources.
 
     """
-    config: NetworkVolumeConfig
-    volume_id: Optional[str] = Field(default=None)
-    
-        
+
+    dataCenterId: Optional[str] = None
+    id: Optional[str] = Field(default=None)
+    name: Optional[str] = None
+    size: Optional[int] = None  # Size in GB
+
+    @property
+    def is_created(self) -> bool:
+        " Returns True if the network volume already exists. " ""
+        return self.id is not None
+
     @property
     def url(self) -> str:
         """
         Returns the URL for the network volume resource.
         """
-        if not self.volume_id:
+        if not self.id:
             raise ValueError("Network volume ID is not set")
         return f"{CONSOLE_BASE_URL}/user/storage"
 
@@ -506,23 +509,21 @@ class NetworkVolumeResource(DeployableResource):
         Creates a network volume using the provided configuration.
         Returns the volume ID.
         """
-        print(self.config)
         async with RunpodRestClient() as client:
             # Create the network volume
-            volume = await client.create_network_volume(
-                datacenter_id=self.config.datacenter_id,
-                name=self.config.name,
-                size=self.config.size
+            result = await client.create_network_volume(
+                datacenter_id=self.dataCenterId, name=self.name, size=self.size
             )
-            log.info(f"Created network volume: {volume['id']}")
-            return volume["id"]
-    
+        log.info(f"Created network volume: {result['id']}")
+        if volume := self.__class__(**result):
+            return volume.id
+
     def is_deployed(self) -> bool:
         """
         Checks if the network volume resource is deployed and available.
         """
-        return self.volume_id is not None
-    
+        return self.id is not None
+
     async def deploy(self) -> "DeployableResource":
         """
         Deploys the network volume resource using the provided configuration.
@@ -532,17 +533,16 @@ class NetworkVolumeResource(DeployableResource):
             # If the resource is already deployed, return it
             if self.is_deployed():
                 log.debug(f"{self} exists")
-                return self
+                return self.id
 
             # Create the network volume
-            self.volume_id = await self.create_network_volume()
+            self.id = await self.create_network_volume()
 
             if self.is_deployed():
-                return self
+                return self.id
 
             raise ValueError("Deployment failed, no volume was created.")
 
         except Exception as e:
             log.error(f"{self} failed to deploy: {e}")
             raise
-    
