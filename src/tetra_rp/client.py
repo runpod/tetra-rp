@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import List, Dict, Optional
+from typing import List, Optional
 from .core.resources import ServerlessResource, ResourceManager, NetworkVolume
 from .stubs import stub_resource
 
@@ -25,7 +25,7 @@ def remote(
             to be provisioned or used.
         dependencies (List[str], optional): A list of pip package names to be installed in the remote
             environment before executing the function. Defaults to None.
-        mount_volume (NetworkVolumeConfig, optional): Configuration for creating and mounting a network volume.
+        mount_volume (NetworkVolume, optional): Configuration for creating and mounting a network volume.
             Should contain 'size', 'datacenter_id', and 'name' keys. Defaults to None.
         extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
 
