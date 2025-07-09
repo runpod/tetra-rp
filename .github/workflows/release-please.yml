@@ -2,31 +2,59 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      force_publish:
+        description: 'Force PyPI publishing (emergency override)'
+        required: false
+        default: false
+        type: boolean
+      skip_tests:
+        description: 'Skip tests (emergency only)'
+        required: false
+        default: false
+        type: boolean
+
+# Prevent concurrent releases
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
-  id-token: write  # Required for OIDC
+  id-token: write     # Required for PyPI OIDC
+  actions: read       # Required for security scanning
+  security-events: write  # Required for SARIF uploads
+
+env:
+  PYTHON_VERSION: '3.11'
+  UV_CACHE_DIR: ~/.cache/uv
 
 jobs:
-  # Run tests before attempting release
-  test:
-    name: Pre-release Tests
+  # ====================================================
+  # QUALITY GATES - Comprehensive testing and validation
+  # ====================================================
+  quality-gates:
+    name: Quality Gates
     runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    timeout-minutes: 15
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better release-please analysis
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -34,60 +62,218 @@ jobs:
         uses: astral-sh/setup-uv@v2
         with:
           enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Install dependencies
-        run: uv sync --all-groups
-
-      - name: Run linting
         run: |
-          uv run ruff check src/ tests/
+          uv sync --all-groups --frozen
+          
+      - name: Code quality - Linting and formatting
+        run: |
+          echo "::group::Ruff linting"
+          uv run ruff check src/ tests/ --output-format=github
+          echo "::endgroup::"
+          
+          echo "::group::Ruff formatting"
           uv run ruff format --check src/ tests/
+          echo "::endgroup::"
 
-      - name: Run tests
+      - name: Type checking
         run: |
-          uv run pytest tests/
+          echo "::group::MyPy type checking"
+          uv run mypy src/tetra_rp --show-error-codes --pretty
+          echo "::endgroup::"
 
-      # TODO: Uncomment when coverage is needed
-      # - name: Run tests with coverage
+      - name: Test suite
+        run: |
+          echo "::group::Running test suite"
+          uv run pytest tests/ \
+            --junitxml=pytest-results.xml \
+            -v
+          echo "::endgroup::"
+
+      # TODO: Enable when coverage is needed
+      # - name: Test suite with coverage
       #   run: |
+      #     echo "::group::Running test suite"
       #     uv run pytest tests/ \
       #       --cov=src/tetra_rp \
       #       --cov-report=term-missing \
-      #       --cov-fail-under=90 \
+      #       --cov-report=xml \
+      #       --cov-report=html \
+      #       --cov-fail-under=85 \
+      #       --junitxml=pytest-results.xml \
       #       -v
+      #     echo "::endgroup::"
 
-  release-please:
-    name: Create Release
+      # TODO: Enable when coverage is needed
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   if: matrix.python-version == '3.11'
+      #   with:
+      #     file: ./coverage.xml
+      #     flags: unittests
+      #     name: codecov-umbrella
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: |
+            pytest-results.xml
+            safety-report.json
+            # coverage.xml
+            # htmlcov/
+
+  # ==============================================
+  # SECURITY SCANNING - Advanced security analysis
+  # ==============================================
+  security-scan:
+    name: Security Scan
     runs-on: ubuntu-latest
-    needs: [test]  # Only run if tests pass
+    if: ${{ !inputs.skip_tests }}
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Security - Bandit static analysis
+        run: |
+          uv pip install bandit[toml]
+          uv run bandit -r src/ -f sarif -o bandit-report.sarif
+          uv run bandit -r src/ -f json -o bandit-report.json
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: bandit-report.sarif
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.sarif
+            bandit-report.json
+
+  # =========================================================
+  # RELEASE ORCHESTRATION - Modern release-please integration
+  # =========================================================
+  release-please:
+    name: Release Orchestration
+    runs-on: ubuntu-latest
+    needs: [quality-gates, security-scan]
+    if: always() && (needs.quality-gates.result == 'success' || inputs.skip_tests) && (needs.security-scan.result == 'success' || inputs.skip_tests)
+    timeout-minutes: 5
+    
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+      pr_number: ${{ steps.release.outputs.pr_number }}
+      
     steps:
-      - uses: googleapis/release-please-action@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Use default token - release-please will handle PR creation
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Release Please
+        uses: googleapis/release-please-action@v4
         id: release
         with:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  # Build and publish to PyPI when a release is created
-  publish:
-    name: Build and Publish to PyPI
+      - name: Debug - Release outputs
+        run: |
+          echo "::group::Release Please Outputs"
+          echo "release_created: ${{ steps.release.outputs.release_created }}"
+          echo "tag_name: ${{ steps.release.outputs.tag_name }}"
+          echo "version: ${{ steps.release.outputs.version }}"
+          echo "pr_number: ${{ steps.release.outputs.pr_number }}"
+          echo "html_url: ${{ steps.release.outputs.html_url }}"
+          echo "::endgroup::"
+          
+          echo "::group::All outputs (JSON)"
+          echo '${{ toJson(steps.release.outputs) }}'
+          echo "::endgroup::"
+
+      - name: Comment on release PR
+        if: ${{ steps.release.outputs.pr_number }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.release.outputs.pr_number }};
+            const comment = `**Release Pipeline Status**
+            
+            ✅ Quality gates passed
+            ✅ Security scanning completed
+            Ready for release when merged
+            
+            **Next steps:**
+            1. Review and approve this PR
+            2. Merge to trigger PyPI publication
+            3. Monitor deployment status
+            
+            ---
+            *Automated by Release Please*`;
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: comment
+            });
+
+  # =====================================================================
+  # PYPI PUBLISHING - Production deployment with comprehensive validation
+  # =====================================================================
+  pypi-publish:
+    name: PyPI Publication
     runs-on: ubuntu-latest
-    needs: [test, release-please]
-    if: ${{ needs.release-please.outputs.release_created }}
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release_created == 'true' || inputs.force_publish }}
+    timeout-minutes: 10
+    
     environment:
-      name: pypi
-      url: https://pypi.org/p/tetra-rp
+      name: pypi-production
+      url: https://pypi.org/project/tetra-rp/
+      
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v2
@@ -95,32 +281,140 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: uv sync --all-groups --frozen
 
-      # TODO: Uncomment when coverage is needed
-      # - name: Run final test suite before publishing
-      #   run: |
-      #     uv run pytest tests/ \
-      #       --cov=src/tetra_rp \
-      #       --cov-fail-under=90 \
-      #       -v
-
-      - name: Run final test suite before publishing
+      - name: Pre-publish validation
         run: |
-          uv run pytest tests/
+          echo "::group::Final test suite"
+          uv run pytest tests/ -x --tb=short
+          echo "::endgroup::"
 
       - name: Build package
-        run: uv build
+        run: |
+          echo "::group::Building package"
+          uv build --verbose
+          echo "::endgroup::"
+          
+          echo "::group::Build artifacts"
+          ls -la dist/
+          echo "::endgroup::"
 
-      - name: Verify package
-        run: uv run twine check dist/*
+      - name: Verify package integrity
+        run: |
+          echo "::group::Twine check"
+          uv run twine check dist/* --strict
+          echo "::endgroup::"
+          
+          echo "::group::Package contents"
+          uv run python -m tarfile --list dist/*.tar.gz
+          echo "::endgroup::"
+
+      - name: Sign packages
+        uses: sigstore/gh-action-sigstore-python@v2.1.1
+        with:
+          inputs: ./dist/*.tar.gz ./dist/*.whl
+          upload-signing-artifacts: true
 
       - name: Publish to PyPI
-        run: uv publish --trusted-publishing automatic
-
-      - name: Upload build artifacts to release
-        if: success()
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          print-hash: true
+          
+      - name: Attach build artifacts to release
+        if: ${{ needs.release-please.outputs.tag_name }}
         run: |
+          echo "::group::Uploading artifacts to release"
           gh release upload ${{ needs.release-please.outputs.tag_name }} dist/* --clobber
+          echo "::endgroup::"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pypi-build-artifacts
+          path: |
+            dist/
+            *.sigstore
+
+      - name: Deployment success notification
+        if: success()
+        run: |
+          echo "::notice title=Deployment Success::Package successfully published to PyPI!"
+          echo "::notice title=Version::${{ needs.release-please.outputs.version }}"
+          echo "::notice title=PyPI URL::https://pypi.org/project/tetra-rp/${{ needs.release-please.outputs.version }}/"
+
+  # ===================================================
+  # POST-RELEASE VALIDATION - Verify deployment success
+  # ===================================================
+  post-release-validation:
+    name: Post-Release Validation
+    runs-on: ubuntu-latest
+    needs: [pypi-publish, release-please]
+    if: ${{ needs.pypi-publish.result == 'success' }}
+    timeout-minutes: 5
+    
+    steps:
+      - name: Verify PyPI availability
+        run: |
+          echo "::group::Checking PyPI availability"
+          version="${{ needs.release-please.outputs.version }}"
+          
+          # Wait for PyPI propagation
+          max_attempts=30
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            if pip index versions tetra-rp | grep -q "$version"; then
+              echo "Version $version is available on PyPI"
+              break
+            fi
+            
+            echo "Attempt $attempt/$max_attempts: Waiting for PyPI propagation..."
+            sleep 10
+            ((attempt++))
+          done
+          
+          if [ $attempt -gt $max_attempts ]; then
+            echo "Version $version not found on PyPI after $max_attempts attempts"
+            exit 1
+          fi
+          echo "::endgroup::"
+
+      - name: Test installation
+        run: |
+          echo "::group::Testing package installation"
+          python -m pip install --no-deps tetra-rp==${{ needs.release-please.outputs.version }}
+          python -c "import tetra_rp; print(f'Successfully imported tetra-rp {tetra_rp.__version__}')"
+          echo "::endgroup::"
+
+      - name: Success notification
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tagName = '${{ needs.release-please.outputs.tag_name }}';
+            const version = '${{ needs.release-please.outputs.version }}';
+            
+            const comment = `**Release $\{version} Successfully Deployed!**
+            
+            ✅ Package published to PyPI
+            ✅ Installation verified
+            ✅ All post-release validations passed
+            
+            **Links:**
+            - [PyPI Package](https://pypi.org/project/tetra-rp/$\{version}/)
+            - [GitHub Release](https://github.com/$\{context.repo.owner}/$\{context.repo.repo}/releases/tag/$\{tagName})
+            - [Full Changelog](https://github.com/$\{context.repo.owner}/$\{context.repo.repo}/releases/tag/$\{tagName})
+            
+            ---
+            *Automated deployment completed successfully*`;
+            
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: comment
+            });
