@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force_publish:
+        description: 'Force PyPI publishing (bypass release_created check)'
+        required: false
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: write
@@ -70,17 +76,32 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Debug outputs for troubleshooting
+      - name: Debug Release Outputs
+        run: |
+          echo "Release created: ${{ steps.release.outputs.release_created }}"
+          echo "Tag name: ${{ steps.release.outputs.tag_name }}"
+          echo "Release URL: ${{ steps.release.outputs.html_url }}"
+          echo "All outputs: ${{ toJson(steps.release.outputs) }}"
 
   # Build and publish to PyPI when a release is created
   publish:
     name: Build and Publish to PyPI
     runs-on: ubuntu-latest
     needs: [test, release-please]
-    if: ${{ needs.release-please.outputs.release_created }}
+    if: ${{ needs.release-please.outputs.release_created || inputs.force_publish }}
     environment:
       name: pypi
       url: https://pypi.org/p/tetra-rp
     steps:
+      - name: Debug publish job inputs
+        run: |
+          echo "Release created: ${{ needs.release-please.outputs.release_created }}"
+          echo "Tag name: ${{ needs.release-please.outputs.tag_name }}"
+          echo "Force publish: ${{ inputs.force_publish }}"
+          echo "Job should run: ${{ needs.release-please.outputs.release_created == 'true' || inputs.force_publish == true }}"
+          
       - name: Checkout
         uses: actions/checkout@v4
 
