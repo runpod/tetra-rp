@@ -55,7 +55,6 @@ def remote(
                     nv  = NetworkVolumeResource(config=mount_volume)
                     network_volume = await nv.deploy()
                     resource_config.networkVolumeId = network_volume.volume_id
-                    print(f"Resource config updated with network volume ID: {network_volume.volume_id}")
                     log.info(
                         f"Updated resource config with network volume: {network_volume.volume_id}"
                     )
