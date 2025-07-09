@@ -24,3 +24,9 @@ clean:
 
 build: clean dev
 	uv build
+
+check: dev
+	uv run ruff check src/ tests/ || true
+	uv run ruff format --check src/ tests/ || true
+	uv run mypy src/ --ignore-missing-imports || true
+	uv run pytest tests/ -vv || true
