@@ -1,0 +1,163 @@
+name: Shared Quality Gates
+
+on:
+  workflow_call:
+    inputs:
+      python-versions:
+        description: 'Python versions to test (JSON array)'
+        required: false
+        type: string
+        default: '["3.9", "3.10", "3.11", "3.12", "3.13"]'
+
+jobs:
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJson(inputs.python-versions) }}
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-groups
+          
+      - name: Code quality - Linting and formatting
+        run: |
+          echo "::group::Ruff linting"
+          uv run ruff check src/ tests/ --output-format=github
+          echo "::endgroup::"
+          
+          echo "::group::Ruff formatting"
+          uv run ruff format --check src/ tests/
+          echo "::endgroup::"
+
+      - name: Type checking
+        run: |
+          echo "::group::MyPy type checking"
+          uv run mypy src/tetra_rp --show-error-codes --pretty || true
+          echo "::endgroup::"
+
+      - name: Test suite
+        run: |
+          echo "::group::Running test suite"
+          uv run pytest tests/ \
+            --junitxml=pytest-results.xml \
+            -v
+          echo "::endgroup::"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: |
+            pytest-results.xml
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Security - Bandit static analysis
+        run: |
+          uv add --group test bandit[toml]
+          uv run bandit -r src/ -f sarif -o bandit-report.sarif || true
+          uv run bandit -r src/ -f json -o bandit-report.json || true
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: bandit-report.sarif
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.sarif
+            bandit-report.json
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [quality-gates]
+    timeout-minutes: 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Build package
+        run: |
+          uv build
+
+      - name: Verify package
+        run: |
+          uv run twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
