@@ -26,8 +26,7 @@ permissions:
   pull-requests: write
   issues: write
   id-token: write     # Required for PyPI OIDC
-  actions: read       # Required for security scanning
-  security-events: write  # Required for SARIF uploads
+  actions: read
 
 env:
   PYTHON_VERSION: '3.11'
@@ -41,7 +40,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-      security-events: write
 
   # Release orchestration
   release-please:
@@ -95,7 +93,6 @@ jobs:
             const comment = `**Release Pipeline Status**
             
             ✅ Quality gates passed (identical to PR checks)
-            ✅ Security scanning completed
             Ready for release when merged
             
             **Next steps:**
