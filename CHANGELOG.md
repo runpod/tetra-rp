@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.4](https://github.com/runpod/tetra-rp/compare/0.5.3...0.5.4) (2025-07-10)
+
+
+### Bug Fixes
+
+* revert to simple working CI/release workflows, remove broken shared workflow ([3fe4cf0](https://github.com/runpod/tetra-rp/commit/3fe4cf02472e6cc19cd46a8104b248e2e7367be3))
+* separate sigstore artifacts from dist/ to avoid PyPI validation errors ([6b0038e](https://github.com/runpod/tetra-rp/commit/6b0038ea1c1df058263d2395248fb96d4c88cdeb))
+
+
+### Documentation
+
+* add contributing section to README with release system documentation reference ([8b87b9c](https://github.com/runpod/tetra-rp/commit/8b87b9cb09262f5be74a8f18435d685b0360d1c5))
+
 ## [0.5.3](https://github.com/runpod/tetra-rp/compare/0.5.2...0.5.3) (2025-07-10)
 
 
