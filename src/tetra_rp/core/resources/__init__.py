@@ -12,6 +12,7 @@ from .serverless import (
     CudaVersion,
 )
 from .template import PodTemplate
+from .network_volume import NetworkVolume
 
 
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     "ServerlessResource",
     "ServerlessEndpoint",
     "PodTemplate",
+    "NetworkVolume",
 ]
