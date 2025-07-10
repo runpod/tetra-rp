@@ -79,7 +79,9 @@ class NetworkVolume(DeployableResource):
         try:
             # If the resource is already deployed, return it
             if self.is_deployed():
-                log.debug(f"Network volume {self.id} is already deployed. Mounting existing volume.")
+                log.debug(
+                    f"Network volume {self.id} is already deployed. Mounting existing volume."
+                )
                 log.info(f"Mounted existing network volume: {self.id}")
                 return self
 
