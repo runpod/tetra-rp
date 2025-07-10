@@ -104,11 +104,6 @@ jobs:
       - name: Verify package
         run: uv run twine check dist/*
 
-      - name: Sign packages
-        uses: sigstore/gh-action-sigstore-python@v3.0.0
-        with:
-          inputs: ./dist/*.tar.gz ./dist/*.whl
-
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
