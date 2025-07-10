@@ -10,9 +10,9 @@ from .serverless import (
     ServerlessEndpoint,
     JobOutput,
     CudaVersion,
-    NetworkVolume,
 )
 from .template import PodTemplate
+from .network_volume import NetworkVolume
 
 
 __all__ = [

@@ -266,9 +266,7 @@ class RunpodRestClient:
             log.error(f"HTTP client error: {e}")
             raise Exception(f"HTTP request failed: {e}")
 
-    async def create_network_volume(
-        self, datacenter_id: str, name: str, size: int
-    ) -> Dict[str, Any]:
+    async def create_network_volume(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create a network volume in Runpod.
 
@@ -280,8 +278,16 @@ class RunpodRestClient:
         Returns:
             Dict[str, Any]: The created network volume details.
         """
+        datacenter_id = payload.get("dataCenterId")
+        if hasattr(datacenter_id, "value"):
+            # If datacenter_id is an enum, get its value
+            datacenter_id = datacenter_id.value
+        data = {
+            "dataCenterId": datacenter_id,
+            "name": payload.get("name"),
+            "size": payload.get("size"),
+        }
         url = f"{RUNPOD_REST_API_URL}/networkvolumes"
-        data = {"dataCenterId": datacenter_id, "name": name, "size": size}
 
         return await self._execute_rest("POST", url, data)
 

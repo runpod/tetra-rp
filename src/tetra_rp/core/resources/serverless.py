@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from pydantic import (
@@ -13,7 +12,7 @@ from pydantic import (
 
 from runpod.endpoint.runner import Job
 
-from ..api.runpod import RunpodGraphQLClient, RunpodRestClient
+from ..api.runpod import RunpodGraphQLClient
 from ..utils.backoff import get_backoff_delay
 
 from .cloud import runpod
@@ -22,6 +21,7 @@ from .template import PodTemplate, KeyValuePair
 from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
+from .constants import CONSOLE_URL
 
 
 # Environment variables are loaded from the .env file
@@ -37,10 +37,6 @@ def get_env_vars() -> Dict[str, str]:
 
 
 log = logging.getLogger(__name__)
-
-
-CONSOLE_BASE_URL = os.environ.get("CONSOLE_BASE_URL", "https://console.runpod.io")
-CONSOLE_URL = f"{CONSOLE_BASE_URL}/serverless/user/endpoint/%s"
 
 
 class ServerlessScalerType(Enum):
@@ -474,75 +470,3 @@ class ServerlessHealth(BaseModel):
     @property
     def is_ready(self) -> bool:
         return self.workers.status == Status.READY
-
-
-class NetworkVolume(DeployableResource):
-    """
-    NetworkVolume resource for creating and managing Runpod netowrk volumes.
-
-    This class handles the creation, deployment, and management of network volumes
-    that can be attached to serverless resources.
-
-    """
-
-    dataCenterId: Optional[str] = None
-    id: Optional[str] = Field(default=None)
-    name: Optional[str] = None
-    size: Optional[int] = None  # Size in GB
-
-    @property
-    def is_created(self) -> bool:
-        " Returns True if the network volume already exists. " ""
-        return self.id is not None
-
-    @property
-    def url(self) -> str:
-        """
-        Returns the URL for the network volume resource.
-        """
-        if not self.id:
-            raise ValueError("Network volume ID is not set")
-        return f"{CONSOLE_BASE_URL}/user/storage"
-
-    async def create_network_volume(self) -> str:
-        """
-        Creates a network volume using the provided configuration.
-        Returns the volume ID.
-        """
-        async with RunpodRestClient() as client:
-            # Create the network volume
-            result = await client.create_network_volume(
-                datacenter_id=self.dataCenterId, name=self.name, size=self.size
-            )
-        log.info(f"Created network volume: {result['id']}")
-        if volume := self.__class__(**result):
-            return volume.id
-
-    def is_deployed(self) -> bool:
-        """
-        Checks if the network volume resource is deployed and available.
-        """
-        return self.id is not None
-
-    async def deploy(self) -> "DeployableResource":
-        """
-        Deploys the network volume resource using the provided configuration.
-        Returns a DeployableResource object.
-        """
-        try:
-            # If the resource is already deployed, return it
-            if self.is_deployed():
-                log.debug(f"{self} exists")
-                return self.id
-
-            # Create the network volume
-            self.id = await self.create_network_volume()
-
-            if self.is_deployed():
-                return self.id
-
-            raise ValueError("Deployment failed, no volume was created.")
-
-        except Exception as e:
-            log.error(f"{self} failed to deploy: {e}")
-            raise
