@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.5.3](https://github.com/runpod/tetra-rp/compare/0.5.2...0.5.3) (2025-07-10)
+
+
+### Bug Fixes
+
+* update sigstore action to v3.0.0 to avoid deprecated upload-artifact@v3 ([92a6891](https://github.com/runpod/tetra-rp/commit/92a6891e26d327b2c99926373822e0eede08eebb))
+
+## [0.5.2](https://github.com/runpod/tetra-rp/compare/0.5.1...0.5.2) (2025-07-10)
+
+
+### Bug Fixes
+
+* revert to simple working CI/release workflows, remove broken shared workflow ([62dab19](https://github.com/runpod/tetra-rp/commit/62dab1937be0d6c918261299e3be197cda0f44a9))
+
+## [0.5.1](https://github.com/runpod/tetra-rp/compare/0.5.0...0.5.1) (2025-07-10)
+
+
+### Bug Fixes
+
+* adjust release-please title pattern to match existing PR [#55](https://github.com/runpod/tetra-rp/issues/55) ([091dbff](https://github.com/runpod/tetra-rp/commit/091dbffe8b26142eeedc07e1855d132e948cc3cd))
+* only upload artifacts to release when tag_name is available ([e8bdcf1](https://github.com/runpod/tetra-rp/commit/e8bdcf12cf7aeb57c04232aea2f14174c743481b))
+* revert to clean release-please title pattern for future releases ([c0171ca](https://github.com/runpod/tetra-rp/commit/c0171cab08f0ea62a861c1a0b8012e1c4dbd89c7))
+* still seeing issues with the CI and Release ([#60](https://github.com/runpod/tetra-rp/issues/60)) ([81df31a](https://github.com/runpod/tetra-rp/commit/81df31a0853c6436964afeb2511499396c66fe0d))
+
+## [0.5.0](https://github.com/runpod/tetra-rp/compare/v0.4.2...0.5.0) (2025-07-09)
+
+
+### Features
+
+* pytest with unit and integration ([19dcac9](https://github.com/runpod/tetra-rp/commit/19dcac908ddd5f2cdac7d9365c3b2066fbe04fdd))
+
+
+### Bug Fixes
+
+* cannot do both ([c64d895](https://github.com/runpod/tetra-rp/commit/c64d89550f871b5fb685adc6dcb913cbd61217e4))
+* configure release-please to handle all commit types ([#57](https://github.com/runpod/tetra-rp/issues/57)) ([7de5c8d](https://github.com/runpod/tetra-rp/commit/7de5c8d146eaf2fddde07bc9c5ecf260e37029e3))
+* correction ([9982236](https://github.com/runpod/tetra-rp/commit/99822362fd99698a30ddcaab6bbd5513ed5549d8))
+* Pydantic's deprecation warning of class Config ([d1f18f2](https://github.com/runpod/tetra-rp/commit/d1f18f207568866aadb487ca99747b542174142b))
+* ruff cleanup ([8251597](https://github.com/runpod/tetra-rp/commit/825159748fdb8755aeee03d1740081915fd0882f))
+* ruff linting ([6d8e87c](https://github.com/runpod/tetra-rp/commit/6d8e87cb095b8d38977c5b3bfe981c8ebe580c93))
+
+
+### Documentation
+
+* pull request template ([#58](https://github.com/runpod/tetra-rp/issues/58)) ([0377fa4](https://github.com/runpod/tetra-rp/commit/0377fa4dfc439e56df30227a03cf77bb80dfa28a))
+
 ## [0.4.2](https://github.com/runpod/tetra-rp/compare/v0.4.1...v0.4.2) (2025-06-26)
 
 

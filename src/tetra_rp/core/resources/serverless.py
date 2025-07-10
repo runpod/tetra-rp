@@ -24,6 +24,7 @@ from .environment import EnvironmentVars
 from .constants import CONSOLE_URL
 
 
+
 # Environment variables are loaded from the .env file
 def get_env_vars() -> Dict[str, str]:
     """

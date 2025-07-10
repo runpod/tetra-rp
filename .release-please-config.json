@@ -1,26 +1,82 @@
 {
-  "release-type": "python",
-  "package-name": "tetra-rp",
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "packages": {
     ".": {
-      "package-name": "tetra-rp",
-      "release-type": "python"
+      "release-type": "python",
+      "extra-files": [
+        {
+          "type": "toml", 
+          "path": "pyproject.toml",
+          "jsonpath": "$.project.version"
+        }
+      ]
     }
   },
+  "pull-request-title-pattern": "chore: release ${version}",
+  "pull-request-header": "Release Please automated release PR",
+  "separate-pull-requests": false,
   "changelog-sections": [
-    {"type": "feat", "section": "Features"},
-    {"type": "fix", "section": "Bug Fixes"},
-    {"type": "perf", "section": "Performance Improvements"},
-    {"type": "revert", "section": "Reverts"},
-    {"type": "docs", "section": "Documentation"},
-    {"type": "style", "section": "Styles", "hidden": true},
-    {"type": "chore", "section": "Miscellaneous Chores", "hidden": true},
-    {"type": "refactor", "section": "Code Refactoring"},
-    {"type": "test", "section": "Tests", "hidden": true},
-    {"type": "build", "section": "Build System", "hidden": true},
-    {"type": "ci", "section": "Continuous Integration", "hidden": true}
+    {
+      "type": "feat",
+      "section": "Features",
+      "hidden": false
+    },
+    {
+      "type": "fix", 
+      "section": "Bug Fixes",
+      "hidden": false
+    },
+    {
+      "type": "perf",
+      "section": "Performance Improvements", 
+      "hidden": false
+    },
+    {
+      "type": "revert",
+      "section": "Reverts",
+      "hidden": false
+    },
+    {
+      "type": "docs",
+      "section": "Documentation",
+      "hidden": false
+    },
+    {
+      "type": "refactor",
+      "section": "Code Refactoring",
+      "hidden": false
+    },
+    {
+      "type": "style",
+      "section": "Styles",
+      "hidden": true
+    },
+    {
+      "type": "test",
+      "section": "Tests", 
+      "hidden": true
+    },
+    {
+      "type": "build",
+      "section": "Build System",
+      "hidden": true
+    },
+    {
+      "type": "ci",
+      "section": "CI/CD",
+      "hidden": true
+    },
+    {
+      "type": "chore",
+      "section": "Maintenance",
+      "hidden": true
+    }
   ],
-  "release-as": "0.2.1",
+  "commit-search-depth": 500,
+  "include-component-in-tag": false,
+  "include-v-in-tag": false,
+  "sequential-calls": true,
+  "always-link-local": false,
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": false,
   "draft": false,
