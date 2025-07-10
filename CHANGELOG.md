@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.1](https://github.com/runpod/tetra-rp/compare/0.5.0...0.5.1) (2025-07-10)
+
+
+### Bug Fixes
+
+* adjust release-please title pattern to match existing PR [#55](https://github.com/runpod/tetra-rp/issues/55) ([091dbff](https://github.com/runpod/tetra-rp/commit/091dbffe8b26142eeedc07e1855d132e948cc3cd))
+* only upload artifacts to release when tag_name is available ([e8bdcf1](https://github.com/runpod/tetra-rp/commit/e8bdcf12cf7aeb57c04232aea2f14174c743481b))
+* revert to clean release-please title pattern for future releases ([c0171ca](https://github.com/runpod/tetra-rp/commit/c0171cab08f0ea62a861c1a0b8012e1c4dbd89c7))
+* still seeing issues with the CI and Release ([#60](https://github.com/runpod/tetra-rp/issues/60)) ([81df31a](https://github.com/runpod/tetra-rp/commit/81df31a0853c6436964afeb2511499396c66fe0d))
+
 ## [0.5.0](https://github.com/runpod/tetra-rp/compare/v0.4.2...0.5.0) (2025-07-09)
 
 
