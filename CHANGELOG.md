@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/runpod/tetra-rp/compare/0.5.1...0.5.2) (2025-07-10)
+
+
+### Bug Fixes
+
+* revert to simple working CI/release workflows, remove broken shared workflow ([62dab19](https://github.com/runpod/tetra-rp/commit/62dab1937be0d6c918261299e3be197cda0f44a9))
+
 ## [0.5.1](https://github.com/runpod/tetra-rp/compare/0.5.0...0.5.1) (2025-07-10)
 
 
