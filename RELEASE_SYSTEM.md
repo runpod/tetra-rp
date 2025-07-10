@@ -2,49 +2,40 @@
 
 ## Overview
 
-The tetra-rp project uses a modern, production-ready release automation system built on **Release Please v4** with comprehensive quality gates, security scanning, and automated PyPI publishing via OIDC trusted publishing.
+The tetra-rp project uses a simple, reliable release automation system built on **Release Please v4** with quality gates and automated PyPI publishing via OIDC trusted publishing.
 
 ## Architecture
 
-### Workflow Structure
+### Simple Workflow Structure
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Quality Gates │    │  Security Scan  │    │ Release Please  │
+│   CI Workflow   │    │Release Workflow │    │  PyPI Publish   │
 │                 │    │                 │    │                 │
-│ • Multi-Python  │    │ • CodeQL        │    │ • PR Creation   │
-│ • Type Checking │    │ • Bandit SAST   │    │ • Changelog     │
-│ • Linting       │    │                 │    │ • Version Bump  │
-│ • Testing       │    │                 │    │ • Tag Creation  │
+│ • PRs to main   │    │ • Push to main  │    │ • Release PR    │
+│ • Quality Gates │    │ • Quality Gates │    │   merged        │
+│ • Build Check   │    │ • Release Please│    │ • Build & Sign  │
+│ • Block if fail │    │ • Create/Update │    │ • Publish       │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐    ┌─────────────────┐
-                    │ PyPI Publishing │    │ Post-Release    │
-                    │                 │    │   Validation    │
-                    │ • OIDC Auth     │    │ • Availability  │
-                    │ • Signing       │    │ • Installation  │
-                    │ • Verification  │    │ • Notification  │
-                    └─────────────────┘    └─────────────────┘
 ```
 
 ### Key Components
 
-1. **Quality Gates** - Multi-version testing with code quality enforcement
-2. **Security Scanning** - SAST analysis with Bandit and CodeQL
-3. **Release Please** - Automated semantic versioning and changelog generation
-4. **PyPI Publishing** - Secure, verified package publication
-5. **Post-Release Validation** - Deployment verification and notifications
+1. **CI Workflow** - Blocks PRs if quality issues found
+2. **Release Please** - Automated semantic versioning and changelog generation
+3. **PyPI Publishing** - Secure, verified package publication
+4. **Quality Gates** - Multi-version testing with code quality enforcement
 
 ## Release Process
 
 ### Normal Release Flow
 
 1. **Development**: Create feature branches with conventional commits
-2. **PR Creation**: Release Please automatically creates release PR when ready
-3. **Review**: Team reviews the automated release PR
-4. **Merge**: Merging release PR triggers publication pipeline
-5. **Validation**: Automated verification of successful deployment
+2. **Pull Request**: CI runs quality gates, blocks if any issues
+3. **Merge to main**: Release workflow runs quality gates + Release Please
+4. **Release Please**: Automatically creates/updates release PR when ready
+5. **Review**: Team reviews the automated release PR
+6. **Merge Release PR**: Triggers publication pipeline
+7. **PyPI Publication**: Automated build, sign, and publish
 
 ### Conventional Commits
 
@@ -78,10 +69,7 @@ docs: update API documentation
 - **Linting**: Ruff with strict formatting (blocking)
 - **Type Checking**: MyPy analysis (non-blocking, for development feedback)
 - **Testing**: Full test suite execution (blocking)
-
-### Security Requirements
-- **SAST**: Bandit static analysis (blocking)
-- **Code Quality**: CodeQL analysis (non-blocking)
+- **Build**: Package build and verification (blocking)
 
 ### Build Requirements
 - **Python Versions**: 3.9, 3.10, 3.11, 3.12, 3.13
@@ -127,28 +115,26 @@ docs: update API documentation
 ### `.release-please-manifest.json`
 ```json
 {
-  ".": "0.5.0"
+  ".": "0.5.2"
 }
 ```
 
-## Emergency Procedures
+## Workflows
 
-### Manual Release Override
-For emergency releases, use workflow dispatch:
+### CI Workflow (`.github/workflows/ci.yml`)
+- **Triggers**: Pull requests and pushes to main
+- **Purpose**: Quality gates and build verification
+- **Jobs**: 
+  - Quality gates (multi-Python testing)
+  - Build package verification
 
-```bash
-# Force publish without waiting for release PR
-gh workflow run release.yml -f force_publish=true
-
-# Skip tests in emergency (not recommended)
-gh workflow run release.yml -f skip_tests=true -f force_publish=true
-```
-
-### Rollback Procedure
-1. **Identify Issue**: Determine problematic version
-2. **PyPI Yank**: Remove version from PyPI if necessary
-3. **Hotfix**: Create hotfix branch from last known good version
-4. **Emergency Release**: Use manual override for quick deployment
+### Release Workflow (`.github/workflows/release-please.yml`)
+- **Triggers**: Push to main only
+- **Purpose**: Release orchestration and PyPI publishing
+- **Jobs**:
+  - Quality gates (same as CI)
+  - Release Please (create/update release PRs)
+  - PyPI publishing (only when release created)
 
 ## Troubleshooting
 
@@ -159,7 +145,6 @@ gh workflow run release.yml -f skip_tests=true -f force_publish=true
 **Causes**: 
 - No conventional commits since last release
 - All changes are hidden types (`chore`, `test`, `build`, `ci`)
-- Configuration errors
 
 **Solutions**:
 1. Check commit history for conventional commit format
@@ -171,85 +156,38 @@ gh workflow run release.yml -f skip_tests=true -f force_publish=true
 **Causes**:
 - OIDC configuration issues
 - Package build failures
-- Network connectivity problems
 - Version conflicts
 
 **Solutions**:
 1. Check OIDC trusted publishing configuration
 2. Verify package build locally: `uv build && uv run twine check dist/*`
 3. Check PyPI status and version conflicts
-4. Use manual override with `force_publish=true`
 
-#### Test Failures
-**Symptoms**: Quality gates fail on test execution
+#### Quality Gate Failures
+**Symptoms**: CI or Release workflow fails on quality checks
 **Causes**:
-- Broken functionality
-- Environment issues
-- Missing dependencies
+- Linting/formatting issues
+- Test failures
+- Build problems
 
 **Solutions**:
-1. Run tests locally: `make check`
-2. Review test output in CI artifacts
-3. Fix failing tests before proceeding
-4. Use `skip_tests=true` for emergency releases only
-
-### Debug Information
-
-The workflow provides extensive debug output:
-
-```yaml
-# Check workflow run logs for:
-- Release Please outputs and decisions
-- Test execution results and failures
-- Security scan results (Bandit, CodeQL)
-- Build artifact verification
-- PyPI publication status
-```
-
-## Monitoring and Alerting
-
-### Success Indicators
-- ✅ All quality gates pass
-- ✅ Security scans complete without blocking issues
-- ✅ Package successfully published to PyPI
-- ✅ Post-release validation confirms availability
-
-### Failure Notifications
-- Quality gate failures (linting, type checking, tests)
-- Security vulnerabilities detected (Bandit findings)
-- PyPI publishing errors
-- Post-release validation failures
-
-## Maintenance
-
-### Regular Tasks
-- **Monthly**: Review and update dependency constraints
-- **Quarterly**: Update workflow actions to latest versions
-- **Annually**: Review and update security scanning tools
-
-### Configuration Updates
-- **Quality Thresholds**: Adjust coverage and quality requirements
-- **Security Policies**: Update vulnerability scanning rules
-- **Workflow Actions**: Keep GitHub Actions up to date
-
-### Performance Optimization
-- **Caching**: UV cache is enabled for faster builds
-- **Parallelization**: Matrix builds run in parallel
-- **Timeouts**: Appropriate timeouts prevent hanging jobs
+1. Run checks locally: `make check`
+2. Fix failing tests and linting issues
+3. Ensure all dependencies are properly installed
 
 ## Best Practices
 
 ### For Developers
 1. **Always use conventional commits** for proper version detection
-2. **Run `make check` locally** before pushing changes
+2. **Run quality checks locally** before pushing changes
 3. **Review release PRs carefully** before merging
 4. **Monitor CI status** and address failures promptly
 
 ### For Maintainers
-1. **Regular workflow updates** to stay current with best practices
-2. **Security monitoring** for emerging threats
-3. **Performance optimization** of CI/CD pipeline
-4. **Documentation updates** as system evolves
+1. **Keep workflows simple** - avoid complex conditionals and overrides
+2. **Monitor release automation** for proper functionality
+3. **Update dependencies regularly** to avoid security issues
+4. **Document any configuration changes**
 
 ## Security Considerations
 
@@ -264,18 +202,41 @@ The workflow provides extensive debug output:
 - Comprehensive audit trail maintained
 
 ### Dependency Management
-- Security scanning with Bandit for code vulnerabilities
 - Dependency pinning for reproducible builds  
 - Regular security updates
+- Quality gates prevent vulnerable code from being released
 
-## Support
+## Emergency Procedures
 
-For issues with the release system:
-1. Check this documentation first
-2. Review workflow run logs for specific errors
-3. Consult GitHub Actions documentation
-4. Contact maintainers for complex issues
+### If Release Please Breaks
+1. Check recent commits for conventional commit format
+2. Verify configuration files are valid JSON
+3. Check GitHub release tags match manifest
+
+### If PyPI Publishing Fails
+1. Check workflow logs for specific errors
+2. Verify OIDC configuration in PyPI
+3. Manually build and verify package locally
+
+### If Quality Gates Fail
+1. Address the root cause (tests, linting, etc.)
+2. Do not bypass quality gates
+3. Ensure all changes meet quality standards
+
+## Monitoring
+
+### Success Indicators
+- ✅ CI passes on all PRs
+- ✅ Release PRs created automatically
+- ✅ Packages successfully published to PyPI
+- ✅ No manual intervention required
+
+### Failure Points to Watch
+- Quality gate failures blocking releases
+- Release Please configuration errors
+- PyPI publishing authentication issues
+- Build artifact generation problems
 
 ---
 
-*This release system follows modern DevOps best practices and provides a robust foundation for automated software delivery.*
+*This release system prioritizes simplicity and reliability over complex features. The goal is a hands-off, automated process that just works.*
