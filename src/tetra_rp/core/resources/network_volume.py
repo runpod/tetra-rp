@@ -40,7 +40,7 @@ class NetworkVolume(DeployableResource):
 
     @property
     def is_created(self) -> bool:
-        " Returns True if the network volume already exists. " ""
+        "Returns True if the network volume already exists."
         return self.id is not None
 
     @property
