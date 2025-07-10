@@ -3,31 +3,18 @@ name: Release
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      force_publish:
-        description: 'Force PyPI publishing (emergency override)'
-        required: false
-        default: false
-        type: boolean
-
-# Prevent concurrent releases
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
-  id-token: write     # Required for PyPI OIDC
-  actions: read
+  id-token: write
 
 env:
   PYTHON_VERSION: '3.11'
 
 jobs:
-  # Run the same quality gates as CI
+  # Run quality checks
   quality-gates:
     name: Quality Gates
     runs-on: ubuntu-latest
@@ -50,51 +37,31 @@ jobs:
         uses: astral-sh/setup-uv@v2
         with:
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
 
       - name: Install dependencies
         run: uv sync --all-groups
           
-      - name: Code quality - Linting and formatting
+      - name: Linting and formatting
         run: |
-          echo "::group::Ruff linting"
-          uv run ruff check src/ tests/ --output-format=github
-          echo "::endgroup::"
-          
-          echo "::group::Ruff formatting"
+          uv run ruff check src/ tests/
           uv run ruff format --check src/ tests/
-          echo "::endgroup::"
 
       - name: Type checking
-        run: |
-          echo "::group::MyPy type checking"
-          uv run mypy src/tetra_rp --show-error-codes --pretty || true
-          echo "::endgroup::"
+        run: uv run mypy src/tetra_rp || true
 
       - name: Test suite
-        run: |
-          echo "::group::Running test suite"
-          uv run pytest tests/ --junitxml=pytest-results.xml -v
-          echo "::endgroup::"
+        run: uv run pytest tests/ -v
 
   # Release orchestration
   release-please:
-    name: Release Orchestration
+    name: Release Please
     runs-on: ubuntu-latest
     needs: [quality-gates]
-    timeout-minutes: 5
     
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
       
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Run Release Please
         uses: googleapis/release-please-action@v4
         id: release
@@ -105,11 +72,10 @@ jobs:
 
   # PyPI publishing
   pypi-publish:
-    name: PyPI Publication
+    name: PyPI Publish
     runs-on: ubuntu-latest
     needs: [release-please]
-    if: ${{ needs.release-please.outputs.release_created == 'true' || inputs.force_publish }}
-    timeout-minutes: 10
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
     
     environment:
       name: pypi-production
@@ -133,33 +99,17 @@ jobs:
         run: uv sync --all-groups
 
       - name: Build package
-        run: uv build --verbose
+        run: uv build
 
-      - name: Verify package integrity
-        run: uv run twine check dist/* --strict
+      - name: Verify package
+        run: uv run twine check dist/*
 
       - name: Sign packages
         uses: sigstore/gh-action-sigstore-python@v3.0.0
         with:
           inputs: ./dist/*.tar.gz ./dist/*.whl
-          upload-signing-artifacts: true
-
-      - name: Move sigstore files
-        run: |
-          mkdir -p sigstore-artifacts
-          mv dist/*.sigstore* sigstore-artifacts/ 2>/dev/null || true
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           verbose: true
-          print-hash: true
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: pypi-build-artifacts
-          path: |
-            dist/
-            sigstore-artifacts/
