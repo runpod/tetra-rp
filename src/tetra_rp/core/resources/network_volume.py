@@ -1,12 +1,12 @@
+import logging
+from enum import Enum
 from typing import Optional
+
 from pydantic import (
     Field,
 )
-import logging
-from enum import Enum
 
 from ..api.runpod import RunpodRestClient
-
 from .base import DeployableResource
 from .constants import CONSOLE_BASE_URL
 
