@@ -144,6 +144,11 @@ jobs:
           inputs: ./dist/*.tar.gz ./dist/*.whl
           upload-signing-artifacts: true
 
+      - name: Move sigstore files
+        run: |
+          mkdir -p sigstore-artifacts
+          mv dist/*.sigstore* sigstore-artifacts/ 2>/dev/null || true
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -157,4 +162,4 @@ jobs:
           name: pypi-build-artifacts
           path: |
             dist/
-            *.sigstore
+            sigstore-artifacts/
