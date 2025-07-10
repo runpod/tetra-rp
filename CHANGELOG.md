@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/runpod/tetra-rp/compare/0.5.2...0.5.3) (2025-07-10)
+
+
+### Bug Fixes
+
+* update sigstore action to v3.0.0 to avoid deprecated upload-artifact@v3 ([92a6891](https://github.com/runpod/tetra-rp/commit/92a6891e26d327b2c99926373822e0eede08eebb))
+
 ## [0.5.2](https://github.com/runpod/tetra-rp/compare/0.5.1...0.5.2) (2025-07-10)
 
 
