@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+    branches: [main]
   workflow_dispatch:
     inputs:
       force_publish:
@@ -12,9 +13,21 @@ on:
         type: boolean
       skip_tests:
         description: 'Skip tests (emergency only)'
+        description: 'Force PyPI publishing (emergency override)'
         required: false
         default: false
         type: boolean
+      skip_tests:
+        description: 'Skip tests (emergency only)'
+        required: false
+        default: false
+        default: false
+        type: boolean
+
+# Prevent concurrent releases
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 # Prevent concurrent releases
 concurrency:
@@ -46,6 +59,7 @@ jobs:
   # Release orchestration
   release-please:
     name: Release Orchestration
+    name: Release Orchestration
     runs-on: ubuntu-latest
     needs: [quality-gates]
     if: always() && (needs.quality-gates.result == 'success' || inputs.skip_tests)
@@ -57,7 +71,18 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       pr_number: ${{ steps.release.outputs.pr_number }}
       
+      version: ${{ steps.release.outputs.version }}
+      pr_number: ${{ steps.release.outputs.pr_number }}
+      
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Use default token - release-please will handle PR creation
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Release Please
+        uses: googleapis/release-please-action@v4
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -71,6 +96,8 @@ jobs:
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Debug - Release outputs
 
       - name: Debug - Release outputs
         run: |
@@ -185,6 +212,7 @@ jobs:
         run: |
           echo "::group::Uploading artifacts to release"
           gh release upload ${{ needs.release-please.outputs.tag_name }} dist/* --clobber
+          echo "::endgroup::"
           echo "::endgroup::"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
