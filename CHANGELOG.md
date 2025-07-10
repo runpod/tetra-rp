@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/runpod/tetra-rp/compare/0.5.5...0.6.0) (2025-07-10)
+
+
+### Features
+
+* AE-811 Add a class to create network volume using REST ([abb82b7](https://github.com/runpod/tetra-rp/commit/abb82b74bf232833d96baee56d2b352202223b6e))
+
 ## [0.5.5](https://github.com/runpod/tetra-rp/compare/0.5.4...0.5.5) (2025-07-10)
 
 
