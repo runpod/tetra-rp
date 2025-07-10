@@ -289,7 +289,15 @@ class RunpodRestClient:
         }
         url = f"{RUNPOD_REST_API_URL}/networkvolumes"
 
-        return await self._execute_rest("POST", url, data)
+        log.debug(f"Creating network volume: {data.get('name', 'unnamed')}")
+
+        result = await self._execute_rest("POST", url, data)
+
+        log.info(
+            f"Created network volume: {result.get('id', 'unknown')} - {result.get('name', 'unnamed')}"
+        )
+
+        return result
 
     async def close(self):
         """Close the HTTP session."""

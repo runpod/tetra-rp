@@ -60,9 +60,8 @@ class NetworkVolume(DeployableResource):
         async with RunpodRestClient() as client:
             # Create the network volume
             payload = self.model_dump(exclude_none=True)
-            print("Creating network volume with payload: %s", payload)
             result = await client.create_network_volume(payload)
-        log.info(f"Created network volume: {result['id']}")
+
         if volume := self.__class__(**result):
             return volume
 
@@ -80,7 +79,8 @@ class NetworkVolume(DeployableResource):
         try:
             # If the resource is already deployed, return it
             if self.is_deployed():
-                log.debug(f"{self} exists")
+                log.debug(f"Network volume {self.id} is already deployed. Mounting existing volume.")
+                log.info(f"Mounted existing network volume: {self.id}")
                 return self
 
             # Create the network volume

@@ -54,9 +54,6 @@ def remote(
                 try:
                     network_volume = await mount_volume.deploy()
                     resource_config.networkVolumeId = network_volume.id
-                    log.info(
-                        f"Updated resource config with network volume: {network_volume}"
-                    )
                 except Exception as e:
                     log.error(f"Failed to create or mount network volume: {e}")
                     raise
