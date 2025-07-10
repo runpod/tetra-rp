@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.5](https://github.com/runpod/tetra-rp/compare/0.5.4...0.5.5) (2025-07-10)
+
+
+### Bug Fixes
+
+* remove sigstore signing to simplify PyPI publishing ([65037c5](https://github.com/runpod/tetra-rp/commit/65037c5f4c11bb8a08292b98f17d1f005784e5ed))
+
 ## [0.5.4](https://github.com/runpod/tetra-rp/compare/0.5.3...0.5.4) (2025-07-10)
 
 
