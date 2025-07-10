@@ -16,12 +16,12 @@ log = logging.getLogger(__name__)
 class DataCenter(str, Enum):
     """
     Enum representing available data centers for network volumes.
-    #TODO: Add more data centers as needed. Lock this to the available data center. 
+    #TODO: Add more data centers as needed. Lock this to the available data center.
     """
+
     EU_RO_1 = "EU-RO-1"
     US_WA_1 = "US-WA-1"
     US_CA_1 = "US-CA-1"
-
 
 
 class NetworkVolume(DeployableResource):

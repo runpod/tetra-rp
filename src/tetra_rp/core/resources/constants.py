@@ -1,4 +1,3 @@
-
 import os
 
 CONSOLE_BASE_URL = os.environ.get("CONSOLE_BASE_URL", "https://console.runpod.io")
