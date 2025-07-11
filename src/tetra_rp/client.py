@@ -1,7 +1,7 @@
 import logging
 from functools import wraps
-from typing import List, Optional
-from .core.resources import ServerlessResource, ResourceManager, NetworkVolume
+from typing import List
+from .core.resources import ServerlessResource, ResourceManager
 from .stubs import stub_resource
 
 
@@ -12,7 +12,6 @@ def remote(
     resource_config: ServerlessResource,
     dependencies: List[str] = None,
     system_dependencies: List[str] = None,
-    mount_volume: Optional[NetworkVolume] = None,
     **extra,
 ):
     """
@@ -49,15 +48,6 @@ def remote(
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # Create netowrk volume if mount_volume is provided
-            if mount_volume:
-                try:
-                    network_volume = await mount_volume.deploy()
-                    resource_config.networkVolumeId = network_volume.id
-                except Exception as e:
-                    log.error(f"Failed to create or mount network volume: {e}")
-                    raise
-
             resource_manager = ResourceManager()
             remote_resource = await resource_manager.get_or_deploy_resource(
                 resource_config
