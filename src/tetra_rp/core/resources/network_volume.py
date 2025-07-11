@@ -20,8 +20,6 @@ class DataCenter(str, Enum):
     """
 
     EU_RO_1 = "EU-RO-1"
-    US_WA_1 = "US-WA-1"
-    US_CA_1 = "US-CA-1"
 
 
 class NetworkVolume(DeployableResource):
@@ -33,10 +31,12 @@ class NetworkVolume(DeployableResource):
 
     """
 
-    dataCenterId: Optional[DataCenter] = None
+    # Internal fixed value
+    dataCenterId: DataCenter = Field(default=DataCenter.EU_RO_1, frozen=True)
+
     id: Optional[str] = Field(default=None)
     name: Optional[str] = None
-    size: Optional[int] = None  # Size in GB
+    size: Optional[int] = Field(default=10, gt=0)  # Size in GB
 
     @property
     def is_created(self) -> bool:

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 from pydantic import (
     field_serializer,
@@ -22,6 +22,7 @@ from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 from .constants import CONSOLE_URL
+from .network_volume import NetworkVolume
 
 
 # Environment variables are loaded from the .env file
@@ -62,7 +63,15 @@ class ServerlessResource(DeployableResource):
     Base class for GPU serverless resource
     """
 
-    _input_only = {"id", "cudaVersions", "env", "gpus", "flashboot", "imageName"}
+    _input_only = {
+        "id",
+        "cudaVersions",
+        "env",
+        "gpus",
+        "flashboot",
+        "imageName",
+        "networkVolume",
+    }
 
     # === Input-only Fields ===
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
@@ -71,6 +80,11 @@ class ServerlessResource(DeployableResource):
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     imageName: Optional[str] = ""  # for template.imageName
 
+    #  Input-only field that accepts NetworkVolume object or string ID
+    networkVolume: Optional[Union[NetworkVolume, str]] = Field(
+        default=None, exclude=True
+    )
+
     # === Input Fields ===
     executionTimeoutMs: Optional[int] = None
     gpuCount: Optional[int] = 1
@@ -78,7 +92,7 @@ class ServerlessResource(DeployableResource):
     instanceIds: Optional[List[CpuInstanceType]] = None
     locations: Optional[str] = None
     name: str
-    networkVolumeId: Optional[str] = None
+    networkVolumeId: Optional[str] = None  # This gets set from networkVolume
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
     templateId: Optional[str] = None
@@ -116,6 +130,26 @@ class ServerlessResource(DeployableResource):
             raise ValueError("Missing self.id")
         return runpod.Endpoint(self.id)
 
+    @field_validator("networkVolume")
+    @classmethod
+    def validate_network_volume(
+        cls, value: Optional[Union[NetworkVolume, str]]
+    ) -> Optional[Union[NetworkVolume, str]]:
+        """Validate networkVolume input"""
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            # If it's a string, assume it's a volume ID
+            return value
+        elif isinstance(value, NetworkVolume):
+            # If it's a NetworkVolume object, validate it
+            return value
+        else:
+            raise ValueError(
+                "networkVolume must be either a NetworkVolume object or a string ID"
+            )
+
     @field_serializer("scalerType")
     def serialize_scaler_type(
         self, value: Optional[ServerlessScalerType]
@@ -141,6 +175,16 @@ class ServerlessResource(DeployableResource):
         """Sync between temporary inputs and exported fields"""
         if self.flashboot:
             self.name += "-fb"
+
+        if self.networkVolume:
+            if isinstance(self.networkVolume, str):
+                # It's already an ID
+                self.networkVolumeId = self.networkVolume
+            elif isinstance(self.networkVolume, NetworkVolume):
+                # It's a NetworkVolume object
+                if self.networkVolume.is_created:
+                    # Volume already exists, use its ID
+                    self.networkVolumeId = self.networkVolume.id
 
         if self.instanceIds:
             return self._sync_input_fields_cpu()
@@ -177,6 +221,37 @@ class ServerlessResource(DeployableResource):
 
         return self
 
+    async def _ensure_network_volume_deployed(self) -> None:
+        """
+        Ensures network volume is deployed and ready.
+        Updates networkVolumeId with the deployed volume ID.
+        """
+        if not self.networkVolume:
+            log.info(
+                f"No network volume provided for {self.name}, creating default network volume"
+            )
+            default_volume = NetworkVolume(
+                name=f"{self.name}-volume",
+            )
+            self.networkVolume = default_volume
+
+        if isinstance(self.networkVolume, str):
+            # It's already an ID, set it
+            self.networkVolumeId = self.networkVolume
+            return
+
+        if isinstance(self.networkVolume, NetworkVolume):
+            if not self.networkVolume.is_created:
+                # Deploy the network volume
+                log.info(f"Deploying network volume for {self.name}")
+                deployed_volume = await self.networkVolume.deploy()
+                self.networkVolume = deployed_volume
+                self.networkVolumeId = deployed_volume.id
+                log.info(f"Network volume deployed with ID: {deployed_volume.id}")
+            else:
+                # Already deployed, just set the ID
+                self.networkVolumeId = self.networkVolume.id
+
     def is_deployed(self) -> bool:
         """
         Checks if the serverless resource is deployed and available.
@@ -201,6 +276,9 @@ class ServerlessResource(DeployableResource):
             if self.is_deployed():
                 log.debug(f"{self} exists")
                 return self
+
+            # NEW: Ensure network volume is deployed first
+            await self._ensure_network_volume_deployed()
 
             async with RunpodGraphQLClient() as client:
                 payload = self.model_dump(exclude=self._input_only, exclude_none=True)
