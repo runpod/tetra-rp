@@ -1,9 +1,12 @@
+import inspect
 import logging
 from functools import wraps
 from typing import List, Optional
-from .core.resources import ServerlessResource, ResourceManager, NetworkVolume
-from .stubs import stub_resource
 
+
+from .core.resources import NetworkVolume, ResourceManager, ServerlessResource
+from .stubs import stub_resource
+from .execute_class import create_remote_class
 
 log = logging.getLogger(__name__)
 
@@ -46,26 +49,26 @@ def remote(
     ```
     """
 
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Create netowrk volume if mount_volume is provided
-            if mount_volume:
-                try:
-                    network_volume = await mount_volume.deploy()
-                    resource_config.networkVolumeId = network_volume.id
-                except Exception as e:
-                    log.error(f"Failed to create or mount network volume: {e}")
-                    raise
-
-            resource_manager = ResourceManager()
-            remote_resource = await resource_manager.get_or_deploy_resource(
-                resource_config
+    def decorator(func_or_class):
+        if inspect.isclass(func_or_class):
+            # Handle class decoration
+            return create_remote_class(
+                func_or_class, resource_config, dependencies, system_dependencies, extra
             )
+        else:
+            # Handle function decoration (unchanged)
+            @wraps(func_or_class)
+            async def wrapper(*args, **kwargs):
+                resource_manager = ResourceManager()
+                remote_resource = await resource_manager.get_or_deploy_resource(
+                    resource_config
+                )
 
-            stub = stub_resource(remote_resource, **extra)
-            return await stub(func, dependencies, system_dependencies, *args, **kwargs)
+                stub = stub_resource(remote_resource, **extra)
+                return await stub(
+                    func_or_class, dependencies, system_dependencies, *args, **kwargs
+                )
 
-        return wrapper
+            return wrapper
 
     return decorator
