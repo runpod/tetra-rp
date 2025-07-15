@@ -102,7 +102,7 @@ def create_remote_class(
 
             self._clean_class_code = extract_class_code_simple(cls)
 
-            log.info(f"Created remote class wrapper for {cls.__name__}")
+            log.debug(f"Created remote class wrapper for {cls.__name__}")
 
         async def _ensure_initialized(self):
             """Ensure the remote instance is created."""
