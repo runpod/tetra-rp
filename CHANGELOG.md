@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/runpod/tetra-rp/compare/0.6.0...0.6.1) (2025-07-15)
+
+
+### Bug Fixes
+
+* use default release-please PR title pattern ([#68](https://github.com/runpod/tetra-rp/issues/68)) ([786df98](https://github.com/runpod/tetra-rp/commit/786df986d2f36d324bd470937aa9dae7c0cc38be))
+
 ## [0.6.0](https://github.com/runpod/tetra-rp/compare/0.5.5...0.6.0) (2025-07-10)
 
 
