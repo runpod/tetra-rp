@@ -63,11 +63,14 @@ jobs:
       
     steps:
       - name: Run Release Please
-        uses: googleapis/release-please-action@v4
+        uses: google-github-actions/release-please-action@v3
         id: release
         with:
-          config-file: .release-please-config.json
-          manifest-file: .release-please-manifest.json
+          release-type: python
+          package-name: tetra-rp
+          version-file: pyproject.toml
+          changelog-types: '[{"type": "feat", "section": "Features", "hidden": false}, {"type": "fix", "section": "Bug Fixes", "hidden": false}, {"type": "chore", "section": "Maintenance", "hidden": true}]'
+          pull-request-title-pattern: "chore: release ${version}"
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # PyPI publishing
