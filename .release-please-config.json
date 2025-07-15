@@ -12,7 +12,6 @@
       ]
     }
   },
-  "pull-request-title-pattern": "chore: release ${version}",
   "pull-request-header": "Release Please automated release PR",
   "separate-pull-requests": false,
   "changelog-sections": [
