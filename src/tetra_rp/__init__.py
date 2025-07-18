@@ -20,6 +20,7 @@ from .core.resources import (  # noqa: E402
     ResourceManager,
     ServerlessEndpoint,
     runpod,
+    NetworkVolume,
 )
 from .core.utils.rich_ui import capture_local_prints  # noqa: E402
 
@@ -36,4 +37,5 @@ __all__ = [
     "ResourceManager",
     "ServerlessEndpoint",
     "runpod",
+    "NetworkVolume",
 ]

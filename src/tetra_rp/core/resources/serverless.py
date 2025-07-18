@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from typing import Any, Dict, List, Optional
 from enum import Enum
 from pydantic import (
@@ -29,6 +28,7 @@ from .template import PodTemplate, KeyValuePair
 from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
+from .constants import CONSOLE_URL
 from ..utils.rich_ui import rich_ui, format_api_info, format_job_status
 
 
@@ -45,10 +45,6 @@ def get_env_vars() -> Dict[str, str]:
 
 
 log = logging.getLogger(__name__)
-
-
-CONSOLE_BASE_URL = os.environ.get("CONSOLE_BASE_URL", "https://console.runpod.io")
-CONSOLE_URL = f"{CONSOLE_BASE_URL}/serverless/user/endpoint/%s"
 
 
 class ServerlessScalerType(Enum):
