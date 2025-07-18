@@ -17,6 +17,7 @@ You can find a repository of prebuilt Tetra examples at [runpod/tetra-examples](
 - [Advanced features](#advanced-features)
 - [Configuration](#configuration)
 - [Workflow examples](#workflow-examples)
+- [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 
 ## Getting started
@@ -729,6 +730,28 @@ python -m examples.example
 python -m examples.image_gen
 python -m examples.matrix_operations
 ```
+
+## Contributing
+
+We welcome contributions to Tetra! Whether you're fixing bugs, adding features, or improving documentation, your help makes this project better.
+
+### Development Setup
+
+1. Fork and clone the repository
+2. Set up your development environment following the project guidelines
+3. Make your changes following our coding standards
+4. Test your changes thoroughly
+5. Submit a pull request
+
+### Release Process
+
+This project uses an automated release system built on Release Please. For detailed information about how releases work, including conventional commits, versioning, and the CI/CD pipeline, see our [Release System Documentation](RELEASE_SYSTEM.md).
+
+**Quick reference for contributors:**
+- Use conventional commits: `feat:`, `fix:`, `docs:`, etc.
+- CI automatically runs quality checks on all PRs
+- Release PRs are created automatically when changes are merged to main
+- Releases are published to PyPI automatically when release PRs are merged
 
 ## Troubleshooting
 
