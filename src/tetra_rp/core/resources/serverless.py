@@ -10,6 +10,13 @@ from pydantic import (
     Field,
 )
 
+from tetra_rp.core.utils.rich_ui import (
+    job_progress_tracker,
+    create_deployment_panel,
+    create_metrics_table,
+    print_with_rich,
+    is_rich_enabled,
+)
 from runpod.endpoint.runner import Job
 
 from ..api.runpod import RunpodGraphQLClient
@@ -22,6 +29,7 @@ from .gpu import GpuGroup
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 from .constants import CONSOLE_URL
+from ..utils.rich_ui import rich_ui, format_api_info, format_job_status
 
 
 # Environment variables are loaded from the .env file
@@ -139,7 +147,7 @@ class ServerlessResource(DeployableResource):
     @model_validator(mode="after")
     def sync_input_fields(self):
         """Sync between temporary inputs and exported fields"""
-        if self.flashboot:
+        if self.flashboot and not self.name.endswith("-fb"):
             self.name += "-fb"
 
         if self.instanceIds:
@@ -207,6 +215,13 @@ class ServerlessResource(DeployableResource):
                 result = await client.create_endpoint(payload)
 
             if endpoint := self.__class__(**result):
+                if is_rich_enabled():
+                    panel = create_deployment_panel(
+                        endpoint.name, endpoint.id or "", endpoint.url
+                    )
+                    print_with_rich(panel)
+                else:
+                    log.info(f"Deployed: {endpoint}")
                 return endpoint
 
             raise ValueError("Deployment failed, no endpoint was returned.")
@@ -252,9 +267,10 @@ class ServerlessResource(DeployableResource):
             else:
                 # nothing changed, increase the gap
                 attempt += 1
-                indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
-                if indicator:
-                    log.info(f"{self} | {indicator}")
+                if not rich_ui.enabled:
+                    indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
+                    if indicator:
+                        log.info(f"{self} | {indicator}")
 
                 status = health.workers.status
                 if status in [
@@ -290,7 +306,7 @@ class ServerlessResource(DeployableResource):
             # Poll until requests can be sent
             await self.is_ready_for_requests()
 
-            log.info(f"{self} | API /run_sync")
+            format_api_info(str(self), self.id or "", "/run_sync")
             response = await asyncio.to_thread(_fetch_job)
             return JobOutput(**response)
 
@@ -318,45 +334,61 @@ class ServerlessResource(DeployableResource):
             await self.is_ready_for_requests()
 
             # Create a job using the endpoint
-            log.info(f"{self} | API /run")
+            format_api_info(str(self), self.id or "", "/run")
             job = await asyncio.to_thread(self.endpoint.run, request_input=payload)
 
             log_subgroup = f"Job:{job.job_id}"
 
-            log.info(f"{self} | Started {log_subgroup}")
+            # Use Rich progress tracker if available
+            with job_progress_tracker(job.job_id, self.name) as tracker:
+                if not is_rich_enabled():
+                    log.info(f"{self} | Started {log_subgroup}")
+                elif tracker:
+                    # Initialize the progress tracker with starting status
+                    tracker.update_status(
+                        "IN_QUEUE", "Job submitted, waiting for worker..."
+                    )
 
-            current_pace = 0
-            attempt = 0
-            job_status = Status.UNKNOWN
-            last_status = job_status
-
-            # Poll for job status
-            while True:
-                await asyncio.sleep(current_pace)
-
-                if await self.is_ready_for_requests():
-                    # Check job status
-                    job_status = await asyncio.to_thread(job.status)
-
-                if last_status == job_status:
-                    # nothing changed, increase the gap
-                    attempt += 1
-                    indicator = "." * (attempt // 2) if attempt % 2 == 0 else ""
-                    if indicator:
-                        log.info(f"{log_subgroup} | {indicator}")
-                else:
-                    # status changed, reset the gap
-                    log.info(f"{log_subgroup} | Status: {job_status}")
-                    attempt = 0
-
+                current_pace = 0
+                attempt = 0
+                job_status = Status.UNKNOWN
                 last_status = job_status
 
-                # Adjust polling pace appropriately
-                current_pace = get_backoff_delay(attempt)
+                # Poll for job status
+                while True:
+                    await asyncio.sleep(current_pace)
 
-                if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
-                    response = await asyncio.to_thread(job._fetch_job)
-                    return JobOutput(**response)
+                    if await self.is_ready_for_requests():
+                        # Check job status
+                        job_status = await asyncio.to_thread(job.status)
+
+                    if last_status == job_status:
+                        # nothing changed, increase the gap
+                        attempt += 1
+                        if tracker:
+                            tracker.show_progress_indicator()
+                        else:
+                            if not rich_ui.enabled:
+                                indicator = (
+                                    "." * (attempt // 2) if attempt % 2 == 0 else ""
+                                )
+                                if indicator:
+                                    log.info(f"{log_subgroup} | {indicator}")
+                    else:
+                        # status changed, reset the gap
+                        format_job_status(job.job_id, job_status)
+                        attempt = 0
+
+                        last_status = job_status
+
+                    # Adjust polling pace appropriately
+                    current_pace = get_backoff_delay(attempt)
+
+                    if job_status in ("COMPLETED", "FAILED", "CANCELLED"):
+                        if tracker:
+                            tracker.update_status(job_status)
+                        response = await asyncio.to_thread(job._fetch_job)
+                        return JobOutput(**response)
 
         except Exception as e:
             if job and job.job_id:
@@ -417,9 +449,15 @@ class JobOutput(BaseModel):
     error: Optional[str] = ""
 
     def model_post_init(self, __context):
-        log_group = f"Worker:{self.workerId}"
-        log.info(f"{log_group} | Delay Time: {self.delayTime} ms")
-        log.info(f"{log_group} | Execution Time: {self.executionTime} ms")
+        if is_rich_enabled():
+            metrics_table = create_metrics_table(
+                self.delayTime, self.executionTime, self.workerId
+            )
+            print_with_rich(metrics_table)
+        else:
+            log_group = f"Worker:{self.workerId}"
+            log.info(f"{log_group} | Delay Time: {self.delayTime} ms")
+            log.info(f"{log_group} | Execution Time: {self.executionTime} ms")
 
 
 class Status(str, Enum):
