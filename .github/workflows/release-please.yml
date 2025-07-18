@@ -2,31 +2,34 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [main]
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
-  id-token: write  # Required for OIDC
+  id-token: write
+
+env:
+  PYTHON_VERSION: '3.11'
 
 jobs:
-  # Run tests before attempting release
-  test:
-    name: Pre-release Tests
+  # Run quality checks
+  quality-gates:
+    name: Quality Gates
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    timeout-minutes: 15
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -37,57 +40,58 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --all-groups
-
-      - name: Run linting
+          
+      - name: Linting and formatting
         run: |
           uv run ruff check src/ tests/
           uv run ruff format --check src/ tests/
 
-      - name: Run tests
-        run: |
-          uv run pytest tests/
+      - name: Type checking
+        run: uv run mypy src/tetra_rp || true
 
-      # TODO: Uncomment when coverage is needed
-      # - name: Run tests with coverage
-      #   run: |
-      #     uv run pytest tests/ \
-      #       --cov=src/tetra_rp \
-      #       --cov-report=term-missing \
-      #       --cov-fail-under=90 \
-      #       -v
+      - name: Test suite
+        run: uv run pytest tests/ -v
 
+  # Release orchestration
   release-please:
-    name: Create Release
+    name: Release Please
     runs-on: ubuntu-latest
-    needs: [test]  # Only run if tests pass
+    needs: [quality-gates]
+    
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
+      
     steps:
-      - uses: googleapis/release-please-action@v4
+      - name: Run Release Please
+        uses: google-github-actions/release-please-action@v3
         id: release
         with:
-          config-file: .release-please-config.json
-          manifest-file: .release-please-manifest.json
+          release-type: python
+          package-name: tetra-rp
+          version-file: pyproject.toml
+          changelog-types: '[{"type": "feat", "section": "Features", "hidden": false}, {"type": "fix", "section": "Bug Fixes", "hidden": false}, {"type": "chore", "section": "Maintenance", "hidden": true}]'
+          pull-request-title-pattern: "chore: release ${version}"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  # Build and publish to PyPI when a release is created
-  publish:
-    name: Build and Publish to PyPI
+  # PyPI publishing
+  pypi-publish:
+    name: PyPI Publish
     runs-on: ubuntu-latest
-    needs: [test, release-please]
-    if: ${{ needs.release-please.outputs.release_created }}
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    
     environment:
-      name: pypi
-      url: https://pypi.org/p/tetra-rp
+      name: pypi-production
+      url: https://pypi.org/project/tetra-rp/
+      
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v2
@@ -97,18 +101,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-groups
 
-      # TODO: Uncomment when coverage is needed
-      # - name: Run final test suite before publishing
-      #   run: |
-      #     uv run pytest tests/ \
-      #       --cov=src/tetra_rp \
-      #       --cov-fail-under=90 \
-      #       -v
-
-      - name: Run final test suite before publishing
-        run: |
-          uv run pytest tests/
-
       - name: Build package
         run: uv build
 
@@ -116,11 +108,6 @@ jobs:
         run: uv run twine check dist/*
 
       - name: Publish to PyPI
-        run: uv publish --trusted-publishing automatic
-
-      - name: Upload build artifacts to release
-        if: success()
-        run: |
-          gh release upload ${{ needs.release-please.outputs.tag_name }} dist/* --clobber
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
