@@ -3,7 +3,7 @@ import inspect
 import logging
 import textwrap
 import uuid
-from typing import List, Type
+from typing import List, Type, Optional
 
 import cloudpickle
 
@@ -48,7 +48,7 @@ def extract_class_code_simple(cls: Type) -> str:
         # Validate the code by trying to compile it
         compile(class_code, "<string>", "exec")
 
-        print(f"Successfully extracted class code for {cls.__name__}")
+        log.debug(f"Successfully extracted class code for {cls.__name__}")
         return class_code
 
     except Exception as e:
@@ -63,7 +63,8 @@ def extract_class_code_simple(cls: Type) -> str:
                 fallback_methods.append(f"    def {name}{sig}:")
                 fallback_methods.append("        pass")
                 fallback_methods.append("")
-            except:  # noqa: E722
+            except (TypeError, ValueError, OSError) as e:
+                log.warning(f"Could not extract method signature for {name}: {e}")
                 fallback_methods.append(f"    def {name}(self, *args, **kwargs):")
                 fallback_methods.append("        pass")
                 fallback_methods.append("")
@@ -80,13 +81,18 @@ def extract_class_code_simple(cls: Type) -> str:
 def create_remote_class(
     cls: Type,
     resource_config: ServerlessResource,
-    dependencies: List[str],
-    system_dependencies: List[str],
+    dependencies: Optional[List[str]],
+    system_dependencies: Optional[List[str]],
     extra: dict,
 ):
     """
     Create a remote class wrapper.
     """
+    # Validate inputs
+    if not inspect.isclass(cls):
+        raise TypeError(f"Expected a class, got {type(cls).__name__}")
+    if not hasattr(cls, "__name__"):
+        raise ValueError("Class must have a __name__ attribute")
 
     class RemoteClassWrapper:
         def __init__(self, *args, **kwargs):
@@ -165,7 +171,7 @@ def create_remote_class(
                 )
 
                 # Execute via stub
-                return await self._stub.execute_class_method(request)
+                return await self._stub.execute_class_method(request)  # type: ignore
 
             return method_proxy
 

@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 
 def remote(
     resource_config: ServerlessResource,
-    dependencies: List[str] = None,
-    system_dependencies: List[str] = None,
+    dependencies: Optional[List[str]] = None,
+    system_dependencies: Optional[List[str]] = None,
     mount_volume: Optional[NetworkVolume] = None,
     **extra,
 ):
