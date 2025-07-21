@@ -196,6 +196,9 @@ class ServerlessResource(DeployableResource):
         Ensures network volume is deployed and ready.
         Updates networkVolumeId with the deployed volume ID.
         """
+        if self.networkVolumeId:
+            return
+
         if not self.networkVolume:
             log.info(f"{self.name} requires a default network volume")
             self.networkVolume = NetworkVolume(name=f"{self.name}-volume")
