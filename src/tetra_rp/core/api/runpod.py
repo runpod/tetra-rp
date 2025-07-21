@@ -3,11 +3,12 @@ Direct GraphQL communication with Runpod API.
 Bypasses the outdated runpod-python SDK limitations.
 """
 
-import os
 import json
-import aiohttp
-from typing import Dict, Any, Optional
 import logging
+import os
+from typing import Any, Dict, Optional
+
+import aiohttp
 
 log = logging.getLogger(__name__)
 
@@ -267,31 +268,12 @@ class RunpodRestClient:
             raise Exception(f"HTTP request failed: {e}")
 
     async def create_network_volume(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Create a network volume in Runpod.
+        """Create a network volume in Runpod."""
+        log.debug(f"Creating network volume: {payload.get('name', 'unnamed')}")
 
-        Args:
-            datacenter_id (str): The ID of the datacenter where the volume will be created.
-            name (str): The name of the network volume.
-            size_gb (int): The size of the volume in GB.
-
-        Returns:
-            Dict[str, Any]: The created network volume details.
-        """
-        datacenter_id = payload.get("dataCenterId")
-        if hasattr(datacenter_id, "value"):
-            # If datacenter_id is an enum, get its value
-            datacenter_id = datacenter_id.value
-        data = {
-            "dataCenterId": datacenter_id,
-            "name": payload.get("name"),
-            "size": payload.get("size"),
-        }
-        url = f"{RUNPOD_REST_API_URL}/networkvolumes"
-
-        log.debug(f"Creating network volume: {data.get('name', 'unnamed')}")
-
-        result = await self._execute_rest("POST", url, data)
+        result = await self._execute_rest(
+            "POST", f"{RUNPOD_REST_API_URL}/networkvolumes", payload
+        )
 
         log.info(
             f"Created network volume: {result.get('id', 'unknown')} - {result.get('name', 'unnamed')}"
