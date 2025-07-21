@@ -4,6 +4,7 @@ from typing import Optional
 
 from pydantic import (
     Field,
+    field_serializer,
 )
 
 from ..api.runpod import RunpodRestClient
@@ -37,6 +38,14 @@ class NetworkVolume(DeployableResource):
     id: Optional[str] = Field(default=None)
     name: Optional[str] = None
     size: Optional[int] = Field(default=10, gt=0)  # Size in GB
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}:{self.id}"
+
+    @field_serializer("dataCenterId")
+    def serialize_data_center_id(self, value: Optional[DataCenter]) -> Optional[str]:
+        """Convert DataCenter enum to string."""
+        return value.value if value is not None else None
 
     @property
     def is_created(self) -> bool:
@@ -79,17 +88,17 @@ class NetworkVolume(DeployableResource):
         try:
             # If the resource is already deployed, return it
             if self.is_deployed():
-                log.debug(
-                    f"Network volume {self.id} is already deployed. Mounting existing volume."
-                )
-                log.info(f"Mounted existing network volume: {self.id}")
+                log.debug(f"{self} exists")
                 return self
 
             # Create the network volume
-            self = await self.create_network_volume()
+            async with RunpodRestClient() as client:
+                # Create the network volume
+                payload = self.model_dump(exclude_none=True)
+                result = await client.create_network_volume(payload)
 
-            if self.is_deployed():
-                return self
+            if volume := self.__class__(**result):
+                return volume
 
             raise ValueError("Deployment failed, no volume was created.")
 

@@ -1,28 +1,27 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Union
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from pydantic import (
+    BaseModel,
+    Field,
     field_serializer,
     field_validator,
     model_validator,
-    BaseModel,
-    Field,
 )
-
 from runpod.endpoint.runner import Job
 
 from ..api.runpod import RunpodGraphQLClient
 from ..utils.backoff import get_backoff_delay
-
-from .cloud import runpod
 from .base import DeployableResource
-from .template import PodTemplate, KeyValuePair
-from .gpu import GpuGroup
+from .cloud import runpod
+from .constants import CONSOLE_URL
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
-from .constants import CONSOLE_URL
+from .gpu import GpuGroup
 from .network_volume import NetworkVolume
+from .template import KeyValuePair, PodTemplate
 
 
 # Environment variables are loaded from the .env file
@@ -80,10 +79,7 @@ class ServerlessResource(DeployableResource):
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     imageName: Optional[str] = ""  # for template.imageName
 
-    #  Input-only field that accepts NetworkVolume object or string ID
-    networkVolume: Optional[Union[NetworkVolume, str]] = Field(
-        default=None, exclude=True
-    )
+    networkVolume: Optional[NetworkVolume] = None  # sets the networkVolumeId
 
     # === Input Fields ===
     executionTimeoutMs: Optional[int] = None
@@ -130,26 +126,6 @@ class ServerlessResource(DeployableResource):
             raise ValueError("Missing self.id")
         return runpod.Endpoint(self.id)
 
-    @field_validator("networkVolume")
-    @classmethod
-    def validate_network_volume(
-        cls, value: Optional[Union[NetworkVolume, str]]
-    ) -> Optional[Union[NetworkVolume, str]]:
-        """Validate networkVolume input"""
-        if value is None:
-            return None
-
-        if isinstance(value, str):
-            # If it's a string, assume it's a volume ID
-            return value
-        elif isinstance(value, NetworkVolume):
-            # If it's a NetworkVolume object, validate it
-            return value
-        else:
-            raise ValueError(
-                "networkVolume must be either a NetworkVolume object or a string ID"
-            )
-
     @field_serializer("scalerType")
     def serialize_scaler_type(
         self, value: Optional[ServerlessScalerType]
@@ -176,15 +152,9 @@ class ServerlessResource(DeployableResource):
         if self.flashboot:
             self.name += "-fb"
 
-        if self.networkVolume:
-            if isinstance(self.networkVolume, str):
-                # It's already an ID
-                self.networkVolumeId = self.networkVolume
-            elif isinstance(self.networkVolume, NetworkVolume):
-                # It's a NetworkVolume object
-                if self.networkVolume.is_created:
-                    # Volume already exists, use its ID
-                    self.networkVolumeId = self.networkVolume.id
+        if self.networkVolume and self.networkVolume.is_created:
+            # Volume already exists, use its ID
+            self.networkVolumeId = self.networkVolume.id
 
         if self.instanceIds:
             return self._sync_input_fields_cpu()
@@ -227,30 +197,11 @@ class ServerlessResource(DeployableResource):
         Updates networkVolumeId with the deployed volume ID.
         """
         if not self.networkVolume:
-            log.info(
-                f"No network volume provided for {self.name}, creating default network volume"
-            )
-            default_volume = NetworkVolume(
-                name=f"{self.name}-volume",
-            )
-            self.networkVolume = default_volume
+            log.info(f"{self.name} requires a default network volume")
+            self.networkVolume = NetworkVolume(name=f"{self.name}-volume")
 
-        if isinstance(self.networkVolume, str):
-            # It's already an ID, set it
-            self.networkVolumeId = self.networkVolume
-            return
-
-        if isinstance(self.networkVolume, NetworkVolume):
-            if not self.networkVolume.is_created:
-                # Deploy the network volume
-                log.info(f"Deploying network volume for {self.name}")
-                deployed_volume = await self.networkVolume.deploy()
-                self.networkVolume = deployed_volume
-                self.networkVolumeId = deployed_volume.id
-                log.info(f"Network volume deployed with ID: {deployed_volume.id}")
-            else:
-                # Already deployed, just set the ID
-                self.networkVolumeId = self.networkVolume.id
+        if deployedNetworkVolume := await self.networkVolume.deploy():
+            self.networkVolumeId = deployedNetworkVolume.id
 
     def is_deployed(self) -> bool:
         """
