@@ -79,7 +79,7 @@ class ServerlessResource(DeployableResource):
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     imageName: Optional[str] = ""  # for template.imageName
 
-    networkVolume: Optional[NetworkVolume] = None  # sets the networkVolumeId
+    networkVolume: Optional[NetworkVolume] = None
 
     # === Input Fields ===
     executionTimeoutMs: Optional[int] = None
@@ -88,7 +88,7 @@ class ServerlessResource(DeployableResource):
     instanceIds: Optional[List[CpuInstanceType]] = None
     locations: Optional[str] = None
     name: str
-    networkVolumeId: Optional[str] = None  # This gets set from networkVolume
+    networkVolumeId: Optional[str] = None
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
     templateId: Optional[str] = None
