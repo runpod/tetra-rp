@@ -1,13 +1,14 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from pydantic import (
+    BaseModel,
+    Field,
     field_serializer,
     field_validator,
     model_validator,
-    BaseModel,
-    Field,
 )
 
 from tetra_rp.core.utils.rich_ui import (
@@ -21,14 +22,14 @@ from runpod.endpoint.runner import Job
 
 from ..api.runpod import RunpodGraphQLClient
 from ..utils.backoff import get_backoff_delay
-
-from .cloud import runpod
 from .base import DeployableResource
-from .template import PodTemplate, KeyValuePair
-from .gpu import GpuGroup
+from .cloud import runpod
+from .constants import CONSOLE_URL
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
-from .constants import CONSOLE_URL
+from .gpu import GpuGroup
+from .network_volume import NetworkVolume
+from .template import KeyValuePair, PodTemplate
 from ..utils.rich_ui import rich_ui, format_api_info, format_job_status
 
 
@@ -70,7 +71,15 @@ class ServerlessResource(DeployableResource):
     Base class for GPU serverless resource
     """
 
-    _input_only = {"id", "cudaVersions", "env", "gpus", "flashboot", "imageName"}
+    _input_only = {
+        "id",
+        "cudaVersions",
+        "env",
+        "gpus",
+        "flashboot",
+        "imageName",
+        "networkVolume",
+    }
 
     # === Input-only Fields ===
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
@@ -78,6 +87,8 @@ class ServerlessResource(DeployableResource):
     flashboot: Optional[bool] = True
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     imageName: Optional[str] = ""  # for template.imageName
+
+    networkVolume: Optional[NetworkVolume] = None
 
     # === Input Fields ===
     executionTimeoutMs: Optional[int] = None
@@ -150,6 +161,10 @@ class ServerlessResource(DeployableResource):
         if self.flashboot and not self.name.endswith("-fb"):
             self.name += "-fb"
 
+        if self.networkVolume and self.networkVolume.is_created:
+            # Volume already exists, use its ID
+            self.networkVolumeId = self.networkVolume.id
+
         if self.instanceIds:
             return self._sync_input_fields_cpu()
         else:
@@ -185,6 +200,21 @@ class ServerlessResource(DeployableResource):
 
         return self
 
+    async def _ensure_network_volume_deployed(self) -> None:
+        """
+        Ensures network volume is deployed and ready.
+        Updates networkVolumeId with the deployed volume ID.
+        """
+        if self.networkVolumeId:
+            return
+
+        if not self.networkVolume:
+            log.info(f"{self.name} requires a default network volume")
+            self.networkVolume = NetworkVolume(name=f"{self.name}-volume")
+
+        if deployedNetworkVolume := await self.networkVolume.deploy():
+            self.networkVolumeId = deployedNetworkVolume.id
+
     def is_deployed(self) -> bool:
         """
         Checks if the serverless resource is deployed and available.
@@ -209,6 +239,9 @@ class ServerlessResource(DeployableResource):
             if self.is_deployed():
                 log.debug(f"{self} exists")
                 return self
+
+            # NEW: Ensure network volume is deployed first
+            await self._ensure_network_volume_deployed()
 
             async with RunpodGraphQLClient() as client:
                 payload = self.model_dump(exclude=self._input_only, exclude_none=True)

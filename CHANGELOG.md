@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/runpod/tetra-rp/compare/0.6.0...v0.7.0) (2025-07-21)
+
+
+### Features
+
+* AE-892 - Lock the network volume region ([#67](https://github.com/runpod/tetra-rp/issues/67)) ([2b7a3ea](https://github.com/runpod/tetra-rp/commit/2b7a3eae2b1f4b343b20a1548e63507e88b1adbc))
+
+
+### Bug Fixes
+
+* downgrade release-please to v3 for simplicity ([#70](https://github.com/runpod/tetra-rp/issues/70)) ([06f05d1](https://github.com/runpod/tetra-rp/commit/06f05d1bb0e7fca9208a86248432e9d72a20036a))
+* use default release-please PR title pattern ([#68](https://github.com/runpod/tetra-rp/issues/68)) ([786df98](https://github.com/runpod/tetra-rp/commit/786df986d2f36d324bd470937aa9dae7c0cc38be))
+
 ## [0.6.0](https://github.com/runpod/tetra-rp/compare/0.5.5...0.6.0) (2025-07-10)
 
 
