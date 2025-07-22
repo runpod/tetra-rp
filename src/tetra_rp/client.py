@@ -1,17 +1,19 @@
+import inspect
 import logging
 from functools import wraps
-from typing import List
-from .core.resources import ServerlessResource, ResourceManager
-from .stubs import stub_resource
+from typing import List, Optional
 
+from .core.resources import ResourceManager, ServerlessResource
+from .execute_class import create_remote_class
+from .stubs import stub_resource
 
 log = logging.getLogger(__name__)
 
 
 def remote(
     resource_config: ServerlessResource,
-    dependencies: List[str] = None,
-    system_dependencies: List[str] = None,
+    dependencies: Optional[List[str]] = None,
+    system_dependencies: Optional[List[str]] = None,
     **extra,
 ):
     """
@@ -24,8 +26,6 @@ def remote(
             to be provisioned or used.
         dependencies (List[str], optional): A list of pip package names to be installed in the remote
             environment before executing the function. Defaults to None.
-        mount_volume (NetworkVolume, optional): Configuration for creating and mounting a network volume.
-            Should contain 'size', 'datacenter_id', and 'name' keys. Defaults to None.
         extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
 
     Returns:
@@ -45,17 +45,26 @@ def remote(
     ```
     """
 
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            resource_manager = ResourceManager()
-            remote_resource = await resource_manager.get_or_deploy_resource(
-                resource_config
+    def decorator(func_or_class):
+        if inspect.isclass(func_or_class):
+            # Handle class decoration
+            return create_remote_class(
+                func_or_class, resource_config, dependencies, system_dependencies, extra
             )
+        else:
+            # Handle function decoration (unchanged)
+            @wraps(func_or_class)
+            async def wrapper(*args, **kwargs):
+                resource_manager = ResourceManager()
+                remote_resource = await resource_manager.get_or_deploy_resource(
+                    resource_config
+                )
 
-            stub = stub_resource(remote_resource, **extra)
-            return await stub(func, dependencies, system_dependencies, *args, **kwargs)
+                stub = stub_resource(remote_resource, **extra)
+                return await stub(
+                    func_or_class, dependencies, system_dependencies, *args, **kwargs
+                )
 
-        return wrapper
+            return wrapper
 
     return decorator
