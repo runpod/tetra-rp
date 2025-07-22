@@ -52,8 +52,8 @@ def extract_class_code_simple(cls: Type) -> str:
         return class_code
 
     except Exception as e:
-        print(f"Warning: Could not extract class code for {cls.__name__}: {e}")
-        print("Falling back to basic class structure")
+        log.warning(f"Could not extract class code for {cls.__name__}: {e}")
+        log.warning("Falling back to basic class structure")
 
         # Enhanced fallback: try to preserve method signatures
         fallback_methods = []

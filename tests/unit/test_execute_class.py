@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import cloudpickle
 import pytest
-
 from tetra_rp.core.resources import ServerlessResource
 from tetra_rp.execute_class import create_remote_class, extract_class_code_simple
 from tetra_rp.protos.remote_execution import FunctionRequest
@@ -139,7 +138,7 @@ def create_nested():
             "tetra_rp.execute_class.inspect.getsource",
             side_effect=OSError("No source available"),
         ):
-            with patch("builtins.print") as mock_print:
+            with patch("tetra_rp.execute_class.log.warning") as mock_log_warning:
                 result = extract_class_code_simple(mock_class)
 
                 # Should use fallback
@@ -148,10 +147,12 @@ def create_nested():
                 assert "pass" in result
 
                 # Verify fallback was triggered
-                mock_print.assert_any_call(
-                    "Warning: Could not extract class code for MockClass: No source available"
+                mock_log_warning.assert_any_call(
+                    "Could not extract class code for MockClass: No source available"
                 )
-                mock_print.assert_any_call("Falling back to basic class structure")
+                mock_log_warning.assert_any_call(
+                    "Falling back to basic class structure"
+                )
 
     def test_extract_class_with_complex_signatures(self):
         """Test extracting class with complex method signatures."""
