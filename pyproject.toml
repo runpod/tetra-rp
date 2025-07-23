@@ -25,11 +25,12 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.1",
+    "mypy>=1.16.1",
     "ruff>=0.11.9",
 ]
 test = [
-    "mypy>=1.16.1",
+    "pytest>=8.4.1",
+    "pytest-mock>=3.14.0",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.2.1",
     "twine>=6.1.0",
@@ -38,3 +39,67 @@ test = [
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--cov=tetra_rp",
+    "--cov-report=term-missing",
+    "--cov-fail-under=35"
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::pytest.PytestDeprecationWarning",
+    "ignore::pytest.PytestUnknownMarkWarning"
+]
+
+[tool.ruff]
+# Exclude tetra-examples directory since it's a separate repository
+exclude = [
+    "tetra-examples/",
+]
+
+[tool.mypy]
+# Basic configuration
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start lenient, can be stricter later
+disallow_incomplete_defs = false
+check_untyped_defs = true
+
+# Import discovery
+mypy_path = "."
+namespace_packages = true
+
+# Error output
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+
+# Exclude directories
+exclude = [
+    "tetra-examples/",
+    "tests/",  # Start by excluding tests, can add later
+]
+
+# Per-module options
+[[tool.mypy.overrides]]
+module = [
+    "runpod.*",
+    "cloudpickle.*",
+]
+ignore_missing_imports = true
