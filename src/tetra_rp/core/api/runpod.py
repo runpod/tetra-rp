@@ -9,8 +9,6 @@ import os
 from typing import Any, Dict, Optional
 
 import aiohttp
-from typing import Dict, Any, Optional
-import logging
 from ..utils.rich_ui import format_endpoint_created
 
 

@@ -2378,7 +2378,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "rich", specifier = ">=14.0.0" },
     { name = "rich", marker = "extra == 'rich'", specifier = ">=13.0.0" },
-    { name = "runpod", specifier = "~=1.7.9" },
+    { name = "runpod" },
 ]
 provides-extras = ["rich"]
 
