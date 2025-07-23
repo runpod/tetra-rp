@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/runpod/tetra-rp/compare/v0.7.0...v0.8.0) (2025-07-22)
+
+
+### Features
+
+* AE-815 Add class based execution ([#72](https://github.com/runpod/tetra-rp/issues/72)) ([d2a70ad](https://github.com/runpod/tetra-rp/commit/d2a70ad702bfd7e8f9c137eb2ce8263d1dfbd667))
+
 ## [0.7.0](https://github.com/runpod/tetra-rp/compare/0.6.0...v0.7.0) (2025-07-21)
 
 
