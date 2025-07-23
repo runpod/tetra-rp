@@ -39,18 +39,10 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: make dev
           
-      - name: Linting and formatting
-        run: |
-          uv run ruff check src/ tests/
-          uv run ruff format --check src/ tests/
-
-      - name: Type checking
-        run: uv run mypy src/tetra_rp || true
-
-      - name: Test suite
-        run: uv run pytest tests/ -v
+      - name: Quality checks
+        run: make quality-check
 
   # Release orchestration
   release-please:
@@ -98,11 +90,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        run: uv sync --all-groups
-
       - name: Build package
-        run: uv build
+        run: make build
 
       - name: Verify package
         run: uv run twine check dist/*

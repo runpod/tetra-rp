@@ -1,13 +1,13 @@
 import logging
 from functools import singledispatch
-from .live_serverless import LiveServerlessStub
-from .serverless import ServerlessEndpointStub
+
 from ..core.resources import (
     CpuServerlessEndpoint,
     LiveServerless,
     ServerlessEndpoint,
 )
-
+from .live_serverless import LiveServerlessStub
+from .serverless import ServerlessEndpointStub
 
 log = logging.getLogger(__name__)
 
@@ -22,19 +22,28 @@ def stub_resource(resource, **extra):
 
 @stub_resource.register(LiveServerless)
 def _(resource, **extra):
+    stub = LiveServerlessStub(resource)
+
+    # Function execution
     async def stubbed_resource(
         func, dependencies, system_dependencies, *args, **kwargs
     ) -> dict:
         if args == (None,):
-            # cleanup: when the function is called with no args
             args = []
 
-        stub = LiveServerlessStub(resource)
         request = stub.prepare_request(
             func, dependencies, system_dependencies, *args, **kwargs
         )
         response = await stub.ExecuteFunction(request)
         return stub.handle_response(response)
+
+    # Class method execution
+    async def execute_class_method(request):
+        response = await stub.ExecuteFunction(request)
+        return stub.handle_response(response)
+
+    # Attach the method to the function
+    stubbed_resource.execute_class_method = execute_class_method
 
     return stubbed_resource
 
