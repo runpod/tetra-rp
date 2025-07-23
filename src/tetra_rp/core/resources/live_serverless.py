@@ -3,9 +3,13 @@ import os
 from pydantic import model_validator
 from .serverless import ServerlessEndpoint
 
-
-TETRA_GPU_IMAGE = os.environ.get("TETRA_GPU_IMAGE", "runpod/tetra-rp:dev")
-TETRA_CPU_IMAGE = os.environ.get("TETRA_CPU_IMAGE", "runpod/tetra-rp-cpu:dev")
+TETRA_IMAGE_TAG = os.environ.get("TETRA_IMAGE_TAG", "latest")
+TETRA_GPU_IMAGE = os.environ.get(
+    "TETRA_GPU_IMAGE", f"runpod/tetra-rp:{TETRA_IMAGE_TAG}"
+)
+TETRA_CPU_IMAGE = os.environ.get(
+    "TETRA_CPU_IMAGE", f"runpod/tetra-rp-cpu:{TETRA_IMAGE_TAG}"
+)
 
 
 class LiveServerless(ServerlessEndpoint):

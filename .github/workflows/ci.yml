@@ -41,29 +41,10 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: make dev
           
-      - name: Code quality - Linting and formatting
-        run: |
-          echo "::group::Ruff linting"
-          uv run ruff check src/ tests/ --output-format=github
-          echo "::endgroup::"
-          
-          echo "::group::Ruff formatting"
-          uv run ruff format --check src/ tests/
-          echo "::endgroup::"
-
-      - name: Type checking
-        run: |
-          echo "::group::MyPy type checking"
-          uv run mypy src/tetra_rp --show-error-codes --pretty || true
-          echo "::endgroup::"
-
-      - name: Test suite
-        run: |
-          echo "::group::Running test suite"
-          uv run pytest tests/ --junitxml=pytest-results.xml -v
-          echo "::endgroup::"
+      - name: Quality checks
+        run: make ci-quality-github
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -92,11 +73,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        run: uv sync --all-groups
-
       - name: Build package
-        run: uv build
+        run: make build
 
       - name: Verify package
         run: uv run twine check dist/*
