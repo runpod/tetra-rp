@@ -2333,7 +2333,7 @@ wheels = [
 
 [[package]]
 name = "tetra-rp"
-version = "0.4.2"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "cloudpickle" },
@@ -2357,7 +2357,7 @@ test = [
 requires-dist = [
     { name = "cloudpickle", specifier = ">=3.1.1" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "runpod", specifier = "~=1.7.9" },
+    { name = "runpod" },
 ]
 
 [package.metadata.requires-dev]
