@@ -5,7 +5,6 @@ These tests verify the caching behavior of remote class execution including:
 - Cache key generation
 - Cache hit/miss scenarios
 - Error handling for unserializable arguments
-- Performance optimizations
 """
 
 import tempfile
