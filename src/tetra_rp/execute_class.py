@@ -17,12 +17,12 @@ from typing import List, Optional, Type
 import cloudpickle
 
 from .core.resources import ResourceManager, ServerlessResource
+from .core.utils.constants import HASH_TRUNCATE_LENGTH, UUID_FALLBACK_LENGTH
 from .core.utils.lru_cache import LRUCache
 from .protos.remote_execution import FunctionRequest
 from .stubs import stub_resource
 
 log = logging.getLogger(__name__)
-
 
 # Global in-memory cache for serialized class data with LRU eviction
 _SERIALIZED_CLASS_CACHE = LRUCache(max_size=1000)
@@ -121,7 +121,7 @@ def get_class_cache_key(
         args_hash = hashlib.sha256(args_data).hexdigest()
 
         # Combine hashes for final cache key
-        cache_key = f"{cls.__name__}_{class_hash[:16]}_{args_hash[:16]}"
+        cache_key = f"{cls.__name__}_{class_hash[:HASH_TRUNCATE_LENGTH]}_{args_hash[:HASH_TRUNCATE_LENGTH]}"
 
         log.debug(f"Generated cache key for {cls.__name__}: {cache_key}")
         return cache_key
@@ -129,7 +129,7 @@ def get_class_cache_key(
     except (TypeError, AttributeError, OSError) as e:
         log.warning(f"Could not generate cache key for {cls.__name__}: {e}")
         # Fallback to basic key without caching benefits
-        return f"{cls.__name__}_{uuid.uuid4().hex[:8]}"
+        return f"{cls.__name__}_{uuid.uuid4().hex[:UUID_FALLBACK_LENGTH]}"
 
 
 def create_remote_class(
@@ -157,7 +157,9 @@ def create_remote_class(
             self._extra = extra
             self._constructor_args = args
             self._constructor_kwargs = kwargs
-            self._instance_id = f"{cls.__name__}_{uuid.uuid4().hex[:8]}"
+            self._instance_id = (
+                f"{cls.__name__}_{uuid.uuid4().hex[:UUID_FALLBACK_LENGTH]}"
+            )
             self._initialized = False
 
             # Generate cache key and check cache
@@ -179,11 +181,14 @@ def create_remote_class(
                     }
 
                     # Cache the serialized data
-                    _SERIALIZED_CLASS_CACHE.set(self._cache_key, {
-                        "class_code": self._clean_class_code,
-                        "constructor_args": serialized_constructor_args,
-                        "constructor_kwargs": serialized_constructor_kwargs,
-                    })
+                    _SERIALIZED_CLASS_CACHE.set(
+                        self._cache_key,
+                        {
+                            "class_code": self._clean_class_code,
+                            "constructor_args": serialized_constructor_args,
+                            "constructor_kwargs": serialized_constructor_kwargs,
+                        },
+                    )
 
                     log.debug(
                         f"Cached class data for {cls.__name__} with key: {self._cache_key}"
@@ -199,11 +204,14 @@ def create_remote_class(
 
                     # Don't cache if we can't serialize - fall back to no caching for this instance
                     # Store minimal cache entry to avoid repeated attempts
-                    _SERIALIZED_CLASS_CACHE.set(self._cache_key, {
-                        "class_code": self._clean_class_code,
-                        "constructor_args": None,  # Signal that args couldn't be cached
-                        "constructor_kwargs": None,
-                    })
+                    _SERIALIZED_CLASS_CACHE.set(
+                        self._cache_key,
+                        {
+                            "class_code": self._clean_class_code,
+                            "constructor_args": None,  # Signal that args couldn't be cached
+                            "constructor_kwargs": None,
+                        },
+                    )
             else:
                 # Cache hit - retrieve cached data
                 cached_data = _SERIALIZED_CLASS_CACHE.get(self._cache_key)
