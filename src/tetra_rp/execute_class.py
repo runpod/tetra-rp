@@ -1,21 +1,31 @@
+"""
+Class execution module for remote class instantiation and method calls.
+
+This module provides functionality to create and execute remote class instances,
+with automatic caching of class serialization data to improve performance and
+prevent memory leaks through LRU eviction.
+"""
+
 import base64
 import hashlib
 import inspect
 import logging
 import textwrap
 import uuid
-from typing import Any, Dict, List, Optional, Type
+from typing import List, Optional, Type
 
 import cloudpickle
 
 from .core.resources import ResourceManager, ServerlessResource
+from .core.utils.lru_cache import LRUCache
 from .protos.remote_execution import FunctionRequest
 from .stubs import stub_resource
 
 log = logging.getLogger(__name__)
 
-# Global in-memory cache for serialized class data
-_SERIALIZED_CLASS_CACHE: Dict[str, Dict[str, Any]] = {}
+
+# Global in-memory cache for serialized class data with LRU eviction
+_SERIALIZED_CLASS_CACHE = LRUCache(max_size=1000)
 
 
 def extract_class_code_simple(cls: Type) -> str:
@@ -169,11 +179,11 @@ def create_remote_class(
                     }
 
                     # Cache the serialized data
-                    _SERIALIZED_CLASS_CACHE[self._cache_key] = {
+                    _SERIALIZED_CLASS_CACHE.set(self._cache_key, {
                         "class_code": self._clean_class_code,
                         "constructor_args": serialized_constructor_args,
                         "constructor_kwargs": serialized_constructor_kwargs,
-                    }
+                    })
 
                     log.debug(
                         f"Cached class data for {cls.__name__} with key: {self._cache_key}"
@@ -189,14 +199,14 @@ def create_remote_class(
 
                     # Don't cache if we can't serialize - fall back to no caching for this instance
                     # Store minimal cache entry to avoid repeated attempts
-                    _SERIALIZED_CLASS_CACHE[self._cache_key] = {
+                    _SERIALIZED_CLASS_CACHE.set(self._cache_key, {
                         "class_code": self._clean_class_code,
                         "constructor_args": None,  # Signal that args couldn't be cached
                         "constructor_kwargs": None,
-                    }
+                    })
             else:
                 # Cache hit - retrieve cached data
-                cached_data = _SERIALIZED_CLASS_CACHE[self._cache_key]
+                cached_data = _SERIALIZED_CLASS_CACHE.get(self._cache_key)
                 self._clean_class_code = cached_data["class_code"]
                 log.debug(
                     f"Retrieved cached class data for {cls.__name__} with key: {self._cache_key}"
@@ -231,7 +241,7 @@ def create_remote_class(
                 await self._ensure_initialized()
 
                 # Get cached data
-                cached_data = _SERIALIZED_CLASS_CACHE[self._cache_key]
+                cached_data = _SERIALIZED_CLASS_CACHE.get(self._cache_key)
 
                 # Serialize method arguments (these change per call, so no caching)
                 method_args = [
