@@ -82,8 +82,9 @@ class TestServerlessResource:
         serverless = ServerlessResource(**basic_serverless_config)
         serverless.id = "test-id-123"
 
-        endpoint = serverless.endpoint
-        assert endpoint is not None
+        with patch("tetra_rp.core.resources.cloud.runpod.api_key", "test-api-key"):
+            endpoint = serverless.endpoint
+            assert endpoint is not None
 
     def test_endpoint_property_without_id_raises_error(self, basic_serverless_config):
         """Test endpoint property raises error when ID is not set."""
@@ -438,8 +439,12 @@ class TestServerlessResourceDeployment:
             mock_client_class.return_value.__aexit__.return_value = None
 
             with patch.object(ServerlessResource, "is_deployed", return_value=False):
-                with pytest.raises(Exception, match="API Error"):
-                    await serverless.deploy()
+                with patch.object(
+                    ServerlessResource, "_ensure_network_volume_deployed"
+                ):
+                    with patch.dict("os.environ", {"RUNPOD_API_KEY": "test-api-key"}):
+                        with pytest.raises(Exception, match="API Error"):
+                            await serverless.deploy()
 
     @pytest.mark.asyncio
     async def test_run_sync_success(self):
