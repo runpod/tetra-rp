@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/runpod/tetra-rp/compare/v0.9.0...v0.10.0) (2025-08-07)
+
+
+### Features
+
+* Add idempotent network volume deployment ([#79](https://github.com/runpod/tetra-rp/issues/79)) ([289d333](https://github.com/runpod/tetra-rp/commit/289d333aaaf48e00bfdad2a5f6356bdfc6bcf286))
+
 ## [0.9.0](https://github.com/runpod/tetra-rp/compare/v0.8.0...v0.9.0) (2025-08-04)
 
 
