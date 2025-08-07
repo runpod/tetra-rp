@@ -134,8 +134,12 @@ class ServerlessResource(DeployableResource):
         return value.value if value is not None else None
 
     @field_serializer("instanceIds")
-    def serialize_instance_ids(self, value: List[CpuInstanceType]) -> List[str]:
+    def serialize_instance_ids(
+        self, value: Optional[List[CpuInstanceType]]
+    ) -> Optional[List[str]]:
         """Convert CpuInstanceType enums to strings."""
+        if value is None:
+            return None
         return [item.value if hasattr(item, "value") else str(item) for item in value]
 
     @field_validator("gpus")
