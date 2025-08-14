@@ -6,6 +6,9 @@ from rich.console import Console
 from rich.panel import Panel
 
 from .commands import (
+    init,
+    run,
+    resource,
     deploy,
 )
 
@@ -23,10 +26,16 @@ console = Console()
 # command: tetra
 app = typer.Typer(
     name="tetra",
-    help="Tetra RP CLI - Distributed inference and serving framework",
+    help="Tetra CLI - Distributed inference and serving framework",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+
+# command: tetra <command>
+app.command("init")(init.init_command)
+app.command("run")(run.run_command)
+app.command("report")(resource.report_command)
+app.command("clean")(resource.clean_command)
 
 # command: tetra deploy
 deploy_app = typer.Typer(
@@ -51,15 +60,15 @@ def main(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", "-v", help="Show version"),
 ):
-    """Tetra RP CLI - Distributed inference and serving framework."""
+    """Tetra CLI - Distributed inference and serving framework."""
     if version:
-        console.print(f"Tetra RP CLI v{get_version()}")
+        console.print(f"Tetra CLI v{get_version()}")
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
         console.print(
             Panel(
-                "[bold blue]Tetra RP CLI[/bold blue]\n\n"
+                "[bold blue]Tetra CLI[/bold blue]\n\n"
                 "A framework for distributed inference and serving of ML models.\n\n"
                 "Use [bold]tetra --help[/bold] to see available commands.",
                 title="Welcome",
