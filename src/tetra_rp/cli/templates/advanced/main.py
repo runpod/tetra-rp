@@ -1,7 +1,7 @@
 import asyncio
 from dotenv import load_dotenv
 from tetra_rp import remote, LiveServerless
-from utils import process_data, generate_report
+from utils import generate_report
 
 # Load environment variables from .env file
 load_dotenv()
@@ -18,35 +18,34 @@ compute_config = LiveServerless(
 @remote(compute_config)
 def analyze_data(data):
     """Process and analyze data remotely."""
-    import numpy as np
     import pandas as pd
-    
+
     # Convert to DataFrame
     df = pd.DataFrame(data)
-    
+
     # Perform analysis
     result = {
         "mean": df.mean().to_dict(),
         "std": df.std().to_dict(),
         "count": len(df),
-        "summary": df.describe().to_dict()
+        "summary": df.describe().to_dict(),
     }
-    
+
     return result
 
 
 async def main():
     print("🚀 Running advanced Tetra example...")
-    
+
     # Sample data
     sample_data = {
         "values": [1, 2, 3, 4, 5, 10, 15, 20],
-        "categories": ["A", "B", "A", "C", "B", "A", "C", "B"]
+        "categories": ["A", "B", "A", "C", "B", "A", "C", "B"],
     }
-    
+
     # Process remotely
     result = await analyze_data(sample_data)
-    
+
     # Generate report
     report = generate_report(result)
     print(report)

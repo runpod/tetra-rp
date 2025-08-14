@@ -20,17 +20,12 @@ api_config = LiveServerless(
 def run_api_server():
     """Run FastAPI web service."""
     import uvicorn
-    
+
     app = create_api_app()
-    
+
     # Run the server
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8000,
-        log_level="info"
-    )
-    
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+
     return "API server started"
 
 
