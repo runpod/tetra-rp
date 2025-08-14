@@ -281,6 +281,30 @@ class RunpodRestClient:
 
         return result
 
+    async def list_network_volumes(self) -> Dict[str, Any]:
+        """
+        List all network volumes in Runpod.
+
+        Returns:
+            List of network volume objects or dict containing networkVolumes key.
+            The API may return either format depending on version.
+        """
+        log.debug("Listing network volumes")
+
+        result = await self._execute_rest(
+            "GET", f"{RUNPOD_REST_API_URL}/networkvolumes"
+        )
+
+        # Handle both list and dict responses
+        if isinstance(result, list):
+            volume_count = len(result)
+        else:
+            volume_count = len(result.get("networkVolumes", []))
+
+        log.debug(f"Listed {volume_count} network volumes")
+
+        return result
+
     async def close(self):
         """Close the HTTP session."""
         if self.session and not self.session.closed:
