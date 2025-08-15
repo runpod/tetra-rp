@@ -1,0 +1,6 @@
+{
+  "name": "basic-project",
+  "version": "1.0.0",
+  "entry_point": "main.py",
+  "template": "basic"
+}
