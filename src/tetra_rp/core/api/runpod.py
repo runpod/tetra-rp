@@ -9,8 +9,11 @@ import os
 from typing import Any, Dict, Optional
 
 import aiohttp
+from ..utils.rich_ui import format_endpoint_created
+
 
 log = logging.getLogger(__name__)
+
 
 RUNPOD_API_BASE_URL = os.environ.get("RUNPOD_API_BASE_URL", "https://api.runpod.io")
 RUNPOD_REST_API_URL = os.environ.get("RUNPOD_REST_API_URL", "https://rest.runpod.io/v1")
@@ -126,9 +129,16 @@ class RunpodGraphQLClient:
             raise Exception("Unexpected GraphQL response structure")
 
         endpoint_data = result["saveEndpoint"]
-        log.info(
-            f"Created endpoint: {endpoint_data.get('id', 'unknown')} - {endpoint_data.get('name', 'unnamed')}"
-        )
+
+        # Use Rich formatting if available
+        try:
+            format_endpoint_created(
+                endpoint_data.get("id", "unknown"), endpoint_data.get("name", "unnamed")
+            )
+        except ImportError:
+            log.info(
+                f"Created endpoint: {endpoint_data.get('id', 'unknown')} - {endpoint_data.get('name', 'unnamed')}"
+            )
 
         return endpoint_data
 

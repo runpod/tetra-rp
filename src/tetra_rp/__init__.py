@@ -23,10 +23,12 @@ from .core.resources import (  # noqa: E402
     runpod,
     NetworkVolume,
 )
+from .core.utils.rich_ui import capture_local_prints  # noqa: E402
 
 
 __all__ = [
     "remote",
+    "capture_local_prints",
     "CpuServerlessEndpoint",
     "CpuInstanceType",
     "CudaVersion",

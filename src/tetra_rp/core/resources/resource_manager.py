@@ -4,6 +4,12 @@ from typing import Dict
 from pathlib import Path
 
 from ..utils.singleton import SingletonMixin
+from ..utils.rich_ui import (
+    create_reused_resource_panel,
+    format_console_url,
+    is_rich_enabled,
+    print_with_rich,
+)
 
 from .base import DeployableResource
 
@@ -29,7 +35,8 @@ class ResourceManager(SingletonMixin):
             try:
                 with open(RESOURCE_STATE_FILE, "rb") as f:
                     self._resources = cloudpickle.load(f)
-                    log.debug(f"Loaded saved resources from {RESOURCE_STATE_FILE}")
+                    if not is_rich_enabled():
+                        log.debug(f"Loaded saved resources from {RESOURCE_STATE_FILE}")
             except Exception as e:
                 log.error(f"Failed to load resources from {RESOURCE_STATE_FILE}: {e}")
         return self._resources
@@ -38,7 +45,8 @@ class ResourceManager(SingletonMixin):
         """Persist state of resources to disk using cloudpickle."""
         with open(RESOURCE_STATE_FILE, "wb") as f:
             cloudpickle.dump(self._resources, f)
-        log.debug(f"Saved resources in {RESOURCE_STATE_FILE}")
+        if not is_rich_enabled():
+            log.debug(f"Saved resources in {RESOURCE_STATE_FILE}")
 
     def add_resource(self, uid: str, resource: DeployableResource):
         """Add a resource to the manager."""
@@ -68,12 +76,18 @@ class ResourceManager(SingletonMixin):
                 self.remove_resource(uid)
                 return await self.get_or_deploy_resource(config)
 
-            log.debug(f"{existing} exists, reusing.")
-            log.info(f"URL: {existing.url}")
+            if is_rich_enabled():
+                # Show a panel for reused resources similar to fresh deployments
+                panel = create_reused_resource_panel(
+                    existing.name, existing.id, existing.url
+                )
+                print_with_rich(panel)
+            else:
+                log.debug(f"{existing} exists, reusing.")
             return existing
 
         if deployed_resource := await config.deploy():
-            log.info(f"URL: {deployed_resource.url}")
+            format_console_url(deployed_resource.url)
             self.add_resource(uid, deployed_resource)
             return deployed_resource
 
