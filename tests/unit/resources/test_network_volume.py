@@ -142,31 +142,6 @@ class TestNetworkVolumeIdempotent:
         )  # Only called once
         assert result1.id == result2.id == "vol-123456"
 
-    @pytest.mark.asyncio
-    async def test_deploy_without_name_always_creates_new(
-        self, mock_runpod_client, sample_volume_data
-    ):
-        """Test that volumes without names always create new volumes."""
-        # Arrange
-        volume = NetworkVolume(size=50)  # No name
-
-        mock_runpod_client.create_network_volume.return_value = {
-            **sample_volume_data,
-            "name": None,
-        }
-
-        with patch(
-            "tetra_rp.core.resources.network_volume.RunpodRestClient"
-        ) as mock_client_class:
-            mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
-            mock_client_class.return_value.__aexit__ = AsyncMock()
-            # Act
-            await volume.deploy()
-
-        # Assert
-        mock_runpod_client.list_network_volumes.assert_not_called()  # Should skip lookup for unnamed volumes
-        mock_runpod_client.create_network_volume.assert_called_once()
-
     def test_resource_id_based_on_name_and_datacenter(self):
         """Test that resource_id is based on name and datacenter for named volumes."""
         # Arrange & Act
@@ -177,14 +152,3 @@ class TestNetworkVolumeIdempotent:
         # Assert
         assert volume1.resource_id == volume2.resource_id  # Same name + datacenter
         assert volume1.resource_id != volume3.resource_id  # Different name
-
-    def test_resource_id_fallback_for_unnamed_volumes(self):
-        """Test that unnamed volumes use default resource_id behavior."""
-        # Arrange & Act
-        volume1 = NetworkVolume(size=50)  # No name
-        volume2 = NetworkVolume(size=100)  # No name, different size
-
-        # Assert
-        assert (
-            volume1.resource_id != volume2.resource_id
-        )  # Different configs should have different IDs

@@ -20,7 +20,7 @@ from .constants import CONSOLE_URL
 from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 from .gpu import GpuGroup
-from .network_volume import NetworkVolume
+from .network_volume import NetworkVolume, DataCenter
 from .template import KeyValuePair, PodTemplate
 
 
@@ -65,6 +65,7 @@ class ServerlessResource(DeployableResource):
     _input_only = {
         "id",
         "cudaVersions",
+        "datacenter",
         "env",
         "gpus",
         "flashboot",
@@ -78,8 +79,8 @@ class ServerlessResource(DeployableResource):
     flashboot: Optional[bool] = True
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     imageName: Optional[str] = ""  # for template.imageName
-
     networkVolume: Optional[NetworkVolume] = None
+    datacenter: DataCenter = Field(default=DataCenter.EU_RO_1)
 
     # === Input Fields ===
     executionTimeoutMs: Optional[int] = None
@@ -156,6 +157,17 @@ class ServerlessResource(DeployableResource):
         if self.flashboot:
             self.name += "-fb"
 
+        # Sync datacenter to locations field for API
+        if not self.locations:
+            self.locations = self.datacenter.value
+
+        # Validate datacenter consistency between endpoint and network volume
+        if self.networkVolume and self.networkVolume.dataCenterId != self.datacenter:
+            raise ValueError(
+                f"Network volume datacenter ({self.networkVolume.dataCenterId.value}) "
+                f"must match endpoint datacenter ({self.datacenter.value})"
+            )
+
         if self.networkVolume and self.networkVolume.is_created:
             # Volume already exists, use its ID
             self.networkVolumeId = self.networkVolume.id
@@ -197,17 +209,14 @@ class ServerlessResource(DeployableResource):
 
     async def _ensure_network_volume_deployed(self) -> None:
         """
-        Ensures network volume is deployed and ready.
+        Ensures network volume is deployed and ready if one is specified.
         Updates networkVolumeId with the deployed volume ID.
         """
         if self.networkVolumeId:
             return
 
-        if not self.networkVolume:
-            log.info(f"{self.name} requires a default network volume")
-            self.networkVolume = NetworkVolume(name=f"{self.name}-volume")
-
-        if deployedNetworkVolume := await self.networkVolume.deploy():
+        if self.networkVolume:
+            deployedNetworkVolume = await self.networkVolume.deploy()
             self.networkVolumeId = deployedNetworkVolume.id
 
     def is_deployed(self) -> bool:
