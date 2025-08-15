@@ -21,7 +21,6 @@ class DataCenter(str, Enum):
     #TODO: Add more data centers as needed. Lock this to the available data center.
     """
 
-    EU_CZ_1 = "EU-CZ-1"
     EU_RO_1 = "EU-RO-1"
 
 
