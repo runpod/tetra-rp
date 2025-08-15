@@ -143,7 +143,7 @@ class TestClassCaching:
                 self.value = value
 
         RemoteCacheTestClass = create_remote_class(
-            CacheTestClass, self.mock_resource_config, [], [], {}
+            CacheTestClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         # First instance - should be cache miss
@@ -177,7 +177,7 @@ class TestClassCaching:
                 self.y = y
 
         RemoteMultiArgClass = create_remote_class(
-            MultiArgClass, self.mock_resource_config, [], [], {}
+            MultiArgClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         # Different args should create different cache entries
@@ -198,7 +198,7 @@ class TestClassCaching:
                 self.name = name
 
         RemoteFileHandlerClass = create_remote_class(
-            FileHandlerClass, self.mock_resource_config, [], [], {}
+            FileHandlerClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         with tempfile.NamedTemporaryFile() as temp_file:
@@ -224,7 +224,7 @@ class TestClassCaching:
                 self.value = value
 
         RemoteOptimizationTestClass = create_remote_class(
-            OptimizationTestClass, self.mock_resource_config, [], [], {}
+            OptimizationTestClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         with patch("tetra_rp.execute_class.extract_class_code_simple") as mock_extract:
@@ -250,7 +250,7 @@ class TestClassCaching:
                 return self.value
 
         RemoteConsistencyTestClass = create_remote_class(
-            ConsistencyTestClass, self.mock_resource_config, [], [], {}
+            ConsistencyTestClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         instance1 = RemoteConsistencyTestClass(1)
@@ -273,7 +273,7 @@ class TestClassCaching:
                 self.file_handle = file_handle
 
         RemoteUUIDFallbackClass = create_remote_class(
-            UUIDFallbackClass, self.mock_resource_config, [], [], {}
+            UUIDFallbackClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         with (
@@ -299,7 +299,7 @@ class TestClassCaching:
                 self.value = value
 
         RemoteMemoryTestClass = create_remote_class(
-            MemoryTestClass, self.mock_resource_config, [], [], {}
+            MemoryTestClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         # Create many instances with same args - should only create one cache entry
@@ -323,10 +323,10 @@ class TestClassCaching:
                 self.value = value
 
         RemoteClassTypeA = create_remote_class(
-            ClassTypeA, self.mock_resource_config, [], [], {}
+            ClassTypeA, self.mock_resource_config, [], [], True, None, {}
         )
         RemoteClassTypeB = create_remote_class(
-            ClassTypeB, self.mock_resource_config, [], [], {}
+            ClassTypeB, self.mock_resource_config, [], [], True, None, {}
         )
 
         instanceA = RemoteClassTypeA(42)
@@ -358,7 +358,7 @@ class TestCacheDataStructure:
         )
 
         RemoteStructureTestClass = create_remote_class(
-            StructureTestClass, resource_config, [], [], {}
+            StructureTestClass, resource_config, [], [], True, None, {}
         )
 
         instance = RemoteStructureTestClass(42, config={"key": "value"})
@@ -401,7 +401,7 @@ class TestCacheDataStructure:
         )
 
         RemoteSerializationTestClass = create_remote_class(
-            SerializationTestClass, resource_config, [], [], {}
+            SerializationTestClass, resource_config, [], [], True, None, {}
         )
 
         test_data = {"test": [1, 2, 3]}
