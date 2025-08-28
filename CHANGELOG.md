@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/runpod/tetra-rp/compare/v0.11.0...v0.11.1) (2025-08-28)
+
+
+### Bug Fixes
+
+* download accelerator changes broken regular endpoint invocations ([#86](https://github.com/runpod/tetra-rp/issues/86)) ([759f996](https://github.com/runpod/tetra-rp/commit/759f996208ebb5f052cda5e8b52b8c3b7a542b26))
+
 ## [0.11.0](https://github.com/runpod/tetra-rp/compare/v0.10.0...v0.11.0) (2025-08-19)
 
 
