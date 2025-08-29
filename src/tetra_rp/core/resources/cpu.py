@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import List, Optional
 
 
 class CpuInstanceType(str, Enum):
@@ -56,3 +57,81 @@ class CpuInstanceType(str, Enum):
 
     CPU5C_8_16 = "cpu5c-8-16"
     """8 vCPU, 16GB RAM, max 120GB container disk"""
+
+
+def calculate_max_disk_size(instance_type: CpuInstanceType) -> int:
+    """
+    Calculate the maximum container disk size for a CPU instance type.
+
+    Formula:
+    - CPU3G/CPU3C: vCPU count × 10GB
+    - CPU5C: vCPU count × 15GB
+
+    Args:
+        instance_type: CPU instance type enum
+
+    Returns:
+        Maximum container disk size in GB
+
+    Example:
+        >>> calculate_max_disk_size(CpuInstanceType.CPU3G_1_4)
+        10
+        >>> calculate_max_disk_size(CpuInstanceType.CPU5C_2_4)
+        30
+    """
+    # Parse the instance type string to extract vCPU count
+    # Format: "cpu{generation}{type}-{vcpu}-{memory}"
+    instance_str = instance_type.value
+    parts = instance_str.split("-")
+
+    if len(parts) != 3:
+        raise ValueError(f"Invalid instance type format: {instance_str}")
+
+    vcpu_count = int(parts[1])
+
+    # Determine disk multiplier based on generation
+    if instance_str.startswith("cpu5c"):
+        disk_multiplier = 15  # CPU5C: 15GB per vCPU
+    elif instance_str.startswith(("cpu3g", "cpu3c")):
+        disk_multiplier = 10  # CPU3G/CPU3C: 10GB per vCPU
+    else:
+        raise ValueError(f"Unknown CPU generation/type: {instance_str}")
+
+    return vcpu_count * disk_multiplier
+
+
+# CPU Instance Type Disk Limits (calculated programmatically)
+CPU_INSTANCE_DISK_LIMITS = {
+    instance_type: calculate_max_disk_size(instance_type)
+    for instance_type in CpuInstanceType
+}
+
+
+def get_max_disk_size_for_instances(
+    instance_types: Optional[List[CpuInstanceType]],
+) -> Optional[int]:
+    """
+    Calculate the maximum container disk size for a list of CPU instance types.
+
+    Returns the minimum disk limit across all instance types to ensure compatibility
+    with all specified instances.
+
+    Args:
+        instance_types: List of CPU instance types, or None
+
+    Returns:
+        Maximum allowed disk size in GB, or None if no CPU instances specified
+
+    Example:
+        >>> get_max_disk_size_for_instances([CpuInstanceType.CPU3G_1_4])
+        10
+        >>> get_max_disk_size_for_instances([CpuInstanceType.CPU3G_1_4, CpuInstanceType.CPU3G_2_8])
+        10
+    """
+    if not instance_types:
+        return None
+
+    disk_limits = [
+        CPU_INSTANCE_DISK_LIMITS[instance_type] for instance_type in instance_types
+    ]
+    return min(disk_limits)
