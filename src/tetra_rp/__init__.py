@@ -13,6 +13,7 @@ from .client import remote  # noqa: E402
 from .core.resources import (  # noqa: E402
     CpuServerlessEndpoint,
     CpuInstanceType,
+    CpuLiveServerless,
     CudaVersion,
     DataCenter,
     GpuGroup,
@@ -29,6 +30,7 @@ __all__ = [
     "remote",
     "CpuServerlessEndpoint",
     "CpuInstanceType",
+    "CpuLiveServerless",
     "CudaVersion",
     "DataCenter",
     "GpuGroup",
