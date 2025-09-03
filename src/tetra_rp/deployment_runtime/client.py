@@ -88,6 +88,8 @@ class DeploymentRuntime:
             raise DeploymentRuntimeConfigurationError("endpoint_url is required")
 
         self._session = None
+        self._health_checked = False
+        self._health_check_retries = 3
 
         if not self.api_key:
             log.warning(
@@ -220,6 +222,9 @@ class DeploymentRuntime:
     async def call_remote_method(self, request: FunctionRequest) -> Any:
         """Call remote method via /execute endpoint."""
         try:
+            # Ensure endpoint is healthy before making the request
+            await self._ensure_healthy()
+            
             url = f"{self.endpoint_url}/execute"
             payload = {"input": request.model_dump(exclude_none=True)}
 
@@ -261,6 +266,9 @@ class DeploymentRuntime:
     async def call_http_endpoint(self, method_name: str, data: Dict[str, Any]) -> Any:
         """Call HTTP endpoint directly."""
         try:
+            # Ensure endpoint is healthy before making the request
+            await self._ensure_healthy()
+            
             url = f"{self.endpoint_url}/{method_name}"
 
             log.debug(f"HTTP call to {url} for method: {method_name}")
@@ -279,17 +287,41 @@ class DeploymentRuntime:
                 {"method_name": method_name, "error": str(e)},
             )
 
+    async def _ensure_healthy(self) -> None:
+        """Ensure the endpoint is healthy before making requests."""
+        if self._health_checked:
+            return
+        
+        log.debug("Performing automatic health check...")
+        
+        for attempt in range(self._health_check_retries):
+            try:
+                await self._perform_health_check()
+                self._health_checked = True
+                log.debug(f"Health check successful on attempt {attempt + 1}")
+                return
+            except Exception as e:
+                if attempt == self._health_check_retries - 1:
+                    log.error(f"Health check failed after {self._health_check_retries} attempts: {e}")
+                    raise DeploymentRuntimeConnectionError(
+                        self.endpoint_url,
+                        f"Endpoint health check failed after {self._health_check_retries} attempts: {e}",
+                        {'attempts': self._health_check_retries, 'last_error': str(e)}
+                    )
+                else:
+                    log.warning(f"Health check attempt {attempt + 1} failed, retrying...")
+                    await asyncio.sleep(1.0 * (attempt + 1))  # Progressive backoff
+    
+    async def _perform_health_check(self) -> Dict[str, Any]:
+        """Perform a single health check."""
+        url = f"{self.endpoint_url}/health"
+        log.debug(f"Health check: {url}")
+        return await self._make_request_with_retry("GET", url, "health_check")
+    
     async def health_check(self) -> Dict[str, Any]:
-        """Check DeploymentRuntime health."""
+        """Check DeploymentRuntime health (public method)."""
         try:
-            url = f"{self.endpoint_url}/health"
-
-            log.debug(f"Health check: {url}")
-
-            result = await self._make_request_with_retry("GET", url, "health_check")
-
-            return result
-
+            return await self._perform_health_check()
         except DeploymentRuntimeConnectionError:
             raise
         except Exception as e:
