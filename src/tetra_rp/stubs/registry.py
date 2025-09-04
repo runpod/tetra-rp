@@ -26,13 +26,25 @@ def _(resource, **extra):
 
     # Function execution
     async def stubbed_resource(
-        func, dependencies, system_dependencies, *args, **kwargs
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        hf_models_to_cache,
+        *args,
+        **kwargs,
     ) -> dict:
         if args == (None,):
             args = []
 
         request = stub.prepare_request(
-            func, dependencies, system_dependencies, *args, **kwargs
+            func,
+            dependencies,
+            system_dependencies,
+            accelerate_downloads,
+            hf_models_to_cache,
+            *args,
+            **kwargs,
         )
         response = await stub.ExecuteFunction(request)
         return stub.handle_response(response)
@@ -51,12 +63,14 @@ def _(resource, **extra):
 @stub_resource.register(ServerlessEndpoint)
 def _(resource, **extra):
     async def stubbed_resource(
-        func, dependencies, system_dependencies, *args, **kwargs
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        hf_models_to_cache,
+        *args,
+        **kwargs,
     ) -> dict:
-        if args == (None,):
-            # cleanup: when the function is called with no args
-            args = []
-
         if dependencies or system_dependencies:
             log.warning(
                 "Dependencies are not supported for ServerlessEndpoint. "
@@ -74,12 +88,14 @@ def _(resource, **extra):
 @stub_resource.register(CpuServerlessEndpoint)
 def _(resource, **extra):
     async def stubbed_resource(
-        func, dependencies, system_dependencies, *args, **kwargs
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        hf_models_to_cache,
+        *args,
+        **kwargs,
     ) -> dict:
-        if args == (None,):
-            # cleanup: when the function is called with no args
-            args = []
-
         if dependencies or system_dependencies:
             log.warning(
                 "Dependencies are not supported for CpuServerlessEndpoint. "

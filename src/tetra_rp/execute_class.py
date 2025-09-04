@@ -1,17 +1,96 @@
+"""
+Class execution module for remote class instantiation and method calls.
+
+This module provides functionality to create and execute remote class instances,
+with automatic caching of class serialization data to improve performance and
+prevent memory leaks through LRU eviction.
+"""
+
 import base64
+import hashlib
 import inspect
 import logging
 import textwrap
 import uuid
-from typing import List, Type, Optional
+from typing import List, Optional, Type
 
 import cloudpickle
 
 from .core.resources import ResourceManager, ServerlessResource
+from .core.utils.constants import HASH_TRUNCATE_LENGTH, UUID_FALLBACK_LENGTH
+from .core.utils.lru_cache import LRUCache
 from .protos.remote_execution import FunctionRequest
 from .stubs import stub_resource
 
 log = logging.getLogger(__name__)
+
+# Global in-memory cache for serialized class data with LRU eviction
+_SERIALIZED_CLASS_CACHE = LRUCache(max_size=1000)
+
+
+def serialize_constructor_args(args, kwargs):
+    """Serialize constructor arguments for caching."""
+    serialized_args = [
+        base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
+    ]
+    serialized_kwargs = {
+        k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
+        for k, v in kwargs.items()
+    }
+    return serialized_args, serialized_kwargs
+
+
+def get_or_cache_class_data(
+    cls: Type, args: tuple, kwargs: dict, cache_key: str
+) -> str:
+    """Get class code from cache or extract and cache it."""
+    if cache_key not in _SERIALIZED_CLASS_CACHE:
+        # Cache miss - extract and cache class code
+        clean_class_code = extract_class_code_simple(cls)
+
+        try:
+            serialized_args, serialized_kwargs = serialize_constructor_args(
+                args, kwargs
+            )
+
+            # Cache the serialized data
+            _SERIALIZED_CLASS_CACHE.set(
+                cache_key,
+                {
+                    "class_code": clean_class_code,
+                    "constructor_args": serialized_args,
+                    "constructor_kwargs": serialized_kwargs,
+                },
+            )
+
+            log.debug(f"Cached class data for {cls.__name__} with key: {cache_key}")
+
+        except (TypeError, AttributeError, OSError) as e:
+            log.warning(
+                f"Could not serialize constructor arguments for {cls.__name__}: {e}"
+            )
+            log.warning(
+                f"Skipping constructor argument caching for {cls.__name__} due to unserializable arguments"
+            )
+
+            # Store minimal cache entry to avoid repeated attempts
+            _SERIALIZED_CLASS_CACHE.set(
+                cache_key,
+                {
+                    "class_code": clean_class_code,
+                    "constructor_args": None,  # Signal that args couldn't be cached
+                    "constructor_kwargs": None,
+                },
+            )
+
+        return clean_class_code
+    else:
+        # Cache hit - retrieve cached data
+        cached_data = _SERIALIZED_CLASS_CACHE.get(cache_key)
+        log.debug(
+            f"Retrieved cached class data for {cls.__name__} with key: {cache_key}"
+        )
+        return cached_data["class_code"]
 
 
 def extract_class_code_simple(cls: Type) -> str:
@@ -78,11 +157,53 @@ def extract_class_code_simple(cls: Type) -> str:
         return fallback_code
 
 
+def get_class_cache_key(
+    cls: Type, constructor_args: tuple, constructor_kwargs: dict
+) -> str:
+    """Generate a cache key for class serialization based on class source and constructor args.
+
+    Args:
+        cls: The class type to generate a key for
+        constructor_args: Positional arguments passed to class constructor
+        constructor_kwargs: Keyword arguments passed to class constructor
+
+    Returns:
+        A unique cache key string, or a UUID-based fallback if serialization fails
+
+    Note:
+        Falls back to UUID-based key if constructor arguments cannot be serialized,
+        which disables caching benefits but maintains functionality.
+    """
+    try:
+        # Get class source code for hashing
+        class_source = extract_class_code_simple(cls)
+
+        # Create hash of class source
+        class_hash = hashlib.sha256(class_source.encode()).hexdigest()
+
+        # Create hash of constructor arguments
+        args_data = cloudpickle.dumps((constructor_args, constructor_kwargs))
+        args_hash = hashlib.sha256(args_data).hexdigest()
+
+        # Combine hashes for final cache key
+        cache_key = f"{cls.__name__}_{class_hash[:HASH_TRUNCATE_LENGTH]}_{args_hash[:HASH_TRUNCATE_LENGTH]}"
+
+        log.debug(f"Generated cache key for {cls.__name__}: {cache_key}")
+        return cache_key
+
+    except (TypeError, AttributeError, OSError) as e:
+        log.warning(f"Could not generate cache key for {cls.__name__}: {e}")
+        # Fallback to basic key without caching benefits
+        return f"{cls.__name__}_{uuid.uuid4().hex[:UUID_FALLBACK_LENGTH]}"
+
+
 def create_remote_class(
     cls: Type,
     resource_config: ServerlessResource,
     dependencies: Optional[List[str]],
     system_dependencies: Optional[List[str]],
+    accelerate_downloads: bool,
+    hf_models_to_cache: Optional[List[str]],
     extra: dict,
 ):
     """
@@ -100,13 +221,21 @@ def create_remote_class(
             self._resource_config = resource_config
             self._dependencies = dependencies or []
             self._system_dependencies = system_dependencies or []
+            self._accelerate_downloads = accelerate_downloads
+            self._hf_models_to_cache = hf_models_to_cache
             self._extra = extra
             self._constructor_args = args
             self._constructor_kwargs = kwargs
-            self._instance_id = f"{cls.__name__}_{uuid.uuid4().hex[:8]}"
+            self._instance_id = (
+                f"{cls.__name__}_{uuid.uuid4().hex[:UUID_FALLBACK_LENGTH]}"
+            )
             self._initialized = False
 
-            self._clean_class_code = extract_class_code_simple(cls)
+            # Generate cache key and get class code
+            self._cache_key = get_class_cache_key(cls, args, kwargs)
+            self._clean_class_code = get_or_cache_class_data(
+                cls, args, kwargs, self._cache_key
+            )
 
             log.debug(f"Created remote class wrapper for {cls.__name__}")
 
@@ -136,34 +265,49 @@ def create_remote_class(
             async def method_proxy(*args, **kwargs):
                 await self._ensure_initialized()
 
-                # Create class method request
+                # Get cached data
+                cached_data = _SERIALIZED_CLASS_CACHE.get(self._cache_key)
 
-                # class_code = inspect.getsource(self._class_type)
-                class_code = self._clean_class_code
+                # Serialize method arguments (these change per call, so no caching)
+                method_args = [
+                    base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8")
+                    for arg in args
+                ]
+                method_kwargs = {
+                    k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
+                    for k, v in kwargs.items()
+                }
+
+                # Handle constructor args - use cached if available, else serialize fresh
+                if cached_data["constructor_args"] is not None:
+                    # Use cached constructor args
+                    constructor_args = cached_data["constructor_args"]
+                    constructor_kwargs = cached_data["constructor_kwargs"]
+                else:
+                    # Constructor args couldn't be cached due to serialization issues
+                    # Serialize them fresh for each method call (fallback behavior)
+                    constructor_args = [
+                        base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8")
+                        for arg in self._constructor_args
+                    ]
+                    constructor_kwargs = {
+                        k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
+                        for k, v in self._constructor_kwargs.items()
+                    }
 
                 request = FunctionRequest(
                     execution_type="class",
                     class_name=self._class_type.__name__,
-                    class_code=class_code,
+                    class_code=cached_data["class_code"],
                     method_name=name,
-                    args=[
-                        base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8")
-                        for arg in args
-                    ],
-                    kwargs={
-                        k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-                        for k, v in kwargs.items()
-                    },
-                    constructor_args=[
-                        base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8")
-                        for arg in self._constructor_args
-                    ],
-                    constructor_kwargs={
-                        k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-                        for k, v in self._constructor_kwargs.items()
-                    },
+                    args=method_args,
+                    kwargs=method_kwargs,
+                    constructor_args=constructor_args,
+                    constructor_kwargs=constructor_kwargs,
                     dependencies=self._dependencies,
                     system_dependencies=self._system_dependencies,
+                    accelerate_downloads=self._accelerate_downloads,
+                    hf_models_to_cache=self._hf_models_to_cache,
                     instance_id=self._instance_id,
                     create_new_instance=not hasattr(
                         self, "_stub"

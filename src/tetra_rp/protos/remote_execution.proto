@@ -25,6 +25,10 @@ message FunctionRequest {
   string method_name = 12;                 // Name of the method to call on the class instance (default: "__call__")
   optional string instance_id = 13;        // Unique identifier for the class instance (for persistence)
   bool create_new_instance = 14;           // Whether to create a new instance or reuse existing one
+
+  // Download acceleration fields
+  optional bool accelerate_downloads = 19;  // Enable download acceleration for dependencies and models (default: true)
+  repeated string hf_models_to_cache = 20;  // List of HuggingFace model IDs to pre-cache using acceleration
 }
 
 // The response message containing the execution result or error

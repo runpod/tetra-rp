@@ -204,7 +204,7 @@ class TestMultipleMethodCallsOnSameInstance:
                 }
 
         RemoteCounter = create_remote_class(
-            StatefulCounter, self.mock_resource_config, [], [], {}
+            StatefulCounter, self.mock_resource_config, [], [], True, None, {}
         )
 
         counter = RemoteCounter(5)
@@ -276,7 +276,7 @@ class TestMultipleMethodCallsOnSameInstance:
                 return self.tasks_completed
 
         RemoteWorker = create_remote_class(
-            AsyncWorker, self.mock_resource_config, [], [], {}
+            AsyncWorker, self.mock_resource_config, [], [], True, None, {}
         )
 
         worker = RemoteWorker()
@@ -374,8 +374,10 @@ class TestComplexConstructorArguments:
             ConfigurableModel,
             self.mock_resource_config,
             ["scikit-learn", "pandas"],
-            [],
-            {},
+            [],  # system_dependencies
+            True,  # accelerate_downloads
+            None,  # hf_models_to_cache
+            {},  # extra
         )
 
         model = RemoteModel(
@@ -476,7 +478,7 @@ class TestComplexConstructorArguments:
         api_keys = ["key1", "key2", "key3"]
 
         RemoteDataService = create_remote_class(
-            DataService, self.mock_resource_config, ["psycopg2"], [], {}
+            DataService, self.mock_resource_config, ["psycopg2"], [], True, None, {}
         )
 
         service = RemoteDataService(db_conn, cache_conf, api_keys=api_keys)
@@ -547,7 +549,7 @@ class TestErrorHandlingInRemoteClassExecution:
                 return "This always works"
 
         RemoteErrorProneClass = create_remote_class(
-            ErrorProneClass, self.mock_resource_config, [], [], {}
+            ErrorProneClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         error_instance = RemoteErrorProneClass(should_fail=True)
@@ -583,7 +585,7 @@ class TestErrorHandlingInRemoteClassExecution:
                 return "hello"
 
         RemoteSimpleClass = create_remote_class(
-            SimpleClass, self.mock_resource_config, [], [], {}
+            SimpleClass, self.mock_resource_config, [], [], True, None, {}
         )
 
         instance = RemoteSimpleClass()
@@ -619,7 +621,7 @@ class TestErrorHandlingInRemoteClassExecution:
 
         with tempfile.NamedTemporaryFile() as temp_file:
             RemoteUnserializableClass = create_remote_class(
-                UnserializableClass, self.mock_resource_config, [], [], {}
+                UnserializableClass, self.mock_resource_config, [], [], True, None, {}
             )
 
             # This should not fail during initialization (lazy serialization)
@@ -666,6 +668,8 @@ class TestErrorHandlingInRemoteClassExecution:
             self.mock_resource_config,
             [],
             [],
+            True,
+            None,
             {"timeout": 5},  # 5 second timeout
         )
 
@@ -700,6 +704,8 @@ class TestErrorHandlingInRemoteClassExecution:
                 self.mock_resource_config,
                 [],
                 [],
+                True,
+                None,
                 {},
             )
 
@@ -708,7 +714,9 @@ class TestErrorHandlingInRemoteClassExecution:
             pass
 
         with pytest.raises(TypeError, match="Expected a class"):
-            create_remote_class(not_a_class, self.mock_resource_config, [], [], {})
+            create_remote_class(
+                not_a_class, self.mock_resource_config, [], [], True, None, {}
+            )
 
         # Note: Testing class without __name__ is not practically possible
         # since Python classes always have __name__ attribute
@@ -729,6 +737,8 @@ class TestErrorHandlingInRemoteClassExecution:
             self.mock_resource_config,
             ["nonexistent-package==999.999.999"],  # Invalid package
             [],
+            True,
+            None,
             {},
         )
 
