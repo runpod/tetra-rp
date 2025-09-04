@@ -7,16 +7,19 @@ This provides a way to work with DeploymentRuntime functionality by:
 3. Maintaining the core implementation that's already working
 """
 
+# Standard library imports
+import asyncio
 import inspect
 import logging
-import asyncio
+
+# Third-party imports
 import aiohttp
 from typing import List, Optional, Dict, Any
 
-from .endpoint import scan_endpoint_methods
-from ..protos.remote_execution import FunctionRequest
-from .serialization import SerializationUtils
+# Local imports
 from .config import DeploymentRuntimeConfig
+from .endpoint import scan_endpoint_methods
+from .serialization import SerializationUtils
 from .exceptions import (
     DeploymentRuntimeError,
     DeploymentRuntimeConnectionError,
@@ -24,6 +27,7 @@ from .exceptions import (
     DeploymentRuntimeExecutionError,
     DeploymentRuntimeConfigurationError,
 )
+from ..protos.remote_execution import FunctionRequest
 
 log = logging.getLogger(__name__)
 
@@ -181,15 +185,9 @@ class DeploymentRuntime:
                 f"Invalid JSON response: {e}",
                 {"operation": operation_name},
             )
+        except (DeploymentRuntimeAuthenticationError, DeploymentRuntimeConnectionError):
+            raise
         except Exception as e:
-            if isinstance(
-                e,
-                (
-                    DeploymentRuntimeAuthenticationError,
-                    DeploymentRuntimeConnectionError,
-                ),
-            ):
-                raise
             raise DeploymentRuntimeConnectionError(
                 self.endpoint_url,
                 f"Unexpected error handling response: {e}",
@@ -224,7 +222,7 @@ class DeploymentRuntime:
         try:
             # Ensure endpoint is healthy before making the request
             await self._ensure_healthy()
-            
+
             url = f"{self.endpoint_url}/execute"
             payload = {"input": request.model_dump(exclude_none=True)}
 
@@ -268,7 +266,7 @@ class DeploymentRuntime:
         try:
             # Ensure endpoint is healthy before making the request
             await self._ensure_healthy()
-            
+
             url = f"{self.endpoint_url}/{method_name}"
 
             log.debug(f"HTTP call to {url} for method: {method_name}")
@@ -291,9 +289,9 @@ class DeploymentRuntime:
         """Ensure the endpoint is healthy before making requests."""
         if self._health_checked:
             return
-        
+
         log.debug("Performing automatic health check...")
-        
+
         for attempt in range(self._health_check_retries):
             try:
                 await self._perform_health_check()
@@ -302,22 +300,26 @@ class DeploymentRuntime:
                 return
             except Exception as e:
                 if attempt == self._health_check_retries - 1:
-                    log.error(f"Health check failed after {self._health_check_retries} attempts: {e}")
+                    log.error(
+                        f"Health check failed after {self._health_check_retries} attempts: {e}"
+                    )
                     raise DeploymentRuntimeConnectionError(
                         self.endpoint_url,
                         f"Endpoint health check failed after {self._health_check_retries} attempts: {e}",
-                        {'attempts': self._health_check_retries, 'last_error': str(e)}
+                        {"attempts": self._health_check_retries, "last_error": str(e)},
                     )
                 else:
-                    log.warning(f"Health check attempt {attempt + 1} failed, retrying...")
+                    log.warning(
+                        f"Health check attempt {attempt + 1} failed, retrying..."
+                    )
                     await asyncio.sleep(1.0 * (attempt + 1))  # Progressive backoff
-    
+
     async def _perform_health_check(self) -> Dict[str, Any]:
         """Perform a single health check."""
         url = f"{self.endpoint_url}/health"
         log.debug(f"Health check: {url}")
         return await self._make_request_with_retry("GET", url, "health_check")
-    
+
     async def health_check(self) -> Dict[str, Any]:
         """Check DeploymentRuntime health (public method)."""
         try:
@@ -333,6 +335,15 @@ class DeploymentRuntime:
         """Close HTTP session."""
         if self._session and not self._session.closed:
             await self._session.close()
+
+    async def __aenter__(self):
+        """Context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - ensure session is closed."""
+        await self.close()
+        return None
 
 
 class DeploymentClassWrapper:
