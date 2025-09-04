@@ -70,6 +70,7 @@ class ResourceManager(SingletonMixin):
 
             log.debug(f"{existing} exists, reusing.")
             log.info(f"URL: {existing.url}")
+            config.id = existing.id
             return existing
 
         if deployed_resource := await config.deploy():

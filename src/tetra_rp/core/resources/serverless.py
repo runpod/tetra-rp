@@ -252,6 +252,7 @@ class ServerlessResource(DeployableResource):
                 result = await client.create_endpoint(payload)
 
             if endpoint := self.__class__(**result):
+                self.id = endpoint.id
                 return endpoint
 
             raise ValueError("Deployment failed, no endpoint was returned.")
