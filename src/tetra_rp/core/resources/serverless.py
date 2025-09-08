@@ -93,6 +93,7 @@ class ServerlessResource(DeployableResource):
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
     templateId: Optional[str] = None
+    type: Optional[str] = None  # "QB" for Queue Based, "LB" for Load Balancer
     workersMax: Optional[int] = 3
     workersMin: Optional[int] = 0
     workersPFBTarget: Optional[int] = None

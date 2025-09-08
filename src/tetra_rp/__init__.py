@@ -23,6 +23,7 @@ from .core.resources import (  # noqa: E402
     runpod,
     NetworkVolume,
 )
+from .deployment_runtime import DeploymentRuntime, endpoint  # noqa: E402
 
 
 __all__ = [
@@ -38,4 +39,6 @@ __all__ = [
     "ServerlessEndpoint",
     "runpod",
     "NetworkVolume",
+    "DeploymentRuntime",
+    "endpoint",
 ]
