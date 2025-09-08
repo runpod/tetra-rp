@@ -30,10 +30,10 @@ class SerializationUtils:
             pickled_data = cloudpickle.dumps(result)
             return base64.b64encode(pickled_data).decode("utf-8")
         except Exception as e:
-            from .exceptions import DeploymentRuntimeError
+            from .exceptions import LoadBalancerSlsError
 
             log.error(f"Failed to serialize result: {e}")
-            raise DeploymentRuntimeError(
+            raise LoadBalancerSlsError(
                 f"Serialization failed: {e}",
                 {"error_type": type(e).__name__, "result_type": type(result).__name__},
             )
@@ -61,10 +61,10 @@ class SerializationUtils:
             decoded_data = base64.b64decode(encoded_result)
             return cloudpickle.loads(decoded_data)
         except Exception as e:
-            from .exceptions import DeploymentRuntimeError
+            from .exceptions import LoadBalancerSlsError
 
             log.error(f"Failed to deserialize result: {e}")
-            raise DeploymentRuntimeError(
+            raise LoadBalancerSlsError(
                 f"Deserialization failed: {e}",
                 {"error_type": type(e).__name__, "encoded_length": len(encoded_result)},
             )
@@ -94,12 +94,12 @@ class SerializationUtils:
                 result.append(SerializationUtils.deserialize_result(arg))
             return result
         except Exception as e:
-            from .exceptions import DeploymentRuntimeError
+            from .exceptions import LoadBalancerSlsError
 
-            if isinstance(e, DeploymentRuntimeError):
+            if isinstance(e, LoadBalancerSlsError):
                 raise
             log.error(f"Failed to deserialize args: {e}")
-            raise DeploymentRuntimeError(
+            raise LoadBalancerSlsError(
                 f"Failed to deserialize function arguments: {e}",
                 {"error_type": type(e).__name__, "args_count": len(args)},
             )
@@ -135,12 +135,12 @@ class SerializationUtils:
                 result[key] = SerializationUtils.deserialize_result(value)
             return result
         except Exception as e:
-            from .exceptions import DeploymentRuntimeError
+            from .exceptions import LoadBalancerSlsError
 
-            if isinstance(e, DeploymentRuntimeError):
+            if isinstance(e, LoadBalancerSlsError):
                 raise
             log.error(f"Failed to deserialize kwargs: {e}")
-            raise DeploymentRuntimeError(
+            raise LoadBalancerSlsError(
                 f"Failed to deserialize keyword arguments: {e}",
                 {"error_type": type(e).__name__, "kwargs_keys": list(kwargs.keys())},
             )

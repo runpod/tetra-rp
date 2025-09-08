@@ -1,7 +1,7 @@
 """
-DeploymentRuntime Client
+LoadBalancerSls Client
 
-This provides a way to work with DeploymentRuntime functionality by:
+This provides a way to work with LoadBalancerSls functionality by:
 1. Supporting manual endpoint deployment
 2. Providing dual-capability functionality (HTTP endpoints + remote execution)
 3. Maintaining the core implementation that's already working
@@ -14,27 +14,27 @@ import aiohttp
 from typing import List, Optional, Dict, Any
 
 from .endpoint import scan_endpoint_methods
-from ..protos.remote_execution import FunctionRequest
+from tetra_rp.protos.remote_execution import FunctionRequest
 from .serialization import SerializationUtils
-from .config import DeploymentRuntimeConfig
+from .config import LoadBalancerSlsConfig
 from .exceptions import (
-    DeploymentRuntimeError,
-    DeploymentRuntimeConnectionError,
-    DeploymentRuntimeAuthenticationError,
-    DeploymentRuntimeExecutionError,
-    DeploymentRuntimeConfigurationError,
+    LoadBalancerSlsError,
+    LoadBalancerSlsConnectionError,
+    LoadBalancerSlsAuthenticationError,
+    LoadBalancerSlsExecutionError,
+    LoadBalancerSlsConfigurationError,
 )
 
 log = logging.getLogger(__name__)
 
 
-class DeploymentRuntime:
+class LoadBalancerSls:
     """
-    DeploymentRuntime client for dual-capability remote execution.
+    LoadBalancerSls client for dual-capability remote execution.
 
     Usage:
-        # After manually deploying DeploymentRuntime container
-        runtime = DeploymentRuntime("https://your-deployed-endpoint.com")
+        # After manually deploying LoadBalancerSls container
+        runtime = LoadBalancerSls("https://your-deployed-endpoint.com")
 
         @runtime.remote_class
         class MLModel:
@@ -47,21 +47,21 @@ class DeploymentRuntime:
         self,
         endpoint_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        config: Optional[DeploymentRuntimeConfig] = None,
+        config: Optional[LoadBalancerSlsConfig] = None,
         timeout: float = 300.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
         **kwargs,
     ):
         """
-        Initialize DeploymentRuntime client.
+        Initialize LoadBalancerSls client.
 
         Args:
-            endpoint_url: Base URL of deployed DeploymentRuntime container
+            endpoint_url: Base URL of deployed LoadBalancerSls container
                          e.g. "https://abc123-def456.rp.runpod.ai"
                          If None, will be loaded from config or environment
             api_key: RunPod API key for authentication (or set RUNPOD_API_KEY env var)
-            config: DeploymentRuntimeConfig instance for advanced configuration
+            config: LoadBalancerSlsConfig instance for advanced configuration
             **kwargs: Additional configuration parameters (timeout, max_retries, etc.)
         """
         import os
@@ -85,7 +85,7 @@ class DeploymentRuntime:
             self.retry_delay = self.config.retry_delay
 
         if not self.endpoint_url:
-            raise DeploymentRuntimeConfigurationError("endpoint_url is required")
+            raise LoadBalancerSlsConfigurationError("endpoint_url is required")
 
         self._session = None
         self._health_checked = False
@@ -96,7 +96,7 @@ class DeploymentRuntime:
                 "No API key provided. Set RUNPOD_API_KEY env var or pass api_key parameter."
             )
 
-        log.info(f"DeploymentRuntime initialized with endpoint: {self.endpoint_url}")
+        log.info(f"LoadBalancerSls initialized with endpoint: {self.endpoint_url}")
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create HTTP session with authentication headers."""
@@ -143,7 +143,7 @@ class DeploymentRuntime:
                 await asyncio.sleep(wait_time)
 
         # If we get here, all retries failed
-        raise DeploymentRuntimeConnectionError(
+        raise LoadBalancerSlsConnectionError(
             self.endpoint_url,
             f"Failed after {self.max_retries + 1} attempts: {last_exception}",
             {"operation": operation_name, "last_error": str(last_exception)},
@@ -155,18 +155,18 @@ class DeploymentRuntime:
         """Handle HTTP response with proper error checking."""
         try:
             if response.status == 401:
-                raise DeploymentRuntimeAuthenticationError(
+                raise LoadBalancerSlsAuthenticationError(
                     "Invalid API key or authentication failed"
                 )
             elif response.status == 404:
-                raise DeploymentRuntimeConnectionError(
+                raise LoadBalancerSlsConnectionError(
                     self.endpoint_url,
                     "Endpoint not found - check your endpoint URL",
                     {"status_code": response.status, "operation": operation_name},
                 )
             elif response.status >= 400:
                 error_text = await response.text()
-                raise DeploymentRuntimeConnectionError(
+                raise LoadBalancerSlsConnectionError(
                     self.endpoint_url,
                     f"HTTP {response.status}: {error_text}",
                     {"status_code": response.status, "operation": operation_name},
@@ -176,7 +176,7 @@ class DeploymentRuntime:
             return await response.json()
 
         except aiohttp.ContentTypeError as e:
-            raise DeploymentRuntimeConnectionError(
+            raise LoadBalancerSlsConnectionError(
                 self.endpoint_url,
                 f"Invalid JSON response: {e}",
                 {"operation": operation_name},
@@ -185,12 +185,12 @@ class DeploymentRuntime:
             if isinstance(
                 e,
                 (
-                    DeploymentRuntimeAuthenticationError,
-                    DeploymentRuntimeConnectionError,
+                    LoadBalancerSlsAuthenticationError,
+                    LoadBalancerSlsConnectionError,
                 ),
             ):
                 raise
-            raise DeploymentRuntimeConnectionError(
+            raise LoadBalancerSlsConnectionError(
                 self.endpoint_url,
                 f"Unexpected error handling response: {e}",
                 {"operation": operation_name},
@@ -202,7 +202,7 @@ class DeploymentRuntime:
         system_dependencies: Optional[List[str]] = None,
     ):
         """
-        Decorator for DeploymentRuntime classes.
+        Decorator for LoadBalancerSls classes.
 
         Args:
             dependencies: Python packages to install
@@ -236,7 +236,7 @@ class DeploymentRuntime:
 
             if not result.get("success"):
                 error_msg = result.get("error", "Unknown execution error")
-                raise DeploymentRuntimeExecutionError(
+                raise LoadBalancerSlsExecutionError(
                     request.method_name, error_msg, {"result": result}
                 )
 
@@ -245,20 +245,20 @@ class DeploymentRuntime:
                 try:
                     return SerializationUtils.deserialize_result(result["result"])
                 except Exception as e:
-                    raise DeploymentRuntimeError(
+                    raise LoadBalancerSlsError(
                         f"Failed to deserialize result from {request.method_name}: {e}",
                         {"serialization_error": str(e)},
                     )
             return None
 
         except (
-            DeploymentRuntimeConnectionError,
-            DeploymentRuntimeExecutionError,
-            DeploymentRuntimeError,
+            LoadBalancerSlsConnectionError,
+            LoadBalancerSlsExecutionError,
+            LoadBalancerSlsError,
         ):
             raise
         except Exception as e:
-            raise DeploymentRuntimeError(
+            raise LoadBalancerSlsError(
                 f"Unexpected error in remote method call: {e}",
                 {"method_name": request.method_name, "error": str(e)},
             )
@@ -279,10 +279,10 @@ class DeploymentRuntime:
 
             return result
 
-        except DeploymentRuntimeConnectionError:
+        except LoadBalancerSlsConnectionError:
             raise
         except Exception as e:
-            raise DeploymentRuntimeError(
+            raise LoadBalancerSlsError(
                 f"Unexpected error in HTTP endpoint call: {e}",
                 {"method_name": method_name, "error": str(e)},
             )
@@ -303,7 +303,7 @@ class DeploymentRuntime:
             except Exception as e:
                 if attempt == self._health_check_retries - 1:
                     log.error(f"Health check failed after {self._health_check_retries} attempts: {e}")
-                    raise DeploymentRuntimeConnectionError(
+                    raise LoadBalancerSlsConnectionError(
                         self.endpoint_url,
                         f"Endpoint health check failed after {self._health_check_retries} attempts: {e}",
                         {'attempts': self._health_check_retries, 'last_error': str(e)}
@@ -319,13 +319,13 @@ class DeploymentRuntime:
         return await self._make_request_with_retry("GET", url, "health_check")
     
     async def health_check(self) -> Dict[str, Any]:
-        """Check DeploymentRuntime health (public method)."""
+        """Check LoadBalancerSls health (public method)."""
         try:
             return await self._perform_health_check()
-        except DeploymentRuntimeConnectionError:
+        except LoadBalancerSlsConnectionError:
             raise
         except Exception as e:
-            raise DeploymentRuntimeError(
+            raise LoadBalancerSlsError(
                 f"Unexpected error during health check: {e}", {"error": str(e)}
             )
 
@@ -336,12 +336,12 @@ class DeploymentRuntime:
 
 
 class DeploymentClassWrapper:
-    """Class wrapper for DeploymentRuntime."""
+    """Class wrapper for LoadBalancerSls."""
 
     def __init__(
         self,
         cls,
-        runtime: DeploymentRuntime,
+        runtime: LoadBalancerSls,
         dependencies: List[str],
         system_dependencies: List[str],
     ):
@@ -409,9 +409,9 @@ class DeploymentInstanceWrapper:
                 )
 
             except Exception as e:
-                if isinstance(e, DeploymentRuntimeError):
+                if isinstance(e, LoadBalancerSlsError):
                     raise
-                raise DeploymentRuntimeError(
+                raise LoadBalancerSlsError(
                     f"Error in HTTP proxy for {method_name}: {e}",
                     {
                         "method_name": method_name,
@@ -432,9 +432,9 @@ class DeploymentInstanceWrapper:
                 return await self._wrapper._runtime.call_remote_method(request)
 
             except Exception as e:
-                if isinstance(e, DeploymentRuntimeError):
+                if isinstance(e, LoadBalancerSlsError):
                     raise
-                raise DeploymentRuntimeError(
+                raise LoadBalancerSlsError(
                     f"Error in remote proxy for {method_name}: {e}",
                     {
                         "method_name": method_name,
@@ -501,7 +501,7 @@ class DeploymentInstanceWrapper:
                     for k, v in self._constructor_kwargs.items()
                 }
             except Exception as e:
-                raise DeploymentRuntimeError(
+                raise LoadBalancerSlsError(
                     f"Failed to serialize arguments for {method_name}: {e}",
                     {"method_name": method_name, "serialization_error": str(e)},
                 )
@@ -522,9 +522,9 @@ class DeploymentInstanceWrapper:
             )
 
         except Exception as e:
-            if isinstance(e, DeploymentRuntimeError):
+            if isinstance(e, LoadBalancerSlsError):
                 raise
-            raise DeploymentRuntimeError(
+            raise LoadBalancerSlsError(
                 f"Failed to create function request for {method_name}: {e}",
                 {"method_name": method_name, "error": str(e)},
             )

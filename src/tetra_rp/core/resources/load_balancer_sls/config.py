@@ -1,7 +1,7 @@
 """
-Configuration management for DeploymentRuntime.
+Configuration management for LoadBalancerSls.
 
-This module provides configuration classes and validation for DeploymentRuntime
+This module provides configuration classes and validation for LoadBalancerSls
 using Pydantic for type validation and settings management.
 """
 
@@ -24,12 +24,12 @@ class LogLevel(str, Enum):
     CRITICAL = "CRITICAL"
 
 
-class DeploymentRuntimeConfig(BaseModel):
-    """Configuration for DeploymentRuntime client."""
+class LoadBalancerSlsConfig(BaseModel):
+    """Configuration for LoadBalancerSls client."""
 
     # Core connection settings
     endpoint_url: HttpUrl = Field(
-        ..., description="Base URL of deployed DeploymentRuntime container"
+        ..., description="Base URL of deployed LoadBalancerSls container"
     )
     api_key: Optional[str] = Field(
         None, description="RunPod API key for authentication"
@@ -71,7 +71,7 @@ class DeploymentRuntimeConfig(BaseModel):
     )
 
     class Config:
-        env_prefix = "DEPLOYMENT_RUNTIME_"
+        env_prefix = "LOAD_BALANCER_SLS_"
         case_sensitive = False
 
     @validator("api_key", pre=True, always=True)
@@ -91,22 +91,22 @@ class DeploymentRuntimeConfig(BaseModel):
         return v
 
     @classmethod
-    def from_env(cls) -> "DeploymentRuntimeConfig":
+    def from_env(cls) -> "LoadBalancerSlsConfig":
         """Create configuration from environment variables."""
         return cls(
             endpoint_url=os.getenv(
-                "DEPLOYMENT_RUNTIME_ENDPOINT_URL", "https://localhost:8000"
+                "LOAD_BALANCER_SLS_ENDPOINT_URL", "https://localhost:8000"
             ),
             api_key=os.getenv("RUNPOD_API_KEY"),
-            timeout=float(os.getenv("DEPLOYMENT_RUNTIME_TIMEOUT", "300.0")),
-            max_retries=int(os.getenv("DEPLOYMENT_RUNTIME_MAX_RETRIES", "3")),
-            retry_delay=float(os.getenv("DEPLOYMENT_RUNTIME_RETRY_DELAY", "1.0")),
-            log_level=LogLevel(os.getenv("DEPLOYMENT_RUNTIME_LOG_LEVEL", "INFO")),
+            timeout=float(os.getenv("LOAD_BALANCER_SLS_TIMEOUT", "300.0")),
+            max_retries=int(os.getenv("LOAD_BALANCER_SLS_MAX_RETRIES", "3")),
+            retry_delay=float(os.getenv("LOAD_BALANCER_SLS_RETRY_DELAY", "1.0")),
+            log_level=LogLevel(os.getenv("LOAD_BALANCER_SLS_LOG_LEVEL", "INFO")),
             enable_request_logging=os.getenv(
-                "DEPLOYMENT_RUNTIME_ENABLE_REQUEST_LOGGING", "false"
+                "LOAD_BALANCER_SLS_ENABLE_REQUEST_LOGGING", "false"
             ).lower()
             == "true",
-            verify_ssl=os.getenv("DEPLOYMENT_RUNTIME_VERIFY_SSL", "true").lower()
+            verify_ssl=os.getenv("LOAD_BALANCER_SLS_VERIFY_SSL", "true").lower()
             == "true",
         )
 

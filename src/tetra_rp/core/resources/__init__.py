@@ -4,6 +4,7 @@ from .cpu import CpuInstanceType
 from .gpu import GpuGroup, GpuType, GpuTypeDetail
 from .resource_manager import ResourceManager
 from .live_serverless import LiveServerless
+from .load_balancer_sls_resource import LoadBalancerSlsResource
 from .serverless import (
     CpuServerlessEndpoint,
     ServerlessResource,
@@ -27,6 +28,7 @@ __all__ = [
     "GpuTypeDetail",
     "JobOutput",
     "LiveServerless",
+    "LoadBalancerSlsResource", 
     "ResourceManager",
     "ServerlessResource",
     "ServerlessEndpoint",

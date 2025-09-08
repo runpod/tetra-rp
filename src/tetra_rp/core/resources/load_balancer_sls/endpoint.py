@@ -11,7 +11,7 @@ from functools import wraps
 
 def endpoint(methods: List[str] = ["POST"], route: Optional[str] = None) -> Callable:
     """
-    Decorator to mark class methods as HTTP endpoints in DeploymentRuntime.
+    Decorator to mark class methods as HTTP endpoints in LoadBalancerSls.
 
     Args:
         methods: List of HTTP methods supported (GET, POST, PUT, DELETE, etc.)

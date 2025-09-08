@@ -1,23 +1,23 @@
 """
-Custom exceptions for DeploymentRuntime functionality.
+Custom exceptions for LoadBalancerSls functionality.
 
 This module defines specific exception types for different error conditions
-that can occur during DeploymentRuntime operations.
+that can occur during LoadBalancerSls operations.
 """
 
 from typing import Optional, Dict, Any
 
 
-class DeploymentRuntimeError(Exception):
-    """Base exception for all DeploymentRuntime related errors."""
+class LoadBalancerSlsError(Exception):
+    """Base exception for all LoadBalancerSls related errors."""
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message)
         self.details = details or {}
 
 
-class DeploymentRuntimeConnectionError(DeploymentRuntimeError):
-    """Raised when connection to DeploymentRuntime endpoint fails."""
+class LoadBalancerSlsConnectionError(LoadBalancerSlsError):
+    """Raised when connection to LoadBalancerSls endpoint fails."""
 
     def __init__(
         self, endpoint_url: str, message: str, details: Optional[Dict[str, Any]] = None
@@ -26,13 +26,13 @@ class DeploymentRuntimeConnectionError(DeploymentRuntimeError):
         super().__init__(f"Connection failed to {endpoint_url}: {message}", details)
 
 
-class DeploymentRuntimeAuthenticationError(DeploymentRuntimeError):
-    """Raised when authentication with DeploymentRuntime fails."""
+class LoadBalancerSlsAuthenticationError(LoadBalancerSlsError):
+    """Raised when authentication with LoadBalancerSls fails."""
 
     pass
 
 
-class DeploymentRuntimeExecutionError(DeploymentRuntimeError):
+class LoadBalancerSlsExecutionError(LoadBalancerSlsError):
     """Raised when remote execution fails."""
 
     def __init__(
@@ -42,7 +42,7 @@ class DeploymentRuntimeExecutionError(DeploymentRuntimeError):
         super().__init__(f"Execution failed for {method_name}: {message}", details)
 
 
-class DeploymentRuntimeSerializationError(DeploymentRuntimeError):
+class LoadBalancerSlsSerializationError(LoadBalancerSlsError):
     """Raised when serialization/deserialization fails."""
 
     def __init__(
@@ -52,7 +52,7 @@ class DeploymentRuntimeSerializationError(DeploymentRuntimeError):
         super().__init__(f"Serialization error during {operation}: {message}", details)
 
 
-class DeploymentRuntimeTimeoutError(DeploymentRuntimeError):
+class LoadBalancerSlsTimeoutError(LoadBalancerSlsError):
     """Raised when an operation times out."""
 
     def __init__(
@@ -68,13 +68,13 @@ class DeploymentRuntimeTimeoutError(DeploymentRuntimeError):
         )
 
 
-class DeploymentRuntimeConfigurationError(DeploymentRuntimeError):
+class LoadBalancerSlsConfigurationError(LoadBalancerSlsError):
     """Raised when configuration is invalid."""
 
     pass
 
 
-class DeploymentRuntimeValidationError(DeploymentRuntimeError):
+class LoadBalancerSlsValidationError(LoadBalancerSlsError):
     """Raised when input validation fails."""
 
     def __init__(

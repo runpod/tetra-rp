@@ -3,9 +3,9 @@ import logging
 from functools import wraps
 from typing import List, Optional
 
-from .core.resources import ResourceManager, ServerlessResource
+from .core.resources import ResourceManager, ServerlessResource, LoadBalancerSlsResource
 from .execute_class import create_remote_class
-from .deployment_runtime.integration import create_deployment_runtime_class
+from .core.resources.load_balancer_sls.integration import create_load_balancer_sls_class
 from .stubs import stub_resource
 
 log = logging.getLogger(__name__)
@@ -15,7 +15,6 @@ def remote(
     resource_config: ServerlessResource,
     dependencies: Optional[List[str]] = None,
     system_dependencies: Optional[List[str]] = None,
-    type: Optional[str] = None,
     **extra,
 ):
     """
@@ -25,11 +24,10 @@ def remote(
     dynamic resource provisioning and installation of required dependencies.
 
         resource_config (ServerlessResource): Configuration object specifying the serverless resource
-            to be provisioned or used.
+            to be provisioned or used. Set resource_config.type="LB" for LoadBalancerSls mode.
         dependencies (List[str], optional): A list of pip package names to be installed in the remote
             environment before executing the function. Defaults to None.
         system_dependencies (List[str], optional): A list of system packages to install. Defaults to None.
-        type (str, optional): Execution type. Use "LB" for DeploymentRuntime (Load Balancer mode).
         extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
 
     Returns:
@@ -48,7 +46,7 @@ def remote(
             # Function logic here
             pass
 
-        # DeploymentRuntime execution (Load Balancer mode)
+        # LoadBalancerSls execution (Load Balancer mode)
         @remote(
             resource_config=my_resource_config,
             type="LB",
@@ -64,12 +62,12 @@ def remote(
     def decorator(func_or_class):
         if inspect.isclass(func_or_class):
             # Handle class decoration
-            if type == "LB":
-                # Use DeploymentRuntime (Load Balancer) mode
+            if isinstance(resource_config, LoadBalancerSlsResource):
+                # Use LoadBalancerSls (Load Balancer) mode
                 log.info(
-                    f"Using DeploymentRuntime mode for class {func_or_class.__name__}"
+                    f"Using LoadBalancerSls mode for class {func_or_class.__name__}"
                 )
-                return create_deployment_runtime_class(
+                return create_load_balancer_sls_class(
                     func_or_class,
                     resource_config,
                     dependencies,
@@ -87,9 +85,9 @@ def remote(
                 )
         else:
             # Handle function decoration (unchanged)
-            if type == "LB":
+            if isinstance(resource_config, LoadBalancerSlsResource):
                 raise ValueError(
-                    "DeploymentRuntime (type='LB') can only be used with classes, not functions"
+                    "LoadBalancerSlsResource can only be used with classes, not functions"
                 )
 
             @wraps(func_or_class)

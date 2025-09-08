@@ -16,13 +16,15 @@ from .core.resources import (  # noqa: E402
     CudaVersion,
     GpuGroup,
     LiveServerless,
+    LoadBalancerSlsResource,
     PodTemplate,
     ResourceManager,
+    ServerlessResource,
     ServerlessEndpoint,
     runpod,
     NetworkVolume,
 )
-from .deployment_runtime import DeploymentRuntime, endpoint  # noqa: E402
+from .core.resources.load_balancer_sls import LoadBalancerSls, endpoint  # noqa: E402
 
 
 __all__ = [
@@ -31,12 +33,14 @@ __all__ = [
     "CpuInstanceType",
     "CudaVersion",
     "GpuGroup",
-    "LiveServerless",
+    "LiveServerless", 
+    "LoadBalancerSlsResource",
     "PodTemplate",
     "ResourceManager",
+    "ServerlessResource",
     "ServerlessEndpoint",
     "runpod",
     "NetworkVolume",
-    "DeploymentRuntime",
+    "LoadBalancerSls",
     "endpoint",
 ]
