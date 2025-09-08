@@ -42,43 +42,7 @@ class LoadBalancerSlsExecutionError(LoadBalancerSlsError):
         super().__init__(f"Execution failed for {method_name}: {message}", details)
 
 
-class LoadBalancerSlsSerializationError(LoadBalancerSlsError):
-    """Raised when serialization/deserialization fails."""
-
-    def __init__(
-        self, operation: str, message: str, details: Optional[Dict[str, Any]] = None
-    ):
-        self.operation = operation
-        super().__init__(f"Serialization error during {operation}: {message}", details)
-
-
-class LoadBalancerSlsTimeoutError(LoadBalancerSlsError):
-    """Raised when an operation times out."""
-
-    def __init__(
-        self,
-        operation: str,
-        timeout_seconds: float,
-        details: Optional[Dict[str, Any]] = None,
-    ):
-        self.operation = operation
-        self.timeout_seconds = timeout_seconds
-        super().__init__(
-            f"Operation '{operation}' timed out after {timeout_seconds}s", details
-        )
-
-
 class LoadBalancerSlsConfigurationError(LoadBalancerSlsError):
     """Raised when configuration is invalid."""
 
     pass
-
-
-class LoadBalancerSlsValidationError(LoadBalancerSlsError):
-    """Raised when input validation fails."""
-
-    def __init__(
-        self, field: str, message: str, details: Optional[Dict[str, Any]] = None
-    ):
-        self.field = field
-        super().__init__(f"Validation error for {field}: {message}", details)

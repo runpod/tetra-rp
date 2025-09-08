@@ -16,7 +16,6 @@ from typing import List, Optional, Dict, Any
 from .endpoint import scan_endpoint_methods
 from tetra_rp.protos.remote_execution import FunctionRequest
 from .serialization import SerializationUtils
-from .config import LoadBalancerSlsConfig
 from .exceptions import (
     LoadBalancerSlsError,
     LoadBalancerSlsConnectionError,
@@ -47,7 +46,6 @@ class LoadBalancerSls:
         self,
         endpoint_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        config: Optional[LoadBalancerSlsConfig] = None,
         timeout: float = 300.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
@@ -61,28 +59,16 @@ class LoadBalancerSls:
                          e.g. "https://abc123-def456.rp.runpod.ai"
                          If None, will be loaded from config or environment
             api_key: RunPod API key for authentication (or set RUNPOD_API_KEY env var)
-            config: LoadBalancerSlsConfig instance for advanced configuration
             **kwargs: Additional configuration parameters (timeout, max_retries, etc.)
         """
         import os
 
-        # Simple initialization without complex config system for now
-        if config is None:
-            # Direct assignment like the original working version
-            self.endpoint_url = endpoint_url.rstrip("/") if endpoint_url else None
-            self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
-            self.timeout = timeout
-            self.max_retries = max_retries
-            self.retry_delay = retry_delay
-        else:
-            # Use provided config
-            self.config = config
-            self.config.setup_logging()
-            self.endpoint_url = str(self.config.endpoint_url)
-            self.api_key = self.config.api_key
-            self.timeout = self.config.timeout
-            self.max_retries = self.config.max_retries
-            self.retry_delay = self.config.retry_delay
+        # Simple initialization without complex config system
+        self.endpoint_url = endpoint_url.rstrip("/") if endpoint_url else None
+        self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
         if not self.endpoint_url:
             raise LoadBalancerSlsConfigurationError("endpoint_url is required")

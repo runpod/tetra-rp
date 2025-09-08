@@ -12,10 +12,7 @@ from .exceptions import (
     LoadBalancerSlsConnectionError,
     LoadBalancerSlsAuthenticationError,
     LoadBalancerSlsExecutionError,
-    LoadBalancerSlsSerializationError,
-    LoadBalancerSlsTimeoutError,
     LoadBalancerSlsConfigurationError,
-    LoadBalancerSlsValidationError,
 )
 
 __all__ = [
@@ -25,8 +22,5 @@ __all__ = [
     "LoadBalancerSlsConnectionError",
     "LoadBalancerSlsAuthenticationError",
     "LoadBalancerSlsExecutionError",
-    "LoadBalancerSlsSerializationError",
-    "LoadBalancerSlsTimeoutError",
     "LoadBalancerSlsConfigurationError",
-    "LoadBalancerSlsValidationError",
 ]
