@@ -33,7 +33,7 @@ __all__ = [
     "CpuInstanceType",
     "CudaVersion",
     "GpuGroup",
-    "LiveServerless", 
+    "LiveServerless",
     "LoadBalancerSlsResource",
     "PodTemplate",
     "ResourceManager",

@@ -28,7 +28,7 @@ __all__ = [
     "GpuTypeDetail",
     "JobOutput",
     "LiveServerless",
-    "LoadBalancerSlsResource", 
+    "LoadBalancerSlsResource",
     "ResourceManager",
     "ServerlessResource",
     "ServerlessEndpoint",

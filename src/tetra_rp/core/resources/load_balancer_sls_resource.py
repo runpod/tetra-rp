@@ -1,7 +1,7 @@
 """
 LoadBalancerSls Resource Configuration
 
-This module provides the LoadBalancerSlsResource class for configuring 
+This module provides the LoadBalancerSlsResource class for configuring
 Load Balancer serverless endpoints with dual HTTP/remote execution capabilities.
 """
 
@@ -21,7 +21,7 @@ TETRA_CPU_IMAGE = os.environ.get(
 class LoadBalancerSlsResource(ServerlessResource):
     """
     LoadBalancerSls resource configuration for dual-capability endpoints.
-    
+
     This class extends ServerlessResource to provide Load Balancer functionality
     that supports both HTTP endpoints (@endpoint methods) and remote execution.
     """
@@ -32,12 +32,12 @@ class LoadBalancerSlsResource(ServerlessResource):
         """Set default configuration for LoadBalancerSls resources."""
         # Always set type to LB for Load Balancer mode
         data["type"] = "LB"
-        
+
         # Set default image based on instanceIds presence
         data["imageName"] = (
             TETRA_CPU_IMAGE if data.get("instanceIds") else TETRA_GPU_IMAGE
         )
-        
+
         return data
 
     @property
