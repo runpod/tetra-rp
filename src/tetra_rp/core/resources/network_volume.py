@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from enum import Enum
 from typing import Optional
@@ -25,10 +26,11 @@ class DataCenter(str, Enum):
 
 class NetworkVolume(DeployableResource):
     """
-    NetworkVolume resource for creating and managing Runpod netowrk volumes.
+    NetworkVolume resource for creating and managing Runpod network volumes.
 
     This class handles the creation, deployment, and management of network volumes
-    that can be attached to serverless resources.
+    that can be attached to serverless resources. Supports idempotent deployment
+    where multiple volumes with the same name will reuse existing volumes.
 
     """
 
@@ -36,11 +38,20 @@ class NetworkVolume(DeployableResource):
     dataCenterId: DataCenter = Field(default=DataCenter.EU_RO_1, frozen=True)
 
     id: Optional[str] = Field(default=None)
-    name: Optional[str] = None
-    size: Optional[int] = Field(default=10, gt=0)  # Size in GB
+    name: str
+    size: Optional[int] = Field(default=100, gt=0)  # Size in GB
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}:{self.id}"
+
+    @property
+    def resource_id(self) -> str:
+        """Unique resource ID based on name and datacenter for idempotent behavior."""
+        # Use name + datacenter to ensure idempotence
+        resource_type = self.__class__.__name__
+        config_key = f"{self.name}:{self.dataCenterId.value}"
+        hash_obj = hashlib.md5(f"{resource_type}:{config_key}".encode())
+        return f"{resource_type}_{hash_obj.hexdigest()}"
 
     @field_serializer("dataCenterId")
     def serialize_data_center_id(self, value: Optional[DataCenter]) -> Optional[str]:
@@ -61,24 +72,57 @@ class NetworkVolume(DeployableResource):
             raise ValueError("Network volume ID is not set")
         return f"{CONSOLE_BASE_URL}/user/storage"
 
-    async def create_network_volume(self) -> str:
-        """
-        Creates a network volume using the provided configuration.
-        Returns the volume ID.
-        """
-        async with RunpodRestClient() as client:
-            # Create the network volume
-            payload = self.model_dump(exclude_none=True)
-            result = await client.create_network_volume(payload)
-
-        if volume := self.__class__(**result):
-            return volume
-
     def is_deployed(self) -> bool:
         """
         Checks if the network volume resource is deployed and available.
         """
         return self.id is not None
+
+    def _normalize_volumes_response(self, volumes_response) -> list:
+        """Normalize API response to list format."""
+        if isinstance(volumes_response, list):
+            return volumes_response
+        return volumes_response.get("networkVolumes", [])
+
+    def _find_matching_volume(self, existing_volumes: list) -> Optional[dict]:
+        """Find existing volume matching name and datacenter."""
+        for volume_data in existing_volumes:
+            if (
+                volume_data.get("name") == self.name
+                and volume_data.get("dataCenterId") == self.dataCenterId.value
+            ):
+                return volume_data
+        return None
+
+    async def _find_existing_volume(self, client) -> Optional["NetworkVolume"]:
+        """Check for existing volume with same name and datacenter."""
+        if not self.name:
+            return None
+
+        log.debug(f"Checking for existing network volume with name: {self.name}")
+        volumes_response = await client.list_network_volumes()
+        existing_volumes = self._normalize_volumes_response(volumes_response)
+
+        if matching_volume := self._find_matching_volume(existing_volumes):
+            log.info(
+                f"Found existing network volume: {matching_volume.get('id')} with name '{self.name}'"
+            )
+            # Update our instance with the existing volume's ID
+            self.id = matching_volume.get("id")
+            return self
+
+        return None
+
+    async def _create_new_volume(self, client) -> "NetworkVolume":
+        """Create a new network volume."""
+        log.debug(f"Creating new network volume: {self.name or 'unnamed'}")
+        payload = self.model_dump(exclude_none=True)
+        result = await client.create_network_volume(payload)
+
+        if volume := self.__class__(**result):
+            return volume
+
+        raise ValueError("Deployment failed, no volume was created.")
 
     async def deploy(self) -> "DeployableResource":
         """
@@ -91,16 +135,13 @@ class NetworkVolume(DeployableResource):
                 log.debug(f"{self} exists")
                 return self
 
-            # Create the network volume
             async with RunpodRestClient() as client:
-                # Create the network volume
-                payload = self.model_dump(exclude_none=True)
-                result = await client.create_network_volume(payload)
+                # Check for existing volume first
+                if existing_volume := await self._find_existing_volume(client):
+                    return existing_volume
 
-            if volume := self.__class__(**result):
-                return volume
-
-            raise ValueError("Deployment failed, no volume was created.")
+                # No existing volume found, create a new one
+                return await self._create_new_volume(client)
 
         except Exception as e:
             log.error(f"{self} failed to deploy: {e}")

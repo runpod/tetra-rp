@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.11.0](https://github.com/runpod/tetra-rp/compare/v0.10.0...v0.11.0) (2025-08-19)
+
+
+### Features
+
+* Add download acceleration for dependencies and HuggingFace models ([#83](https://github.com/runpod/tetra-rp/issues/83)) ([e47c9e3](https://github.com/runpod/tetra-rp/commit/e47c9e37030ead1831893dd70a1322421befbaad))
+
+## [0.10.0](https://github.com/runpod/tetra-rp/compare/v0.9.0...v0.10.0) (2025-08-07)
+
+
+### Features
+
+* Add idempotent network volume deployment ([#79](https://github.com/runpod/tetra-rp/issues/79)) ([289d333](https://github.com/runpod/tetra-rp/commit/289d333aaaf48e00bfdad2a5f6356bdfc6bcf286))
+
+## [0.9.0](https://github.com/runpod/tetra-rp/compare/v0.8.0...v0.9.0) (2025-08-04)
+
+
+### Features
+
+* AE-961 Add class serialization caching for remote execution ([#76](https://github.com/runpod/tetra-rp/issues/76)) ([95f9eed](https://github.com/runpod/tetra-rp/commit/95f9eed1810e6a623091348c326e2ea571c6dddf))
+
 ## [0.8.0](https://github.com/runpod/tetra-rp/compare/v0.7.0...v0.8.0) (2025-07-22)
 
 

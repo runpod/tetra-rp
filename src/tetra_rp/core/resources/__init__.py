@@ -13,7 +13,7 @@ from .serverless import (
     CudaVersion,
 )
 from .template import PodTemplate
-from .network_volume import NetworkVolume
+from .network_volume import NetworkVolume, DataCenter
 
 
 __all__ = [
@@ -22,6 +22,7 @@ __all__ = [
     "CpuInstanceType",
     "CpuServerlessEndpoint",
     "CudaVersion",
+    "DataCenter",
     "DeployableResource",
     "GpuGroup",
     "GpuType",
