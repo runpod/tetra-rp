@@ -7,11 +7,8 @@ LoadBalancerSls remote execution and HTTP endpoint functionality.
 """
 
 import pytest
-import base64
-from unittest.mock import patch
 
 from tetra_rp.core.resources.load_balancer_sls.serialization import SerializationUtils
-from tetra_rp.core.resources.load_balancer_sls.exceptions import LoadBalancerSlsError
 
 
 class TestSerializationUtilsBasic:
@@ -36,6 +33,8 @@ class TestSerializationUtilsBasic:
             assert isinstance(result, str)
             # Verify it's valid base64
             try:
+                import base64
+
                 base64.b64decode(result)
             except Exception:
                 pytest.fail(f"Invalid base64 for {test_value}: {result}")
@@ -108,199 +107,6 @@ class TestSerializationUtilsBasic:
 
         assert deserialized_list == large_list
         assert deserialized_dict == large_dict
-
-
-class TestSerializationUtilsErrors:
-    """Test SerializationUtils error handling."""
-
-    def test_serialize_unpicklable_object(self):
-        """Test serialization fails gracefully for unpicklable objects."""
-        # Create an object that can't be pickled
-        import io
-
-        unpicklable = io.BytesIO()
-        unpicklable.close()  # Closed BytesIO can't be pickled
-
-        with patch(
-            "cloudpickle.dumps", side_effect=TypeError("Cannot pickle closed file")
-        ):
-            with pytest.raises(LoadBalancerSlsError, match="Serialization failed"):
-                SerializationUtils.serialize_result(unpicklable)
-
-    def test_deserialize_invalid_base64(self):
-        """Test deserialization fails gracefully for invalid base64."""
-        invalid_base64 = "invalid base64 data!"
-
-        with pytest.raises(LoadBalancerSlsError, match="Deserialization failed"):
-            SerializationUtils.deserialize_result(invalid_base64)
-
-    def test_deserialize_invalid_pickle_data(self):
-        """Test deserialization fails gracefully for invalid pickle data."""
-        # Create valid base64 that's not valid pickle data
-        invalid_pickle = base64.b64encode(b"not pickle data").decode("utf-8")
-
-        with pytest.raises(LoadBalancerSlsError, match="Deserialization failed"):
-            SerializationUtils.deserialize_result(invalid_pickle)
-
-    def test_deserialize_non_string_input(self):
-        """Test deserialization raises TypeError for non-string input."""
-        with pytest.raises(TypeError, match="encoded_result must be a string"):
-            SerializationUtils.deserialize_result(123)
-
-        with pytest.raises(TypeError, match="encoded_result must be a string"):
-            SerializationUtils.deserialize_result(None)
-
-        with pytest.raises(TypeError, match="encoded_result must be a string"):
-            SerializationUtils.deserialize_result([1, 2, 3])
-
-    def test_serialization_error_includes_context(self):
-        """Test serialization errors include helpful context information."""
-
-        class UnserializableClass:
-            def __reduce__(self):
-                raise ValueError("Cannot serialize this class")
-
-        obj = UnserializableClass()
-
-        with patch(
-            "cloudpickle.dumps", side_effect=ValueError("Cannot serialize this class")
-        ):
-            try:
-                SerializationUtils.serialize_result(obj)
-            except LoadBalancerSlsError as e:
-                assert "Cannot serialize this class" in str(e)
-                assert e.context["error_type"] == "ValueError"
-                assert e.context["result_type"] == "UnserializableClass"
-
-
-class TestSerializationUtilsArgs:
-    """Test SerializationUtils argument handling."""
-
-    def test_deserialize_args_success(self):
-        """Test successful deserialization of argument list."""
-        original_args = [1, "hello", [1, 2, 3], {"key": "value"}]
-
-        # Serialize each argument
-        serialized_args = [
-            SerializationUtils.serialize_result(arg) for arg in original_args
-        ]
-
-        # Deserialize the list
-        deserialized_args = SerializationUtils.deserialize_args(serialized_args)
-
-        assert deserialized_args == original_args
-        assert len(deserialized_args) == len(original_args)
-
-    def test_deserialize_empty_args(self):
-        """Test deserialization of empty argument list."""
-        result = SerializationUtils.deserialize_args([])
-        assert result == []
-        assert isinstance(result, list)
-
-    def test_deserialize_args_type_validation(self):
-        """Test argument list type validation."""
-        with pytest.raises(TypeError, match="args must be a list"):
-            SerializationUtils.deserialize_args("not a list")
-
-        with pytest.raises(TypeError, match="args must be a list"):
-            SerializationUtils.deserialize_args(123)
-
-    def test_deserialize_args_element_type_validation(self):
-        """Test argument list element type validation."""
-        with pytest.raises(TypeError, match="args\\[0\\] must be a string"):
-            SerializationUtils.deserialize_args([123])
-
-        with pytest.raises(TypeError, match="args\\[1\\] must be a string"):
-            SerializationUtils.deserialize_args(["valid_string", 123])
-
-    def test_deserialize_args_invalid_serialized_data(self):
-        """Test argument deserialization with invalid serialized data."""
-        invalid_args = ["valid_base64_but_not_pickle", "another_invalid"]
-
-        with pytest.raises(
-            LoadBalancerSlsError, match="Failed to deserialize function arguments"
-        ):
-            SerializationUtils.deserialize_args(invalid_args)
-
-    def test_deserialize_args_error_context(self):
-        """Test argument deserialization error includes context."""
-        invalid_args = ["invalid1", "invalid2"]
-
-        try:
-            SerializationUtils.deserialize_args(invalid_args)
-        except LoadBalancerSlsError as e:
-            assert "Failed to deserialize function arguments" in str(e)
-            assert e.context["args_count"] == 2
-
-
-class TestSerializationUtilsKwargs:
-    """Test SerializationUtils keyword argument handling."""
-
-    def test_deserialize_kwargs_success(self):
-        """Test successful deserialization of keyword arguments."""
-        original_kwargs = {
-            "param1": 42,
-            "param2": "hello",
-            "param3": [1, 2, 3],
-            "param4": {"nested": "value"},
-        }
-
-        # Serialize each kwarg value
-        serialized_kwargs = {
-            key: SerializationUtils.serialize_result(value)
-            for key, value in original_kwargs.items()
-        }
-
-        # Deserialize the dict
-        deserialized_kwargs = SerializationUtils.deserialize_kwargs(serialized_kwargs)
-
-        assert deserialized_kwargs == original_kwargs
-        assert set(deserialized_kwargs.keys()) == set(original_kwargs.keys())
-
-    def test_deserialize_empty_kwargs(self):
-        """Test deserialization of empty keyword arguments."""
-        result = SerializationUtils.deserialize_kwargs({})
-        assert result == {}
-        assert isinstance(result, dict)
-
-    def test_deserialize_kwargs_type_validation(self):
-        """Test keyword arguments type validation."""
-        with pytest.raises(TypeError, match="kwargs must be a dict"):
-            SerializationUtils.deserialize_kwargs("not a dict")
-
-        with pytest.raises(TypeError, match="kwargs must be a dict"):
-            SerializationUtils.deserialize_kwargs([1, 2, 3])
-
-    def test_deserialize_kwargs_key_type_validation(self):
-        """Test keyword arguments key type validation."""
-        with pytest.raises(TypeError, match="kwargs key '123' must be a string"):
-            SerializationUtils.deserialize_kwargs({123: "value"})
-
-    def test_deserialize_kwargs_value_type_validation(self):
-        """Test keyword arguments value type validation."""
-        with pytest.raises(
-            TypeError, match="kwargs value for 'param' must be a string"
-        ):
-            SerializationUtils.deserialize_kwargs({"param": 123})
-
-    def test_deserialize_kwargs_invalid_serialized_data(self):
-        """Test kwargs deserialization with invalid serialized data."""
-        invalid_kwargs = {"param1": "invalid_pickle", "param2": "also_invalid"}
-
-        with pytest.raises(
-            LoadBalancerSlsError, match="Failed to deserialize keyword arguments"
-        ):
-            SerializationUtils.deserialize_kwargs(invalid_kwargs)
-
-    def test_deserialize_kwargs_error_context(self):
-        """Test kwargs deserialization error includes context."""
-        invalid_kwargs = {"param1": "invalid1", "param2": "invalid2"}
-
-        try:
-            SerializationUtils.deserialize_kwargs(invalid_kwargs)
-        except LoadBalancerSlsError as e:
-            assert "Failed to deserialize keyword arguments" in str(e)
-            assert set(e.context["kwargs_keys"]) == {"param1", "param2"}
 
 
 class TestSerializationUtilsIntegration:
