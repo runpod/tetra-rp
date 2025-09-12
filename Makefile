@@ -15,6 +15,10 @@ help: # Show this help menu
 dev: # Install development dependencies
 	uv sync --all-groups
 
+update:
+	uv sync --upgrade --all-groups
+	uv lock --upgrade
+
 proto: # TODO: auto-generate proto files
 	@echo "TODO"
 

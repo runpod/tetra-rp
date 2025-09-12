@@ -202,6 +202,8 @@ def create_remote_class(
     resource_config: ServerlessResource,
     dependencies: Optional[List[str]],
     system_dependencies: Optional[List[str]],
+    accelerate_downloads: bool,
+    hf_models_to_cache: Optional[List[str]],
     extra: dict,
 ):
     """
@@ -219,6 +221,8 @@ def create_remote_class(
             self._resource_config = resource_config
             self._dependencies = dependencies or []
             self._system_dependencies = system_dependencies or []
+            self._accelerate_downloads = accelerate_downloads
+            self._hf_models_to_cache = hf_models_to_cache
             self._extra = extra
             self._constructor_args = args
             self._constructor_kwargs = kwargs
@@ -302,6 +306,8 @@ def create_remote_class(
                     constructor_kwargs=constructor_kwargs,
                     dependencies=self._dependencies,
                     system_dependencies=self._system_dependencies,
+                    accelerate_downloads=self._accelerate_downloads,
+                    hf_models_to_cache=self._hf_models_to_cache,
                     instance_id=self._instance_id,
                     create_new_instance=not hasattr(
                         self, "_stub"
