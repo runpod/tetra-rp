@@ -2,6 +2,7 @@ import logging
 from functools import singledispatch
 
 from ..core.resources import (
+    CpuLiveServerless,
     CpuServerlessEndpoint,
     LiveServerless,
     ServerlessEndpoint,
@@ -20,8 +21,8 @@ def stub_resource(resource, **extra):
     return fallback
 
 
-@stub_resource.register(LiveServerless)
-def _(resource, **extra):
+def _create_live_serverless_stub(resource, **extra):
+    """Create a live serverless stub for both LiveServerless and CpuLiveServerless."""
     stub = LiveServerlessStub(resource)
 
     # Function execution
@@ -58,6 +59,16 @@ def _(resource, **extra):
     stubbed_resource.execute_class_method = execute_class_method
 
     return stubbed_resource
+
+
+@stub_resource.register(LiveServerless)
+def _(resource, **extra):
+    return _create_live_serverless_stub(resource, **extra)
+
+
+@stub_resource.register(CpuLiveServerless)
+def _(resource, **extra):
+    return _create_live_serverless_stub(resource, **extra)
 
 
 @stub_resource.register(ServerlessEndpoint)
