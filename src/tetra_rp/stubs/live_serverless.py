@@ -4,6 +4,7 @@ import inspect
 import textwrap
 import hashlib
 import traceback
+import threading
 import cloudpickle
 import logging
 from ..core.resources import LiveServerless
@@ -16,8 +17,9 @@ from ..protos.remote_execution import (
 log = logging.getLogger(__name__)
 
 
-# global in memory cache, TODO: use a more robust cache in future
+# Global in-memory cache with thread safety
 _SERIALIZED_FUNCTION_CACHE = {}
+_function_cache_lock = threading.RLock()
 
 
 def get_function_source(func):
@@ -80,12 +82,14 @@ class LiveServerlessStub(RemoteExecutorStub):
             "hf_models_to_cache": hf_models_to_cache,
         }
 
-        # check if the function is already cached
-        if src_hash not in _SERIALIZED_FUNCTION_CACHE:
-            # Cache the serialized function
-            _SERIALIZED_FUNCTION_CACHE[src_hash] = source
+        # Thread-safe cache access
+        with _function_cache_lock:
+            # check if the function is already cached
+            if src_hash not in _SERIALIZED_FUNCTION_CACHE:
+                # Cache the serialized function
+                _SERIALIZED_FUNCTION_CACHE[src_hash] = source
 
-        request["function_code"] = _SERIALIZED_FUNCTION_CACHE[src_hash]
+            request["function_code"] = _SERIALIZED_FUNCTION_CACHE[src_hash]
 
         # Serialize arguments using cloudpickle
         if args:

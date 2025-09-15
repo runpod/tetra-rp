@@ -9,7 +9,6 @@ from typing import Any, Dict
 from tetra_rp.core.resources.serverless import (
     ServerlessResource,
     ServerlessEndpoint,
-    CpuServerlessEndpoint,
     ServerlessScalerType,
     CudaVersion,
     JobOutput,
@@ -18,6 +17,7 @@ from tetra_rp.core.resources.serverless import (
     ServerlessHealth,
     Status,
 )
+from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
 from tetra_rp.core.resources.gpu import GpuGroup
 from tetra_rp.core.resources.cpu import CpuInstanceType
 from tetra_rp.core.resources.network_volume import NetworkVolume, DataCenter
@@ -191,8 +191,9 @@ class TestServerlessResourceValidation:
 
     def test_instance_ids_serialization(self):
         """Test CpuInstanceType serialization."""
-        serverless = ServerlessResource(
+        serverless = CpuServerlessEndpoint(
             name="test",
+            imageName="test/image:v1",
             instanceIds=[CpuInstanceType.CPU3G_2_8, CpuInstanceType.CPU3G_4_16],
         )
 
@@ -328,8 +329,9 @@ class TestServerlessResourceSyncFields:
 
     def test_sync_input_fields_cpu_mode(self):
         """Test sync_input_fields in CPU mode."""
-        serverless = ServerlessResource(
+        serverless = CpuServerlessEndpoint(
             name="test",
+            imageName="test/image:v1",
             instanceIds=[CpuInstanceType.CPU3G_2_8],
         )
 
