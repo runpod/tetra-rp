@@ -326,7 +326,7 @@ class ServerlessResource(DeployableResource):
 
         try:
             async with RunpodGraphQLClient() as client:
-                exclude = {f: ... for f in self._input_only} | {"template": {"resource_hash"}} # TODO: maybe include this as a class attr
+                exclude = {f: ... for f in self._input_only} | {"template": {"resource_hash", "fields_to_update", "volumeInGb", "id"}} # TODO: maybe include this as a class attr
                 # we need to include the id here so we update the existing endpoint
                 del exclude["id"]
                 payload = self.model_dump(exclude=exclude, exclude_none=True)
