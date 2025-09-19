@@ -124,6 +124,10 @@ class NetworkVolume(DeployableResource):
 
         raise ValueError("Deployment failed, no volume was created.")
 
+    async def update(self) -> "DeployableResource":
+        # TODO: impl
+        return self
+
     async def deploy(self) -> "DeployableResource":
         """
         Deploys the network volume resource using the provided configuration.
