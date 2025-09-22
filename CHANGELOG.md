@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.0](https://github.com/runpod/tetra-rp/compare/v0.11.0...v0.12.0) (2025-09-15)
+
+
+### Features
+
+* better clarity on provisioning CPU Serverless Endpoints ([#88](https://github.com/runpod/tetra-rp/issues/88)) ([efec224](https://github.com/runpod/tetra-rp/commit/efec224029e8c03133f8f4840b38308f141743ce))
+* thread-safe resource provisions and remote executions ([#91](https://github.com/runpod/tetra-rp/issues/91)) ([440b36f](https://github.com/runpod/tetra-rp/commit/440b36f6e15bffc68f1f77589d7b8fa4d6fc2025))
+
+
+### Bug Fixes
+
+* download accelerator changes broken regular endpoint invocations ([#86](https://github.com/runpod/tetra-rp/issues/86)) ([759f996](https://github.com/runpod/tetra-rp/commit/759f996208ebb5f052cda5e8b52b8c3b7a542b26))
+
 ## [0.11.0](https://github.com/runpod/tetra-rp/compare/v0.10.0...v0.11.0) (2025-08-19)
 
 
