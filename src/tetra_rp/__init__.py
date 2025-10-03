@@ -18,12 +18,15 @@ from .core.resources import (  # noqa: E402
     DataCenter,
     GpuGroup,
     LiveServerless,
+    LoadBalancerSlsResource,
     PodTemplate,
     ResourceManager,
+    ServerlessResource,
     ServerlessEndpoint,
     runpod,
     NetworkVolume,
 )
+from .core.resources.load_balancer_sls import LoadBalancerSls, endpoint  # noqa: E402
 
 
 __all__ = [
@@ -35,9 +38,13 @@ __all__ = [
     "DataCenter",
     "GpuGroup",
     "LiveServerless",
+    "LoadBalancerSlsResource",
     "PodTemplate",
     "ResourceManager",
+    "ServerlessResource",
     "ServerlessEndpoint",
     "runpod",
     "NetworkVolume",
+    "LoadBalancerSls",
+    "endpoint",
 ]
