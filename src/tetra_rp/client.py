@@ -16,6 +16,7 @@ def remote(
     system_dependencies: Optional[List[str]] = None,
     accelerate_downloads: bool = True,
     hf_models_to_cache: Optional[List[str]] = None,
+    mode: str = "dev",
     **extra,
 ):
     """
@@ -35,6 +36,8 @@ def remote(
             Defaults to True.
         hf_models_to_cache (List[str], optional): List of HuggingFace model IDs to pre-cache using
             download acceleration. Defaults to None.
+        mode (str, optional): Execution mode - "dev" (send code via HTTP) or "prod" (bake code into Docker image).
+            Defaults to "dev".
         extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
 
     Returns:
@@ -47,7 +50,8 @@ def remote(
             resource_config=my_resource_config,
             dependencies=["numpy", "pandas"],
             accelerate_downloads=True,
-            hf_models_to_cache=["gpt2", "bert-base-uncased"]
+            hf_models_to_cache=["gpt2", "bert-base-uncased"],
+            mode="prod"
         )
         async def my_function(data):
             # Function logic here
@@ -56,6 +60,16 @@ def remote(
     """
 
     def decorator(func_or_class):
+        # If prod mode, trigger automatic build and deploy
+        if mode == "prod":
+            from .build import build_production_image
+
+            build_production_image(
+                func_or_class,
+                resource_config,
+                dependencies,
+                system_dependencies,
+            )
         if inspect.isclass(func_or_class):
             # Handle class decoration
             return create_remote_class(

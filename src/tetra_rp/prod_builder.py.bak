@@ -1,0 +1,278 @@
+"""
+Automatic production image builder for @remote decorated code.
+
+When mode="prod", this module:
+1. Extracts the decorated function/class code
+2. Generates a Dockerfile extending the worker base image
+3. Builds the Docker image (for linux/amd64 platform)
+4. Pushes to Docker registry
+5. Updates ServerlessResource to use the new image with TETRA_BAKED_MODE=true
+6. Deploys to RunPod when function is first called
+"""
+
+import inspect
+import json
+import logging
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Optional, List
+import hashlib
+
+log = logging.getLogger(__name__)
+
+
+def get_docker_registry() -> Optional[str]:
+    """
+    Get Docker registry prefix from environment variable.
+
+    Returns registry prefix like 'myregistry/' or 'docker.io/myuser/'
+    If not set, returns None (images stay local).
+
+    Set TETRA_DOCKER_REGISTRY env var to enable automatic push.
+    Examples:
+        TETRA_DOCKER_REGISTRY=docker.io/myuser
+        TETRA_DOCKER_REGISTRY=ghcr.io/myorg
+    """
+    registry = os.getenv('TETRA_DOCKER_REGISTRY')
+    if registry:
+        # Ensure it ends with /
+        return registry if registry.endswith('/') else f"{registry}/"
+    return None
+
+
+def build_and_deploy_prod_image(
+    func_or_class,
+    resource_config,
+    dependencies: Optional[List[str]],
+    system_dependencies: Optional[List[str]],
+):
+    """
+    Build production Docker image and configure resource to use it.
+
+    This is called automatically when mode="prod" is set on @remote decorator.
+    """
+    callable_name = func_or_class.__name__
+
+    log.info(f"🔨 Building production image for {callable_name}")
+
+    # Get worker base image from resource config
+    worker_base_image = getattr(resource_config, 'imageName', 'mwiki/tetra-worker:v1')
+
+    # Extract source code
+    source_code = inspect.getsource(func_or_class)
+    callable_type = "class" if inspect.isclass(func_or_class) else "function"
+
+    # Generate image name and tag from callable name + code hash
+    code_hash = hashlib.sha256(source_code.encode()).hexdigest()[:8]
+    image_name = f"{callable_name.lower().replace('_', '-')}"
+    image_tag = f"prod-{code_hash}"
+
+    # Get registry prefix (if configured)
+    registry = get_docker_registry()
+
+    # Local image name (for building)
+    local_image = f"{image_name}:{image_tag}"
+
+    # Full image name with registry (for deployment)
+    if registry:
+        full_image = f"{registry}{image_name}:{image_tag}"
+    else:
+        full_image = local_image
+
+    log.info(f"   Local image: {local_image}")
+    if registry:
+        log.info(f"   Registry image: {full_image}")
+    log.info(f"   Base: {worker_base_image}")
+
+    # Create temporary build directory
+    with tempfile.TemporaryDirectory() as tmpdir:
+        build_dir = Path(tmpdir)
+        baked_code_dir = build_dir / "baked_code"
+        baked_code_dir.mkdir()
+
+        # Write the callable code to a module file
+        module_file = baked_code_dir / f"{callable_name}.py"
+
+        # Remove @remote decorator from source code (simple approach)
+        cleaned_code = remove_remote_decorator(source_code)
+
+        # Add necessary imports at the top if not present
+        if "import" not in cleaned_code[:100]:
+            cleaned_code = "# Auto-generated baked code\n" + cleaned_code
+
+        module_file.write_text(cleaned_code)
+
+        # Create __init__.py
+        init_file = baked_code_dir / "__init__.py"
+        init_file.write_text("")
+
+        # Create registry.json
+        registry = {
+            callable_name: {
+                "module": f"baked_code.{callable_name}",
+                "type": callable_type,
+            }
+        }
+        registry_file = baked_code_dir / "registry.json"
+        registry_file.write_text(json.dumps(registry, indent=2))
+
+        # Generate Dockerfile
+        dockerfile = generate_dockerfile(
+            worker_base_image,
+            dependencies or [],
+            system_dependencies or [],
+            callable_name,
+        )
+        dockerfile_path = build_dir / "Dockerfile"
+        dockerfile_path.write_text(dockerfile)
+
+        log.info(f"   Build dir: {build_dir}")
+
+        # Build Docker image for linux/amd64 platform
+        log.info(f"   Building Docker image (linux/amd64)...")
+        try:
+            # Build with local tag first
+            subprocess.run(
+                [
+                    "docker", "build",
+                    "--platform", "linux/amd64",
+                    "-t", local_image,
+                    "-f", "Dockerfile",
+                    "."
+                ],
+                cwd=build_dir,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            log.info(f"   ✅ Image built successfully")
+        except subprocess.CalledProcessError as e:
+            log.error(f"   ❌ Docker build failed:")
+            log.error(e.stderr)
+            raise RuntimeError(f"Failed to build production image: {e.stderr}")
+
+    # Check if push should be skipped (for fast local testing)
+    skip_push = os.getenv('TETRA_SKIP_PUSH', 'false').lower() in ('true', '1', 'yes')
+
+    # Push to registry if configured
+    if registry and not skip_push:
+        log.info(f"   📤 Pushing to registry: {full_image}")
+        log.info(f"      This may take several minutes for large base images...")
+        try:
+            # Tag for registry
+            subprocess.run(
+                ["docker", "tag", local_image, full_image],
+                check=True,
+            )
+
+            # Push to registry (show progress)
+            subprocess.run(
+                ["docker", "push", full_image],
+                check=True,
+            )
+            log.info(f"   ✅ Image pushed successfully")
+        except subprocess.CalledProcessError as e:
+            log.error(f"   ❌ Docker push failed")
+            raise RuntimeError(f"Failed to push production image")
+    elif registry and skip_push:
+        log.warning(f"   ⚠️  TETRA_SKIP_PUSH=true - skipping push to registry")
+        log.warning(f"      Image {full_image} is LOCAL ONLY")
+        log.warning(f"      RunPod deployment will fail unless you manually push")
+    else:
+        log.warning(f"   ⚠️  No registry configured - image is local only")
+        log.warning(f"   Set TETRA_DOCKER_REGISTRY env var to enable automatic push")
+        log.warning(f"   Example: export TETRA_DOCKER_REGISTRY=docker.io/myuser")
+
+    # Update resource_config to use the new image
+    resource_config.imageName = full_image
+
+    # Set TETRA_BAKED_MODE environment variable
+    if not hasattr(resource_config, 'env') or resource_config.env is None:
+        resource_config.env = {}
+    resource_config.env['TETRA_BAKED_MODE'] = 'true'
+
+    log.info(f"   ✅ Resource configured to use production image")
+    log.info(f"      Image: {full_image}")
+    log.info(f"      TETRA_BAKED_MODE=true")
+
+
+def remove_remote_decorator(source_code: str) -> str:
+    """
+    Remove @remote decorator from source code.
+
+    Simple line-based approach - removes lines starting with @remote.
+    """
+    lines = source_code.splitlines()
+    cleaned_lines = []
+    in_decorator = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Start of @remote decorator
+        if stripped.startswith('@remote'):
+            in_decorator = True
+            # Check if it's a multi-line decorator
+            if '(' in stripped and ')' not in stripped:
+                continue  # Multi-line, skip this line
+            elif '(' in stripped and ')' in stripped:
+                # Single-line decorator, skip it
+                continue
+            else:
+                # Just @remote without parens
+                continue
+
+        # Continuation of multi-line decorator
+        if in_decorator:
+            if ')' in stripped:
+                in_decorator = False
+            continue
+
+        cleaned_lines.append(line)
+
+    return '\n'.join(cleaned_lines)
+
+
+def generate_dockerfile(
+    worker_base_image: str,
+    dependencies: List[str],
+    system_dependencies: List[str],
+    callable_name: str,
+) -> str:
+    """Generate Dockerfile for production image."""
+
+    dockerfile = f"""# Production image for {callable_name}
+# Auto-generated by Tetra
+
+FROM {worker_base_image}
+
+WORKDIR /app
+
+"""
+
+    # Add system dependencies
+    if system_dependencies:
+        dockerfile += "# Install system dependencies\n"
+        dockerfile += "RUN apt-get update && apt-get install -y \\\n"
+        for dep in system_dependencies:
+            dockerfile += f"    {dep} \\\n"
+        dockerfile += "    && rm -rf /var/lib/apt/lists/*\n\n"
+
+    # Add Python dependencies
+    if dependencies:
+        dockerfile += "# Install Python dependencies\n"
+        for dep in dependencies:
+            dockerfile += f"RUN uv pip install {dep}\n"
+        dockerfile += "\n"
+
+    # Copy baked code
+    dockerfile += """# Copy baked code
+COPY baked_code/ /app/baked_code/
+
+# Enable baked mode
+ENV TETRA_BAKED_MODE=true
+"""
+
+    return dockerfile

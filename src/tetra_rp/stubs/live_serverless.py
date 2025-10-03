@@ -72,7 +72,13 @@ class LiveServerlessStub(RemoteExecutorStub):
         *args,
         **kwargs,
     ):
-        source, src_hash = get_function_source(func)
+        # Check if we're in baked mode (production)
+        is_baked = (
+            hasattr(self.server, "env")
+            and self.server.env is not None
+            and self.server.env.get("TETRA_BAKED_MODE", "").lower()
+            in ("true", "1", "yes")
+        )
 
         request = {
             "function_name": func.__name__,
@@ -80,16 +86,23 @@ class LiveServerlessStub(RemoteExecutorStub):
             "system_dependencies": system_dependencies,
             "accelerate_downloads": accelerate_downloads,
             "hf_models_to_cache": hf_models_to_cache,
+            "baked": is_baked,
         }
 
-        # Thread-safe cache access
-        with _function_cache_lock:
-            # check if the function is already cached
-            if src_hash not in _SERIALIZED_FUNCTION_CACHE:
-                # Cache the serialized function
-                _SERIALIZED_FUNCTION_CACHE[src_hash] = source
+        # Only send code if NOT in baked mode
+        if not is_baked:
+            source, src_hash = get_function_source(func)
 
-            request["function_code"] = _SERIALIZED_FUNCTION_CACHE[src_hash]
+            # Thread-safe cache access
+            with _function_cache_lock:
+                # check if the function is already cached
+                if src_hash not in _SERIALIZED_FUNCTION_CACHE:
+                    # Cache the serialized function
+                    _SERIALIZED_FUNCTION_CACHE[src_hash] = source
+
+                request["function_code"] = _SERIALIZED_FUNCTION_CACHE[src_hash]
+        else:
+            log.info(f"Using baked mode for function: {func.__name__}")
 
         # Serialize arguments using cloudpickle
         if args:

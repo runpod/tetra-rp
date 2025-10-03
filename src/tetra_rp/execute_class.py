@@ -295,10 +295,19 @@ def create_remote_class(
                         for k, v in self._constructor_kwargs.items()
                     }
 
+                # Check if we're in baked mode
+                is_baked = (
+                    hasattr(self._stub, "server")
+                    and hasattr(self._stub.server, "env")
+                    and self._stub.server.env is not None
+                    and self._stub.server.env.get("TETRA_BAKED_MODE", "").lower()
+                    in ("true", "1", "yes")
+                )
+
                 request = FunctionRequest(
                     execution_type="class",
                     class_name=self._class_type.__name__,
-                    class_code=cached_data["class_code"],
+                    class_code=None if is_baked else cached_data["class_code"],
                     method_name=name,
                     args=method_args,
                     kwargs=method_kwargs,
@@ -312,6 +321,7 @@ def create_remote_class(
                     create_new_instance=not hasattr(
                         self, "_stub"
                     ),  # Create new only on first call
+                    baked=is_baked,
                 )
 
                 # Execute via stub
