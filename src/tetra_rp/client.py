@@ -15,7 +15,6 @@ def remote(
     dependencies: Optional[List[str]] = None,
     system_dependencies: Optional[List[str]] = None,
     accelerate_downloads: bool = True,
-    hf_models_to_cache: Optional[List[str]] = None,
     **extra,
 ):
     """
@@ -33,8 +32,6 @@ def remote(
             environment before executing the function. Defaults to None.
         accelerate_downloads (bool, optional): Enable download acceleration for dependencies and models.
             Defaults to True.
-        hf_models_to_cache (List[str], optional): List of HuggingFace model IDs to pre-cache using
-            download acceleration. Defaults to None.
         extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
 
     Returns:
@@ -47,7 +44,6 @@ def remote(
             resource_config=my_resource_config,
             dependencies=["numpy", "pandas"],
             accelerate_downloads=True,
-            hf_models_to_cache=["gpt2", "bert-base-uncased"]
         )
         async def my_function(data):
             # Function logic here
@@ -64,7 +60,6 @@ def remote(
                 dependencies,
                 system_dependencies,
                 accelerate_downloads,
-                hf_models_to_cache,
                 extra,
             )
         else:
@@ -82,7 +77,6 @@ def remote(
                     dependencies,
                     system_dependencies,
                     accelerate_downloads,
-                    hf_models_to_cache,
                     *args,
                     **kwargs,
                 )
