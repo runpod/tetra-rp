@@ -342,6 +342,7 @@ if __name__ == "__main__":
 ```python
 import asyncio
 from tetra_rp import remote, LiveServerless, GpuGroup, PodTemplate
+import base64
 
 # Advanced GPU configuration with consolidated template overrides
 sd_config = LiveServerless(
