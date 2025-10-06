@@ -41,7 +41,7 @@ test = [
 ]
 
 [project.scripts]
-tetra = "tetra_rp.cli.main:app"
+flash = "tetra_rp.cli.main:app"
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]

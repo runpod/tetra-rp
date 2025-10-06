@@ -1,4 +1,4 @@
-"""Main CLI entry point for Tetra."""
+"""Main CLI entry point for Flash CLI."""
 
 import typer
 from importlib import metadata
@@ -23,28 +23,28 @@ def get_version() -> str:
 
 console = Console()
 
-# command: tetra
+# command: flash
 app = typer.Typer(
-    name="tetra",
-    help="Tetra CLI - Distributed inference and serving framework",
+    name="flash",
+    help="Flash CLI - Distributed inference and serving framework",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
 
-# command: tetra <command>
+# command: flash <command>
 app.command("init")(init.init_command)
 app.command("run")(run.run_command)
 app.command("report")(resource.report_command)
 app.command("clean")(resource.clean_command)
 
-# command: tetra deploy
+# command: flash deploy
 deploy_app = typer.Typer(
     name="deploy",
     help="Deployment environment management commands",
     no_args_is_help=True,
 )
 
-# command: tetra deploy *
+# command: flash deploy *
 deploy_app.command("list")(deploy.list_command)
 deploy_app.command("new")(deploy.new_command)
 deploy_app.command("send")(deploy.send_command)
@@ -60,17 +60,17 @@ def main(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", "-v", help="Show version"),
 ):
-    """Tetra CLI - Distributed inference and serving framework."""
+    """Flash CLI - Distributed inference and serving framework."""
     if version:
-        console.print(f"Tetra CLI v{get_version()}")
+        console.print(f"Flash CLI v{get_version()}")
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
         console.print(
             Panel(
-                "[bold blue]Tetra CLI[/bold blue]\n\n"
+                "[bold blue]Flash CLI[/bold blue]\n\n"
                 "A framework for distributed inference and serving of ML models.\n\n"
-                "Use [bold]tetra --help[/bold] to see available commands.",
+                "Use [bold]flash --help[/bold] to see available commands.",
                 title="Welcome",
                 expand=False,
             )
