@@ -81,6 +81,6 @@ def init_command(
 
     steps_table.add_row("1.", "Edit .env with your RunPod API key")
     steps_table.add_row("2.", "Install dependencies: pip install -r requirements.txt")
-    steps_table.add_row("3.", "Run your project: runpod remote run")
+    steps_table.add_row("3.", "Run your project: flash run")
 
     console.print(steps_table)
