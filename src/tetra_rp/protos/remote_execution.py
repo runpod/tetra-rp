@@ -81,10 +81,6 @@ class FunctionRequest(BaseModel):
         default=True,
         description="Enable download acceleration for dependencies and models",
     )
-    hf_models_to_cache: Optional[List[str]] = Field(
-        default=None,
-        description="List of HuggingFace model IDs to pre-cache using acceleration",
-    )
 
     @model_validator(mode="after")
     def validate_execution_requirements(self) -> "FunctionRequest":

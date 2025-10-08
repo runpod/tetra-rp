@@ -68,7 +68,6 @@ class LiveServerlessStub(RemoteExecutorStub):
         dependencies,
         system_dependencies,
         accelerate_downloads,
-        hf_models_to_cache,
         *args,
         **kwargs,
     ):
@@ -79,7 +78,6 @@ class LiveServerlessStub(RemoteExecutorStub):
             "dependencies": dependencies,
             "system_dependencies": system_dependencies,
             "accelerate_downloads": accelerate_downloads,
-            "hf_models_to_cache": hf_models_to_cache,
         }
 
         # Thread-safe cache access

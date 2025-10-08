@@ -244,7 +244,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -266,7 +265,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -295,7 +293,6 @@ class TestCreateRemoteClass:
             None,  # dependencies
             None,  # system_dependencies
             True,  # accelerate_downloads
-            None,  # hf_models_to_cache
             self.extra,
         )
 
@@ -319,7 +316,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -356,7 +352,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -398,7 +393,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -430,7 +424,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -496,7 +489,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -536,7 +528,7 @@ class TestCreateRemoteClass:
                 return "simple"
 
         RemoteWrapper = create_remote_class(
-            TestClass, self.mock_resource_config, [], [], True, None, {}
+            TestClass, self.mock_resource_config, [], [], True, {}
         )
 
         instance = RemoteWrapper()
@@ -579,7 +571,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -605,7 +596,6 @@ class TestCreateRemoteClass:
             self.dependencies,
             self.system_dependencies,
             True,
-            None,
             self.extra,
         )
 
@@ -652,7 +642,7 @@ class TestExecuteClassIntegration:
         )
 
         RemoteCalculator = create_remote_class(
-            CalculatorClass, resource_config, ["numpy"], [], True, None, {"timeout": 60}
+            CalculatorClass, resource_config, ["numpy"], [], True, {"timeout": 60}
         )
 
         calculator = RemoteCalculator(10)
@@ -703,7 +693,6 @@ class TestExecuteClassIntegration:
             [],  # dependencies
             [],  # system_dependencies
             True,  # accelerate_downloads
-            None,  # hf_models_to_cache
             {},  # extra
         )
 
