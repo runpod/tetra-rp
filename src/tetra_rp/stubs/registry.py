@@ -31,7 +31,6 @@ def _create_live_serverless_stub(resource, **extra):
         dependencies,
         system_dependencies,
         accelerate_downloads,
-        hf_models_to_cache,
         *args,
         **kwargs,
     ) -> dict:
@@ -43,7 +42,6 @@ def _create_live_serverless_stub(resource, **extra):
             dependencies,
             system_dependencies,
             accelerate_downloads,
-            hf_models_to_cache,
             *args,
             **kwargs,
         )
@@ -78,7 +76,6 @@ def _(resource, **extra):
         dependencies,
         system_dependencies,
         accelerate_downloads,
-        hf_models_to_cache,
         *args,
         **kwargs,
     ) -> dict:
@@ -103,7 +100,6 @@ def _(resource, **extra):
         dependencies,
         system_dependencies,
         accelerate_downloads,
-        hf_models_to_cache,
         *args,
         **kwargs,
     ) -> dict:

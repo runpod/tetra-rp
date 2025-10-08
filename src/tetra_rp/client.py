@@ -15,7 +15,6 @@ def remote(
     dependencies: Optional[List[str]] = None,
     system_dependencies: Optional[List[str]] = None,
     accelerate_downloads: bool = True,
-    hf_models_to_cache: Optional[List[str]] = None,
     mode: str = "dev",
     **extra,
 ):
@@ -78,7 +77,6 @@ def remote(
                 dependencies,
                 system_dependencies,
                 accelerate_downloads,
-                hf_models_to_cache,
                 extra,
             )
         else:
@@ -96,7 +94,6 @@ def remote(
                     dependencies,
                     system_dependencies,
                     accelerate_downloads,
-                    hf_models_to_cache,
                     *args,
                     **kwargs,
                 )
