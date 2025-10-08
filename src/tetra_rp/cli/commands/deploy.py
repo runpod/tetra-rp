@@ -122,7 +122,7 @@ def new_command(name: str):
 
     console.print(Panel(panel_content, title="🚀 Environment Created", expand=False))
 
-    console.print(f"\nNext: [bold]runpod remote deploy send {name}[/bold]")
+    console.print(f"\nNext: [bold]flash deploy send {name}[/bold]")
 
 
 def send_command(name: str):
