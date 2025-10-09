@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.13.0](https://github.com/runpod/tetra-rp/compare/v0.12.0...v0.13.0) (2025-10-09)
+
+
+### Features
+
+* Command Line Interface ([#50](https://github.com/runpod/tetra-rp/issues/50)) ([5f4cde6](https://github.com/runpod/tetra-rp/commit/5f4cde6b0a8a7e082a0a1e0ce184d677309f0cfd))
+
+
+### Bug Fixes
+
+* repair build and release actions ([#97](https://github.com/runpod/tetra-rp/issues/97)) ([4a73fa8](https://github.com/runpod/tetra-rp/commit/4a73fa811729b612f9367e4b2c16831b553e00eb))
+
+
+### Code Refactoring
+
+* deprecate hf_models_to_cache ([#95](https://github.com/runpod/tetra-rp/issues/95)) ([963bfd7](https://github.com/runpod/tetra-rp/commit/963bfd7ee25f204b85888f09e444b1ecf0b75ffb))
+
 ## [0.12.0](https://github.com/runpod/tetra-rp/compare/v0.11.0...v0.12.0) (2025-09-15)
 
 
