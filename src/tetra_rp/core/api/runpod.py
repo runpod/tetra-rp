@@ -110,6 +110,7 @@ class RunpodGraphQLClient:
                 instanceIds
                 activeBuildid
                 idePodId
+                templateId
             }
         }
         """
@@ -131,6 +132,91 @@ class RunpodGraphQLClient:
         )
 
         return endpoint_data
+
+    async def update_endpoint(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        mutation = """
+        mutation saveEndpoint($input: EndpointInput!) {
+            saveEndpoint(input: $input) {
+                aiKey
+                gpuIds
+                id
+                idleTimeout
+                locations
+                name
+                networkVolumeId
+                scalerType
+                scalerValue
+                templateId
+                type
+                userId
+                version
+                workersMax
+                workersMin
+                workersStandby
+                workersPFBTarget
+                gpuCount
+                allowedCudaVersions
+                executionTimeoutMs
+                instanceIds
+                activeBuildid
+                idePodId
+            }
+        }
+        """
+
+        variables = {"input": input_data}
+
+        log.debug(
+            f"Updating endpoint with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
+
+        result = await self._execute_graphql(mutation, variables)
+
+        if "saveEndpoint" not in result:
+            raise Exception("Unexpected GraphQL response structure")
+
+        endpoint_data = result["saveEndpoint"]
+        log.info(
+            f"Updated endpoint: {endpoint_data.get('id', 'unknown')} - {endpoint_data.get('name', 'unnamed')}"
+        )
+
+        return endpoint_data
+
+    async def update_template(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        mutation = """
+        mutation saveTemplate($input: SaveTemplateInput) {
+            saveTemplate(input: $input) {
+                id
+                containerDiskInGb
+                dockerArgs
+                env {
+                    key
+                    value
+                }
+                imageName
+                name
+                readme
+            }
+        }
+        """
+        
+        variables = {"input": input_data}
+
+        log.debug(
+            f"Updating template with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
+
+        result = await self._execute_graphql(mutation, variables)
+
+        if "saveTemplate" not in result:
+            raise Exception("Unexpected GraphQL response structure")
+
+        template_data = result["saveTemplate"]
+        log.info(
+            f"Updated template: {template_data.get('id', 'unknown')} - {template_data.get('name', 'unnamed')}"
+        )
+
+        return template_data
 
     async def get_cpu_types(self) -> Dict[str, Any]:
         """Get available CPU types."""
