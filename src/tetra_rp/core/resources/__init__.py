@@ -9,6 +9,7 @@ from .serverless import (
     ServerlessEndpoint,
     JobOutput,
     CudaVersion,
+    ServerlessType,
 )
 from .serverless_cpu import CpuServerlessEndpoint
 from .template import PodTemplate
@@ -32,6 +33,7 @@ __all__ = [
     "ResourceManager",
     "ServerlessResource",
     "ServerlessEndpoint",
+    "ServerlessType",
     "PodTemplate",
     "NetworkVolume",
 ]
