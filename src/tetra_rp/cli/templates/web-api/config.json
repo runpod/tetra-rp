@@ -1,7 +1,0 @@
-{
-  "name": "api-project",
-  "version": "1.0.0",
-  "entry_point": "main.py",
-  "template": "web-api",
-  "service_type": "api"
-}

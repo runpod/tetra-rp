@@ -1,2 +1,0 @@
-tetra-rp>=0.4.2
-python-dotenv>=1.0.0
