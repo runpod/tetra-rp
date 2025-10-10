@@ -5,18 +5,20 @@ Command-line interface for Flash - distributed inference and serving framework.
 ## Quick Start
 
 ```bash
-# Create new project
+# 1. Create new project
 flash init my-project
-
-# Navigate to project
 cd my-project
 
-# Setup environment
+# 2. Setup environment
 conda activate my-project
-cp .env.example .env  # Add RUNPOD_API_KEY
+cp .env.example .env  # Add your credentials
 
-# Run development server
+# 3. Local development
 flash run
+
+# 4. Production deployment
+flash build --upload
+flash deploy
 ```
 
 ## Commands
@@ -66,6 +68,53 @@ flash run --port 3000
 
 ---
 
+### flash build
+
+Build Flash project for production deployment.
+
+```bash
+flash build [OPTIONS]
+```
+
+**Options:**
+- `--upload/--no-upload`: Upload to S3 (default: enabled)
+- `--dir, -d`: Project directory
+- `--name, -n`: Project name
+- `--workers-only`: Build only GPU workers
+- `--flash-server-only`: Build only Flash Server
+
+**Example:**
+```bash
+flash build --upload
+flash build --no-upload
+flash build --workers-only
+```
+
+[Full documentation](./flash-build.md)
+
+---
+
+### flash deploy
+
+Deploy Flash project to RunPod.
+
+```bash
+flash deploy [OPTIONS]
+```
+
+**Options:**
+- `--dir, -d`: Project directory (default: current directory)
+
+**Example:**
+```bash
+flash deploy
+flash deploy --dir ./my-project
+```
+
+[Full documentation](./flash-deploy.md)
+
+---
+
 ## Project Structure
 
 ```
@@ -81,9 +130,33 @@ my-project/
 
 ## Environment Variables
 
-Required in `.env`:
+### For Local Development (`flash run`)
 ```bash
 RUNPOD_API_KEY=your_api_key_here
+```
+
+### For Production Build (`flash build --upload`)
+```bash
+# S3/Volume Configuration
+RUNPOD_S3_ENDPOINT=https://s3api-eu-ro-1.runpod.io
+RUNPOD_S3_BUCKET=your-bucket-name
+RUNPOD_VOLUME_ENDPOINT=https://s3api-eu-ro-1.runpod.io
+RUNPOD_VOLUME_ACCESS_KEY=your_access_key
+RUNPOD_VOLUME_SECRET_KEY=your_secret_key
+RUNPOD_VOLUME_BUCKET=your-bucket-name
+
+# Optional
+TETRA_GPU_IMAGE=runpod/worker-tetra:latest
+```
+
+### For Production Deploy (`flash deploy`)
+```bash
+RUNPOD_API_KEY=your_api_key_here
+RUNPOD_VOLUME_ENDPOINT=https://s3api-eu-ro-1.runpod.io
+RUNPOD_VOLUME_ACCESS_KEY=your_access_key
+RUNPOD_VOLUME_SECRET_KEY=your_secret_key
+RUNPOD_VOLUME_BUCKET=your-bucket-name
+TETRA_GPU_IMAGE=runpod/worker-tetra:latest
 ```
 
 ## Testing Your Server
@@ -104,4 +177,6 @@ curl -X POST http://localhost:8888/process \
 flash --help
 flash init --help
 flash run --help
+flash build --help
+flash deploy --help
 ```
