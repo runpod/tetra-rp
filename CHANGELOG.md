@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.13.0](https://github.com/runpod/tetra-rp/compare/v0.12.0...v0.13.0) (2025-10-09)
+
+
+### Features
+
+* Command Line Interface ([#50](https://github.com/runpod/tetra-rp/issues/50)) ([5f4cde6](https://github.com/runpod/tetra-rp/commit/5f4cde6b0a8a7e082a0a1e0ce184d677309f0cfd))
+
+
+### Bug Fixes
+
+* repair build and release actions ([#97](https://github.com/runpod/tetra-rp/issues/97)) ([4a73fa8](https://github.com/runpod/tetra-rp/commit/4a73fa811729b612f9367e4b2c16831b553e00eb))
+
+
+### Code Refactoring
+
+* deprecate hf_models_to_cache ([#95](https://github.com/runpod/tetra-rp/issues/95)) ([963bfd7](https://github.com/runpod/tetra-rp/commit/963bfd7ee25f204b85888f09e444b1ecf0b75ffb))
+
+## [0.12.0](https://github.com/runpod/tetra-rp/compare/v0.11.0...v0.12.0) (2025-09-15)
+
+
+### Features
+
+* better clarity on provisioning CPU Serverless Endpoints ([#88](https://github.com/runpod/tetra-rp/issues/88)) ([efec224](https://github.com/runpod/tetra-rp/commit/efec224029e8c03133f8f4840b38308f141743ce))
+* thread-safe resource provisions and remote executions ([#91](https://github.com/runpod/tetra-rp/issues/91)) ([440b36f](https://github.com/runpod/tetra-rp/commit/440b36f6e15bffc68f1f77589d7b8fa4d6fc2025))
+
+
+### Bug Fixes
+
+* download accelerator changes broken regular endpoint invocations ([#86](https://github.com/runpod/tetra-rp/issues/86)) ([759f996](https://github.com/runpod/tetra-rp/commit/759f996208ebb5f052cda5e8b52b8c3b7a542b26))
+
+## [0.11.0](https://github.com/runpod/tetra-rp/compare/v0.10.0...v0.11.0) (2025-08-19)
+
+
+### Features
+
+* Add download acceleration for dependencies and HuggingFace models ([#83](https://github.com/runpod/tetra-rp/issues/83)) ([e47c9e3](https://github.com/runpod/tetra-rp/commit/e47c9e37030ead1831893dd70a1322421befbaad))
+
 ## [0.10.0](https://github.com/runpod/tetra-rp/compare/v0.9.0...v0.10.0) (2025-08-07)
 
 

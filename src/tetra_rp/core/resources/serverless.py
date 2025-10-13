@@ -17,10 +17,9 @@ from ..utils.backoff import get_backoff_delay
 from .base import DeployableResource
 from .cloud import runpod
 from .constants import CONSOLE_URL
-from .cpu import CpuInstanceType
 from .environment import EnvironmentVars
 from .gpu import GpuGroup
-from .network_volume import NetworkVolume
+from .network_volume import NetworkVolume, DataCenter
 from .template import KeyValuePair, PodTemplate
 
 
@@ -65,6 +64,7 @@ class ServerlessResource(DeployableResource):
     _input_only = {
         "id",
         "cudaVersions",
+        "datacenter",
         "env",
         "gpus",
         "flashboot",
@@ -78,14 +78,13 @@ class ServerlessResource(DeployableResource):
     flashboot: Optional[bool] = True
     gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
     imageName: Optional[str] = ""  # for template.imageName
-
     networkVolume: Optional[NetworkVolume] = None
+    datacenter: DataCenter = Field(default=DataCenter.EU_RO_1)
 
     # === Input Fields ===
     executionTimeoutMs: Optional[int] = None
     gpuCount: Optional[int] = 1
     idleTimeout: Optional[int] = 5
-    instanceIds: Optional[List[CpuInstanceType]] = None
     locations: Optional[str] = None
     name: str
     networkVolumeId: Optional[str] = None
@@ -133,15 +132,6 @@ class ServerlessResource(DeployableResource):
         """Convert ServerlessScalerType enum to string."""
         return value.value if value is not None else None
 
-    @field_serializer("instanceIds")
-    def serialize_instance_ids(
-        self, value: Optional[List[CpuInstanceType]]
-    ) -> Optional[List[str]]:
-        """Convert CpuInstanceType enums to strings."""
-        if value is None:
-            return None
-        return [item.value if hasattr(item, "value") else str(item) for item in value]
-
     @field_validator("gpus")
     @classmethod
     def validate_gpus(cls, value: List[GpuGroup]) -> List[GpuGroup]:
@@ -156,14 +146,24 @@ class ServerlessResource(DeployableResource):
         if self.flashboot:
             self.name += "-fb"
 
+        # Sync datacenter to locations field for API
+        if not self.locations:
+            self.locations = self.datacenter.value
+
+        # Validate datacenter consistency between endpoint and network volume
+        if self.networkVolume and self.networkVolume.dataCenterId != self.datacenter:
+            raise ValueError(
+                f"Network volume datacenter ({self.networkVolume.dataCenterId.value}) "
+                f"must match endpoint datacenter ({self.datacenter.value})"
+            )
+
         if self.networkVolume and self.networkVolume.is_created:
             # Volume already exists, use its ID
             self.networkVolumeId = self.networkVolume.id
 
-        if self.instanceIds:
-            return self._sync_input_fields_cpu()
-        else:
-            return self._sync_input_fields_gpu()
+        self._sync_input_fields_gpu()
+
+        return self
 
     def _sync_input_fields_gpu(self):
         # GPU-specific fields
@@ -187,27 +187,16 @@ class ServerlessResource(DeployableResource):
 
         return self
 
-    def _sync_input_fields_cpu(self):
-        # Override GPU-specific fields for CPU
-        self.gpuCount = 0
-        self.allowedCudaVersions = ""
-        self.gpuIds = ""
-
-        return self
-
     async def _ensure_network_volume_deployed(self) -> None:
         """
-        Ensures network volume is deployed and ready.
+        Ensures network volume is deployed and ready if one is specified.
         Updates networkVolumeId with the deployed volume ID.
         """
         if self.networkVolumeId:
             return
 
-        if not self.networkVolume:
-            log.info(f"{self.name} requires a default network volume")
-            self.networkVolume = NetworkVolume(name=f"{self.name}-volume")
-
-        if deployedNetworkVolume := await self.networkVolume.deploy():
+        if self.networkVolume:
+            deployedNetworkVolume = await self.networkVolume.deploy()
             self.networkVolumeId = deployedNetworkVolume.id
 
     def is_deployed(self) -> bool:
@@ -265,7 +254,7 @@ class ServerlessResource(DeployableResource):
             )
 
         try:
-            # log.debug(f"[{log_group}] Payload: {payload}")
+            # log.debug(f"[{self}] Payload: {payload}")
 
             log.info(f"{self} | API /run_sync")
             response = await asyncio.to_thread(_fetch_job)
@@ -346,6 +335,26 @@ class ServerlessEndpoint(ServerlessResource):
     Inherits from ServerlessResource.
     """
 
+    def _create_new_template(self) -> PodTemplate:
+        """Create a new PodTemplate with standard configuration."""
+        return PodTemplate(
+            name=self.resource_id,
+            imageName=self.imageName,
+            env=KeyValuePair.from_dict(self.env or get_env_vars()),
+        )
+
+    def _configure_existing_template(self) -> None:
+        """Configure an existing template with necessary overrides."""
+        if self.template is None:
+            return
+
+        self.template.name = f"{self.resource_id}__{self.template.resource_id}"
+
+        if self.imageName:
+            self.template.imageName = self.imageName
+        if self.env:
+            self.template.env = KeyValuePair.from_dict(self.env)
+
     @model_validator(mode="after")
     def set_serverless_template(self):
         if not any([self.imageName, self.template, self.templateId]):
@@ -354,30 +363,11 @@ class ServerlessEndpoint(ServerlessResource):
             )
 
         if not self.templateId and not self.template:
-            self.template = PodTemplate(
-                name=self.resource_id,
-                imageName=self.imageName,
-                env=KeyValuePair.from_dict(self.env or get_env_vars()),
-            )
-
+            self.template = self._create_new_template()
         elif self.template:
-            self.template.name = f"{self.resource_id}__{self.template.resource_id}"
-            if self.imageName:
-                self.template.imageName = self.imageName
-            if self.env:
-                self.template.env = KeyValuePair.from_dict(self.env)
+            self._configure_existing_template()
 
         return self
-
-
-class CpuServerlessEndpoint(ServerlessEndpoint):
-    """
-    Convenience class for CPU serverless endpoint.
-    Represents a CPU-only serverless endpoint distinct from a live serverless.
-    Inherits from ServerlessEndpoint.
-    """
-
-    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.CPU3G_2_8]
 
 
 class JobOutput(BaseModel):
@@ -389,7 +379,7 @@ class JobOutput(BaseModel):
     output: Optional[Any] = None
     error: Optional[str] = ""
 
-    def model_post_init(self, __context):
+    def model_post_init(self, _: Any) -> None:
         log_group = f"Worker:{self.workerId}"
         log.info(f"{log_group} | Delay Time: {self.delayTime} ms")
         log.info(f"{log_group} | Execution Time: {self.executionTime} ms")

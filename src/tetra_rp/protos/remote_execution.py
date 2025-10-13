@@ -1,11 +1,22 @@
-# TODO: generate using betterproto
+"""Remote execution protocol definitions using Pydantic models.
+
+This module defines the request/response protocol for remote function and class execution.
+The models align with the protobuf schema for communication with remote workers.
+"""
+
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
 
 class FunctionRequest(BaseModel):
+    """Request model for remote function or class execution.
+
+    Supports both function-based execution and class instantiation with method calls.
+    All serialized data (args, kwargs, etc.) are base64-encoded cloudpickle strings.
+    """
+
     # MADE OPTIONAL - can be None for class-only execution
     function_name: Optional[str] = Field(
         default=None,
@@ -15,19 +26,19 @@ class FunctionRequest(BaseModel):
         default=None,
         description="Source code of the function to execute",
     )
-    args: List = Field(
+    args: List[str] = Field(
         default_factory=list,
         description="List of base64-encoded cloudpickle-serialized arguments",
     )
-    kwargs: Dict = Field(
+    kwargs: Dict[str, str] = Field(
         default_factory=dict,
         description="Dictionary of base64-encoded cloudpickle-serialized keyword arguments",
     )
-    dependencies: Optional[List] = Field(
+    dependencies: Optional[List[str]] = Field(
         default=None,
         description="Optional list of pip packages to install before executing the function",
     )
-    system_dependencies: Optional[List] = Field(
+    system_dependencies: Optional[List[str]] = Field(
         default=None,
         description="Optional list of system dependencies to install before executing the function",
     )
@@ -44,11 +55,11 @@ class FunctionRequest(BaseModel):
         default=None,
         description="Source code of the class to instantiate (for class execution)",
     )
-    constructor_args: Optional[List] = Field(
+    constructor_args: List[str] = Field(
         default_factory=list,
         description="List of base64-encoded cloudpickle-serialized constructor arguments",
     )
-    constructor_kwargs: Optional[Dict] = Field(
+    constructor_kwargs: Dict[str, str] = Field(
         default_factory=dict,
         description="Dictionary of base64-encoded cloudpickle-serialized constructor keyword arguments",
     )
@@ -63,6 +74,12 @@ class FunctionRequest(BaseModel):
     create_new_instance: bool = Field(
         default=True,
         description="Whether to create a new instance or reuse existing one",
+    )
+
+    # Download acceleration fields
+    accelerate_downloads: bool = Field(
+        default=True,
+        description="Enable download acceleration for dependencies and models",
     )
 
     @model_validator(mode="after")
@@ -92,7 +109,12 @@ class FunctionRequest(BaseModel):
 
 
 class FunctionResponse(BaseModel):
-    # EXISTING FIELDS (unchanged)
+    """Response model for remote function or class execution results.
+
+    Contains execution results, error information, and metadata about class instances
+    when applicable. The result field contains base64-encoded cloudpickle data.
+    """
+
     success: bool = Field(
         description="Indicates if the function execution was successful",
     )
@@ -108,12 +130,10 @@ class FunctionResponse(BaseModel):
         default=None,
         description="Captured standard output from the function execution",
     )
-
-    # NEW FIELDS FOR CLASS SUPPORT
     instance_id: Optional[str] = Field(
         default=None, description="ID of the class instance that was used/created"
     )
-    instance_info: Optional[Dict] = Field(
+    instance_info: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Metadata about the class instance (creation time, call count, etc.)",
     )

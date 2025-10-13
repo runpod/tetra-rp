@@ -38,8 +38,8 @@ class NetworkVolume(DeployableResource):
     dataCenterId: DataCenter = Field(default=DataCenter.EU_RO_1, frozen=True)
 
     id: Optional[str] = Field(default=None)
-    name: Optional[str] = None
-    size: Optional[int] = Field(default=50, gt=0)  # Size in GB
+    name: str
+    size: Optional[int] = Field(default=100, gt=0)  # Size in GB
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}:{self.id}"
@@ -47,15 +47,11 @@ class NetworkVolume(DeployableResource):
     @property
     def resource_id(self) -> str:
         """Unique resource ID based on name and datacenter for idempotent behavior."""
-        if self.name:
-            # Use name + datacenter for volumes with names to ensure idempotence
-            resource_type = self.__class__.__name__
-            config_key = f"{self.name}:{self.dataCenterId.value}"
-            hash_obj = hashlib.md5(f"{resource_type}:{config_key}".encode())
-            return f"{resource_type}_{hash_obj.hexdigest()}"
-        else:
-            # Fall back to default behavior for unnamed volumes
-            return super().resource_id
+        # Use name + datacenter to ensure idempotence
+        resource_type = self.__class__.__name__
+        config_key = f"{self.name}:{self.dataCenterId.value}"
+        hash_obj = hashlib.md5(f"{resource_type}:{config_key}".encode())
+        return f"{resource_type}_{hash_obj.hexdigest()}"
 
     @field_serializer("dataCenterId")
     def serialize_data_center_id(self, value: Optional[DataCenter]) -> Optional[str]:

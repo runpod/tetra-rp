@@ -2,6 +2,7 @@ import logging
 from functools import singledispatch
 
 from ..core.resources import (
+    CpuLiveServerless,
     CpuServerlessEndpoint,
     LiveServerless,
     ServerlessEndpoint,
@@ -20,19 +21,29 @@ def stub_resource(resource, **extra):
     return fallback
 
 
-@stub_resource.register(LiveServerless)
-def _(resource, **extra):
+def _create_live_serverless_stub(resource, **extra):
+    """Create a live serverless stub for both LiveServerless and CpuLiveServerless."""
     stub = LiveServerlessStub(resource)
 
     # Function execution
     async def stubbed_resource(
-        func, dependencies, system_dependencies, *args, **kwargs
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        *args,
+        **kwargs,
     ) -> dict:
         if args == (None,):
             args = []
 
         request = stub.prepare_request(
-            func, dependencies, system_dependencies, *args, **kwargs
+            func,
+            dependencies,
+            system_dependencies,
+            accelerate_downloads,
+            *args,
+            **kwargs,
         )
         response = await stub.ExecuteFunction(request)
         return stub.handle_response(response)
@@ -48,15 +59,26 @@ def _(resource, **extra):
     return stubbed_resource
 
 
+@stub_resource.register(LiveServerless)
+def _(resource, **extra):
+    return _create_live_serverless_stub(resource, **extra)
+
+
+@stub_resource.register(CpuLiveServerless)
+def _(resource, **extra):
+    return _create_live_serverless_stub(resource, **extra)
+
+
 @stub_resource.register(ServerlessEndpoint)
 def _(resource, **extra):
     async def stubbed_resource(
-        func, dependencies, system_dependencies, *args, **kwargs
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        *args,
+        **kwargs,
     ) -> dict:
-        if args == (None,):
-            # cleanup: when the function is called with no args
-            args = []
-
         if dependencies or system_dependencies:
             log.warning(
                 "Dependencies are not supported for ServerlessEndpoint. "
@@ -74,12 +96,13 @@ def _(resource, **extra):
 @stub_resource.register(CpuServerlessEndpoint)
 def _(resource, **extra):
     async def stubbed_resource(
-        func, dependencies, system_dependencies, *args, **kwargs
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        *args,
+        **kwargs,
     ) -> dict:
-        if args == (None,):
-            # cleanup: when the function is called with no args
-            args = []
-
         if dependencies or system_dependencies:
             log.warning(
                 "Dependencies are not supported for CpuServerlessEndpoint. "

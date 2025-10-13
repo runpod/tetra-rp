@@ -54,6 +54,13 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       
     steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
       - name: Run Release Please
         uses: google-github-actions/release-please-action@v3
         id: release
@@ -61,9 +68,9 @@ jobs:
           release-type: python
           package-name: tetra-rp
           version-file: pyproject.toml
-          changelog-types: '[{"type": "feat", "section": "Features", "hidden": false}, {"type": "fix", "section": "Bug Fixes", "hidden": false}, {"type": "chore", "section": "Maintenance", "hidden": true}]'
+          changelog-types: '[{"type": "feat", "section": "Features", "hidden": false}, {"type": "fix", "section": "Bug Fixes", "hidden": false}, {"type": "refactor", "section": "Code Refactoring", "hidden": false}, {"type": "chore", "section": "Maintenance", "hidden": true}]'
           pull-request-title-pattern: "chore: release ${version}"
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 
   # PyPI publishing
   pypi-publish:
