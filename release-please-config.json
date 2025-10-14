@@ -1,4 +1,5 @@
 {
+  "bootstrap-sha": "d64b7f22e1d320e775a7a4561b04e4bd26b0470f",
   "packages": {
     ".": {
       "package-name": "tetra-rp",
