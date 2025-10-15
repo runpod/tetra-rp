@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from .core.resources import ResourceManager, ServerlessResource
 from .execute_class import create_remote_class
+from .prod_config import apply_production_config
 from .stubs import stub_resource
 
 log = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ def remote(
         @remote(
             resource_config=my_resource_config,
             dependencies=["numpy", "pandas"],
-            accelerate_downloads=True,
+            accelerate_downloads=True
         )
         async def my_function(data):
             # Function logic here
@@ -53,6 +54,12 @@ def remote(
 
     def decorator(func_or_class):
         if inspect.isclass(func_or_class):
+            # Apply production configuration if TETRA_PROD_MODE is enabled
+            try:
+                apply_production_config(resource_config, func_or_class.__name__)
+            except Exception as e:
+                log.warning(f"Failed to apply production config: {e}")
+
             # Handle class decoration
             return create_remote_class(
                 func_or_class,
