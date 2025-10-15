@@ -105,8 +105,13 @@ async def _execute_deployment(artifacts: dict, project_dir: Path):
                 name=f"{artifacts['project_name']}-flash-server",
                 imageName=flash_server_config["base_image"],
                 env={
+                    # Enable production mode for GPU worker deployment
+                    "TETRA_PROD_MODE": "true",
+                    # Flash Server baked mode configuration
                     "TETRA_BAKED_MODE": "true",
                     "TETRA_CODE_TARBALL": flash_server_config["tarball_s3_key"],
+                    # Network volume configuration for GPU workers
+                    "RUNPOD_VOLUME_ID": os.getenv("RUNPOD_VOLUME_ID", ""),
                     "RUNPOD_VOLUME_ENDPOINT": os.getenv("RUNPOD_VOLUME_ENDPOINT", ""),
                     "RUNPOD_VOLUME_ACCESS_KEY": os.getenv(
                         "RUNPOD_VOLUME_ACCESS_KEY", ""
@@ -117,9 +122,11 @@ async def _execute_deployment(artifacts: dict, project_dir: Path):
                     "RUNPOD_VOLUME_BUCKET": os.getenv(
                         "RUNPOD_VOLUME_BUCKET", "tetra-code"
                     ),
+                    # GPU worker image configuration
                     "TETRA_GPU_IMAGE": os.getenv(
-                        "TETRA_GPU_IMAGE", "runpod/worker-tetra:latest"
+                        "TETRA_GPU_IMAGE", "runpod/tetra-rp:latest"
                     ),
+                    # RunPod API key for GPU worker deployment
                     "RUNPOD_API_KEY": os.getenv("RUNPOD_API_KEY", ""),
                 },
                 type=ServerlessType.LB,
