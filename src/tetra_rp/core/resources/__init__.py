@@ -13,6 +13,7 @@ from .serverless import (
 from .serverless_cpu import CpuServerlessEndpoint
 from .template import PodTemplate
 from .network_volume import NetworkVolume, DataCenter
+from .project import FlashProject
 
 
 __all__ = [
@@ -34,4 +35,5 @@ __all__ = [
     "ServerlessEndpoint",
     "PodTemplate",
     "NetworkVolume",
+    "FlashProject",
 ]

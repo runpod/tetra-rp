@@ -23,6 +23,7 @@ from .core.resources import (  # noqa: E402
     ServerlessEndpoint,
     runpod,
     NetworkVolume,
+    FlashProject,
 )
 
 
@@ -40,4 +41,5 @@ __all__ = [
     "ServerlessEndpoint",
     "runpod",
     "NetworkVolume",
+    "FlashProject",
 ]
