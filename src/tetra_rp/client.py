@@ -1,3 +1,4 @@
+import os
 import inspect
 import logging
 from functools import wraps
@@ -16,31 +17,37 @@ def remote(
     dependencies: Optional[List[str]] = None,
     system_dependencies: Optional[List[str]] = None,
     accelerate_downloads: bool = True,
+    local: bool = False,
     **extra,
 ):
     """
     Decorator to enable dynamic resource provisioning and dependency management for serverless functions.
 
     This decorator allows a function to be executed in a remote serverless environment, with support for
-    dynamic resource provisioning and installation of required dependencies.
+    dynamic resource provisioning and installation of required dependencies. It can also bypass remote
+    execution entirely for local testing.
 
     Args:
         resource_config (ServerlessResource): Configuration object specifying the serverless resource
-            to be provisioned or used.
+            to be provisioned or used. Not used when local=True.
         dependencies (List[str], optional): A list of pip package names to be installed in the remote
-            environment before executing the function. Defaults to None.
+            environment before executing the function. Not used when local=True. Defaults to None.
         system_dependencies (List[str], optional): A list of system packages to be installed in the remote
-            environment before executing the function. Defaults to None.
+            environment before executing the function. Not used when local=True. Defaults to None.
         accelerate_downloads (bool, optional): Enable download acceleration for dependencies and models.
-            Defaults to True.
+            Only applies to remote execution. Defaults to True.
+        local (bool, optional): Execute function/class locally instead of provisioning remote servers.
+            Returns the unwrapped function/class for direct local execution. Users must ensure all required
+            dependencies are already installed in their local environment. Defaults to False.
         extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
 
     Returns:
-        Callable: A decorator that wraps the target function, enabling remote execution with the
-        specified resource configuration and dependencies.
+        Callable: A decorator that wraps the target function, enabling remote execution with the specified
+        resource configuration and dependencies, or returns the unwrapped function/class for local execution.
 
     Example:
     ```python
+        # Remote execution (production)
         @remote(
             resource_config=my_resource_config,
             dependencies=["numpy", "pandas"],
@@ -49,10 +56,30 @@ def remote(
         async def my_function(data):
             # Function logic here
             pass
+
+        # Local execution (testing/development)
+        # Note: Ensure numpy and pandas are installed locally first
+        @remote(
+            resource_config=my_resource_config,
+            dependencies=["numpy", "pandas"],  # Only used for remote execution
+            local=True,
+        )
+        async def my_test_function(data):
+            # Runs locally - dependencies must be pre-installed
+            pass
     ```
     """
 
     def decorator(func_or_class):
+        if os.getenv("RUNPOD_POD_ID") or os.getenv("RUNPOD_ENDPOINT_ID"):
+            # Worker mode when running on RunPod platform
+            return func_or_class
+
+        # Local execution mode - execute without provisioning remote servers
+        if local:
+            return func_or_class
+
+        # Remote execution mode
         if inspect.isclass(func_or_class):
             # Apply production configuration if TETRA_PROD_MODE is enabled
             try:
@@ -70,7 +97,7 @@ def remote(
                 extra,
             )
         else:
-            # Handle function decoration (unchanged)
+            # Handle function decoration
             @wraps(func_or_class)
             async def wrapper(*args, **kwargs):
                 resource_manager = ResourceManager()
