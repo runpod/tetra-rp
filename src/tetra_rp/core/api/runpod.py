@@ -6,7 +6,7 @@ Bypasses the outdated runpod-python SDK limitations.
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import aiohttp
 
@@ -213,7 +213,7 @@ class RunpodGraphQLClient:
                 flashApps {
                     id
                     name
-                    environments {
+                    flashEnvironments {
                         id
                         name
                     }
@@ -263,10 +263,10 @@ class RunpodGraphQLClient:
     async def get_flash_app(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         query = """
         query getFlashApp($input: String!) {
-            flashApp(appId: $input) {
+            flashApp(flashAppId: $input) {
                 id
                 name
-                environments {
+                flashEnvironments {
                     id
                     name
                 }
@@ -281,18 +281,18 @@ class RunpodGraphQLClient:
 
     async def get_flash_app_by_name(self, app_name: str) -> Dict[str, Any]:
         query = """
-        query getFlashAppByName($appName: String!) {
-            flashAppByName(appName: $appName) {
+        query getFlashAppByName($flashAppName: String!) {
+            flashAppByName(flashAppName: $flashAppName) {
                 id
                 name
-                environments {
+                flashEnvironments {
                     id
                     name
                 }
             }
         }
         """
-        variables = {"appName": app_name}
+        variables = {"flashAppName": app_name}
 
         log.debug(f"Fetching flash app by name for input: {app_name}")
         result = await self._execute_graphql(query, variables)
@@ -303,30 +303,30 @@ class RunpodGraphQLClient:
             requested_vars = ["id", "name"]
         fragment = "\n".join(requested_vars)
         query = f"""
-        query getFlashEnvironment($environmentId: String!) {{
-            flashEnvironment(environmentId: $environmentId) {{
+        query getFlashEnvironment($flashEnvironmentId: String!) {{
+            flashEnvironment(flashEnvironmentId: $flashEnvironmentId) {{
                 {fragment}
             }}
         }}
         """
-        variables = {"environmentId": environment_id}
+        variables = {"flashEnvironmentId": environment_id}
 
         log.debug(f"Fetching flash app by name for input: {variables}")
         result = await self._execute_graphql(query, variables)
         return result
 
-    async def get_flash_environment_by_name(self, app_id: str, environment_name: str) -> Dict[str, Any]:
+    async def get_flash_environment_by_name(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         query = """
-        query getFlashEnvironmentByName($environmentName: String!) {
-            flashEnvironmentByName(environmentName: $environmentName) {
+        query getFlashEnvironmentByName($input: FlashEnvironmentByNameInput!) {
+            flashEnvironmentByName(input: $input) {
                 id
                 name
             }
         }
         """
-        variables = {"flashAppId": app_id, "name": environment_name}
+        variables = {"input": input_data}
 
-        log.debug(f"Fetching flash app by name for input: {variables}")
+        log.debug(f"Fetching flash environment by name for input: {variables}")
         result = await self._execute_graphql(query, variables)
         return result
 
@@ -402,6 +402,48 @@ class RunpodGraphQLClient:
         log.debug(
             f"Creating flash environment with GraphQL: {input_data.get('name', 'unnamed')}"
         )
+
+        result = await self._execute_graphql(mutation, variables)
+
+        return result
+
+    async def register_endpoint_to_environment(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Register an endpoint to a Flash environment"""
+
+        log.debug(f"Registering endpoint to flash environment with input data: {input_data}")
+        
+        mutation = """
+        mutation addEndpointToFlashEnvironment($input: AddEndpointToEnvironmentInput!) {
+            addEndpointToFlashEnvironment(input: $input) {
+                id
+                name
+                flashEnvironmentId
+            }
+        }
+        """
+
+        variables = {"input": input_data}
+
+        result = await self._execute_graphql(mutation, variables)
+
+        return result
+
+    async def register_network_volume_to_environment(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Register an endpoint to a Flash environment"""
+
+        log.debug(f"Registering endpoint to flash environment with input data: {input_data}")
+        
+        mutation = """
+        mutation addNetworkVolumeToFlashEnvironment($input: AddNetworkVolumeToEnvironmentInput!) {
+            addNetworkVolumeToFlashEnvironment(input: $input) {
+                id
+                name
+                flashEnvironmentId
+            }
+        }
+        """
+
+        variables = {"input": input_data}
 
         result = await self._execute_graphql(mutation, variables)
 
