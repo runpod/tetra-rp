@@ -65,7 +65,7 @@ class FlashApp:
     async def _get_tarball_upload_url(self, tarball_size: int):
         async with RunpodGraphQLClient() as client:
             return await client.prepare_artifact_upload(
-                {"appId": self.id, "tarballSize": tarball_size}
+                {"flashAppId": self.id, "tarballSize": tarball_size}
             )
     
     async def _get_active_artifact(self, environment_id: str):
@@ -77,7 +77,7 @@ class FlashApp:
 
     async def deploy_build_to_environment(self, environment_id: str, build_id: str):
         async with RunpodGraphQLClient() as client:
-            result = await client.deploy_build_to_environment({"environmentId": environment_id, "flashBuildId": build_id})
+            result = await client.deploy_build_to_environment({"flashEnvironmentId": environment_id, "flashBuildId": build_id})
             return result
 
     async def download_tarball(self, environment_id: str, dest_file: str):
@@ -93,7 +93,7 @@ class FlashApp:
     async def _finalize_upload_build(self, object_key: str):
         async with RunpodGraphQLClient() as client:
             result = await client.finalize_artifact_upload(
-                    {"appId": self.id, "objectKey": object_key}
+                    {"flashAppId": self.id, "objectKey": object_key}
             )
             return result["finalizeFlashArtifactUpload"]
     
@@ -121,6 +121,10 @@ class FlashApp:
         Should update app env state as Ready at the end
         TODO(jhcipar) should add flash env into resource identifiers
         """
+    async def _get_environment_by_name(self, environment_name: str):
+        async with RunpodGraphQLClient() as client:
+            result = await client.get_flash_environment_by_name({"flashAppId": self.id, "name": environment_name})
+            return result["flashEnvironmentByName"]
         resource_manager = ResourceManager()
         for resource_id, resource in self.resources.items():
             await resource_manager.get_or_deploy_resource(resource)
