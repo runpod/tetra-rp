@@ -5,7 +5,7 @@ from typing import Dict, Callable, TYPE_CHECKING
 
 from ..api.runpod import RunpodGraphQLClient
 from ..resources.resource_manager import ResourceManager
-from ..resources.serverless import ServerlessResource
+from ..resources.serverless import ServerlessEndpoint, NetworkVolume
 
 if TYPE_CHECKING:
     from . import ServerlessResource
@@ -97,6 +97,20 @@ class FlashApp:
             )
             return result["finalizeFlashArtifactUpload"]
     
+    async def _register_endpoint_to_environment(self, environment_id: str, endpoint_id: str):
+        async with RunpodGraphQLClient() as client:
+            result = await client.register_endpoint_to_environment(
+                    {"flashEnvironmentId": environment_id, "endpointId": endpoint_id}
+            )
+            return result["addEndpointToFlashEnvironment"]
+
+    async def _register_network_volume_to_environment(self, environment_id: str, network_volume_id: str):
+        async with RunpodGraphQLClient() as client:
+            result = await client.register_network_volume_to_environment(
+                    {"flashEnvironmentId": environment_id, "networkVolumeId": network_volume_id}
+            )
+            return result["addEndpointToFlashEnvironment"]
+
     async def upload_build(self, tar_path: str):
         path = pathlib.Path(tar_path)
         tarball_size = path.stat().st_size
@@ -114,17 +128,19 @@ class FlashApp:
         resp = await self._finalize_upload_build(object_key)
         return resp
 
-    async def _deploy_in_environment(self, environment: str):
-        """
-        Entrypoint for cpu sls endpoint to execute provisioning its registered resources.
-        Goes through all registered resources and gets or deploys them
-        Should update app env state as Ready at the end
-        TODO(jhcipar) should add flash env into resource identifiers
-        """
     async def _get_environment_by_name(self, environment_name: str):
         async with RunpodGraphQLClient() as client:
             result = await client.get_flash_environment_by_name({"flashAppId": self.id, "name": environment_name})
             return result["flashEnvironmentByName"]
+
+    async def deploy_resources(self, environment_name: str):
         resource_manager = ResourceManager()
+        environment = await self._get_environment_by_name(environment_name)
+
         for resource_id, resource in self.resources.items():
-            await resource_manager.get_or_deploy_resource(resource)
+            deployed_resource = await resource_manager.get_or_deploy_resource(resource)
+            if isinstance(deployed_resource, ServerlessEndpoint):
+                await self._register_endpoint_to_environment(environment["id"], deployed_resource.id)
+            if isinstance(deployed_resource, NetworkVolume):
+                await self._register_network_volume_to_environment(environment["id"], deployed_resource.id)
+            
