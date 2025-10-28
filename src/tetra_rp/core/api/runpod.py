@@ -449,6 +449,25 @@ class RunpodGraphQLClient:
 
         return result
 
+    async def set_environment_status(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        log.debug(f"Setting Flash environment status with input data: {input_data}")
+        
+        mutation = """
+        mutation updateFlashEnvironment($input: UpdateFlashEnvironmentInput!) {
+            updateFlashEnvironment(input: $input) {
+                id
+                name
+                status
+            }
+        }
+        """
+
+        variables = {"input": input_data}
+
+        result = await self._execute_graphql(mutation, variables)
+
+        return result
+
     async def close(self):
         """Close the HTTP session."""
         if self.session and not self.session.closed:
@@ -459,6 +478,7 @@ class RunpodGraphQLClient:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
+
 
 
 class RunpodRestClient:
