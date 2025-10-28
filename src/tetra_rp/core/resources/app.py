@@ -133,9 +133,17 @@ class FlashApp:
             result = await client.get_flash_environment_by_name({"flashAppId": self.id, "name": environment_name})
             return result["flashEnvironmentByName"]
 
+    async def _set_environment_status(self, environment_id: str, status: str):
+        async with RunpodGraphQLClient() as client:
+            await client.set_environment_status({"flashEnvironmentId": environment_id, "status": status}) 
+
     async def deploy_resources(self, environment_name: str):
         resource_manager = ResourceManager()
         environment = await self._get_environment_by_name(environment_name)
+
+        #NOTE(jhcipar) it's pretty fragile to have client managed state like this
+        #we should enforce this on the server side eventually and either debounce or not allow subsequent deploys
+        await self._set_environment_status(environment["id"], "DEPLOYING")  
 
         for resource_id, resource in self.resources.items():
             deployed_resource = await resource_manager.get_or_deploy_resource(resource)
@@ -143,4 +151,8 @@ class FlashApp:
                 await self._register_endpoint_to_environment(environment["id"], deployed_resource.id)
             if isinstance(deployed_resource, NetworkVolume):
                 await self._register_network_volume_to_environment(environment["id"], deployed_resource.id)
+        
+        #NOTE(jhcipar) we should healthcheck endpoints after provisioning them, for right now we just
+        #assume this is healthy
+        await self._set_environment_status(environment["id"], "HEALTHY")  
             
