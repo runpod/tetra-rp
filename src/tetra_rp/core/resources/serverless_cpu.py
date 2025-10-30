@@ -6,7 +6,7 @@ This module contains all CPU-related serverless functionality, separate from GPU
 
 from typing import List, Optional
 
-from pydantic import field_serializer, model_validator
+from pydantic import field_serializer, model_validator, field_validator
 
 from .cpu import (
     CpuInstanceType,
@@ -105,7 +105,7 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
     Represents a CPU-only serverless endpoint distinct from a live serverless.
     """
 
-    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.CPU3G_2_8]
+    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
 
     def _create_new_template(self) -> PodTemplate:
         """Create a new PodTemplate with CPU-appropriate disk sizing."""
@@ -132,6 +132,14 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
 
         # Apply CPU-specific disk sizing
         self._apply_cpu_disk_sizing(self.template)
+
+    @field_validator("instanceIds")
+    @classmethod
+    def validate_cpus(cls, value: List[CpuInstanceType]) -> List[CpuInstanceType]:
+        """Expand ANY to all GPU groups"""
+        if value == [CpuInstanceType.ANY]:
+            return CpuInstanceType.all()
+        return value
 
     @model_validator(mode="after")
     def set_serverless_template(self):
