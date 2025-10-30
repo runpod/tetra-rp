@@ -294,13 +294,17 @@ def create_remote_class(
                     }
 
                 # Check if we're in baked mode
-                is_baked = (
+                env_value = None
+                if (
                     hasattr(self._stub, "server")
                     and hasattr(self._stub.server, "env")
                     and self._stub.server.env is not None
-                    and self._stub.server.env.get("TETRA_BAKED_MODE", "").lower()
-                    in ("true", "1", "yes")
-                )
+                ):
+                    env = self._stub.server.env
+                    if isinstance(env, dict):
+                        env_value = env.get("TETRA_BAKED_MODE", "")
+
+                is_baked = env_value and env_value.lower() in ("true", "1", "yes")
 
                 request = FunctionRequest(
                     execution_type="class",

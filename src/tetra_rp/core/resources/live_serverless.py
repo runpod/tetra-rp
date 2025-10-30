@@ -23,32 +23,13 @@ class LiveServerlessMixin:
 
     @property
     def imageName(self):
-        # Check if custom image was set in the raw field (__dict__)
-        # This happens during model construction before template is created
-        if "__dict__" in dir(self) and "imageName" in self.__dict__:
-            custom = self.__dict__["imageName"]
-            if custom and custom != self._live_image:
-                return custom
-        # After template creation, check template.imageName
-        if (
-            hasattr(self, "template")
-            and self.template
-            and hasattr(self.template, "imageName")
-        ):
-            custom = self.template.imageName
-            if custom and custom != self._live_image:
-                return custom
+        """Return the locked live image."""
         return self._live_image
 
     @imageName.setter
     def imageName(self, value):
-        # Store in template.imageName for production mode
-        if not hasattr(self, "template") or not self.template:
-            from .template import PodTemplate
-
-            self.template = PodTemplate(imageName=value)
-        else:
-            self.template.imageName = value
+        """Setter is a no-op - image is locked to live image."""
+        pass
 
 
 class LiveServerless(LiveServerlessMixin, ServerlessEndpoint):

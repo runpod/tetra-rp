@@ -72,12 +72,13 @@ class LiveServerlessStub(RemoteExecutorStub):
         **kwargs,
     ):
         # Check if we're in baked mode (production)
-        is_baked = (
-            hasattr(self.server, "env")
-            and self.server.env is not None
-            and self.server.env.get("TETRA_BAKED_MODE", "").lower()
-            in ("true", "1", "yes")
-        )
+        env_value = None
+        if hasattr(self.server, "env") and self.server.env is not None:
+            env = self.server.env
+            if isinstance(env, dict):
+                env_value = env.get("TETRA_BAKED_MODE", "")
+
+        is_baked = env_value and env_value.lower() in ("true", "1", "yes")
 
         request = {
             "function_name": func.__name__,
