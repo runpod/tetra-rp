@@ -25,7 +25,9 @@ class ProductionConfig:
         Args:
             artifacts_path: Path to build_artifacts.json. Defaults to .tetra/build_artifacts.json
         """
-        self.artifacts_path = artifacts_path or Path.cwd() / ".tetra" / "build_artifacts.json"
+        self.artifacts_path = (
+            artifacts_path or Path.cwd() / ".tetra" / "build_artifacts.json"
+        )
         self._artifacts = None
 
     @property
@@ -56,7 +58,9 @@ class ProductionConfig:
                 return worker
         return None
 
-    def inject_config(self, resource_config: ServerlessResource, worker_name: str) -> None:
+    def inject_config(
+        self, resource_config: ServerlessResource, worker_name: str
+    ) -> None:
         """
         Inject production configuration into resource config.
 
@@ -87,10 +91,12 @@ class ProductionConfig:
         if resource_config.env is None:
             resource_config.env = {}
 
-        resource_config.env.update({
-            "TETRA_BAKED_MODE": "true",
-            "TETRA_TARBALL_PATH": f"/runpod-volume/{tarball_s3_key}",
-        })
+        resource_config.env.update(
+            {
+                "TETRA_BAKED_MODE": "true",
+                "TETRA_TARBALL_PATH": f"/runpod-volume/{tarball_s3_key}",
+            }
+        )
 
         # Set base image from build artifacts
         base_image = worker_config.get("base_image")
