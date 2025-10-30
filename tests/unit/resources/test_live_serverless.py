@@ -67,7 +67,9 @@ class TestCpuLiveServerless:
         assert live_serverless.instanceIds == CpuInstanceType.all()
         assert live_serverless.template is not None
         # When using ANY (all instances), disk size should be minimum of all limits
-        assert live_serverless.template.containerDiskInGb == 10  # Min disk size across all types
+        assert (
+            live_serverless.template.containerDiskInGb == 10
+        )  # Min disk size across all types
         assert "tetra-rp-cpu:" in live_serverless.imageName  # CPU image
 
     def test_cpu_live_serverless_custom_instances(self):
