@@ -63,10 +63,11 @@ class TestCpuLiveServerless:
             name="example_cpu_live_serverless",
         )
 
-        # Should use default CPU3G_2_8 instance
-        assert live_serverless.instanceIds == [CpuInstanceType.CPU3G_2_8]
+        # Should expand ANY to all CPU instance types
+        assert live_serverless.instanceIds == CpuInstanceType.all()
         assert live_serverless.template is not None
-        assert live_serverless.template.containerDiskInGb == 20
+        # When using ANY (all instances), disk size should be minimum of all limits
+        assert live_serverless.template.containerDiskInGb == 10  # Min disk size across all types
         assert "tetra-rp-cpu:" in live_serverless.imageName  # CPU image
 
     def test_cpu_live_serverless_custom_instances(self):
