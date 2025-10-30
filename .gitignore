@@ -176,3 +176,7 @@ cython_debug/
 .pypirc
 .tetra_resources.pkl
 .DS_Store
+
+# dev only
+.envrc
+test_app/
