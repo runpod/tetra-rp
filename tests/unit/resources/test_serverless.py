@@ -694,7 +694,8 @@ class TestCpuServerlessEndpoint:
             imageName="test/cpu-image:latest",
         )
 
-        assert endpoint.instanceIds == [CpuInstanceType.CPU3G_2_8]
+        # Should expand ANY to all CPU instance types
+        assert endpoint.instanceIds == CpuInstanceType.all()
         # Should trigger CPU mode in sync_input_fields
         assert endpoint.gpuCount == 0
         assert endpoint.allowedCudaVersions == ""
