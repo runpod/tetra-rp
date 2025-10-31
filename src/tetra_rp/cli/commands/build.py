@@ -6,7 +6,6 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import typer
 from rich.console import Console
@@ -18,6 +17,9 @@ from ..utils.ignore import get_file_tree, load_ignore_patterns
 
 console = Console()
 
+# Constants
+PIP_INSTALL_TIMEOUT_SECONDS = 600  # 10 minute timeout for pip install
+
 
 def build_command(
     no_deps: bool = typer.Option(
@@ -26,7 +28,7 @@ def build_command(
     keep_build: bool = typer.Option(
         False, "--keep-build", help="Keep .build directory after creating archive"
     ),
-    output_name: Optional[str] = typer.Option(
+    output_name: str | None = typer.Option(
         None, "--output", "-o", help="Custom archive name (default: archive.tar.gz)"
     ),
 ):
@@ -160,7 +162,7 @@ def build_command(
         raise typer.Exit(1)
 
 
-def discover_flash_project() -> Tuple[Path, str]:
+def discover_flash_project() -> tuple[Path, str]:
     """
     Discover Flash project directory and app name.
 
@@ -231,7 +233,7 @@ def create_build_directory(project_dir: Path, app_name: str) -> Path:
     return build_dir
 
 
-def copy_project_files(files: List[Path], source_dir: Path, dest_dir: Path) -> None:
+def copy_project_files(files: list[Path], source_dir: Path, dest_dir: Path) -> None:
     """
     Copy project files to build directory.
 
@@ -254,7 +256,7 @@ def copy_project_files(files: List[Path], source_dir: Path, dest_dir: Path) -> N
         shutil.copy2(file_path, dest_path)
 
 
-def collect_requirements(project_dir: Path, build_dir: Path) -> List[str]:
+def collect_requirements(project_dir: Path, build_dir: Path) -> list[str]:
     """
     Collect all requirements from requirements.txt and @remote decorators.
 
@@ -299,7 +301,7 @@ def collect_requirements(project_dir: Path, build_dir: Path) -> List[str]:
     return unique_requirements
 
 
-def extract_remote_dependencies(workers_dir: Path) -> List[str]:
+def extract_remote_dependencies(workers_dir: Path) -> list[str]:
     """
     Extract dependencies from @remote decorators in worker files.
 
@@ -346,7 +348,7 @@ def extract_remote_dependencies(workers_dir: Path) -> List[str]:
 
 
 def install_dependencies(
-    build_dir: Path, requirements: List[str], no_deps: bool
+    build_dir: Path, requirements: list[str], no_deps: bool
 ) -> bool:
     """
     Install dependencies to build directory using pip.
@@ -362,30 +364,23 @@ def install_dependencies(
     if not requirements:
         return True
 
-    # Try multiple pip commands
-    pip_commands = [
-        [sys.executable, "-m", "pip"],
-        ["pip3"],
-        ["pip"],
-    ]
+    # Use only sys.executable -m pip to ensure correct environment
+    pip_cmd = [sys.executable, "-m", "pip"]
 
-    # Find working pip command
-    pip_cmd = None
-    for cmd in pip_commands:
-        try:
-            result = subprocess.run(
-                cmd + ["--version"],
-                capture_output=True,
-                timeout=5,
+    # Check if pip is available
+    try:
+        result = subprocess.run(
+            pip_cmd + ["--version"],
+            capture_output=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            console.print(
+                "[red]Error:[/red] pip not found in current Python environment"
             )
-            if result.returncode == 0:
-                pip_cmd = cmd
-                break
-        except (subprocess.SubprocessError, FileNotFoundError):
-            continue
-
-    if not pip_cmd:
-        console.print("[red]Error:[/red] pip not found in system")
+            return False
+    except (subprocess.SubprocessError, FileNotFoundError):
+        console.print("[red]Error:[/red] pip not found in current Python environment")
         return False
 
     cmd = pip_cmd + [
@@ -405,7 +400,7 @@ def install_dependencies(
             cmd,
             capture_output=True,
             text=True,
-            timeout=600,  # 10 minute timeout
+            timeout=PIP_INSTALL_TIMEOUT_SECONDS,
         )
 
         if result.returncode != 0:
@@ -415,7 +410,9 @@ def install_dependencies(
         return True
 
     except subprocess.TimeoutExpired:
-        console.print("[red]pip install timed out (10 minutes)[/red]")
+        console.print(
+            f"[red]pip install timed out ({PIP_INSTALL_TIMEOUT_SECONDS} seconds)[/red]"
+        )
         return False
     except Exception as e:
         console.print(f"[red]pip install error:[/red] {e}")
@@ -456,7 +453,7 @@ def _display_build_config(
     app_name: str,
     no_deps: bool,
     keep_build: bool,
-    output_name: Optional[str],
+    output_name: str | None,
 ):
     """Display build configuration."""
     archive_name = output_name or "archive.tar.gz"

@@ -2,14 +2,13 @@
 
 import logging
 from pathlib import Path
-from typing import List
 
 import pathspec
 
 log = logging.getLogger(__name__)
 
 
-def parse_ignore_file(file_path: Path) -> List[str]:
+def parse_ignore_file(file_path: Path) -> list[str]:
     """
     Parse an ignore file and return list of patterns.
 
@@ -104,7 +103,7 @@ def should_ignore(file_path: Path, spec: pathspec.PathSpec, base_dir: Path) -> b
 
 def get_file_tree(
     directory: Path, spec: pathspec.PathSpec, base_dir: Path | None = None
-) -> List[Path]:
+) -> list[Path]:
     """
     Recursively collect all files in directory excluding ignored patterns.
 
