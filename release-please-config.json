@@ -1,9 +1,9 @@
 {
-  "bootstrap-sha": "d64b7f22e1d320e775a7a4561b04e4bd26b0470f",
   "packages": {
     ".": {
       "package-name": "tetra-rp",
       "release-type": "python",
+      "include-component-in-tag": false,
       "changelog-sections": [
         {"type": "feat", "section": "Features"},
         {"type": "fix", "section": "Bug Fixes"},
