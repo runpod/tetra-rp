@@ -18,10 +18,12 @@ class TestCpuServerlessEndpoint:
             imageName="test/cpu-image:latest",
         )
 
-        # Should use default CPU3G_2_8 instance
-        assert endpoint.instanceIds == [CpuInstanceType.CPU3G_2_8]
+        # Should expand ANY to all CPU instance types
+        assert endpoint.instanceIds == CpuInstanceType.all()
         assert endpoint.template is not None
-        assert endpoint.template.containerDiskInGb == 20
+        assert (
+            endpoint.template.containerDiskInGb == 10
+        )  # Min disk size across all types
 
     def test_cpu_serverless_endpoint_custom_instances(self):
         """Test CpuServerlessEndpoint with custom instance types."""
@@ -188,6 +190,47 @@ class TestCpuServerlessEndpointValidation:
 
         assert endpoint.template is not None
         assert endpoint.template.containerDiskInGb == 10  # Minimum across all types
+
+
+class TestCpuValidation:
+    """Test CPU instance type validation."""
+
+    def test_validate_cpus_expands_any(self):
+        """Test that validate_cpus expands ANY to all instance types."""
+        endpoint = CpuServerlessEndpoint(
+            name="test-endpoint",
+            imageName="test/image:latest",
+            instanceIds=[CpuInstanceType.ANY],
+        )
+
+        # Should be expanded to all CPU instance types
+        assert endpoint.instanceIds == CpuInstanceType.all()
+        assert len(endpoint.instanceIds) == 12
+        assert CpuInstanceType.ANY not in endpoint.instanceIds
+
+    def test_validate_cpus_preserves_explicit_list(self):
+        """Test that validate_cpus preserves explicit instance type lists."""
+        explicit_types = [CpuInstanceType.CPU3G_1_4, CpuInstanceType.CPU5C_2_4]
+
+        endpoint = CpuServerlessEndpoint(
+            name="test-endpoint",
+            imageName="test/image:latest",
+            instanceIds=explicit_types,
+        )
+
+        # Should preserve the explicit list
+        assert endpoint.instanceIds == explicit_types
+
+    def test_validate_cpus_preserves_single_instance(self):
+        """Test that validate_cpus preserves single explicit instance type."""
+        endpoint = CpuServerlessEndpoint(
+            name="test-endpoint",
+            imageName="test/image:latest",
+            instanceIds=[CpuInstanceType.CPU3C_4_8],
+        )
+
+        # Should preserve the single instance type
+        assert endpoint.instanceIds == [CpuInstanceType.CPU3C_4_8]
 
 
 class TestCpuEndpointMixin:

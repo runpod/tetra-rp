@@ -23,12 +23,12 @@ class LiveServerlessMixin:
 
     @property
     def imageName(self):
-        # Lock imageName to specific image
+        """Return the locked live image."""
         return self._live_image
 
     @imageName.setter
     def imageName(self, value):
-        # Prevent manual setting of imageName
+        """Setter is a no-op - image is locked to live image."""
         pass
 
 
@@ -43,7 +43,11 @@ class LiveServerless(LiveServerlessMixin, ServerlessEndpoint):
     @classmethod
     def set_live_serverless_template(cls, data: dict):
         """Set default GPU image for Live Serverless."""
-        data["imageName"] = TETRA_GPU_IMAGE
+        # Only set default if imageName is not provided
+        # If custom imageName IS provided, let it through (for production mode)
+        if "imageName" not in data or not data["imageName"]:
+            data["imageName"] = TETRA_GPU_IMAGE
+        # Otherwise keep the custom value - it will be used to create the template
         return data
 
 
@@ -58,5 +62,8 @@ class CpuLiveServerless(LiveServerlessMixin, CpuServerlessEndpoint):
     @classmethod
     def set_live_serverless_template(cls, data: dict):
         """Set default CPU image for Live Serverless."""
-        data["imageName"] = TETRA_CPU_IMAGE
+        # Only set default if imageName is not provided
+        if "imageName" not in data or not data["imageName"]:
+            data["imageName"] = TETRA_CPU_IMAGE
+        # Custom imageName will be stored in template during model construction
         return data

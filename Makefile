@@ -12,8 +12,9 @@ help: # Show this help menu
 	@awk 'BEGIN {FS = ":.*# "; printf "%-20s %s\n", "Target", "Description"} /^[a-zA-Z_-]+:.*# / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
-dev: # Install development dependencies
+dev: # Install development dependencies and package in editable mode
 	uv sync --all-groups
+	uv pip install -e .
 
 update:
 	uv sync --upgrade --all-groups

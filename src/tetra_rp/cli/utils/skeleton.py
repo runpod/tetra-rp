@@ -1,101 +1,293 @@
 """Project skeleton creation utilities."""
 
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import List
 
-from tetra_rp.config import get_paths
+# Template files content
+MAIN_PY_TEMPLATE = '''"""
+Flash Application - Flash Server
 
+This is the main entry point for your Flash application.
+It runs a FastAPI server that coordinates GPU workers.
+"""
 
-def get_template_directory() -> Path:
-    """Get the path to the templates directory."""
-    return Path(__file__).parent.parent / "templates"
+import asyncio
+from fastapi import FastAPI
+from pydantic import BaseModel
+from dotenv import load_dotenv
 
+from workers import ExampleWorker
 
-def load_template_files(template_name: str) -> Dict[str, Any]:
-    """Load template files from filesystem."""
-    template_dir = get_template_directory() / template_name
+# Load environment variables
+load_dotenv()
 
-    if not template_dir.exists():
-        raise ValueError(f"Template '{template_name}' not found in {template_dir}")
-
-    files = {}
-
-    # Load all files from the template directory
-    for file_path in template_dir.iterdir():
-        if file_path.is_file():
-            relative_path = file_path.name
-
-            # Special handling for config.json - return as callable that generates tetra config
-            if file_path.name == "config.json":
-                config_content = file_path.read_text()
-                files[".tetra/config.json"] = lambda content=config_content: content
-            else:
-                files[relative_path] = file_path.read_text()
-
-    return files
+# Create FastAPI app
+app = FastAPI(title="Flash Application")
 
 
-def get_available_templates() -> Dict[str, Dict[str, Any]]:
-    """Get available project templates from filesystem."""
-    template_dir = get_template_directory()
-    templates = {}
+class ProcessRequest(BaseModel):
+    """Request model for processing endpoint."""
+    data: str
 
-    # Template descriptions
-    descriptions = {
-        "basic": "Simple remote function example",
-        "advanced": "Multi-function project with dependencies",
-        "gpu-compute": "GPU-optimized compute workload",
-        "web-api": "FastAPI web service deployment",
+
+@app.get("/")
+def home():
+    """Health check endpoint."""
+    return {"status": "ok", "message": "Flash application running"}
+
+
+@app.get("/health")
+def health():
+    """Health check endpoint."""
+    return {"healthy": True}
+
+
+@app.post("/process")
+async def process(request: ProcessRequest):
+    """
+    Process data using GPU worker.
+
+    Example request:
+    {
+        "data": "test input"
     }
+    """
+    # Instantiate worker
+    worker = ExampleWorker()
 
-    # Discover templates from filesystem
-    for template_path in template_dir.iterdir():
-        if template_path.is_dir():
-            template_name = template_path.name
-            try:
-                templates[template_name] = {
-                    "description": descriptions.get(
-                        template_name, f"{template_name} template"
-                    ),
-                    "files": load_template_files(template_name),
-                }
-            except Exception as e:
-                print(f"Warning: Failed to load template '{template_name}': {e}")
+    # Call worker's process method
+    result = await worker.process({"input": request.data})
 
-    return templates
+    return result
 
 
-def create_project_skeleton(
-    template_name: str, template_info: Dict[str, Any], force: bool = False
-) -> List[str]:
-    """Create project skeleton from template."""
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8888)
+'''
+
+WORKER_EXAMPLE_PY_TEMPLATE = '''"""
+Example GPU Worker
+
+This is an example of a GPU worker class that can be deployed
+to RunPod serverless endpoints.
+"""
+
+from tetra_rp import remote, LiveServerless
+
+
+# Configure GPU resource
+config = LiveServerless(
+    name="example_worker",
+    workersMax=3,
+)
+
+
+@remote(config)
+class ExampleWorker:
+    """Example GPU worker for processing tasks."""
+
+    def __init__(self):
+        """Initialize the worker."""
+        print("ExampleWorker initialized")
+
+    def process(self, input_data: dict) -> dict:
+        """
+        Process input data and return result.
+
+        Args:
+            input_data: Dictionary with input parameters
+
+        Returns:
+            Dictionary with processing results
+        """
+        # Your GPU processing logic here
+        result = {
+            "status": "success",
+            "input": input_data,
+            "output": f"Processed: {input_data}"
+        }
+
+        return result
+'''
+
+WORKERS_INIT_PY_TEMPLATE = '''"""GPU Workers package."""
+
+from .example_worker import ExampleWorker
+
+__all__ = ["ExampleWorker"]
+'''
+
+ENV_EXAMPLE_TEMPLATE = """# RunPod API Configuration
+RUNPOD_API_KEY=your_runpod_api_key_here
+
+# Development settings
+DEBUG=false
+LOG_LEVEL=INFO
+"""
+
+REQUIREMENTS_TXT_TEMPLATE = """# Core dependencies for Flash
+tetra-rp>=0.12.0
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+aiohttp>=3.9.0
+"""
+
+GITIGNORE_TEMPLATE = """# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment
+.env
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Tetra
+.tetra/
+
+# OS
+.DS_Store
+Thumbs.db
+"""
+
+README_TEMPLATE = """# {{project_name}}
+
+Flash application with Flash Server and GPU workers.
+
+## Setup
+
+1. Activate the conda environment:
+```bash
+conda activate {{project_name}}
+```
+
+2. Configure your RunPod API key:
+```bash
+cp .env.example .env
+# Edit .env and add your RUNPOD_API_KEY
+```
+
+3. Run the development server:
+```bash
+flash run
+```
+
+## Project Structure
+
+```
+{{project_name}}/
+├── main.py              # Flash Server (FastAPI)
+├── workers/             # GPU workers
+│   ├── __init__.py
+│   └── example_worker.py
+├── .env.example         # Environment variables template
+├── requirements.txt     # Python dependencies
+└── README.md           # This file
+```
+
+## Development
+
+The Flash Server runs on `localhost:8888` and coordinates GPU workers.
+
+### Adding New Workers
+
+1. Create a new file in `workers/` directory
+2. Define a class with `@remote` decorator
+3. Import it in `workers/__init__.py`
+4. Use it in `main.py`
+
+Example:
+```python
+from tetra_rp import remote, LiveServerless
+
+config = LiveServerless(name="my_worker", workersMax=3)
+
+@remote(config)
+class MyWorker:
+    def process(self, data):
+        return {{"result": f"Processed: {{data}}"}}
+```
+
+## Deployment
+
+Deploy to production:
+```bash
+flash deploy send production
+```
+
+## Documentation
+
+- [Flash CLI Docs](./docs/)
+- [Tetra Documentation](https://docs.tetra.dev)
+"""
+
+
+def create_project_skeleton(project_dir: Path, force: bool = False) -> List[str]:
+    """
+    Create Flash project skeleton.
+
+    Args:
+        project_dir: Project directory path
+        force: Overwrite existing files
+
+    Returns:
+        List of created file paths
+    """
     created_files = []
 
-    # Create .tetra directory using centralized config
-    paths = get_paths()
-    paths.ensure_tetra_dir()
+    # Define project structure
+    files_to_create = {
+        "main.py": MAIN_PY_TEMPLATE,
+        "workers/__init__.py": WORKERS_INIT_PY_TEMPLATE,
+        "workers/example_worker.py": WORKER_EXAMPLE_PY_TEMPLATE,
+        ".env.example": ENV_EXAMPLE_TEMPLATE,
+        "requirements.txt": REQUIREMENTS_TXT_TEMPLATE,
+        ".gitignore": GITIGNORE_TEMPLATE,
+        "README.md": README_TEMPLATE.format(project_name=project_dir.name),
+    }
 
-    # Create files from template
-    for file_path, content in template_info["files"].items():
-        path = Path(file_path)
+    # Create files
+    for relative_path, content in files_to_create.items():
+        file_path = project_dir / relative_path
 
         # Create parent directories if needed
-        path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Skip existing files unless force is True
-        if path.exists() and not force:
+        if file_path.exists() and not force:
             continue
 
-        # Get content (could be string or callable)
-        if callable(content):
-            file_content = content()
-        else:
-            file_content = content
-
         # Write file
-        with open(path, "w") as f:
-            f.write(file_content)
-
-        created_files.append(str(path))
+        file_path.write_text(content)
+        created_files.append(str(file_path.relative_to(project_dir)))
 
     return created_files
