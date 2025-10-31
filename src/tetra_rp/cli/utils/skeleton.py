@@ -179,6 +179,59 @@ wheels/
 Thumbs.db
 """
 
+FLASHIGNORE_TEMPLATE = """# Flash build ignores
+# Similar to .gitignore but specifically for flash build command
+
+# Version control
+.git/
+.gitignore
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# Build artifacts
+.build/
+.tetra/
+*.tar.gz
+*.egg-info/
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/
+test_*.py
+*_test.py
+
+# Documentation (optional - comment out to include)
+# docs/
+# *.md
+
+# Logs
+*.log
+"""
+
 README_TEMPLATE = """# {{project_name}}
 
 Flash application with Flash Server and GPU workers.
@@ -272,6 +325,7 @@ def create_project_skeleton(project_dir: Path, force: bool = False) -> List[str]
         ".env.example": ENV_EXAMPLE_TEMPLATE,
         "requirements.txt": REQUIREMENTS_TXT_TEMPLATE,
         ".gitignore": GITIGNORE_TEMPLATE,
+        ".flashignore": FLASHIGNORE_TEMPLATE,
         "README.md": README_TEMPLATE.format(project_name=project_dir.name),
     }
 
