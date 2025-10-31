@@ -23,7 +23,7 @@ def parse_ignore_file(file_path: Path) -> List[str]:
         return []
 
     try:
-        content = file_path.read_text()
+        content = file_path.read_text(encoding="utf-8")
         patterns = []
 
         for line in content.splitlines():

@@ -194,7 +194,7 @@ def validate_project_structure(project_dir: Path) -> bool:
 
     # Check if main.py has FastAPI app
     try:
-        content = main_py.read_text()
+        content = main_py.read_text(encoding="utf-8")
         if "FastAPI" not in content:
             console.print(
                 "[yellow]Warning:[/yellow] main.py does not appear to have a FastAPI app"
@@ -271,7 +271,7 @@ def collect_requirements(project_dir: Path, build_dir: Path) -> List[str]:
     req_file = project_dir / "requirements.txt"
     if req_file.exists():
         try:
-            content = req_file.read_text()
+            content = req_file.read_text(encoding="utf-8")
             for line in content.splitlines():
                 line = line.strip()
                 # Skip empty lines and comments
@@ -316,7 +316,7 @@ def extract_remote_dependencies(workers_dir: Path) -> List[str]:
             continue
 
         try:
-            tree = ast.parse(py_file.read_text())
+            tree = ast.parse(py_file.read_text(encoding="utf-8"))
 
             for node in ast.walk(tree):
                 if isinstance(node, (ast.ClassDef, ast.FunctionDef)):
