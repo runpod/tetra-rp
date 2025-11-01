@@ -1,8 +1,7 @@
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Optional
-from pydantic import BaseModel, ConfigDict
-
+from typing import Optional, ClassVar
+from pydantic import BaseModel, ConfigDict, computed_field
 
 class BaseResource(BaseModel):
     """Base class for all resources."""
@@ -14,14 +13,34 @@ class BaseResource(BaseModel):
     )
 
     id: Optional[str] = None
+    _hashed_fields: ClassVar[set] = set()
+    
+    # diffed fields is a temporary holder for fields that are "out of sync" -
+    # where a local instance representation of an endpoint is not up to date with the remote resource.
+    # it's needed for determining how updates are applied (eg, if we need to update a pod template)
+    fields_to_update: set[str] = set()
+
+    
+    @computed_field
+    @property
+    def resource_hash(self) -> str:
+        """Unique resource ID based on configuration."""
+        resource_type = self.__class__.__name__
+        # don't self reference and exclude any deployment state (eg id)
+        config_str = self.model_dump_json(include=self.__class__._hashed_fields)
+        hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
+        return f"{resource_type}_{hash_obj.hexdigest()}"
 
     @property
     def resource_id(self) -> str:
-        """Unique resource ID based on configuration."""
+        """Logical Tetra resource id defined by resource type and name.
+        Distinct from a server-side Runpod id. 
+        """
         resource_type = self.__class__.__name__
-        config_str = self.model_dump_json(exclude_none=True)
-        hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
-        return f"{resource_type}_{hash_obj.hexdigest()}"
+        # TODO: eventually we could namespace this to user ids or team ids
+        if not self.name:
+            self.name = "unnamed"
+        return f"{resource_type}_{self.name}"
 
 
 class DeployableResource(BaseResource, ABC):
@@ -44,4 +63,9 @@ class DeployableResource(BaseResource, ABC):
     @abstractmethod
     async def deploy(self) -> "DeployableResource":
         """Deploy the resource."""
+        raise NotImplementedError("Subclasses should implement this method.")
+
+    @abstractmethod
+    async def update(self) -> "DeployableResource":
+        """Update the resource."""
         raise NotImplementedError("Subclasses should implement this method.")

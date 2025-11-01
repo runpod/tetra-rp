@@ -425,9 +425,10 @@ class TestServerlessResourceDeployment:
         return {
             "id": "endpoint-123",
             "name": "test-serverless-fb",
-            "gpuIds": "RTX4090",
+            "gpuIds": "ADA_24",
             "allowedCudaVersions": "12.1",
             "networkVolumeId": "vol-456",
+            "templateId": "abc", 
         }
 
     def test_is_deployed_false_when_no_id(self):
@@ -484,7 +485,7 @@ class TestServerlessResourceDeployment:
         assert result.id == "endpoint-123"
         # The returned object gets the name from the API response, which gets processed again
         # result is a DeployableResource, so we need to cast it
-        assert hasattr(result, "name") and result.name == "test-serverless-fb-fb"
+        assert hasattr(result, "name") and result.name == "test-serverless-fb"
         # Verify locations was set from datacenter
         assert hasattr(result, "locations") and result.locations == "EU-RO-1"
 
