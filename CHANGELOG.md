@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/runpod/tetra-rp/compare/v0.13.0...v0.14.0) (2025-10-31)
+
+
+### Features
+
+* AE-1202 add flash cli cmd init and run ([#96](https://github.com/runpod/tetra-rp/issues/96)) ([75b2baf](https://github.com/runpod/tetra-rp/commit/75b2baf4a35c9e6f3fc973ed287bd8da9285c607))
+
 ## [0.13.0](https://github.com/runpod/tetra-rp/compare/v0.12.0...v0.13.0) (2025-10-09)
 
 
