@@ -6,7 +6,7 @@ Bypasses the outdated runpod-python SDK limitations.
 import json
 import logging
 import os
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional
 
 import aiohttp
 
@@ -356,13 +356,14 @@ class RunpodGraphQLClient:
                         name
                     }
                 }
+            }
         """
         variables = {"input": input_data}
 
         log.debug(f"Fetching flash environment by name for input: {variables}")
         result = await self._execute_graphql(query, variables)
 
-        return result["flashEnvironment"]
+        return result["flashEnvironmentByName"]
 
     async def get_flash_artifact_url(self, environment_id: str) -> Dict[str, Any]:
         result = await self.get_flash_environment({"flashEnvironmentId": environment_id})
@@ -502,6 +503,21 @@ class RunpodGraphQLClient:
 
         return result["updateFlashEnvironment"]
 
+    async def get_flash_build(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        query = """
+        query getFlashBuild($input: String!) {
+                flashBuild(flashBuildId: $input) {
+                    id
+                    name
+            }
+        }
+        """
+        variables = {"input": input_data}
+
+        log.debug(f"Fetching flash build for input: {input_data}")
+        result = await self._execute_graphql(query, variables)
+        return result["flashBuild"]
+
     async def close(self):
         """Close the HTTP session."""
         if self.session and not self.session.closed:
@@ -512,7 +528,6 @@ class RunpodGraphQLClient:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
-
 
 
 class RunpodRestClient:

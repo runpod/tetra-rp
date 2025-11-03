@@ -1,30 +1,22 @@
 """Flash deploy command - Deploy Flash project to production."""
 import asyncio
-import json
-from pathlib import Path
-from typing import Optional
 
 from tetra_rp import FlashApp
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 console = Console()
-ls_app = typer.Typer()
 
-# flash ls 
-# flash ls envs --app-name
-# flash ls builds --app-name
+ls_app = typer.Typer(short_help="List existing apps, environments, and builds")
 
 @ls_app.callback(invoke_without_command=True)
 def list_callback(ctx: typer.Context):
     if ctx.invoked_subcommand is None:
         asyncio.run(list_flash_apps())
 
-@ls_app.command("ls")
+@ls_app.command()
 def ls():
     return asyncio.run(list_flash_apps())
 

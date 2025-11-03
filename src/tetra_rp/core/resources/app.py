@@ -1,8 +1,8 @@
 from pathlib import Path
 import requests
 import asyncio
-from typing import Dict, List, Optional, Union, TYPE_CHECKING 
-from tetra_rp.config import get_paths
+from typing import Dict, Optional, Union, TYPE_CHECKING 
+import logging
 
 from ..api.runpod import RunpodGraphQLClient
 from ..resources.resource_manager import ResourceManager
@@ -11,11 +11,14 @@ from ..resources.serverless import ServerlessEndpoint, NetworkVolume
 if TYPE_CHECKING:
     from . import ServerlessResource
 
+log = logging.getLogger(__name__)
+
 class FlashApp:
     """
     A flash app serves as the entrypoint for interacting with and managing Flash applications.
     The primary entrypoint that it's used is to run a script using the Flash library.
-    An instance of this class will eagerly create an application in Runpod.
+    An instance of this class will eagerly create an application in Runpod by creating an async event loop.
+    To create a flash app from an async event loop, use FlashApp.create()
 
 
     to limit how much we query our gql, follow this philosophy:
@@ -47,8 +50,11 @@ class FlashApp:
 
     async def _hydrate(self):
         if self._hydrated:
+            log.debug("App is already hydrated while calling hydrate. Returning")
+            self._hydrated = True
             return
 
+        log.debug("Hydrating app")
         async with RunpodGraphQLClient() as client:
             try:
                 result = await client.get_flash_app_by_name(self.name)
@@ -58,13 +64,14 @@ class FlashApp:
                 if self.id:
                     if self.id != found_id:
                         raise ValueError("provided id for app class does not match existing app resource.")
+                    self._hydrated = True
                     return self
                 self.id = found_id
                 self._hydrated = True
                 return self
 
             except Exception as exc:
-                if not "app not found" in str(exc).lower():
+                if "app not found" not in str(exc).lower():
                     raise
             result = await client.create_flash_app({"name": self.name})
             self.id = result["id"]
@@ -99,9 +106,15 @@ class FlashApp:
                 raise ValueError("No active artifact for environment id found", environment_id)
             return result["activeArtifact"]
 
-    async def deploy_build_to_environment(self, environment_id: str, build_id: str):
+    async def deploy_build_to_environment(self, build_id: str, environment_id: Optional[str] = "", environment_name: Optional[str] = ""):
+        if (not environment_id and not environment_name) or (environment_name and environment_id):
+            raise ValueError("One of environment name or environment id must be provided.")
+
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
+            if not environment_id:
+                environment = await client.get_flash_environment_by_name({"flashAppId": self.id, "name": environment_name})
+                environment_id = environment["id"]
             result = await client.deploy_build_to_environment({"flashEnvironmentId": environment_id, "flashBuildId": build_id})
             return result
 
@@ -197,16 +210,29 @@ class FlashApp:
         return cls(app_name, id=result["id"], eager_hydrate=False)
 
     @classmethod
+    async def create(cls, app_name: str) -> "FlashApp":
+        async with RunpodGraphQLClient() as client:
+            result = await client.create_flash_app({"name": app_name})
+        return cls(app_name, id=result["id"], eager_hydrate=False)
+
+    @classmethod
     async def list(cls):
         async with RunpodGraphQLClient() as client:
             return await client.list_flash_apps()
     
+    async def get_build(self, build_id: str):
+        await self._hydrate()
+        async with RunpodGraphQLClient() as client:
+            return await client.get_flash_build({"flashBuildId": build_id})
+
     async def list_builds(self):
+        await self._hydrate()
         async with RunpodGraphQLClient() as client:
             result = await client.get_flash_app_by_name(self.name)
             return result["flashBuilds"]
 
     async def list_environments(self):
+        await self._hydrate()
         async with RunpodGraphQLClient() as client:
             result = await client.get_flash_app_by_name(self.name)
             return result["flashEnvironments"]
