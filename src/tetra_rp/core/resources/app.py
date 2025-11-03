@@ -1,7 +1,7 @@
 from pathlib import Path
 import requests
 import asyncio
-from typing import Dict, Optional, Union, TYPE_CHECKING 
+from typing import Dict, Optional, Union, TYPE_CHECKING
 import logging
 
 from ..api.runpod import RunpodGraphQLClient
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from . import ServerlessResource
 
 log = logging.getLogger(__name__)
+
 
 class FlashApp:
     """
@@ -63,7 +64,9 @@ class FlashApp:
                 # if an id is attached to instance check if it makes sense
                 if self.id:
                     if self.id != found_id:
-                        raise ValueError("provided id for app class does not match existing app resource.")
+                        raise ValueError(
+                            "provided id for app class does not match existing app resource."
+                        )
                     self._hydrated = True
                     return self
                 self.id = found_id
@@ -88,7 +91,9 @@ class FlashApp:
     async def create_environment(self, environment_name: str):
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
-            result = await client.create_flash_environment({"flashAppId": self.id, "name": environment_name})
+            result = await client.create_flash_environment(
+                {"flashAppId": self.id, "name": environment_name}
+            )
         return result
 
     async def _get_tarball_upload_url(self, tarball_size: int):
@@ -97,25 +102,40 @@ class FlashApp:
             return await client.prepare_artifact_upload(
                 {"flashAppId": self.id, "tarballSize": tarball_size}
             )
-    
+
     async def _get_active_artifact(self, environment_id: str):
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             result = await client.get_flash_artifact_url(environment_id)
             if not result.get("activeArtifact"):
-                raise ValueError("No active artifact for environment id found", environment_id)
+                raise ValueError(
+                    "No active artifact for environment id found", environment_id
+                )
             return result["activeArtifact"]
 
-    async def deploy_build_to_environment(self, build_id: str, environment_id: Optional[str] = "", environment_name: Optional[str] = ""):
-        if (not environment_id and not environment_name) or (environment_name and environment_id):
-            raise ValueError("One of environment name or environment id must be provided.")
+    async def deploy_build_to_environment(
+        self,
+        build_id: str,
+        environment_id: Optional[str] = "",
+        environment_name: Optional[str] = "",
+    ):
+        if (not environment_id and not environment_name) or (
+            environment_name and environment_id
+        ):
+            raise ValueError(
+                "One of environment name or environment id must be provided."
+            )
 
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             if not environment_id:
-                environment = await client.get_flash_environment_by_name({"flashAppId": self.id, "name": environment_name})
+                environment = await client.get_flash_environment_by_name(
+                    {"flashAppId": self.id, "name": environment_name}
+                )
                 environment_id = environment["id"]
-            result = await client.deploy_build_to_environment({"flashEnvironmentId": environment_id, "flashBuildId": build_id})
+            result = await client.deploy_build_to_environment(
+                {"flashEnvironmentId": environment_id, "flashBuildId": build_id}
+            )
             return result
 
     async def download_tarball(self, environment_id: str, dest_file: str):
@@ -128,28 +148,35 @@ class FlashApp:
                 for chunk in resp.iter_content():
                     if chunk:
                         stream.write(chunk)
-    
+
     async def _finalize_upload_build(self, object_key: str):
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             result = await client.finalize_artifact_upload(
-                    {"flashAppId": self.id, "objectKey": object_key}
-            )
-            return result
-    
-    async def _register_endpoint_to_environment(self, environment_id: str, endpoint_id: str):
-        await self._hydrate()
-        async with RunpodGraphQLClient() as client:
-            result = await client.register_endpoint_to_environment(
-                    {"flashEnvironmentId": environment_id, "endpointId": endpoint_id}
+                {"flashAppId": self.id, "objectKey": object_key}
             )
             return result
 
-    async def _register_network_volume_to_environment(self, environment_id: str, network_volume_id: str):
+    async def _register_endpoint_to_environment(
+        self, environment_id: str, endpoint_id: str
+    ):
+        await self._hydrate()
+        async with RunpodGraphQLClient() as client:
+            result = await client.register_endpoint_to_environment(
+                {"flashEnvironmentId": environment_id, "endpointId": endpoint_id}
+            )
+            return result
+
+    async def _register_network_volume_to_environment(
+        self, environment_id: str, network_volume_id: str
+    ):
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             result = await client.register_network_volume_to_environment(
-                    {"flashEnvironmentId": environment_id, "networkVolumeId": network_volume_id}
+                {
+                    "flashEnvironmentId": environment_id,
+                    "networkVolumeId": network_volume_id,
+                }
             )
             return result
 
@@ -164,10 +191,10 @@ class FlashApp:
         object_key = result["objectKey"]
 
         headers = {"Content-Type": "application/gzip"}
-        
+
         with tar_path.open("rb") as fh:
             resp = requests.put(url, data=fh, headers=headers)
-        
+
         resp.raise_for_status()
         resp = await self._finalize_upload_build(object_key)
         return resp
@@ -175,12 +202,16 @@ class FlashApp:
     async def _set_environment_state(self, environment_id: str, status: str):
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
-            await client.set_environment_state({"flashEnvironmentId": environment_id, "status": status}) 
+            await client.set_environment_state(
+                {"flashEnvironmentId": environment_id, "status": status}
+            )
 
     async def _get_environment_by_name(self, environment_name: str):
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
-            result = await client.get_flash_environment_by_name({"flashAppId": self.id, "name": environment_name})
+            result = await client.get_flash_environment_by_name(
+                {"flashAppId": self.id, "name": environment_name}
+            )
             return result["flashEnvironmentByName"]
 
     async def deploy_resources(self, environment_name: str):
@@ -188,21 +219,25 @@ class FlashApp:
         resource_manager = ResourceManager()
         environment = await self._get_environment_by_name(environment_name)
 
-        #NOTE(jhcipar) it's pretty fragile to have client managed state like this
-        #we should enforce this on the server side eventually and either debounce or not allow subsequent deploys
-        await self._set_environment_state(environment["id"], "DEPLOYING")  
+        # NOTE(jhcipar) it's pretty fragile to have client managed state like this
+        # we should enforce this on the server side eventually and either debounce or not allow subsequent deploys
+        await self._set_environment_state(environment["id"], "DEPLOYING")
 
         for resource_id, resource in self.resources.items():
             deployed_resource = await resource_manager.get_or_deploy_resource(resource)
             if isinstance(deployed_resource, ServerlessEndpoint):
-                await self._register_endpoint_to_environment(environment["id"], deployed_resource.id)
+                await self._register_endpoint_to_environment(
+                    environment["id"], deployed_resource.id
+                )
             if isinstance(deployed_resource, NetworkVolume):
-                await self._register_network_volume_to_environment(environment["id"], deployed_resource.id)
-        
-        #NOTE(jhcipar) we should healthcheck endpoints after provisioning them, for right now we just
-        #assume this is healthy
-        await self._set_environment_state(environment["id"], "HEALTHY")  
-            
+                await self._register_network_volume_to_environment(
+                    environment["id"], deployed_resource.id
+                )
+
+        # NOTE(jhcipar) we should healthcheck endpoints after provisioning them, for right now we just
+        # assume this is healthy
+        await self._set_environment_state(environment["id"], "HEALTHY")
+
     @classmethod
     async def from_name(cls, app_name: str) -> "FlashApp":
         async with RunpodGraphQLClient() as client:
@@ -219,7 +254,7 @@ class FlashApp:
     async def list(cls):
         async with RunpodGraphQLClient() as client:
             return await client.list_flash_apps()
-    
+
     async def get_build(self, build_id: str):
         await self._hydrate()
         async with RunpodGraphQLClient() as client:

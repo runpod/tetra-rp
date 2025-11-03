@@ -1,4 +1,5 @@
 """Flash deploy command - Deploy Flash project to production."""
+
 import asyncio
 
 from tetra_rp import FlashApp
@@ -11,24 +12,32 @@ console = Console()
 
 ls_app = typer.Typer(short_help="List existing apps, environments, and builds")
 
+
 @ls_app.callback(invoke_without_command=True)
 def list_callback(ctx: typer.Context):
     if ctx.invoked_subcommand is None:
         asyncio.run(list_flash_apps())
 
+
 @ls_app.command()
 def ls():
     return asyncio.run(list_flash_apps())
 
+
 @ls_app.command()
 def envs(
-    app_name: str = typer.Option(..., "--app-name", "-a", help="Flash app name to inspect"),
+    app_name: str = typer.Option(
+        ..., "--app-name", "-a", help="Flash app name to inspect"
+    ),
 ):
     return asyncio.run(list_flash_environments(app_name))
 
+
 @ls_app.command()
 def builds(
-    app_name: str = typer.Option(..., "--app-name", "-a", help="Flash app name to inspect"),
+    app_name: str = typer.Option(
+        ..., "--app-name", "-a", help="Flash app name to inspect"
+    ),
 ):
     return asyncio.run(list_flash_builds(app_name))
 
@@ -36,10 +45,9 @@ def builds(
 async def list_flash_builds(app_name: str):
     app = await FlashApp.from_name(app_name)
     builds = await app.list_builds()
-    
+
     if not builds:
         console.print(f"No builds found for '{app_name}'")
-
 
     table = Table(show_header=True, header_style="bold")
     table.add_column("ID", overflow="fold")
@@ -49,6 +57,7 @@ async def list_flash_builds(app_name: str):
     for build in builds:
         table.add_row(build.get("id"), build.get("objectKey"), build.get("createdAt"))
     console.print(table)
+
 
 async def list_flash_apps():
     apps = await FlashApp.list()
@@ -67,9 +76,12 @@ async def list_flash_apps():
         env_summary = ", ".join(env.get("name", "?") for env in environments) or "—"
         builds = app.get("flashBuilds") or []
         build_summary = ", ".join(build.get("id", "?") for build in builds) or "—"
-        table.add_row(app.get("name", "(unnamed)"), app.get("id", "—"), env_summary, build_summary)
+        table.add_row(
+            app.get("name", "(unnamed)"), app.get("id", "—"), env_summary, build_summary
+        )
 
     console.print(table)
+
 
 async def list_flash_environments(app_name: str):
     app = await FlashApp.from_name(app_name)
@@ -86,6 +98,11 @@ async def list_flash_environments(app_name: str):
     table.add_column("Created At", overflow="fold")
 
     for env in envs:
-        table.add_row(env.get("name"), env.get("id"), env.get("activeBuildId", "-"), env.get("createdAt"))
+        table.add_row(
+            env.get("name"),
+            env.get("id"),
+            env.get("activeBuildId", "-"),
+            env.get("createdAt"),
+        )
 
     console.print(table)

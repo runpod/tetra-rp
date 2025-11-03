@@ -36,17 +36,17 @@ class RunpodGraphQLClient:
         if self.session is None or self.session.closed:
             timeout = aiohttp.ClientTimeout(total=300)  # 5 minute timeout
             self.session = aiohttp.ClientSession(
-                    timeout=timeout,
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                        },
-                    )
+                timeout=timeout,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
         return self.session
 
     async def _execute_graphql(
-            self, query: str, variables: Optional[Dict[str, Any]] = None
-            ) -> Dict[str, Any]:
+        self, query: str, variables: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Execute a GraphQL query/mutation."""
         session = await self._get_session()
 
@@ -64,8 +64,8 @@ class RunpodGraphQLClient:
 
                 if response.status >= 400:
                     raise Exception(
-                            f"GraphQL request failed: {response.status} - {response_data}"
-                            )
+                        f"GraphQL request failed: {response.status} - {response_data}"
+                    )
 
                 if "errors" in response_data:
                     errors = response_data["errors"]
@@ -117,8 +117,8 @@ class RunpodGraphQLClient:
         variables = {"input": input_data}
 
         log.debug(
-                f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}"
-                )
+            f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
 
         result = await self._execute_graphql(mutation, variables)
 
@@ -127,8 +127,8 @@ class RunpodGraphQLClient:
 
         endpoint_data = result["saveEndpoint"]
         log.info(
-                f"Created endpoint: {endpoint_data.get('id', 'unknown')} - {endpoint_data.get('name', 'unnamed')}"
-                )
+            f"Created endpoint: {endpoint_data.get('id', 'unknown')} - {endpoint_data.get('name', 'unnamed')}"
+        )
 
         return endpoint_data
 
@@ -151,8 +151,8 @@ class RunpodGraphQLClient:
         return result.get("cpuTypes", [])
 
     async def get_gpu_types(
-            self, gpu_filter: Optional[Dict[str, Any]] = None
-            ) -> Dict[str, Any]:
+        self, gpu_filter: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Get available GPU types."""
         query = """
         query getGpuTypes($input: GpuTypeFilter) {
@@ -232,7 +232,9 @@ class RunpodGraphQLClient:
         result = await self._execute_graphql(query)
         return result["myself"].get("flashApps", [])
 
-    async def prepare_artifact_upload(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def prepare_artifact_upload(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         mutation = """
         mutation PrepareArtifactUpload($input: PrepareFlashArtifactUploadInput!) {
                 prepareFlashArtifactUpload(input: $input) {
@@ -249,7 +251,9 @@ class RunpodGraphQLClient:
         result = await self._execute_graphql(mutation, variables)
         return result["prepareFlashArtifactUpload"]
 
-    async def finalize_artifact_upload(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def finalize_artifact_upload(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         mutation = """
         mutation FinalizeArtifactUpload($input: FinalizeFlashArtifactUploadInput!) {
                 finalizeFlashArtifactUpload(input: $input) {
@@ -341,7 +345,9 @@ class RunpodGraphQLClient:
         result = await self._execute_graphql(query, variables)
         return result["flashEnvironment"]
 
-    async def get_flash_environment_by_name(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_flash_environment_by_name(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         query = """
         query getFlashEnvironmentByName($input: FlashEnvironmentByNameInput!) {
                 flashEnvironmentByName(input: $input) {
@@ -366,10 +372,14 @@ class RunpodGraphQLClient:
         return result["flashEnvironmentByName"]
 
     async def get_flash_artifact_url(self, environment_id: str) -> Dict[str, Any]:
-        result = await self.get_flash_environment({"flashEnvironmentId": environment_id})
+        result = await self.get_flash_environment(
+            {"flashEnvironmentId": environment_id}
+        )
         return result
 
-    async def deploy_build_to_environment(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def deploy_build_to_environment(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         # TODO(jhcipar) should we not generate a presigned url when promoting a build here?
         mutation = """
         mutation deployBuildToEnvironment($input: DeployBuildToEnvironmentInput!) {
@@ -387,16 +397,13 @@ class RunpodGraphQLClient:
 
         variables = {"input": input_data}
 
-        log.debug(
-                f"Deploying flash environment with vars: {input_data}"
-                )
+        log.debug(f"Deploying flash environment with vars: {input_data}")
 
         result = await self._execute_graphql(mutation, variables)
         return result["deployBuildToEnvironment"]
 
     async def create_flash_app(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new flash app in Runpod.
-        """
+        """Create a new flash app in Runpod."""
         log.debug(f"creating flash app with name {input_data.get('name')}")
 
         mutation = """
@@ -411,16 +418,17 @@ class RunpodGraphQLClient:
         variables = {"input": input_data}
 
         log.debug(
-                f"Creating flash app with GraphQL: {input_data.get('name', 'unnamed')}"
-                )
+            f"Creating flash app with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
 
         result = await self._execute_graphql(mutation, variables)
 
         return result["createFlashApp"]
 
-    async def create_flash_environment(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create an environment within a flash app.
-        """
+    async def create_flash_environment(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Create an environment within a flash app."""
         log.debug(f"creating flash environment with name {input_data.get('name')}")
 
         mutation = """
@@ -435,17 +443,21 @@ class RunpodGraphQLClient:
         variables = {"input": input_data}
 
         log.debug(
-                f"Creating flash environment with GraphQL: {input_data.get('name', 'unnamed')}"
-                )
+            f"Creating flash environment with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
 
         result = await self._execute_graphql(mutation, variables)
 
         return result["createFlashEnvironment"]
 
-    async def register_endpoint_to_environment(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def register_endpoint_to_environment(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Register an endpoint to a Flash environment"""
 
-        log.debug(f"Registering endpoint to flash environment with input data: {input_data}")
+        log.debug(
+            f"Registering endpoint to flash environment with input data: {input_data}"
+        )
 
         mutation = """
         mutation addEndpointToFlashEnvironment($input: AddEndpointToEnvironmentInput!) {
@@ -463,10 +475,14 @@ class RunpodGraphQLClient:
 
         return result["addEndpointToFlashEnvironment"]
 
-    async def register_network_volume_to_environment(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def register_network_volume_to_environment(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Register an endpoint to a Flash environment"""
 
-        log.debug(f"Registering endpoint to flash environment with input data: {input_data}")
+        log.debug(
+            f"Registering endpoint to flash environment with input data: {input_data}"
+        )
 
         mutation = """
         mutation addNetworkVolumeToFlashEnvironment($input: AddNetworkVolumeToEnvironmentInput!) {
@@ -548,17 +564,17 @@ class RunpodRestClient:
         if self.session is None or self.session.closed:
             timeout = aiohttp.ClientTimeout(total=300)  # 5 minute timeout
             self.session = aiohttp.ClientSession(
-                    timeout=timeout,
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                        },
-                    )
+                timeout=timeout,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
         return self.session
 
     async def _execute_rest(
-            self, method: str, url: str, data: Optional[Dict[str, Any]] = None
-            ) -> Dict[str, Any]:
+        self, method: str, url: str, data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Execute a REST API request."""
         session = await self._get_session()
 
@@ -574,8 +590,8 @@ class RunpodRestClient:
 
                 if response.status >= 400:
                     raise Exception(
-                            f"REST request failed: {response.status} - {response_data}"
-                            )
+                        f"REST request failed: {response.status} - {response_data}"
+                    )
 
                 return response_data
 
@@ -588,12 +604,12 @@ class RunpodRestClient:
         log.debug(f"Creating network volume: {payload.get('name', 'unnamed')}")
 
         result = await self._execute_rest(
-                "POST", f"{RUNPOD_REST_API_URL}/networkvolumes", payload
-                )
+            "POST", f"{RUNPOD_REST_API_URL}/networkvolumes", payload
+        )
 
         log.info(
-                f"Created network volume: {result.get('id', 'unknown')} - {result.get('name', 'unnamed')}"
-                )
+            f"Created network volume: {result.get('id', 'unknown')} - {result.get('name', 'unnamed')}"
+        )
 
         return result
 
@@ -608,8 +624,8 @@ class RunpodRestClient:
         log.debug("Listing network volumes")
 
         result = await self._execute_rest(
-                "GET", f"{RUNPOD_REST_API_URL}/networkvolumes"
-                )
+            "GET", f"{RUNPOD_REST_API_URL}/networkvolumes"
+        )
 
         # Handle both list and dict responses
         if isinstance(result, list):

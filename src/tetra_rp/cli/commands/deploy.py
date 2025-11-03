@@ -23,17 +23,33 @@ from tetra_rp.core.resources import FlashApp
 
 console = Console()
 
-deploy_app = typer.Typer(short_help="Deploy flash application code to managed environments on Runpod")
+deploy_app = typer.Typer(
+    short_help="Deploy flash application code to managed environments on Runpod"
+)
+
 
 @deploy_app.callback(invoke_without_command=True)
 def deploy_callback(
-        ctx: typer.Context,
-        app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name to deploy a build for"),
-        env_name: str = typer.Option("dev", "--env-name", "-e", help="Flash env name to deploy a build to. If not provided, default to 'dev'"),
-        build_id: str = typer.Option(None, "--build-id", "-b", help="Flash build id to deploy to env. If not provided, default to most recently uploaded build"),
+    ctx: typer.Context,
+    app_name: str = typer.Option(
+        None, "--app-name", "-a", help="Flash app name to deploy a build for"
+    ),
+    env_name: str = typer.Option(
+        "dev",
+        "--env-name",
+        "-e",
+        help="Flash env name to deploy a build to. If not provided, default to 'dev'",
+    ),
+    build_id: str = typer.Option(
+        None,
+        "--build-id",
+        "-b",
+        help="Flash build id to deploy to env. If not provided, default to most recently uploaded build",
+    ),
 ):
     if ctx.invoked_subcommand is None:
         deploy_build_sync(app_name, env_name, build_id)
+
 
 def deploy_build_sync(app_name: str, env_name: str, build_id: str):
     """
@@ -41,9 +57,17 @@ def deploy_build_sync(app_name: str, env_name: str, build_id: str):
     """
     asyncio.run(deploy_build(app_name, env_name, build_id))
 
-async def deploy_build(app_name: Optional[str] = "", env_name: Optional[str] = "dev", build_id: Optional[str] = None):
+
+async def deploy_build(
+    app_name: Optional[str] = "",
+    env_name: Optional[str] = "dev",
+    build_id: Optional[str] = None,
+):
     target_env = env_name or "dev"
-    progress_columns = [SpinnerColumn(), TextColumn("[progress.description]{task.description}")]
+    progress_columns = [
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+    ]
 
     with Progress(*progress_columns, console=console) as progress:
         task = progress.add_task("Preparing deployment", start=True)
@@ -70,7 +94,9 @@ async def deploy_build(app_name: Optional[str] = "", env_name: Optional[str] = "
             task,
             description=f"Promoting build {build_id} to environment '{target_env}'...",
         )
-        result = await app.deploy_build_to_environment(build_id, environment_name=target_env)
+        result = await app.deploy_build_to_environment(
+            build_id, environment_name=target_env
+        )
         progress.update(
             task,
             description=f"[green]✓ Promoted build {build_id} to '{target_env}'",
@@ -84,6 +110,7 @@ async def deploy_build(app_name: Optional[str] = "", env_name: Optional[str] = "
     console.print(Panel(panel_content, title="Deployment Promotion", expand=False))
 
     return result
+
 
 def list_command():
     """Show available deployment environments."""

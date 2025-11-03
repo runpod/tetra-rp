@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def discover_flash_project() -> tuple[Path, str]:
     """
     Discover Flash project directory and app name.
@@ -14,5 +15,3 @@ def discover_flash_project() -> tuple[Path, str]:
     app_name = project_dir.name
 
     return project_dir, app_name
-
-

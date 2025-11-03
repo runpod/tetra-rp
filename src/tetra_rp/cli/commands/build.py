@@ -35,7 +35,9 @@ def build_command(
         None, "--output", "-o", help="Custom archive name (default: archive.tar.gz)"
     ),
     local_only: bool = typer.Option(
-        False, "--local-only", help="Only store build tarball locally and dont upload to Runpod"
+        False,
+        "--local-only",
+        help="Only store build tarball locally and dont upload to Runpod",
     ),
 ):
     """
@@ -156,7 +158,7 @@ def build_command(
 
         # Success summary
         _display_build_summary(archive_path, app_name, len(files), len(requirements))
-        
+
         if local_only:
             return
 
@@ -172,8 +174,9 @@ def build_command(
         console.print(traceback.format_exc())
         raise typer.Exit(1)
 
+
 async def upload_build(app_name: str, build_path: str | Path):
-    app = await FlashApp.from_name(app_name) 
+    app = await FlashApp.from_name(app_name)
     await app.upload_build(build_path)
 
 

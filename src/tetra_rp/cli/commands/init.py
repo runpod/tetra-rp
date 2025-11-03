@@ -29,9 +29,11 @@ REQUIRED_PACKAGES = [
     "aiohttp>=3.9.0",
 ]
 
+
 async def init_app(app_name: str):
     app = await FlashApp.create(app_name)
     await app.create_environment("dev")
+
 
 def init_command(
     project_name: str = typer.Argument(..., help="Project name"),
