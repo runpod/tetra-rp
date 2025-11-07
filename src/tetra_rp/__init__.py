@@ -21,6 +21,7 @@ from .core.resources import (  # noqa: E402
     PodTemplate,
     ResourceManager,
     ServerlessEndpoint,
+    ServerlessType,
     runpod,
     NetworkVolume,
 )
@@ -38,6 +39,7 @@ __all__ = [
     "PodTemplate",
     "ResourceManager",
     "ServerlessEndpoint",
+    "ServerlessType",
     "runpod",
     "NetworkVolume",
 ]

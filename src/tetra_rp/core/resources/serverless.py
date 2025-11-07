@@ -43,6 +43,23 @@ class ServerlessScalerType(Enum):
     REQUEST_COUNT = "REQUEST_COUNT"
 
 
+class ServerlessType(Enum):
+    """
+    Serverless endpoint execution model.
+
+    QB (Queue-based): Traditional queue processing with automatic retries.
+                      Requests are placed in queue and processed sequentially.
+                      JSON input/output only. Higher latency but built-in error recovery.
+
+    LB (Load-balancer): Direct HTTP routing to healthy workers.
+                        Supports custom HTTP endpoints and any data format.
+                        Lower latency but no automatic retries.
+    """
+
+    QB = "QB"
+    LB = "LB"
+
+
 class CudaVersion(Enum):
     V11_8 = "11.8"
     V12_0 = "12.0"
@@ -91,6 +108,7 @@ class ServerlessResource(DeployableResource):
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
     templateId: Optional[str] = None
+    type: Optional[ServerlessType] = ServerlessType.QB
     workersMax: Optional[int] = 3
     workersMin: Optional[int] = 0
     workersPFBTarget: Optional[int] = None
@@ -130,6 +148,11 @@ class ServerlessResource(DeployableResource):
         self, value: Optional[ServerlessScalerType]
     ) -> Optional[str]:
         """Convert ServerlessScalerType enum to string."""
+        return value.value if value is not None else None
+
+    @field_serializer("type")
+    def serialize_type(self, value: Optional[ServerlessType]) -> Optional[str]:
+        """Convert ServerlessType enum to string."""
         return value.value if value is not None else None
 
     @field_validator("gpus")
