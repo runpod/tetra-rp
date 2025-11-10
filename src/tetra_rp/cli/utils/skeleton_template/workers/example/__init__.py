@@ -22,11 +22,13 @@ example_worker_router = APIRouter()
 
 class ProcessRequest(BaseModel):
     """Request model for processing endpoint."""
+
     data: str
 
 
 class ProcessResponse(BaseModel):
     """Response model for processing endpoint."""
+
     status: str
     input: dict
     output: str

@@ -23,6 +23,7 @@ example_interface_router = APIRouter()
 
 class TodoItem(BaseModel):
     """Request model for todo item operations."""
+
     data: str
 
 
@@ -32,7 +33,7 @@ class TodoItem(BaseModel):
 async def get_todo_list():
     """
     Get the todo list.
-    
+
     This is a load-balancer handler (multiple endpoints).
     Requests are routed directly to available workers.
     """

@@ -7,6 +7,7 @@ It runs a FastAPI server that coordinates with GPU and CPU workers.
 Each APIRouter is discovered as a handler during build and can be deployed
 as a separate serverless endpoint (queue-based or load-balancer based).
 """
+
 import os
 import logging
 from fastapi import FastAPI
@@ -15,7 +16,7 @@ from workers.example import example_worker_router
 from workers.interface import example_interface_router
 
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # Create FastAPI app

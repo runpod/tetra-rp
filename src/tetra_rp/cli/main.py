@@ -5,6 +5,7 @@ from importlib import metadata
 from rich.console import Console
 from rich.panel import Panel
 
+
 def get_version() -> str:
     """Get the package version from metadata."""
     try:
@@ -28,12 +29,17 @@ app = typer.Typer(
 
 @app.command("init")
 def init_cmd(
-    project_name: str = typer.Argument(None, help="Project name (defaults to current directory)"),
-    no_env: bool = typer.Option(False, "--no-env", help="Skip conda environment creation"),
+    project_name: str = typer.Argument(
+        None, help="Project name (defaults to current directory)"
+    ),
+    no_env: bool = typer.Option(
+        False, "--no-env", help="Skip conda environment creation"
+    ),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
 ):
     """Create new Flash project with Flash Server and GPU workers."""
     from .commands.init import init_command
+
     return init_command(project_name, no_env, force)
 
 
@@ -45,6 +51,7 @@ def run_cmd(
 ):
     """Start local Flash development server."""
     from .commands.run import run_command
+
     return run_command(host, port, reload)
 
 
@@ -55,6 +62,7 @@ def build_cmd(
 ):
     """Build Flash application for deployment."""
     from .commands.build import build_command
+
     return build_command(output_dir, clean)
 
 
@@ -62,6 +70,7 @@ def build_cmd(
 def report_cmd():
     """Show status of all deployed resources."""
     from .commands.resource import report_command
+
     return report_command()
 
 
@@ -71,7 +80,9 @@ def clean_cmd(
 ):
     """Remove all tracked resources."""
     from .commands.resource import clean_command
+
     return clean_command(force)
+
 
 # command: flash deploy
 deploy_app = typer.Typer(
@@ -87,6 +98,7 @@ deploy_app = typer.Typer(
 def deploy_list_cmd():
     """Show available deployment environments."""
     from .commands.deploy import list_command
+
     return list_command()
 
 
@@ -94,6 +106,7 @@ def deploy_list_cmd():
 def deploy_new_cmd(name: str = typer.Argument(..., help="Environment name")):
     """Create a new deployment environment."""
     from .commands.deploy import new_command
+
     return new_command(name)
 
 
@@ -101,6 +114,7 @@ def deploy_new_cmd(name: str = typer.Argument(..., help="Environment name")):
 def deploy_send_cmd(name: str = typer.Argument(..., help="Environment name")):
     """Deploy project to deployment environment."""
     from .commands.deploy import send_command
+
     return send_command(name)
 
 
@@ -108,6 +122,7 @@ def deploy_send_cmd(name: str = typer.Argument(..., help="Environment name")):
 def deploy_report_cmd(name: str = typer.Argument(..., help="Environment name")):
     """Show detailed environment status and metrics."""
     from .commands.deploy import report_command
+
     return report_command(name)
 
 
@@ -115,6 +130,7 @@ def deploy_report_cmd(name: str = typer.Argument(..., help="Environment name")):
 def deploy_rollback_cmd(name: str = typer.Argument(..., help="Environment name")):
     """Rollback deployment to previous version."""
     from .commands.deploy import rollback_command
+
     return rollback_command(name)
 
 
@@ -122,7 +138,9 @@ def deploy_rollback_cmd(name: str = typer.Argument(..., help="Environment name")
 def deploy_remove_cmd(name: str = typer.Argument(..., help="Environment name")):
     """Remove deployment environment."""
     from .commands.deploy import remove_command
+
     return remove_command(name)
+
 
 app.add_typer(deploy_app, name="deploy")
 

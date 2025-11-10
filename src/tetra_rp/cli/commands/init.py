@@ -65,7 +65,9 @@ def init_command(
             )
 
             # Prompt user for confirmation
-            proceed = typer.confirm("Continue and overwrite these files?", default=False)
+            proceed = typer.confirm(
+                "Continue and overwrite these files?", default=False
+            )
             if not proceed:
                 console.print("[yellow]Initialization aborted.[/yellow]")
                 raise typer.Exit(0)
@@ -81,7 +83,7 @@ def init_command(
 
     # Create project skeleton
     status_msg = (
-        f"Initializing Flash project in current directory..."
+        "Initializing Flash project in current directory..."
         if is_current_dir
         else f"Creating Flash project '{project_name}'..."
     )
@@ -107,7 +109,9 @@ def init_command(
                 env_created = True
             else:
                 # Create conda environment
-                with console.status(f"Creating conda environment '{actual_project_name}'..."):
+                with console.status(
+                    f"Creating conda environment '{actual_project_name}'..."
+                ):
                     success, message = create_conda_environment(actual_project_name)
 
                 if not success:
@@ -132,15 +136,11 @@ def init_command(
 
     # Success output
     if is_current_dir:
-        panel_content = (
-            f"Flash project '[bold]{actual_project_name}[/bold]' initialized in current directory!\n\n"
-        )
+        panel_content = f"Flash project '[bold]{actual_project_name}[/bold]' initialized in current directory!\n\n"
         panel_content += "Project structure:\n"
         panel_content += "  ./\n"
     else:
-        panel_content = (
-            f"Flash project '[bold]{actual_project_name}[/bold]' created successfully!\n\n"
-        )
+        panel_content = f"Flash project '[bold]{actual_project_name}[/bold]' created successfully!\n\n"
         panel_content += "Project structure:\n"
         panel_content += f"  {actual_project_name}/\n"
 
@@ -153,9 +153,7 @@ def init_command(
     panel_content += "  └── README.md\n"
 
     if env_created:
-        panel_content += (
-            f"\nConda environment '[bold]{actual_project_name}[/bold]' created and configured"
-        )
+        panel_content += f"\nConda environment '[bold]{actual_project_name}[/bold]' created and configured"
 
     title = "Project Initialized" if is_current_dir else "Project Created"
     console.print(Panel(panel_content, title=title, expand=False))
@@ -172,7 +170,9 @@ def init_command(
         step_num += 1
 
     if env_created:
-        steps_table.add_row(f"{step_num}.", f"{get_activation_command(actual_project_name)}")
+        steps_table.add_row(
+            f"{step_num}.", f"{get_activation_command(actual_project_name)}"
+        )
         step_num += 1
         steps_table.add_row(f"{step_num}.", "Add your RUNPOD_API_KEY to .env")
         step_num += 1

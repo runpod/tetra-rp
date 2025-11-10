@@ -34,7 +34,7 @@ class ExampleWorker:
         result = {
             "status": "success",
             "input": input_data,
-            "output": f"Processed: {input_data}"
+            "output": f"Processed: {input_data}",
         }
 
         return result
@@ -45,11 +45,7 @@ if __name__ == "__main__":
     import asyncio
 
     worker = ExampleWorker()
-    payload = {
-        "input": {
-            "foo": "bar"
-        }
-    }
+    payload = {"input": {"foo": "bar"}}
 
     result = asyncio.run(worker.process(payload))
 
