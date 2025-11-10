@@ -102,7 +102,7 @@ from tetra_rp import remote, CpuLiveServerless, CpuInstanceType
 
 config = CpuLiveServerless(
     name="interface_worker",
-    instanceIds=[CpuInstanceType.CPU5G_2_8],  # 2 vCPU, 8GB RAM
+    instanceIds=[CpuInstanceType.CPU3G_2_8],  # 2 vCPU, 8GB RAM
     workersMin=0,
     workersMax=5
 )
@@ -280,7 +280,7 @@ from tetra_rp import LiveServerless, GpuGroup
 
 config = LiveServerless(
     name="my_worker",
-    gpus=[GpuGroup.RTX4090],        # GPU type
+    gpus=[GpuGroup.ADA_24],          # GPU type
     gpuCount=1,                      # GPUs per worker
     workersMin=0,                    # Minimum workers (0 = scale to zero)
     workersMax=3,                    # Maximum workers
@@ -290,10 +290,13 @@ config = LiveServerless(
 ```
 
 **Available GPU Types:**
-- `GpuGroup.RTX4090` - RTX 4090 (24GB)
-- `GpuGroup.RTX3090` - RTX 3090 (24GB)
-- `GpuGroup.A100_80GB` - A100 (80GB)
-- `GpuGroup.H100` - H100 (80GB)
+- `GpuGroup.ADA_24` - NVIDIA GeForce RTX 4090 (24GB)
+- `GpuGroup.ADA_48_PRO` - NVIDIA RTX 6000 Ada, L40, L40S (48GB)
+- `GpuGroup.ADA_80_PRO` - NVIDIA H100 PCIe, H100 80GB HBM3 (80GB)
+- `GpuGroup.AMPERE_24` - NVIDIA RTX A5000, L4, GeForce RTX 3090 (24GB)
+- `GpuGroup.AMPERE_48` - NVIDIA A40, RTX A6000 (48GB)
+- `GpuGroup.AMPERE_80` - NVIDIA A100 80GB PCIe, A100-SXM4-80GB (80GB)
+- `GpuGroup.HOPPER_141` - NVIDIA H200 (141GB)
 
 ### CPU Interface Configuration
 
@@ -302,7 +305,7 @@ from tetra_rp import CpuLiveServerless, CpuInstanceType
 
 config = CpuLiveServerless(
     name="my_interface",
-    instanceIds=[CpuInstanceType.CPU5G_2_8],  # 2 vCPU, 8GB RAM
+    instanceIds=[CpuInstanceType.CPU3G_2_8],  # 2 vCPU, 8GB RAM
     workersMin=0,
     workersMax=5,
     idleTimeout=5,
@@ -311,12 +314,18 @@ config = CpuLiveServerless(
 ```
 
 **Available CPU Types:**
-- `CPU3G_1_2` - 1 vCPU, 2GB RAM (General Purpose, Gen 3)
-- `CPU3G_2_4` - 2 vCPU, 4GB RAM
-- `CPU3G_4_8` - 4 vCPU, 8GB RAM
-- `CPU5G_2_8` - 2 vCPU, 8GB RAM (General Purpose, Gen 5)
-- `CPU5G_4_16` - 4 vCPU, 16GB RAM
-- `CPU5C_4_16` - 4 vCPU, 16GB RAM (Compute Optimized, Gen 5)
+- `CPU3G_1_4` - 1 vCPU, 4GB RAM (3rd Gen General Purpose)
+- `CPU3G_2_8` - 2 vCPU, 8GB RAM (3rd Gen General Purpose)
+- `CPU3G_4_16` - 4 vCPU, 16GB RAM (3rd Gen General Purpose)
+- `CPU3G_8_32` - 8 vCPU, 32GB RAM (3rd Gen General Purpose)
+- `CPU3C_1_2` - 1 vCPU, 2GB RAM (3rd Gen Compute-Optimized)
+- `CPU3C_2_4` - 2 vCPU, 4GB RAM (3rd Gen Compute-Optimized)
+- `CPU3C_4_8` - 4 vCPU, 8GB RAM (3rd Gen Compute-Optimized)
+- `CPU3C_8_16` - 8 vCPU, 16GB RAM (3rd Gen Compute-Optimized)
+- `CPU5C_1_2` - 1 vCPU, 2GB RAM (5th Gen Compute-Optimized)
+- `CPU5C_2_4` - 2 vCPU, 4GB RAM (5th Gen Compute-Optimized)
+- `CPU5C_4_8` - 4 vCPU, 8GB RAM (5th Gen Compute-Optimized)
+- `CPU5C_8_16` - 8 vCPU, 16GB RAM (5th Gen Compute-Optimized)
 
 ## Adding New Workers
 
@@ -412,11 +421,11 @@ app.include_router(my_api_router, prefix="/my_api", tags=["api"])
 ### Pattern 1: ML Model Inference (GPU)
 
 ```python
-from tetra_rp import remote, LiveServerless
+from tetra_rp import remote, LiveServerless, GpuGroup
 
 config = LiveServerless(
     name="model_inference",
-    gpus=["RTX4090"],
+    gpus=[GpuGroup.ADA_24],
     workersMax=3
 )
 
@@ -442,11 +451,11 @@ class ModelInference:
 ### Pattern 2: API Gateway (CPU)
 
 ```python
-from tetra_rp import remote, CpuLiveServerless
+from tetra_rp import remote, CpuLiveServerless, CpuInstanceType
 
 config = CpuLiveServerless(
     name="api_gateway",
-    instanceIds=["cpu5c-4-16"],  # Compute optimized
+    instanceIds=[CpuInstanceType.CPU5C_4_8],  # Compute optimized
     workersMax=10
 )
 
@@ -466,11 +475,11 @@ def process_webhook(data: dict):
 ### Pattern 3: Batch Processing (GPU)
 
 ```python
-from tetra_rp import remote, LiveServerless
+from tetra_rp import remote, LiveServerless, GpuGroup
 
 config = LiveServerless(
     name="batch_processor",
-    gpus=["A100_80GB"],
+    gpus=[GpuGroup.AMPERE_80],
     gpuCount=2,  # Multi-GPU
     workersMax=5
 )
