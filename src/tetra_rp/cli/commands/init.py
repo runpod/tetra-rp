@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from ..utils.skeleton import create_project_skeleton
+from ..utils.skeleton import create_project_skeleton, detect_file_conflicts
 from ..utils.conda import (
     check_conda_available,
     create_conda_environment,
@@ -29,28 +29,63 @@ REQUIRED_PACKAGES = [
 
 
 def init_command(
-    project_name: str = typer.Argument(..., help="Project name"),
-    no_env: bool = typer.Option(
-        False, "--no-env", help="Skip conda environment creation"
-    ),
-    force: bool = typer.Option(
-        False, "--force", "-f", help="Overwrite existing directory"
-    ),
+    project_name: str = None,
+    no_env: bool = False,
+    force: bool = False,
 ):
     """Create new Flash project with Flash Server and GPU workers."""
 
-    # Create project directory
-    project_dir = Path(project_name)
+    # Determine target directory and initialization mode
+    if project_name is None or project_name == ".":
+        # Initialize in current directory
+        project_dir = Path.cwd()
+        is_current_dir = True
+        # Use current directory name as project name
+        actual_project_name = project_dir.name
+    else:
+        # Create new directory
+        project_dir = Path(project_name)
+        is_current_dir = False
+        actual_project_name = project_name
 
-    if project_dir.exists() and not force:
-        console.print(f"Directory '{project_name}' already exists")
-        console.print("Use --force to overwrite")
-        raise typer.Exit(1)
+    # Handle directory existence and conflicts
+    if is_current_dir:
+        # Initializing in current directory - check for conflicts
+        conflicts = detect_file_conflicts(project_dir)
 
-    # Create project directory
-    project_dir.mkdir(parents=True, exist_ok=True)
+        if conflicts and not force:
+            # Show warning and prompt user
+            console.print(
+                Panel(
+                    "[yellow]Warning: The following files will be overwritten:[/yellow]\n\n"
+                    + "\n".join(f"  • {conflict}" for conflict in conflicts),
+                    title="File Conflicts Detected",
+                    expand=False,
+                )
+            )
 
-    with console.status(f"Creating Flash project '{project_name}'..."):
+            # Prompt user for confirmation
+            proceed = typer.confirm("Continue and overwrite these files?", default=False)
+            if not proceed:
+                console.print("[yellow]Initialization aborted.[/yellow]")
+                raise typer.Exit(0)
+    else:
+        # Creating new directory - check if it exists
+        if project_dir.exists() and not force:
+            console.print(f"[red]Directory '{project_name}' already exists[/red]")
+            console.print("Use --force to overwrite")
+            raise typer.Exit(1)
+
+        # Create project directory
+        project_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create project skeleton
+    status_msg = (
+        f"Initializing Flash project in current directory..."
+        if is_current_dir
+        else f"Creating Flash project '{project_name}'..."
+    )
+    with console.status(status_msg):
         create_project_skeleton(project_dir, force)
 
     # Create conda environment if requested
@@ -65,15 +100,15 @@ def init_command(
             )
         else:
             # Check if environment already exists
-            if environment_exists(project_name):
+            if environment_exists(actual_project_name):
                 console.print(
-                    f"[yellow]Conda environment '{project_name}' already exists. Skipping creation.[/yellow]"
+                    f"[yellow]Conda environment '{actual_project_name}' already exists. Skipping creation.[/yellow]"
                 )
                 env_created = True
             else:
                 # Create conda environment
-                with console.status(f"Creating conda environment '{project_name}'..."):
-                    success, message = create_conda_environment(project_name)
+                with console.status(f"Creating conda environment '{actual_project_name}'..."):
+                    success, message = create_conda_environment(actual_project_name)
 
                 if not success:
                     console.print(f"[yellow]Warning: {message}[/yellow]")
@@ -86,7 +121,7 @@ def init_command(
                     # Install required packages
                     with console.status("Installing dependencies..."):
                         success, message = install_packages_in_env(
-                            project_name, REQUIRED_PACKAGES, use_pip=True
+                            actual_project_name, REQUIRED_PACKAGES, use_pip=True
                         )
 
                     if not success:
@@ -96,24 +131,34 @@ def init_command(
                         )
 
     # Success output
-    panel_content = (
-        f"Flash project '[bold]{project_name}[/bold]' created successfully!\n\n"
-    )
-    panel_content += "Project structure:\n"
-    panel_content += f"  {project_name}/\n"
+    if is_current_dir:
+        panel_content = (
+            f"Flash project '[bold]{actual_project_name}[/bold]' initialized in current directory!\n\n"
+        )
+        panel_content += "Project structure:\n"
+        panel_content += "  ./\n"
+    else:
+        panel_content = (
+            f"Flash project '[bold]{actual_project_name}[/bold]' created successfully!\n\n"
+        )
+        panel_content += "Project structure:\n"
+        panel_content += f"  {actual_project_name}/\n"
+
     panel_content += "  ├── main.py              # Flash Server (FastAPI)\n"
     panel_content += "  ├── workers/             # GPU workers\n"
-    panel_content += "  │   └── example_worker.py\n"
-    panel_content += "  ├── .env.example\n"
+    panel_content += "  │   └── example/\n"
+    panel_content += "  │   └── interface/\n"
+    panel_content += "  ├── .env\n"
     panel_content += "  ├── requirements.txt\n"
     panel_content += "  └── README.md\n"
 
     if env_created:
         panel_content += (
-            f"\nConda environment '[bold]{project_name}[/bold]' created and configured"
+            f"\nConda environment '[bold]{actual_project_name}[/bold]' created and configured"
         )
 
-    console.print(Panel(panel_content, title="Project Created", expand=False))
+    title = "Project Initialized" if is_current_dir else "Project Created"
+    console.print(Panel(panel_content, title=title, expand=False))
 
     # Next steps
     console.print("\n[bold]Next steps:[/bold]")
@@ -121,15 +166,22 @@ def init_command(
     steps_table.add_column("Step", style="bold cyan")
     steps_table.add_column("Description")
 
-    steps_table.add_row("1.", f"cd {project_name}")
+    step_num = 1
+    if not is_current_dir:
+        steps_table.add_row(f"{step_num}.", f"cd {actual_project_name}")
+        step_num += 1
 
     if env_created:
-        steps_table.add_row("2.", f"{get_activation_command(project_name)}")
-        steps_table.add_row("3.", "cp .env.example .env  # Add your RUNPOD_API_KEY")
-        steps_table.add_row("4.", "flash run")
+        steps_table.add_row(f"{step_num}.", f"{get_activation_command(actual_project_name)}")
+        step_num += 1
+        steps_table.add_row(f"{step_num}.", "Add your RUNPOD_API_KEY to .env")
+        step_num += 1
+        steps_table.add_row(f"{step_num}.", "flash run")
     else:
-        steps_table.add_row("2.", "pip install -r requirements.txt")
-        steps_table.add_row("3.", "cp .env.example .env  # Add your RUNPOD_API_KEY")
-        steps_table.add_row("4.", "flash run")
+        steps_table.add_row(f"{step_num}.", "pip install -r requirements.txt")
+        step_num += 1
+        steps_table.add_row(f"{step_num}.", "Add your RUNPOD_API_KEY to .env")
+        step_num += 1
+        steps_table.add_row(f"{step_num}.", "flash run")
 
     console.print(steps_table)
