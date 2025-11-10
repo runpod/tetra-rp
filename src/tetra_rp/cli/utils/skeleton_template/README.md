@@ -47,12 +47,12 @@ The server starts at **http://localhost:8000**
 curl http://localhost:8000/ping
 
 # Test GPU worker endpoint
-curl -X POST http://localhost:8000/example/process \
+curl -X POST http://localhost:8000/example/ \
   -H "Content-Type: application/json" \
-  -d '{"task": "example"}'
+  -d '{"data": "example task"}'
 
 # Test CPU interface endpoint
-curl http://localhost:8000/interface/todo/list
+curl http://localhost:8000/interface/list
 ```
 
 Test using the OpenAPI (Swagger) UI at **http://localhost:8000/docs**
@@ -195,13 +195,13 @@ Health check endpoint.
 
 ### Example GPU Worker
 
-#### `POST /example/process`
+#### `POST /example/`
 Queue-based GPU processing endpoint.
 
 **Request:**
 ```json
 {
-  "input_data": {"task": "example"}
+  "data": "example task"
 }
 ```
 
@@ -209,14 +209,14 @@ Queue-based GPU processing endpoint.
 ```json
 {
   "status": "success",
-  "input": {"task": "example"},
-  "output": "Processed: {'task': 'example'}"
+  "input": {"input": "example task"},
+  "output": "Processed: {'input': 'example task'}"
 }
 ```
 
 ### Example CPU Interface
 
-#### `GET /interface/todo/list`
+#### `GET /interface/list`
 Get list of todo items.
 
 **Response:**
@@ -228,34 +228,38 @@ Get list of todo items.
 }
 ```
 
-#### `POST /interface/todo/add`
+#### `POST /interface/add`
 Add a new todo item.
 
 **Request:**
 ```json
 {
-  "item": "New task"
+  "data": "New task"
 }
 ```
 
 **Response:**
 ```json
-"added item: New task"
+{
+  "result": "added item: New task"
+}
 ```
 
-#### `DELETE /interface/todo/delete`
+#### `POST /interface/delete`
 Delete a todo item.
 
 **Request:**
 ```json
 {
-  "item": "Old task"
+  "data": "Old task"
 }
 ```
 
 **Response:**
 ```json
-"deleted item: Old task"
+{
+  "result": "deleted item: Old task"
+}
 ```
 
 ## Configuration
