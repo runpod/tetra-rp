@@ -86,32 +86,32 @@ class RunpodGraphQLClient:
         # GraphQL mutation for saveEndpoint (based on actual schema)
         mutation = """
         mutation saveEndpoint($input: EndpointInput!) {
-            saveEndpoint(input: $input) {
-                aiKey
-                gpuIds
-                id
-                idleTimeout
-                locations
-                name
-                networkVolumeId
-                scalerType
-                scalerValue
-                templateId
-                type
-                userId
-                version
-                workersMax
-                workersMin
-                workersStandby
-                workersPFBTarget
-                gpuCount
-                allowedCudaVersions
-                executionTimeoutMs
-                instanceIds
-                activeBuildid
-                idePodId
-            }
-        }
+                saveEndpoint(input: $input) {
+                    aiKey
+                    gpuIds
+                    id
+                    idleTimeout
+                    locations
+                    name
+                    networkVolumeId
+                    scalerType
+                    scalerValue
+                    templateId
+                    type
+                    userId
+                    version
+                    workersMax
+                    workersMin
+                    workersStandby
+                    workersPFBTarget
+                    gpuCount
+                    allowedCudaVersions
+                    executionTimeoutMs
+                    instanceIds
+                    activeBuildid
+                    idePodId
+                    }
+                }
         """
 
         variables = {"input": input_data}
@@ -136,15 +136,15 @@ class RunpodGraphQLClient:
         """Get available CPU types."""
         query = """
         query getCpuTypes {
-            cpuTypes {
-                id
-                displayName
-                manufacturer
-                cores
-                threadsPerCore
-                groupId
-            }
-        }
+                cpuTypes {
+                    id
+                    displayName
+                    manufacturer
+                    cores
+                    threadsPerCore
+                    groupId
+                    }
+                }
         """
 
         result = await self._execute_graphql(query)
@@ -156,26 +156,26 @@ class RunpodGraphQLClient:
         """Get available GPU types."""
         query = """
         query getGpuTypes($input: GpuTypeFilter) {
-            gpuTypes(input: $input) {
-                id
-                displayName
-                manufacturer
-                memoryInGb
-                cudaCores
-                secureCloud
-                communityCloud
-                securePrice
-                communityPrice
-                communitySpotPrice
-                secureSpotPrice
-                maxGpuCount
-                maxGpuCountCommunityCloud
-                maxGpuCountSecureCloud
-                minPodGpuCount
-                nodeGroupGpuSizes
-                throughput
-            }
-        }
+                gpuTypes(input: $input) {
+                    id
+                    displayName
+                    manufacturer
+                    memoryInGb
+                    cudaCores
+                    secureCloud
+                    communityCloud
+                    securePrice
+                    communityPrice
+                    communitySpotPrice
+                    secureSpotPrice
+                    maxGpuCount
+                    maxGpuCountCommunityCloud
+                    maxGpuCountSecureCloud
+                    minPodGpuCount
+                    nodeGroupGpuSizes
+                    throughput
+                    }
+                }
         """
 
         variables = {"input": gpu_filter} if gpu_filter else {}
@@ -192,8 +192,8 @@ class RunpodGraphQLClient:
         """Delete a serverless endpoint."""
         mutation = """
         mutation deleteEndpoint($id: String!) {
-            deleteEndpoint(id: $id)
-        }
+                deleteEndpoint(id: $id)
+                }
         """
 
         variables = {"id": endpoint_id}
@@ -201,6 +201,338 @@ class RunpodGraphQLClient:
 
         result = await self._execute_graphql(mutation, variables)
         return {"success": result.get("deleteEndpoint") is not None}
+
+    async def list_flash_apps(self) -> Dict[str, Any]:
+        """
+        List all flash apps in Runpod.
+        """
+        log.debug("Listing Flash apps")
+        query = """
+        query getFlashApps {
+                myself {
+                    flashApps {
+                        id
+                        name
+                        flashEnvironments {
+                            id
+                            name
+                            state
+                            createdAt
+                            activeBuildId
+                        }
+                        flashBuilds {
+                            id
+                            createdAt
+                        }
+                    }
+                }
+                }
+        """
+
+        result = await self._execute_graphql(query)
+        return result["myself"].get("flashApps", [])
+
+    async def prepare_artifact_upload(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        mutation = """
+        mutation PrepareArtifactUpload($input: PrepareFlashArtifactUploadInput!) {
+                prepareFlashArtifactUpload(input: $input) {
+                    uploadUrl
+                    objectKey
+                    expiresAt
+                    }
+                }
+        """
+        variables = {"input": input_data}
+
+        log.debug(f"Preparing upload url for flash environment: {input_data}")
+
+        result = await self._execute_graphql(mutation, variables)
+        return result["prepareFlashArtifactUpload"]
+
+    async def finalize_artifact_upload(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        mutation = """
+        mutation FinalizeArtifactUpload($input: FinalizeFlashArtifactUploadInput!) {
+                finalizeFlashArtifactUpload(input: $input) {
+                    id
+                    resourceSpec
+                    }
+                }
+        """
+        variables = {"input": input_data}
+
+        log.debug(f"finalizing upload for flash app: {input_data}")
+
+        result = await self._execute_graphql(mutation, variables)
+        return result["finalizeFlashArtifactUpload"]
+
+    async def get_flash_app(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        query = """
+        query getFlashApp($input: String!) {
+                flashApp(flashAppId: $input) {
+                    id
+                    name
+                    flashEnvironments {
+                        id
+                        name
+                        state
+                    }
+                flashBuilds {
+                    id
+                    objectKey
+                    createdAt
+                }
+            }
+        }
+        """
+        variables = {"input": input_data}
+
+        log.debug(f"Fetching flash app for input: {input_data}")
+        result = await self._execute_graphql(query, variables)
+        return result["flashApp"]
+
+    async def get_flash_app_by_name(self, app_name: str) -> Dict[str, Any]:
+        query = """
+        query getFlashAppByName($flashAppName: String!) {
+                flashAppByName(flashAppName: $flashAppName) {
+                    id
+                    name
+                    flashEnvironments {
+                        id
+                        name
+                        state
+                        activeBuildId
+                        createdAt
+                    }
+                flashBuilds {
+                    id
+                    objectKey
+                    createdAt
+                }
+            }
+        }
+        """
+        variables = {"flashAppName": app_name}
+
+        log.debug(f"Fetching flash app by name for input: {app_name}")
+        result = await self._execute_graphql(query, variables)
+        return result["flashAppByName"]
+
+    async def get_flash_environment(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        query = """
+        query getFlashEnvironment($flashEnvironmentId: String!) {
+                flashEnvironment(flashEnvironmentId: $flashEnvironmentId) {
+                    id
+                    name
+                    state
+                    activeBuildId
+                    createdAt
+                    endpoints {
+                        name
+                    }
+                    networkVolumes {
+                        name
+                    }
+                }
+            }
+        """
+        variables = {**input_data}
+
+        log.debug(f"Fetching flash environment for input: {variables}")
+        result = await self._execute_graphql(query, variables)
+        return result["flashEnvironment"]
+
+    async def get_flash_environment_by_name(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        query = """
+        query getFlashEnvironmentByName($input: FlashEnvironmentByNameInput!) {
+                flashEnvironmentByName(input: $input) {
+                    id
+                    name
+                    state
+                    activeBuildId
+                    endpoints {
+                        name
+                    }
+                    networkVolumes {
+                        name
+                    }
+                }
+            }
+        """
+        variables = {"input": input_data}
+
+        log.debug(f"Fetching flash environment by name for input: {variables}")
+        result = await self._execute_graphql(query, variables)
+
+        return result["flashEnvironmentByName"]
+
+    async def get_flash_artifact_url(self, environment_id: str) -> Dict[str, Any]:
+        result = await self.get_flash_environment(
+            {"flashEnvironmentId": environment_id}
+        )
+        return result
+
+    async def deploy_build_to_environment(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        # TODO(jhcipar) should we not generate a presigned url when promoting a build here?
+        mutation = """
+        mutation deployBuildToEnvironment($input: DeployBuildToEnvironmentInput!) {
+                deployBuildToEnvironment(input: $input) {
+                    id
+                    name
+                    activeArtifact {
+                        objectKey
+                        downloadUrl
+                        expiresAt
+                        }
+                    }
+                }
+        """
+
+        variables = {"input": input_data}
+
+        log.debug(f"Deploying flash environment with vars: {input_data}")
+
+        result = await self._execute_graphql(mutation, variables)
+        return result["deployBuildToEnvironment"]
+
+    async def create_flash_app(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new flash app in Runpod."""
+        log.debug(f"creating flash app with name {input_data.get('name')}")
+
+        mutation = """
+        mutation createFlashApp($input: CreateFlashAppInput!) {
+                createFlashApp(input: $input) {
+                    id
+                    name
+                    }
+                }
+        """
+
+        variables = {"input": input_data}
+
+        log.debug(
+            f"Creating flash app with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
+
+        result = await self._execute_graphql(mutation, variables)
+
+        return result["createFlashApp"]
+
+    async def create_flash_environment(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Create an environment within a flash app."""
+        log.debug(f"creating flash environment with name {input_data.get('name')}")
+
+        mutation = """
+        mutation createFlashEnvironment($input: CreateFlashEnvironmentInput!) {
+                createFlashEnvironment(input: $input) {
+                    id
+                    name
+                    }
+                }
+        """
+
+        variables = {"input": input_data}
+
+        log.debug(
+            f"Creating flash environment with GraphQL: {input_data.get('name', 'unnamed')}"
+        )
+
+        result = await self._execute_graphql(mutation, variables)
+
+        return result["createFlashEnvironment"]
+
+    async def register_endpoint_to_environment(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Register an endpoint to a Flash environment"""
+
+        log.debug(
+            f"Registering endpoint to flash environment with input data: {input_data}"
+        )
+
+        mutation = """
+        mutation addEndpointToFlashEnvironment($input: AddEndpointToEnvironmentInput!) {
+                addEndpointToFlashEnvironment(input: $input) {
+                    id
+                    name
+                    flashEnvironmentId
+                    }
+                }
+        """
+
+        variables = {"input": input_data}
+
+        result = await self._execute_graphql(mutation, variables)
+
+        return result["addEndpointToFlashEnvironment"]
+
+    async def register_network_volume_to_environment(
+        self, input_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Register an endpoint to a Flash environment"""
+
+        log.debug(
+            f"Registering endpoint to flash environment with input data: {input_data}"
+        )
+
+        mutation = """
+        mutation addNetworkVolumeToFlashEnvironment($input: AddNetworkVolumeToEnvironmentInput!) {
+                addNetworkVolumeToFlashEnvironment(input: $input) {
+                    id
+                    name
+                    flashEnvironmentId
+                    }
+                }
+        """
+
+        variables = {"input": input_data}
+
+        result = await self._execute_graphql(mutation, variables)
+
+        return result["addNetworkVolumeToFlashEnvironment"]
+
+    async def set_environment_state(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        log.debug(f"Setting Flash environment status with input data: {input_data}")
+
+        mutation = """
+        mutation updateFlashEnvironment($input: UpdateFlashEnvironmentInput!) {
+                updateFlashEnvironment(input: $input) {
+                    id
+                    name
+                    state
+                    }
+                }
+        """
+
+        variables = {"input": input_data}
+
+        result = await self._execute_graphql(mutation, variables)
+
+        return result["updateFlashEnvironment"]
+
+    async def get_flash_build(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        query = """
+        query getFlashBuild($input: String!) {
+                flashBuild(flashBuildId: $input) {
+                    id
+                    name
+            }
+        }
+        """
+        variables = {"input": input_data}
+
+        log.debug(f"Fetching flash build for input: {input_data}")
+        result = await self._execute_graphql(query, variables)
+        return result["flashBuild"]
 
     async def close(self):
         """Close the HTTP session."""

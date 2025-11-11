@@ -14,6 +14,7 @@ from .serverless import (
 from .serverless_cpu import CpuServerlessEndpoint
 from .template import PodTemplate
 from .network_volume import NetworkVolume, DataCenter
+from .app import FlashApp
 
 
 __all__ = [
@@ -36,4 +37,5 @@ __all__ = [
     "ServerlessType",
     "PodTemplate",
     "NetworkVolume",
+    "FlashApp",
 ]

@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import asyncio
 from pathlib import Path
 
 import typer
@@ -14,6 +15,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from ..utils.ignore import get_file_tree, load_ignore_patterns
+from ..utils.app import discover_flash_project
+from tetra_rp.core.resources.app import FlashApp
 
 console = Console()
 
@@ -30,6 +33,11 @@ def build_command(
     ),
     output_name: str | None = typer.Option(
         None, "--output", "-o", help="Custom archive name (default: archive.tar.gz)"
+    ),
+    local_only: bool = typer.Option(
+        False,
+        "--local-only",
+        help="Only store build tarball locally and dont upload to Runpod",
     ),
 ):
     """
@@ -151,6 +159,11 @@ def build_command(
         # Success summary
         _display_build_summary(archive_path, app_name, len(files), len(requirements))
 
+        if local_only:
+            return
+
+        asyncio.run(upload_build(app_name, archive_path))
+
     except KeyboardInterrupt:
         console.print("\n[yellow]Build cancelled by user[/yellow]")
         raise typer.Exit(1)
@@ -162,20 +175,9 @@ def build_command(
         raise typer.Exit(1)
 
 
-def discover_flash_project() -> tuple[Path, str]:
-    """
-    Discover Flash project directory and app name.
-
-    Returns:
-        Tuple of (project_dir, app_name)
-
-    Raises:
-        typer.Exit: If not in a Flash project directory
-    """
-    project_dir = Path.cwd()
-    app_name = project_dir.name
-
-    return project_dir, app_name
+async def upload_build(app_name: str, build_path: str | Path):
+    app = await FlashApp.from_name(app_name)
+    await app.upload_build(build_path)
 
 
 def validate_project_structure(project_dir: Path) -> bool:

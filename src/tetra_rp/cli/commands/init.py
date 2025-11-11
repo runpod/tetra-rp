@@ -6,6 +6,8 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from tetra_rp.core.resources.app import FlashApp
+import asyncio
 
 from ..utils.skeleton import create_project_skeleton
 from ..utils.conda import (
@@ -28,6 +30,11 @@ REQUIRED_PACKAGES = [
 ]
 
 
+async def init_app(app_name: str):
+    app = await FlashApp.create(app_name)
+    await app.create_environment("dev")
+
+
 def init_command(
     project_name: str = typer.Argument(..., help="Project name"),
     no_env: bool = typer.Option(
@@ -35,6 +42,9 @@ def init_command(
     ),
     force: bool = typer.Option(
         False, "--force", "-f", help="Overwrite existing directory"
+    ),
+    local_only: bool = typer.Option(
+        False, "--local-only", help="Do not create remote app on Runpod"
     ),
 ):
     """Create new Flash project with Flash Server and GPU workers."""
@@ -94,6 +104,9 @@ def init_command(
                         console.print(
                             "You can manually install dependencies: pip install -r requirements.txt"
                         )
+
+    if not local_only:
+        asyncio.run(init_app(project_name))
 
     # Success output
     panel_content = (

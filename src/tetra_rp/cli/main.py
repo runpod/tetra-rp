@@ -11,6 +11,7 @@ from .commands import (
     build,
     resource,
     deploy,
+    state,
 )
 
 
@@ -39,22 +40,8 @@ app.command("build")(build.build_command)
 app.command("report")(resource.report_command)
 app.command("clean")(resource.clean_command)
 
-# command: flash deploy
-deploy_app = typer.Typer(
-    name="deploy",
-    help="Deployment environment management commands",
-    no_args_is_help=True,
-)
-
-# command: flash deploy *
-deploy_app.command("list")(deploy.list_command)
-deploy_app.command("new")(deploy.new_command)
-deploy_app.command("send")(deploy.send_command)
-deploy_app.command("report")(deploy.report_command)
-deploy_app.command("rollback")(deploy.rollback_command)
-deploy_app.command("remove")(deploy.remove_command)
-
-app.add_typer(deploy_app, name="deploy")
+app.add_typer(deploy.deploy_app, name="deploy")
+app.add_typer(state.ls_app, name="ls")
 
 
 @app.callback(invoke_without_command=True)
