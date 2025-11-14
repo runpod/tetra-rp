@@ -25,7 +25,7 @@ def home():
     return {
         "message": "Flash Application",
         "docs": "/docs",
-        "endpoints": {"gpu_matrix": "/gpu/matrix", "cpu_process": "/cpu/process"},
+        "endpoints": {"gpu_hello": "/gpu/hello", "cpu_hello": "/cpu/hello"},
     }
 
 
