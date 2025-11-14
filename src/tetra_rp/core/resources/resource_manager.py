@@ -22,8 +22,9 @@ class ResourceManager(SingletonMixin):
     # Class variables shared across all instances (singleton)
     _resources: Dict[str, DeployableResource] = {}
     _deployment_locks: Dict[str, asyncio.Lock] = {}
-    _global_lock: Optional[asyncio.Lock] = None  # Will be initialized lazily
+    _global_lock: Optional[asyncio.Lock] = None
     _lock_initialized = False
+    _resources_initialized = False
 
     def __init__(self):
         # Ensure async locks are initialized properly for the singleton instance
@@ -31,8 +32,10 @@ class ResourceManager(SingletonMixin):
             ResourceManager._global_lock = asyncio.Lock()
             ResourceManager._lock_initialized = True
 
-        if not self._resources:
+        # Load resources immediately on initialization (only once)
+        if not ResourceManager._resources_initialized:
             self._load_resources()
+            ResourceManager._resources_initialized = True
 
     def _load_resources(self) -> Dict[str, DeployableResource]:
         """Load persisted resource information using cross-platform file locking."""

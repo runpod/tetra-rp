@@ -1,6 +1,7 @@
 """Project initialization command."""
 
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich.console import Console
@@ -29,9 +30,11 @@ REQUIRED_PACKAGES = [
 
 
 def init_command(
-    project_name: str = None,
-    no_env: bool = False,
-    force: bool = False,
+    project_name: Optional[str] = typer.Argument(
+        None, help="Project name or '.' for current directory"
+    ),
+    no_env: bool = typer.Option(False, "--no-env", help="Skip conda environment creation"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
 ):
     """Create new Flash project with Flash Server and GPU workers."""
 
@@ -48,38 +51,35 @@ def init_command(
         is_current_dir = False
         actual_project_name = project_name
 
-    # Handle directory existence and conflicts
-    if is_current_dir:
-        # Initializing in current directory - check for conflicts
-        conflicts = detect_file_conflicts(project_dir)
-
-        if conflicts and not force:
-            # Show warning and prompt user
-            console.print(
-                Panel(
-                    "[yellow]Warning: The following files will be overwritten:[/yellow]\n\n"
-                    + "\n".join(f"  • {conflict}" for conflict in conflicts),
-                    title="File Conflicts Detected",
-                    expand=False,
-                )
-            )
-
-            # Prompt user for confirmation
-            proceed = typer.confirm(
-                "Continue and overwrite these files?", default=False
-            )
-            if not proceed:
-                console.print("[yellow]Initialization aborted.[/yellow]")
-                raise typer.Exit(0)
-    else:
-        # Creating new directory - check if it exists
-        if project_dir.exists() and not force:
-            console.print(f"[red]Directory '{project_name}' already exists[/red]")
-            console.print("Use --force to overwrite")
-            raise typer.Exit(1)
-
-        # Create project directory
+    # Create project directory if needed
+    if not is_current_dir:
         project_dir.mkdir(parents=True, exist_ok=True)
+
+    # Check for file conflicts in target directory
+    conflicts = detect_file_conflicts(project_dir)
+    should_overwrite = force  # Start with force flag value
+
+    if conflicts and not force:
+        # Show warning and prompt user
+        console.print(
+            Panel(
+                "[yellow]Warning: The following files will be overwritten:[/yellow]\n\n"
+                + "\n".join(f"  • {conflict}" for conflict in conflicts),
+                title="File Conflicts Detected",
+                expand=False,
+            )
+        )
+
+        # Prompt user for confirmation
+        proceed = typer.confirm(
+            "Continue and overwrite these files?", default=False
+        )
+        if not proceed:
+            console.print("[yellow]Initialization aborted.[/yellow]")
+            raise typer.Exit(0)
+
+        # User confirmed, so we should overwrite
+        should_overwrite = True
 
     # Create project skeleton
     status_msg = (
@@ -88,7 +88,7 @@ def init_command(
         else f"Creating Flash project '{project_name}'..."
     )
     with console.status(status_msg):
-        create_project_skeleton(project_dir, force)
+        create_project_skeleton(project_dir, should_overwrite)
 
     # Create conda environment if requested
     env_created = False
