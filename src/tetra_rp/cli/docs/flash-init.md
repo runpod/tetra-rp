@@ -1,32 +1,32 @@
 # flash init
 
-Create a new Flash project with Flash Server and GPU workers.
+Create a new Flash project with Flash Server and GPU/CPU workers.
 
 ## Usage
 
 ```bash
-flash init PROJECT_NAME [OPTIONS]
+flash init [PROJECT_NAME] [OPTIONS]
 ```
 
 ## Arguments
 
-- `PROJECT_NAME` (required): Name of the project directory to create
+- `PROJECT_NAME` (optional): Name of the project directory to create
+  - If omitted or `.`, initializes in current directory
 
 ## Options
 
-- `--no-env`: Skip conda environment creation
-- `--force, -f`: Overwrite existing directory
+- `--force, -f`: Overwrite existing files
 
 ## Examples
 
 ```bash
-# Create project with conda environment
+# Create new project directory
 flash init my-project
 
-# Create without conda environment
-flash init my-project --no-env
+# Initialize in current directory
+flash init .
 
-# Overwrite existing directory
+# Overwrite existing files
 flash init my-project --force
 ```
 
@@ -35,30 +35,25 @@ flash init my-project --force
 ```
 my-project/
 ├── main.py              # Flash Server (FastAPI)
-├── workers/             # GPU workers
-│   ├── __init__.py
-│   └── example_worker.py
-├── .env.example
+├── workers/
+│   ├── gpu/             # GPU worker example
+│   │   ├── __init__.py
+│   │   └── endpoint.py
+│   └── cpu/             # CPU worker example
+│       ├── __init__.py
+│       └── endpoint.py
+├── .env
 ├── requirements.txt
-├── .gitignore
 └── README.md
 ```
-
-## Dependencies Installed
-
-When conda environment is created:
-- `fastapi>=0.104.0`
-- `uvicorn[standard]>=0.24.0`
-- `python-dotenv>=1.0.0`
-- `pydantic>=2.0.0`
-- `aiohttp>=3.9.0`
-- `tetra-rp>=0.12.0`
 
 ## Next Steps
 
 ```bash
 cd my-project
-conda activate my-project  # if env created
-cp .env.example .env       # add RUNPOD_API_KEY
+pip install -r requirements.txt  # or use your preferred environment manager
+# Add RUNPOD_API_KEY to .env
 flash run
 ```
+
+Visit http://localhost:8888/docs for interactive API documentation.
