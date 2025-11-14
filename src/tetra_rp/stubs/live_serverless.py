@@ -24,6 +24,9 @@ _function_cache_lock = threading.RLock()
 
 def get_function_source(func):
     """Extract the function source code without the decorator."""
+    # Unwrap any decorators to get the original function
+    func = inspect.unwrap(func)
+
     # Get the source code of the decorated function
     source = inspect.getsource(func)
 
