@@ -1,52 +1,43 @@
-"""
-Flash Application - Flash Server
-
-This is the main entry point for your Flash application.
-It runs a FastAPI server that coordinates with GPU and CPU workers.
-
-Each APIRouter is discovered as a handler during build and can be deployed
-as a separate serverless endpoint (queue-based or load-balancer based).
-"""
-
 import os
 import logging
 from fastapi import FastAPI
 
-from workers.example import example_worker_router
-from workers.interface import example_interface_router
+from workers.gpu import gpu_router
+from workers.cpu import cpu_router
 
 
 logger = logging.getLogger(__name__)
 
 
-# Create FastAPI app
-app = FastAPI(title="Flash Application")
+app = FastAPI(
+    title="Flash Application",
+    description="Distributed GPU and CPU computing with Runpod Flash",
+    version="0.1.0",
+)
+
+# Include routers
+app.include_router(gpu_router, prefix="/gpu", tags=["GPU Workers"])
+app.include_router(cpu_router, prefix="/cpu", tags=["CPU Workers"])
 
 
 @app.get("/")
 def home():
-    """Root endpoint."""
-    return {"status": "ok", "message": "Flash application running"}
+    return {
+        "message": "Flash Application",
+        "docs": "/docs",
+        "endpoints": {"gpu_matrix": "/gpu/matrix", "cpu_process": "/cpu/process"},
+    }
 
 
 @app.get("/ping")
 def ping():
-    """Health check endpoint."""
-    return {"healthy": True}
+    return {"status": "healthy"}
 
 
-# Include worker routers
-# Each router is discovered as a handler during build
-app.include_router(example_worker_router, prefix="/example", tags=["workers"])
-app.include_router(example_interface_router, prefix="/interface", tags=["workers"])
-
-
-# Run the app when the script is executed
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("PORT", 80))
+    port = int(os.getenv("PORT", 8000))
     logger.info(f"Starting Flash server on port {port}")
 
-    # Start the server
     uvicorn.run(app, host="0.0.0.0", port=port)
