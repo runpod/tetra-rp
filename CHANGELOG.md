@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0](https://github.com/runpod/tetra-rp/compare/v0.14.0...v0.15.0) (2025-11-14)
+
+
+### Features
+
+* **client:** add async function support to remote decorator ([#112](https://github.com/runpod/tetra-rp/issues/112)) ([b0222e0](https://github.com/runpod/tetra-rp/commit/b0222e006ca9b3e7cd8ea0b55804dcabf6d8fce8))
+* **resources:** Support for Serverless.type QB|LB ([#109](https://github.com/runpod/tetra-rp/issues/109)) ([6e63459](https://github.com/runpod/tetra-rp/commit/6e63459d1a174836912c7b72590341ea6b3cf2b6))
+
 ## [0.14.0](https://github.com/runpod/tetra-rp/compare/v0.13.0...v0.14.0) (2025-10-31)
 
 
