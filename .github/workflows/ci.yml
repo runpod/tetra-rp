@@ -76,8 +76,11 @@ jobs:
       - name: Build package
         run: make build
 
-      - name: Verify package
+      - name: Verify package metadata
         run: uv run twine check dist/*
+
+      - name: Validate wheel packaging
+        run: ./scripts/validate-wheel.sh
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

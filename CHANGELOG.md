@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/runpod/tetra-rp/compare/v0.16.0...v0.16.1) (2025-11-14)
+
+
+### Bug Fixes
+
+* **skeleton:** Fix flash init missing hidden files in wheel distributions ([#115](https://github.com/runpod/tetra-rp/issues/115)) ([c3bf137](https://github.com/runpod/tetra-rp/commit/c3bf1376382cad8dcfb5c33d33e8876b97585384))
+
 ## [0.16.0](https://github.com/runpod/tetra-rp/compare/v0.15.0...v0.16.0) (2025-11-14)
 
 

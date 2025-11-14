@@ -1,6 +1,6 @@
 [project]
 name = "tetra_rp"
-version = "0.16.0"
+version = "0.16.1"
 description = "A Python library for distributed inference and serving of machine learning models"
 authors = [
     { name = "Marut Pandya", email = "pandyamarut@gmail.com" },
@@ -50,6 +50,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+tetra_rp = [
+    "cli/utils/skeleton_template/**/*",
+    "cli/utils/skeleton_template/**/.*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
