@@ -359,18 +359,10 @@ class HandlerDiscovery:
         if duplicates:
             self.warnings.append(f"Duplicate handler IDs found: {duplicates}")
 
-        # Check for conflicting routes across handlers
-        all_routes: dict[tuple[str, str], str] = {}
-        for handler in self.handlers:
-            for route in handler.routes:
-                key = (route["method"], route["path"])
-                if key in all_routes:
-                    self.warnings.append(
-                        f"Route conflict: {route['method']} {route['path']} "
-                        f"defined in both {all_routes[key]} and {handler.handler_id}"
-                    )
-                else:
-                    all_routes[key] = handler.handler_id
+        # Note: Cross-handler route conflicts are intentionally NOT validated
+        # Each handler is deployed as an independent serverless endpoint, so
+        # having the same route paths across handlers is acceptable and expected
+        # (e.g., multiple routers with POST /hello mounted at different prefixes)
 
     def _create_result(self) -> DiscoveryResult:
         """Create discovery result with statistics.
