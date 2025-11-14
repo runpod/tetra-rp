@@ -52,15 +52,16 @@ echo "Creating test environment..."
 TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR"
 
-# Use project's Python from .venv if available, otherwise system python3
+# Use project's Python from .venv if available, otherwise find best system python3
 if [ -f "$PROJECT_DIR/.venv/bin/python" ]; then
     PYTHON_CMD="$PROJECT_DIR/.venv/bin/python"
-elif command -v python3.11 &> /dev/null; then
-    PYTHON_CMD=python3.11
-elif command -v python3.12 &> /dev/null; then
-    PYTHON_CMD=python3.12
 else
-    PYTHON_CMD=python3
+    # Find the highest available python3.x interpreter
+    PYTHON_CMD=$(command -v python3.13 || command -v python3.12 || command -v python3.11 || command -v python3.10 || command -v python3.9 || command -v python3)
+    if [ -z "$PYTHON_CMD" ]; then
+        echo "ERROR: No python3 interpreter found in PATH"
+        exit 1
+    fi
 fi
 
 echo "Using Python: $($PYTHON_CMD --version)"

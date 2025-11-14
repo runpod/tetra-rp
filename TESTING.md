@@ -8,7 +8,7 @@ uv pip install -e .
 
 # Development (complete - includes packaging validation)
 # Build wheel and install it to test CLI from anywhere
-cd ~/Github/python/tetra-rp && uv build && pip install dist/tetra_rp-*.whl --force-reinstall
+cd /path/to/tetra-rp && uv build && pip install dist/tetra_rp-*.whl --force-reinstall
 cd /tmp && flash init test_project
 
 # Unit tests

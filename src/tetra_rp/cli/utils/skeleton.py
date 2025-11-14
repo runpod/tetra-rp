@@ -76,6 +76,84 @@ def detect_file_conflicts(project_dir: Path) -> List[Path]:
     return conflicts
 
 
+def _copy_template_file(
+    item: Path,
+    template_dir: Path,
+    project_dir: Path,
+    force: bool,
+    created_files: List[str],
+) -> None:
+    """
+    Copy a single template file with substitutions.
+
+    Args:
+        item: Source file path
+        template_dir: Template directory base path
+        project_dir: Target project directory
+        force: Overwrite existing files
+        created_files: List to append created file paths to
+    """
+    relative_path = item.relative_to(template_dir)
+    target_path = project_dir / relative_path
+
+    # Skip existing files unless force is True
+    if target_path.exists() and not force:
+        return
+
+    # Create parent directories if needed
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Read content and handle template substitutions
+    try:
+        content = item.read_text()
+
+        # Replace {{project_name}} placeholder
+        if "{{project_name}}" in content:
+            content = content.replace("{{project_name}}", project_dir.name)
+
+        # Write file
+        target_path.write_text(content)
+        created_files.append(str(relative_path))
+    except UnicodeDecodeError:
+        # Handle binary files (just copy bytes)
+        target_path.write_bytes(item.read_bytes())
+        created_files.append(str(relative_path))
+
+
+def _copy_directory_recursive(
+    src_dir: Path,
+    template_dir: Path,
+    project_dir: Path,
+    force: bool,
+    created_files: List[str],
+) -> None:
+    """
+    Recursively copy directory contents, including hidden files.
+
+    Args:
+        src_dir: Source directory to copy from
+        template_dir: Template directory base path
+        project_dir: Target project directory
+        force: Overwrite existing files
+        created_files: List to append created file paths to
+    """
+    for item in src_dir.iterdir():
+        # Skip ignored items
+        if _should_ignore(item):
+            continue
+
+        if item.is_dir():
+            # Create target directory and recurse
+            relative_path = item.relative_to(template_dir)
+            target_path = project_dir / relative_path
+            target_path.mkdir(parents=True, exist_ok=True)
+            _copy_directory_recursive(
+                item, template_dir, project_dir, force, created_files
+            )
+        elif item.is_file():
+            _copy_template_file(item, template_dir, project_dir, force, created_files)
+
+
 def create_project_skeleton(project_dir: Path, force: bool = False) -> List[str]:
     """
     Create Flash project skeleton from template directory.
@@ -98,45 +176,9 @@ def create_project_skeleton(project_dir: Path, force: bool = False) -> List[str]
     # Create project directory
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    def copy_directory_recursive(src_dir: Path) -> None:
-        """Recursively copy directory contents, including hidden files."""
-        for item in src_dir.iterdir():
-            # Skip ignored items
-            if _should_ignore(item):
-                continue
-
-            relative_path = item.relative_to(template_dir)
-            target_path = project_dir / relative_path
-
-            if item.is_dir():
-                # Recursively copy directory
-                target_path.mkdir(parents=True, exist_ok=True)
-                copy_directory_recursive(item)
-            elif item.is_file():
-                # Skip existing files unless force is True
-                if target_path.exists() and not force:
-                    continue
-
-                # Create parent directories if needed
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # Read content and handle template substitutions
-                try:
-                    content = item.read_text()
-
-                    # Replace {{project_name}} placeholder
-                    if "{{project_name}}" in content:
-                        content = content.replace("{{project_name}}", project_dir.name)
-
-                    # Write file
-                    target_path.write_text(content)
-                    created_files.append(str(relative_path))
-                except UnicodeDecodeError:
-                    # Handle binary files (just copy bytes)
-                    target_path.write_bytes(item.read_bytes())
-                    created_files.append(str(relative_path))
-
     # Start recursive copy
-    copy_directory_recursive(template_dir)
+    _copy_directory_recursive(
+        template_dir, template_dir, project_dir, force, created_files
+    )
 
     return created_files
