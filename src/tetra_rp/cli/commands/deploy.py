@@ -79,7 +79,9 @@ def list_command():
 
 
 def new_command(
-    name: str = typer.Argument(..., help="Name of the deployment environment to create")
+    name: str = typer.Argument(
+        ..., help="Name of the deployment environment to create"
+    ),
 ):
     """Create a new deployment environment."""
 
@@ -128,7 +130,7 @@ def new_command(
 
 
 def send_command(
-    name: str = typer.Argument(..., help="Name of the deployment environment")
+    name: str = typer.Argument(..., help="Name of the deployment environment"),
 ):
     """Deploy project to deployment environment."""
 
@@ -162,7 +164,7 @@ def send_command(
 
 
 def report_command(
-    name: str = typer.Argument(..., help="Name of the deployment environment")
+    name: str = typer.Argument(..., help="Name of the deployment environment"),
 ):
     """Show detailed environment status and metrics."""
 
@@ -230,7 +232,7 @@ def report_command(
 
 
 def rollback_command(
-    name: str = typer.Argument(..., help="Name of the deployment environment")
+    name: str = typer.Argument(..., help="Name of the deployment environment"),
 ):
     """Rollback deployment to previous version."""
 
@@ -292,7 +294,9 @@ def rollback_command(
 
 
 def remove_command(
-    name: str = typer.Argument(..., help="Name of the deployment environment to remove")
+    name: str = typer.Argument(
+        ..., help="Name of the deployment environment to remove"
+    ),
 ):
     """Remove deployment environment."""
 

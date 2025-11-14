@@ -33,7 +33,9 @@ def init_command(
     project_name: Optional[str] = typer.Argument(
         None, help="Project name or '.' for current directory"
     ),
-    no_env: bool = typer.Option(False, "--no-env", help="Skip conda environment creation"),
+    no_env: bool = typer.Option(
+        False, "--no-env", help="Skip conda environment creation"
+    ),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
 ):
     """Create new Flash project with Flash Server and GPU workers."""
@@ -71,9 +73,7 @@ def init_command(
         )
 
         # Prompt user for confirmation
-        proceed = typer.confirm(
-            "Continue and overwrite these files?", default=False
-        )
+        proceed = typer.confirm("Continue and overwrite these files?", default=False)
         if not proceed:
             console.print("[yellow]Initialization aborted.[/yellow]")
             raise typer.Exit(0)
