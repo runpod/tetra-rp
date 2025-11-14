@@ -1,7 +1,40 @@
 """Project skeleton creation utilities."""
 
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import List
+
+# Patterns to ignore during skeleton operations
+IGNORE_PATTERNS = {
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+    "*.pyd",
+    ".DS_Store",
+    "Thumbs.db",
+    ".git",
+    ".pytest_cache",
+    "*.egg-info",
+}
+
+
+def _should_ignore(path: Path) -> bool:
+    """
+    Check if path matches any ignore pattern.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if path should be ignored, False otherwise
+    """
+    for pattern in IGNORE_PATTERNS:
+        # Check if any path component matches the pattern
+        if fnmatch(path.name, pattern):
+            return True
+        if any(fnmatch(part, pattern) for part in path.parts):
+            return True
+    return False
 
 
 def detect_file_conflicts(project_dir: Path) -> List[Path]:
@@ -14,7 +47,7 @@ def detect_file_conflicts(project_dir: Path) -> List[Path]:
     Returns:
         List of file paths that already exist and would be overwritten
     """
-    conflicts = []
+    conflicts: List[Path] = []
 
     # Get template directory path
     template_dir = Path(__file__).parent / "skeleton_template"
@@ -22,14 +55,23 @@ def detect_file_conflicts(project_dir: Path) -> List[Path]:
     if not template_dir.exists():
         return conflicts
 
-    # Check each template file against target directory
-    for template_file in template_dir.rglob("*"):
-        if template_file.is_file():
-            relative_path = template_file.relative_to(template_dir)
+    def check_conflicts_recursive(src_dir: Path) -> None:
+        """Recursively check for file conflicts."""
+        for item in src_dir.iterdir():
+            if _should_ignore(item):
+                continue
+
+            relative_path = item.relative_to(template_dir)
             target_file = project_dir / relative_path
 
-            if target_file.exists():
-                conflicts.append(relative_path)
+            if item.is_dir():
+                check_conflicts_recursive(item)
+            elif item.is_file():
+                if target_file.exists():
+                    conflicts.append(relative_path)
+
+    # Start recursive conflict check
+    check_conflicts_recursive(template_dir)
 
     return conflicts
 
@@ -45,7 +87,7 @@ def create_project_skeleton(project_dir: Path, force: bool = False) -> List[str]
     Returns:
         List of created file paths
     """
-    created_files = []
+    created_files: List[str] = []
 
     # Get template directory path
     template_dir = Path(__file__).parent / "skeleton_template"
@@ -56,29 +98,45 @@ def create_project_skeleton(project_dir: Path, force: bool = False) -> List[str]
     # Create project directory
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    # Walk through template directory and copy files
-    for template_file in template_dir.rglob("*"):
-        if template_file.is_file():
-            # Get relative path from template dir
-            relative_path = template_file.relative_to(template_dir)
-            target_file = project_dir / relative_path
-
-            # Skip existing files unless force is True
-            if target_file.exists() and not force:
+    def copy_directory_recursive(src_dir: Path) -> None:
+        """Recursively copy directory contents, including hidden files."""
+        for item in src_dir.iterdir():
+            # Skip ignored items
+            if _should_ignore(item):
                 continue
 
-            # Create parent directories if needed
-            target_file.parent.mkdir(parents=True, exist_ok=True)
+            relative_path = item.relative_to(template_dir)
+            target_path = project_dir / relative_path
 
-            # Read content and handle template substitutions
-            content = template_file.read_text()
+            if item.is_dir():
+                # Recursively copy directory
+                target_path.mkdir(parents=True, exist_ok=True)
+                copy_directory_recursive(item)
+            elif item.is_file():
+                # Skip existing files unless force is True
+                if target_path.exists() and not force:
+                    continue
 
-            # Replace {{project_name}} placeholder
-            if "{{project_name}}" in content:
-                content = content.replace("{{project_name}}", project_dir.name)
+                # Create parent directories if needed
+                target_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Write file
-            target_file.write_text(content)
-            created_files.append(str(relative_path))
+                # Read content and handle template substitutions
+                try:
+                    content = item.read_text()
+
+                    # Replace {{project_name}} placeholder
+                    if "{{project_name}}" in content:
+                        content = content.replace("{{project_name}}", project_dir.name)
+
+                    # Write file
+                    target_path.write_text(content)
+                    created_files.append(str(relative_path))
+                except UnicodeDecodeError:
+                    # Handle binary files (just copy bytes)
+                    target_path.write_bytes(item.read_bytes())
+                    created_files.append(str(relative_path))
+
+    # Start recursive copy
+    copy_directory_recursive(template_dir)
 
     return created_files
