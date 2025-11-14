@@ -21,6 +21,16 @@ console = Console()
 def list_command():
     """Show available deployment environments."""
 
+    console.print(
+        Panel(
+            "[yellow]The deploy command is coming soon.[/yellow]\n\n"
+            "This feature is under development and will be available in a future release.",
+            title="Coming Soon",
+            expand=False,
+        )
+    )
+    return
+
     environments = get_deployment_environments()
 
     if not environments:
@@ -84,6 +94,16 @@ def new_command(
     ),
 ):
     """Create a new deployment environment."""
+
+    console.print(
+        Panel(
+            "[yellow]The deploy command is coming soon.[/yellow]\n\n"
+            "This feature is under development and will be available in a future release.",
+            title="Coming Soon",
+            expand=False,
+        )
+    )
+    return
 
     environments = get_deployment_environments()
 
