@@ -36,7 +36,10 @@ def get_function_source(func):
     # Find the function definition node (both sync and async)
     function_def = None
     for node in ast.walk(module):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == func.__name__:
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == func.__name__
+        ):
             function_def = node
             break
 
