@@ -108,7 +108,7 @@ class ServerlessResource(DeployableResource):
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
     templateId: Optional[str] = None
-    type: Optional[ServerlessType] = ServerlessType.QB
+    type: Optional[ServerlessType] = None
     workersMax: Optional[int] = 3
     workersMin: Optional[int] = 0
     workersPFBTarget: Optional[int] = None
@@ -142,6 +142,11 @@ class ServerlessResource(DeployableResource):
         if not self.id:
             raise ValueError("Missing self.id")
         return runpod.Endpoint(self.id)
+
+    @property
+    def endpoint_url(self) -> str:
+        base_url = self.endpoint.rp_client.endpoint_url_base
+        return f"{base_url}/{self.id}"
 
     @field_serializer("scalerType")
     def serialize_scaler_type(

@@ -24,16 +24,25 @@ _function_cache_lock = threading.RLock()
 
 def get_function_source(func):
     """Extract the function source code without the decorator."""
+    # Unwrap any decorators to get the original function
+    func = inspect.unwrap(func)
+
     # Get the source code of the decorated function
     source = inspect.getsource(func)
+
+    # Dedent the source to handle functions defined in classes or indented contexts
+    source = textwrap.dedent(source)
 
     # Parse the source code
     module = ast.parse(source)
 
-    # Find the function definition node
+    # Find the function definition node (both sync and async)
     function_def = None
     for node in ast.walk(module):
-        if isinstance(node, ast.FunctionDef) and node.name == func.__name__:
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == func.__name__
+        ):
             function_def = node
             break
 

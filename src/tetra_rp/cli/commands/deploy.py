@@ -78,7 +78,11 @@ def list_command():
     console.print(f"\n{summary}")
 
 
-def new_command(name: str):
+def new_command(
+    name: str = typer.Argument(
+        ..., help="Name of the deployment environment to create"
+    ),
+):
     """Create a new deployment environment."""
 
     environments = get_deployment_environments()
@@ -125,7 +129,9 @@ def new_command(name: str):
     console.print(f"\nNext: [bold]flash deploy send {name}[/bold]")
 
 
-def send_command(name: str):
+def send_command(
+    name: str = typer.Argument(..., help="Name of the deployment environment"),
+):
     """Deploy project to deployment environment."""
 
     environments = get_deployment_environments()
@@ -157,7 +163,9 @@ def send_command(name: str):
         raise typer.Exit(1)
 
 
-def report_command(name: str):
+def report_command(
+    name: str = typer.Argument(..., help="Name of the deployment environment"),
+):
     """Show detailed environment status and metrics."""
 
     environments = get_deployment_environments()
@@ -223,7 +231,9 @@ def report_command(name: str):
         console.print(f"  {metric}")
 
 
-def rollback_command(name: str):
+def rollback_command(
+    name: str = typer.Argument(..., help="Name of the deployment environment"),
+):
     """Rollback deployment to previous version."""
 
     environments = get_deployment_environments()
@@ -283,7 +293,11 @@ def rollback_command(name: str):
     console.print(f"Environment '{name}' is now running the previous version.")
 
 
-def remove_command(name: str):
+def remove_command(
+    name: str = typer.Argument(
+        ..., help="Name of the deployment environment to remove"
+    ),
+):
     """Remove deployment environment."""
 
     environments = get_deployment_environments()

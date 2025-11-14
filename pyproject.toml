@@ -114,3 +114,6 @@ module = [
     "cloudpickle.*",
 ]
 ignore_missing_imports = true
+
+[tool.uv.sources]
+runpod = { git = "https://github.com/runpod/runpod-python", rev = "main" }
