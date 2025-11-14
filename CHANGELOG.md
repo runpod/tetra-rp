@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/runpod/tetra-rp/compare/v0.15.0...v0.16.0) (2025-11-14)
+
+
+### Features
+
+* **cli:** Add flash init with project skeleton template and in-place initialization ([#110](https://github.com/runpod/tetra-rp/issues/110)) ([155d6ee](https://github.com/runpod/tetra-rp/commit/155d6ee64014936c082173751d0978c7cba39092))
+
 ## [0.15.0](https://github.com/runpod/tetra-rp/compare/v0.14.0...v0.15.0) (2025-11-14)
 
 
