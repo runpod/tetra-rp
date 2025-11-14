@@ -48,6 +48,16 @@ def build_command(
       flash build --keep-build     # Keep temporary build directory
       flash build -o my-app.tar.gz # Custom archive name
     """
+    console.print(
+        Panel(
+            "[yellow]The build command is coming soon.[/yellow]\n\n"
+            "This feature is under development and will be available in a future release.",
+            title="Coming Soon",
+            expand=False,
+        )
+    )
+    return
+
     try:
         # Validate project structure
         project_dir, app_name = discover_flash_project()
