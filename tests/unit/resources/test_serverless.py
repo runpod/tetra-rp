@@ -82,9 +82,11 @@ class TestServerlessResource:
         serverless = ServerlessResource(**basic_serverless_config)
         serverless.id = "test-id-123"
 
-        with patch("tetra_rp.core.resources.cloud.runpod.api_key", "test-api-key"):
+        # Patch runpod.Endpoint since runpod is now lazy-loaded
+        with patch("runpod.Endpoint") as mock_endpoint:
             endpoint = serverless.endpoint
             assert endpoint is not None
+            mock_endpoint.assert_called_once_with("test-id-123")
 
     def test_endpoint_property_without_id_raises_error(self, basic_serverless_config):
         """Test endpoint property raises error when ID is not set."""
