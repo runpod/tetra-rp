@@ -3,310 +3,40 @@
 from pathlib import Path
 from typing import List
 
-# Template files content
-MAIN_PY_TEMPLATE = '''"""
-Flash Application - Flash Server
 
-This is the main entry point for your Flash application.
-It runs a FastAPI server that coordinates GPU workers.
-"""
-
-import asyncio
-from fastapi import FastAPI
-from pydantic import BaseModel
-from dotenv import load_dotenv
-
-from workers import ExampleWorker
-
-# Load environment variables
-load_dotenv()
-
-# Create FastAPI app
-app = FastAPI(title="Flash Application")
-
-
-class ProcessRequest(BaseModel):
-    """Request model for processing endpoint."""
-    data: str
-
-
-@app.get("/")
-def home():
-    """Health check endpoint."""
-    return {"status": "ok", "message": "Flash application running"}
-
-
-@app.get("/health")
-def health():
-    """Health check endpoint."""
-    return {"healthy": True}
-
-
-@app.post("/process")
-async def process(request: ProcessRequest):
+def detect_file_conflicts(project_dir: Path) -> List[Path]:
     """
-    Process data using GPU worker.
+    Detect files that would be overwritten when creating project skeleton.
 
-    Example request:
-    {
-        "data": "test input"
-    }
+    Args:
+        project_dir: Project directory path to check
+
+    Returns:
+        List of file paths that already exist and would be overwritten
     """
-    # Instantiate worker
-    worker = ExampleWorker()
+    conflicts = []
 
-    # Call worker's process method
-    result = await worker.process({"input": request.data})
+    # Get template directory path
+    template_dir = Path(__file__).parent / "skeleton_template"
 
-    return result
+    if not template_dir.exists():
+        return conflicts
 
+    # Check each template file against target directory
+    for template_file in template_dir.rglob("*"):
+        if template_file.is_file():
+            relative_path = template_file.relative_to(template_dir)
+            target_file = project_dir / relative_path
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="localhost", port=8888)
-'''
+            if target_file.exists():
+                conflicts.append(relative_path)
 
-WORKER_EXAMPLE_PY_TEMPLATE = '''"""
-Example GPU Worker
-
-This is an example of a GPU worker class that can be deployed
-to RunPod serverless endpoints.
-"""
-
-from tetra_rp import remote, LiveServerless
-
-
-# Configure GPU resource
-config = LiveServerless(
-    name="example_worker",
-    workersMax=3,
-)
-
-
-@remote(config)
-class ExampleWorker:
-    """Example GPU worker for processing tasks."""
-
-    def __init__(self):
-        """Initialize the worker."""
-        print("ExampleWorker initialized")
-
-    def process(self, input_data: dict) -> dict:
-        """
-        Process input data and return result.
-
-        Args:
-            input_data: Dictionary with input parameters
-
-        Returns:
-            Dictionary with processing results
-        """
-        # Your GPU processing logic here
-        result = {
-            "status": "success",
-            "input": input_data,
-            "output": f"Processed: {input_data}"
-        }
-
-        return result
-'''
-
-WORKERS_INIT_PY_TEMPLATE = '''"""GPU Workers package."""
-
-from .example_worker import ExampleWorker
-
-__all__ = ["ExampleWorker"]
-'''
-
-ENV_EXAMPLE_TEMPLATE = """# RunPod API Configuration
-RUNPOD_API_KEY=your_runpod_api_key_here
-
-# Development settings
-DEBUG=false
-LOG_LEVEL=INFO
-"""
-
-REQUIREMENTS_TXT_TEMPLATE = """# Core dependencies for Flash
-tetra-rp>=0.12.0
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-python-dotenv>=1.0.0
-pydantic>=2.0.0
-aiohttp>=3.9.0
-"""
-
-GITIGNORE_TEMPLATE = """# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Environment
-.env
-.venv
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Tetra
-.tetra/
-
-# OS
-.DS_Store
-Thumbs.db
-"""
-
-FLASHIGNORE_TEMPLATE = """# Flash build ignores
-# Similar to .gitignore but specifically for flash build command
-
-# Version control
-.git/
-.gitignore
-
-# Python artifacts
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# Virtual environments
-.env
-.venv/
-env/
-venv/
-ENV/
-
-# Build artifacts
-.build/
-.tetra/
-*.tar.gz
-*.egg-info/
-dist/
-build/
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Test files
-tests/
-test_*.py
-*_test.py
-
-# Documentation (optional - comment out to include)
-# docs/
-# *.md
-
-# Logs
-*.log
-"""
-
-README_TEMPLATE = """# {{project_name}}
-
-Flash application with Flash Server and GPU workers.
-
-## Setup
-
-1. Activate the conda environment:
-```bash
-conda activate {{project_name}}
-```
-
-2. Configure your RunPod API key:
-```bash
-cp .env.example .env
-# Edit .env and add your RUNPOD_API_KEY
-```
-
-3. Run the development server:
-```bash
-flash run
-```
-
-## Project Structure
-
-```
-{{project_name}}/
-├── main.py              # Flash Server (FastAPI)
-├── workers/             # GPU workers
-│   ├── __init__.py
-│   └── example_worker.py
-├── .env.example         # Environment variables template
-├── requirements.txt     # Python dependencies
-└── README.md           # This file
-```
-
-## Development
-
-The Flash Server runs on `localhost:8888` and coordinates GPU workers.
-
-### Adding New Workers
-
-1. Create a new file in `workers/` directory
-2. Define a class with `@remote` decorator
-3. Import it in `workers/__init__.py`
-4. Use it in `main.py`
-
-Example:
-```python
-from tetra_rp import remote, LiveServerless
-
-config = LiveServerless(name="my_worker", workersMax=3)
-
-@remote(config)
-class MyWorker:
-    def process(self, data):
-        return {{"result": f"Processed: {{data}}"}}
-```
-
-## Deployment
-
-Deploy to production:
-```bash
-flash deploy send production
-```
-
-## Documentation
-
-- [Flash CLI Docs](./docs/)
-- [Tetra Documentation](https://docs.tetra.dev)
-"""
+    return conflicts
 
 
 def create_project_skeleton(project_dir: Path, force: bool = False) -> List[str]:
     """
-    Create Flash project skeleton.
+    Create Flash project skeleton from template directory.
 
     Args:
         project_dir: Project directory path
@@ -317,31 +47,38 @@ def create_project_skeleton(project_dir: Path, force: bool = False) -> List[str]
     """
     created_files = []
 
-    # Define project structure
-    files_to_create = {
-        "main.py": MAIN_PY_TEMPLATE,
-        "workers/__init__.py": WORKERS_INIT_PY_TEMPLATE,
-        "workers/example_worker.py": WORKER_EXAMPLE_PY_TEMPLATE,
-        ".env.example": ENV_EXAMPLE_TEMPLATE,
-        "requirements.txt": REQUIREMENTS_TXT_TEMPLATE,
-        ".gitignore": GITIGNORE_TEMPLATE,
-        ".flashignore": FLASHIGNORE_TEMPLATE,
-        "README.md": README_TEMPLATE.format(project_name=project_dir.name),
-    }
+    # Get template directory path
+    template_dir = Path(__file__).parent / "skeleton_template"
 
-    # Create files
-    for relative_path, content in files_to_create.items():
-        file_path = project_dir / relative_path
+    if not template_dir.exists():
+        raise FileNotFoundError(f"Template directory not found: {template_dir}")
 
-        # Create parent directories if needed
-        file_path.parent.mkdir(parents=True, exist_ok=True)
+    # Create project directory
+    project_dir.mkdir(parents=True, exist_ok=True)
 
-        # Skip existing files unless force is True
-        if file_path.exists() and not force:
-            continue
+    # Walk through template directory and copy files
+    for template_file in template_dir.rglob("*"):
+        if template_file.is_file():
+            # Get relative path from template dir
+            relative_path = template_file.relative_to(template_dir)
+            target_file = project_dir / relative_path
 
-        # Write file
-        file_path.write_text(content)
-        created_files.append(str(file_path.relative_to(project_dir)))
+            # Skip existing files unless force is True
+            if target_file.exists() and not force:
+                continue
+
+            # Create parent directories if needed
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+
+            # Read content and handle template substitutions
+            content = template_file.read_text()
+
+            # Replace {{project_name}} placeholder
+            if "{{project_name}}" in content:
+                content = content.replace("{{project_name}}", project_dir.name)
+
+            # Write file
+            target_file.write_text(content)
+            created_files.append(str(relative_path))
 
     return created_files

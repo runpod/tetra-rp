@@ -1,5 +1,4 @@
 from .base import BaseResource, DeployableResource
-from .cloud import runpod
 from .cpu import CpuInstanceType
 from .gpu import GpuGroup, GpuType, GpuTypeDetail
 from .resource_manager import ResourceManager
@@ -17,7 +16,6 @@ from .network_volume import NetworkVolume, DataCenter
 
 
 __all__ = [
-    "runpod",
     "BaseResource",
     "CpuInstanceType",
     "CpuLiveServerless",

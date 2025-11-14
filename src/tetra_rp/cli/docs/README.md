@@ -11,9 +11,11 @@ flash init my-project
 # Navigate to project
 cd my-project
 
-# Setup environment
-conda activate my-project
-cp .env.example .env  # Add RUNPOD_API_KEY
+# Install dependencies
+pip install -r requirements.txt
+
+# Add your Runpod API key to .env
+# RUNPOD_API_KEY=your_key_here
 
 # Run development server
 flash run
@@ -26,17 +28,22 @@ flash run
 Create a new Flash project.
 
 ```bash
-flash init PROJECT_NAME [OPTIONS]
+flash init [PROJECT_NAME] [OPTIONS]
 ```
 
 **Options:**
-- `--no-env`: Skip conda environment creation
-- `--force, -f`: Overwrite existing directory
+- `--force, -f`: Overwrite existing files
 
-**Example:**
+**Examples:**
 ```bash
+# Create new project
 flash init my-project
-flash init my-project --no-env
+
+# Initialize in current directory
+flash init .
+
+# Overwrite existing files
+flash init my-project --force
 ```
 
 [Full documentation](./flash-init.md)
@@ -71,10 +78,14 @@ flash run --port 3000
 ```
 my-project/
 ├── main.py              # Flash Server (FastAPI)
-├── workers/             # GPU workers
-│   ├── __init__.py
-│   └── example_worker.py
-├── .env.example
+├── workers/
+│   ├── gpu/             # GPU worker
+│   │   ├── __init__.py
+│   │   └── endpoint.py
+│   └── cpu/             # CPU worker
+│       ├── __init__.py
+│       └── endpoint.py
+├── .env
 ├── requirements.txt
 └── README.md
 ```
@@ -90,12 +101,17 @@ RUNPOD_API_KEY=your_api_key_here
 
 ```bash
 # Health check
-curl http://localhost:8888/
+curl http://localhost:8888/ping
 
 # Call GPU worker
-curl -X POST http://localhost:8888/process \
+curl -X POST http://localhost:8888/gpu/hello \
   -H "Content-Type: application/json" \
-  -d '{"data": "test input"}'
+  -d '{"message": "Hello GPU!"}'
+
+# Call CPU worker
+curl -X POST http://localhost:8888/cpu/hello \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello CPU!"}'
 ```
 
 ## Getting Help

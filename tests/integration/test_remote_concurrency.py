@@ -39,6 +39,7 @@ class TestRemoteConcurrency:
         ResourceManager._resources.clear()
         ResourceManager._deployment_locks.clear()
         ResourceManager._lock_initialized = False
+        ResourceManager._resources_initialized = False
 
         # Use temporary state file
         self.temp_dir = tempfile.mkdtemp()
@@ -64,6 +65,7 @@ class TestRemoteConcurrency:
         ResourceManager._resources.clear()
         ResourceManager._deployment_locks.clear()
         ResourceManager._lock_initialized = False
+        ResourceManager._resources_initialized = False
 
     async def test_concurrent_remote_function_calls_single_deployment(self):
         """Test that concurrent calls to same @remote function create only one deployment."""

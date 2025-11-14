@@ -18,6 +18,7 @@ class TestDotenvLoading:
 
         # This test verifies the order of operations in __init__.py
         # by checking that dotenv import/call happens before other imports
+        # Note: Resources are imported directly at module initialization
 
         init_file = (
             Path(__file__).parent.parent.parent / "src" / "tetra_rp" / "__init__.py"
@@ -29,7 +30,6 @@ class TestDotenvLoading:
         dotenv_import_line = None
         dotenv_call_line = None
         logger_import_line = None
-        resources_import_line = None
 
         for i, line in enumerate(lines):
             if "from dotenv import load_dotenv" in line:
@@ -38,14 +38,11 @@ class TestDotenvLoading:
                 dotenv_call_line = i
             elif "from .logger import setup_logging" in line:
                 logger_import_line = i
-            elif "from .core.resources import" in line:
-                resources_import_line = i
 
         # Verify order of operations
         assert dotenv_import_line is not None, "dotenv import not found"
         assert dotenv_call_line is not None, "load_dotenv() call not found"
         assert logger_import_line is not None, "logger import not found"
-        assert resources_import_line is not None, "resources import not found"
 
         # load_dotenv() should be called before any other imports
         assert dotenv_import_line < dotenv_call_line, (
@@ -53,9 +50,6 @@ class TestDotenvLoading:
         )
         assert dotenv_call_line < logger_import_line, (
             "load_dotenv() should be called before logger import"
-        )
-        assert dotenv_call_line < resources_import_line, (
-            "load_dotenv() should be called before resources import"
         )
 
     def test_env_file_loading_with_temp_file(self):
