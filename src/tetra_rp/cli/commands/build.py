@@ -313,7 +313,7 @@ def extract_remote_dependencies(workers_dir: Path) -> list[str]:
     """
     dependencies = []
 
-    for py_file in workers_dir.glob("*.py"):
+    for py_file in workers_dir.glob("**/*.py"):
         if py_file.name == "__init__.py":
             continue
 
