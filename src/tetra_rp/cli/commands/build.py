@@ -372,15 +372,25 @@ def install_dependencies(
         result = subprocess.run(
             pip_cmd + ["--version"],
             capture_output=True,
+            text=True,
             timeout=5,
         )
         if result.returncode != 0:
             console.print(
                 "[red]Error:[/red] pip not found in current Python environment"
             )
+            if result.stderr:
+                console.print(f"[yellow]Details:[/yellow] {result.stderr.strip()}")
+            console.print(
+                "\n[yellow]Hint:[/yellow] Install pip with: python -m ensurepip --upgrade"
+            )
             return False
-    except (subprocess.SubprocessError, FileNotFoundError):
+    except (subprocess.SubprocessError, FileNotFoundError) as e:
         console.print("[red]Error:[/red] pip not found in current Python environment")
+        console.print(f"[yellow]Details:[/yellow] {str(e)}")
+        console.print(
+            "\n[yellow]Hint:[/yellow] Install pip with: python -m ensurepip --upgrade"
+        )
         return False
 
     cmd = pip_cmd + [
