@@ -351,7 +351,7 @@ def install_dependencies(
     build_dir: Path, requirements: list[str], no_deps: bool
 ) -> bool:
     """
-    Install dependencies to build directory using pip.
+    Install dependencies to build directory using pip or uv pip.
 
     Args:
         build_dir: Build directory (pip --target)
@@ -364,10 +364,10 @@ def install_dependencies(
     if not requirements:
         return True
 
-    # Use only sys.executable -m pip to ensure correct environment
+    # Try python -m pip first
     pip_cmd = [sys.executable, "-m", "pip"]
+    pip_available = False
 
-    # Check if pip is available
     try:
         result = subprocess.run(
             pip_cmd + ["--version"],
@@ -375,22 +375,35 @@ def install_dependencies(
             text=True,
             timeout=5,
         )
-        if result.returncode != 0:
-            console.print(
-                "[red]Error:[/red] pip not found in current Python environment"
+        if result.returncode == 0:
+            pip_available = True
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+
+    # If pip not available, try uv pip
+    if not pip_available:
+        try:
+            result = subprocess.run(
+                ["uv", "pip", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
-            if result.stderr:
-                console.print(f"[yellow]Details:[/yellow] {result.stderr.strip()}")
-            console.print(
-                "\n[yellow]Hint:[/yellow] Install pip with: python -m ensurepip --upgrade"
-            )
-            return False
-    except (subprocess.SubprocessError, FileNotFoundError) as e:
-        console.print("[red]Error:[/red] pip not found in current Python environment")
-        console.print(f"[yellow]Details:[/yellow] {str(e)}")
-        console.print(
-            "\n[yellow]Hint:[/yellow] Install pip with: python -m ensurepip --upgrade"
-        )
+            if result.returncode == 0:
+                pip_cmd = ["uv", "pip"]
+                pip_available = True
+                console.print(
+                    "[yellow]Note:[/yellow] Using 'uv pip' (pip not found in venv)"
+                )
+        except (subprocess.SubprocessError, FileNotFoundError):
+            pass
+
+    # If neither available, error out
+    if not pip_available:
+        console.print("[red]Error:[/red] Neither pip nor uv pip found")
+        console.print("\n[yellow]Install pip with one of:[/yellow]")
+        console.print("  • python -m ensurepip --upgrade")
+        console.print("  • uv pip install pip")
         return False
 
     cmd = pip_cmd + [
