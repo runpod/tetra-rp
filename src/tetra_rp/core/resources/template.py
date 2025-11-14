@@ -30,6 +30,7 @@ class PodTemplate(BaseResource):
     name: Optional[str] = ""
     ports: Optional[str] = ""
     startScript: Optional[str] = ""
+    volumeInGb: Optional[int] = 20
 
     @model_validator(mode="after")
     def sync_input_fields(self):
