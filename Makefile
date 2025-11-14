@@ -38,6 +38,9 @@ clean: # Remove build artifacts and cache files
 build: clean dev # Build PyPI Package
 	uv build
 
+validate-wheel: build # Validate wheel packaging
+	@./scripts/validate-wheel.sh
+
 security-scans: # Run security scans (informational)
 	uv pip install bandit[toml] --quiet
 	uv run bandit -r src/ -ll -x "**/tests/**" || echo "Security scan completed with issues (informational)"

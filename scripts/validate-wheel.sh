@@ -1,0 +1,121 @@
+#!/bin/bash
+# Validate that wheel packaging includes all necessary template files
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_DIR"
+
+echo "Building wheel..."
+uv build
+
+WHEEL_FILE=$(ls -t dist/tetra_rp-*.whl | head -1)
+echo "Testing wheel: $WHEEL_FILE"
+echo ""
+
+# Check wheel contents without installing
+echo "Checking wheel contents..."
+REQUIRED_TEMPLATE_FILES=(
+    "tetra_rp/cli/utils/skeleton_template/.env"
+    "tetra_rp/cli/utils/skeleton_template/.gitignore"
+    "tetra_rp/cli/utils/skeleton_template/.flashignore"
+    "tetra_rp/cli/utils/skeleton_template/main.py"
+    "tetra_rp/cli/utils/skeleton_template/README.md"
+    "tetra_rp/cli/utils/skeleton_template/requirements.txt"
+    "tetra_rp/cli/utils/skeleton_template/workers/__init__.py"
+    "tetra_rp/cli/utils/skeleton_template/workers/cpu/__init__.py"
+    "tetra_rp/cli/utils/skeleton_template/workers/cpu/endpoint.py"
+    "tetra_rp/cli/utils/skeleton_template/workers/gpu/__init__.py"
+    "tetra_rp/cli/utils/skeleton_template/workers/gpu/endpoint.py"
+)
+
+MISSING_IN_WHEEL=0
+for file in "${REQUIRED_TEMPLATE_FILES[@]}"; do
+    if unzip -l "$WHEEL_FILE" | grep -q "$file"; then
+        echo "[OK] $file"
+    else
+        echo "[MISSING] $file"
+        MISSING_IN_WHEEL=$((MISSING_IN_WHEEL + 1))
+    fi
+done
+
+if [ $MISSING_IN_WHEEL -gt 0 ]; then
+    echo ""
+    echo "ERROR: Wheel validation failed: $MISSING_IN_WHEEL file(s) missing from wheel"
+    exit 1
+fi
+
+echo ""
+echo "Creating test environment..."
+TEMP_DIR=$(mktemp -d)
+cd "$TEMP_DIR"
+
+# Use project's Python from .venv if available, otherwise system python3
+if [ -f "$PROJECT_DIR/.venv/bin/python" ]; then
+    PYTHON_CMD="$PROJECT_DIR/.venv/bin/python"
+elif command -v python3.11 &> /dev/null; then
+    PYTHON_CMD=python3.11
+elif command -v python3.12 &> /dev/null; then
+    PYTHON_CMD=python3.12
+else
+    PYTHON_CMD=python3
+fi
+
+echo "Using Python: $($PYTHON_CMD --version)"
+$PYTHON_CMD -m venv test_env
+source test_env/bin/activate
+
+echo "Installing wheel..."
+pip install -q "$PROJECT_DIR/$WHEEL_FILE"
+
+echo "Testing flash init..."
+flash init test_project > /dev/null 2>&1
+
+# Verify critical files exist
+echo ""
+echo "Verifying created files..."
+REQUIRED_FILES=(".env" ".gitignore" ".flashignore" "main.py" "README.md" "requirements.txt")
+MISSING_IN_OUTPUT=0
+
+for file in "${REQUIRED_FILES[@]}"; do
+    if [ -f "test_project/$file" ]; then
+        # Check file is not empty
+        if [ -s "test_project/$file" ]; then
+            echo "[OK] $file ($(wc -c < "test_project/$file") bytes)"
+        else
+            echo "[WARN] $file (EMPTY)"
+        fi
+    else
+        echo "[MISSING] $file"
+        MISSING_IN_OUTPUT=$((MISSING_IN_OUTPUT + 1))
+    fi
+done
+
+# Verify workers directory structure
+if [ -d "test_project/workers/cpu" ] && [ -d "test_project/workers/gpu" ]; then
+    echo "[OK] workers/cpu/"
+    echo "[OK] workers/gpu/"
+else
+    echo "[MISSING] workers directory structure"
+    MISSING_IN_OUTPUT=$((MISSING_IN_OUTPUT + 1))
+fi
+
+# Cleanup
+deactivate
+cd - > /dev/null
+rm -rf "$TEMP_DIR"
+
+echo ""
+if [ $MISSING_IN_OUTPUT -gt 0 ]; then
+    echo "ERROR: Validation failed: $MISSING_IN_OUTPUT file(s) missing in flash init output"
+    exit 1
+else
+    echo "SUCCESS: Wheel validation passed"
+    echo ""
+    echo "Summary:"
+    echo "  - All template files present in wheel"
+    echo "  - All files created by flash init"
+    echo "  - Hidden files (.env, .gitignore, etc.) working correctly"
+fi
