@@ -13,6 +13,10 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from ..utils.handler_discovery import (
+    discover_and_classify_handlers,
+    write_handler_metadata,
+)
 from ..utils.ignore import get_file_tree, load_ignore_patterns
 
 console = Console()
@@ -82,7 +86,7 @@ def build_command(
             build_dir = create_build_directory(project_dir, app_name)
             progress.update(
                 build_task,
-                description=f"[green]✓ Created .tetra/.build/{app_name}/",
+                description=f"[green]✓ Created .flash/build/{app_name}/",
             )
             progress.stop_task(build_task)
 
@@ -93,6 +97,32 @@ def build_command(
                 copy_task, description=f"[green]✓ Copied {len(files)} files"
             )
             progress.stop_task(copy_task)
+
+            # Discover handlers
+            discover_task = progress.add_task("Discovering handlers...")
+            discovery_result = discover_and_classify_handlers(build_dir)
+
+            # Display warnings if any
+            if discovery_result.warnings:
+                progress.stop_task(discover_task)
+                for warning in discovery_result.warnings:
+                    console.print(f"[yellow]Warning:[/yellow] {warning}")
+
+            # Write handler metadata to build directory
+            # This will be included in the tarball for runtime introspection
+            # and used by FlashApp state manager for handler registration
+            write_handler_metadata(build_dir, discovery_result)
+
+            stats = discovery_result.stats
+            queue_count = stats.get("queue_handlers", 0)
+            lb_count = stats.get("load_balancer_handlers", 0)
+            total = stats.get("total_handlers", 0)
+
+            progress.update(
+                discover_task,
+                description=f"[green]✓ Discovered {total} handlers ({queue_count} queue, {lb_count} load-balancer)",
+            )
+            progress.stop_task(discover_task)
 
             # Install dependencies
             deps_task = progress.add_task("Installing dependencies...")
@@ -126,7 +156,7 @@ def build_command(
             # Create archive
             archive_task = progress.add_task("Creating archive...")
             archive_name = output_name or "archive.tar.gz"
-            archive_path = project_dir / ".tetra" / archive_name
+            archive_path = project_dir / ".flash" / archive_name
 
             create_tarball(build_dir, archive_path, app_name)
 
@@ -209,7 +239,7 @@ def validate_project_structure(project_dir: Path) -> bool:
 
 def create_build_directory(project_dir: Path, app_name: str) -> Path:
     """
-    Create .tetra/.build/{app_name}/ directory.
+    Create .flash/build/{app_name}/ directory.
 
     Args:
         project_dir: Flash project directory
@@ -218,10 +248,10 @@ def create_build_directory(project_dir: Path, app_name: str) -> Path:
     Returns:
         Path to build directory
     """
-    tetra_dir = project_dir / ".tetra"
-    tetra_dir.mkdir(exist_ok=True)
+    flash_dir = project_dir / ".flash"
+    flash_dir.mkdir(exist_ok=True)
 
-    build_base = tetra_dir / ".build"
+    build_base = flash_dir / "build"
     build_dir = build_base / app_name
 
     # Remove existing build directory
@@ -485,7 +515,7 @@ def _display_build_config(
         Panel(
             f"[bold]Project:[/bold] {app_name}\n"
             f"[bold]Directory:[/bold] {project_dir}\n"
-            f"[bold]Archive:[/bold] .tetra/{archive_name}\n"
+            f"[bold]Archive:[/bold] .flash/{archive_name}\n"
             f"[bold]Skip transitive deps:[/bold] {no_deps}\n"
             f"[bold]Keep build dir:[/bold] {keep_build}",
             title="Flash Build Configuration",
