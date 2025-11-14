@@ -26,6 +26,12 @@ def remote(
     dynamic resource provisioning and installation of required dependencies. It can also bypass remote
     execution entirely for local testing.
 
+    Supports both sync and async function definitions:
+    - `def my_function(...)` - Regular synchronous function
+    - `async def my_function(...)` - Asynchronous function
+
+    In both cases, the decorated function returns an awaitable that must be called with `await`.
+
     Args:
         resource_config (ServerlessResource): Configuration object specifying the serverless resource
             to be provisioned or used. Not used when local=True.
@@ -46,18 +52,27 @@ def remote(
 
     Example:
     ```python
-        # Remote execution (production)
+        # Async function (recommended style)
         @remote(
             resource_config=my_resource_config,
-            dependencies=["numpy", "pandas"],
-            accelerate_downloads=True,
+            dependencies=["torch>=2.0.0"],
         )
-        async def my_function(data):
-            # Function logic here
-            pass
+        async def gpu_task(data: dict) -> dict:
+            import torch
+            # GPU processing here
+            return {"result": "processed"}
+
+        # Sync function (also supported)
+        @remote(
+            resource_config=my_resource_config,
+            dependencies=["pandas>=2.0.0"],
+        )
+        def cpu_task(data: dict) -> dict:
+            import pandas as pd
+            # CPU processing here
+            return {"result": "processed"}
 
         # Local execution (testing/development)
-        # Note: Ensure numpy and pandas are installed locally first
         @remote(
             resource_config=my_resource_config,
             dependencies=["numpy", "pandas"],  # Only used for remote execution
