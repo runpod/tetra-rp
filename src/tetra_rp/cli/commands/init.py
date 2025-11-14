@@ -145,9 +145,9 @@ def init_command(
         panel_content += f"  {actual_project_name}/\n"
 
     panel_content += "  ├── main.py              # Flash Server (FastAPI)\n"
-    panel_content += "  ├── workers/             # GPU workers\n"
-    panel_content += "  │   └── example/\n"
-    panel_content += "  │   └── interface/\n"
+    panel_content += "  ├── workers/\n"
+    panel_content += "  │   ├── gpu/             # GPU worker\n"
+    panel_content += "  │   └── cpu/             # CPU worker\n"
     panel_content += "  ├── .env\n"
     panel_content += "  ├── requirements.txt\n"
     panel_content += "  └── README.md\n"
