@@ -27,8 +27,8 @@ def save_deployment_environments(environments: Dict[str, Dict[str, Any]]):
     paths = get_paths()
     deployments_file = paths.deployments_file
 
-    # Ensure .tetra directory exists
-    paths.ensure_tetra_dir()
+    # Ensure .flash directory exists
+    paths.ensure_flash_dir()
 
     with open(deployments_file, "w") as f:
         json.dump(environments, f, indent=2)
