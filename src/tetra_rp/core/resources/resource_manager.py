@@ -129,11 +129,7 @@ class ResourceManager(SingletonMixin):
                     log.warning(f"{existing} is no longer valid, redeploying.")
                     self.remove_resource(uid)
                     # Don't recursive call - deploy directly within the lock
-                    try:
-                        deployed_resource = await config.deploy()
-                    except RunpodAPIKeyError as e:
-                        error_msg = f"Cannot deploy resource '{config.name}': {str(e)}"
-                        raise RunpodAPIKeyError(error_msg) from e
+                    deployed_resource = await self._deploy_with_error_context(config)
                     log.info(f"URL: {deployed_resource.url}")
                     self.add_resource(uid, deployed_resource)
                     return deployed_resource
@@ -144,11 +140,7 @@ class ResourceManager(SingletonMixin):
 
             # No existing resource, deploy new one
             log.debug(f"Deploying new resource: {uid}")
-            try:
-                deployed_resource = await config.deploy()
-            except RunpodAPIKeyError as e:
-                error_msg = f"Cannot deploy resource '{config.name}': {str(e)}"
-                raise RunpodAPIKeyError(error_msg) from e
+            deployed_resource = await self._deploy_with_error_context(config)
             log.info(f"URL: {deployed_resource.url}")
             self.add_resource(uid, deployed_resource)
             return deployed_resource
