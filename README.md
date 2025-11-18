@@ -116,12 +116,18 @@ my_project/
 │   └── cpu/                   # CPU worker example
 │       ├── __init__.py        # FastAPI router
 │       └── endpoint.py        # @remote decorated function
-├── .env                       # Environment variables (add your API key)
+├── .env.example               # Environment variable template
 ├── .gitignore                 # Git ignore patterns
 ├── .flashignore               # Flash deployment ignore patterns
 ├── requirements.txt           # Python dependencies
 └── README.md                  # Project documentation
 ```
+
+> **Note:** The template provides a `.env.example` file. Copy it to `.env` and add your Runpod API key:
+> ```bash
+> cp .env.example .env
+> # Then edit .env to add your API key
+> ```
 
 The template includes:
 - Working GPU and CPU endpoint examples
@@ -134,8 +140,9 @@ After initialization:
 ```bash
 cd my_project
 
-# Add your API key to .env
-echo "RUNPOD_API_KEY=your_api_key_here" > .env
+# Copy the example environment file and add your API key
+cp .env.example .env
+# Edit .env to add your RUNPOD_API_KEY
 
 # Install dependencies
 pip install -r requirements.txt
