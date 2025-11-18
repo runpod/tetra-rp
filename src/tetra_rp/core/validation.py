@@ -19,7 +19,7 @@ def validate_api_key() -> str:
     """
     api_key = os.getenv("RUNPOD_API_KEY")
 
-    if not api_key or not api_key.strip():
+    if not api_key or api_key.strip() == "":
         raise RunpodAPIKeyError()
 
     return api_key
