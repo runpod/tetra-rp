@@ -10,6 +10,8 @@ from typing import Any, Dict, Optional
 
 import aiohttp
 
+from ..utils.user_agent import get_tetra_user_agent
+
 log = logging.getLogger(__name__)
 
 RUNPOD_API_BASE_URL = os.environ.get("RUNPOD_API_BASE_URL", "https://api.runpod.io")
@@ -40,6 +42,7 @@ class RunpodGraphQLClient:
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
+                    "User-Agent": get_tetra_user_agent(),
                 },
             )
         return self.session

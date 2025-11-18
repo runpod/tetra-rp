@@ -2,6 +2,7 @@ import requests
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, model_validator
 from .base import BaseResource
+from ..utils.user_agent import get_tetra_user_agent
 
 
 class KeyValuePair(BaseModel):
@@ -83,7 +84,11 @@ def update_system_dependencies(
         "volumeMountPath": "/workspace",
     }
 
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "User-Agent": get_tetra_user_agent(),
+    }
 
     url = f"https://rest.runpod.io/v1/templates/{template_id}/update"
     response = requests.post(url, json=payload, headers=headers)
