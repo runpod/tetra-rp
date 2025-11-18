@@ -111,5 +111,7 @@ def init_command(
 
     console.print(steps_table)
 
-    console.print("\nVisit http://localhost:8888/docs")
+    console.print("\n[bold]Get your API key:[/bold]")
+    console.print("  https://docs.runpod.io/get-started/api-keys")
+    console.print("\nVisit http://localhost:8888/docs after running")
     console.print("\nCheck out the README.md for more")
