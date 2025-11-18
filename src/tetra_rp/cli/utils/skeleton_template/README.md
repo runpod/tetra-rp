@@ -2,6 +2,10 @@
 
 Flash application demonstrating distributed GPU and CPU computing on Runpod's serverless infrastructure.
 
+## About This Template
+
+This project was generated using `flash init`. The `{{project_name}}` placeholder is automatically replaced with your actual project name during initialization.
+
 ## Quick Start
 
 ### 1. Install Dependencies
