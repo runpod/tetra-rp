@@ -92,6 +92,60 @@ Run the example:
 python your_script.py
 ```
 
+### Project initialization with flash init
+
+For new projects, use the `flash init` command to generate a structured project template with GPU and CPU workers:
+
+```bash
+# Initialize a new project
+flash init my_project
+
+# Or initialize in current directory
+flash init
+```
+
+This creates a complete project structure:
+
+```
+my_project/
+├── main.py                    # FastAPI application entry point
+├── workers/
+│   ├── gpu/                   # GPU worker example
+│   │   ├── __init__.py        # FastAPI router
+│   │   └── endpoint.py        # @remote decorated function
+│   └── cpu/                   # CPU worker example
+│       ├── __init__.py        # FastAPI router
+│       └── endpoint.py        # @remote decorated function
+├── .env                       # Environment variables (add your API key)
+├── .gitignore                 # Git ignore patterns
+├── .flashignore               # Flash deployment ignore patterns
+├── requirements.txt           # Python dependencies
+└── README.md                  # Project documentation
+```
+
+The template includes:
+- Working GPU and CPU endpoint examples
+- FastAPI integration with OpenAPI docs
+- Pre-configured resource scaling
+- Development and deployment commands
+
+After initialization:
+
+```bash
+cd my_project
+
+# Add your API key to .env
+echo "RUNPOD_API_KEY=your_api_key_here" > .env
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run locally
+flash run
+```
+
+Visit http://localhost:8000/docs to explore the API.
+
 ## Key concepts
 
 ### Remote functions
