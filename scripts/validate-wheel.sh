@@ -18,7 +18,7 @@ echo ""
 # Check wheel contents without installing
 echo "Checking wheel contents..."
 REQUIRED_TEMPLATE_FILES=(
-    "tetra_rp/cli/utils/skeleton_template/.env"
+    "tetra_rp/cli/utils/skeleton_template/.env.example"
     "tetra_rp/cli/utils/skeleton_template/.gitignore"
     "tetra_rp/cli/utils/skeleton_template/.flashignore"
     "tetra_rp/cli/utils/skeleton_template/main.py"
@@ -77,7 +77,7 @@ flash init test_project > /dev/null 2>&1
 # Verify critical files exist
 echo ""
 echo "Verifying created files..."
-REQUIRED_FILES=(".env" ".gitignore" ".flashignore" "main.py" "README.md" "requirements.txt")
+REQUIRED_FILES=(".env.example" ".gitignore" ".flashignore" "main.py" "README.md" "requirements.txt")
 MISSING_IN_OUTPUT=0
 
 for file in "${REQUIRED_FILES[@]}"; do

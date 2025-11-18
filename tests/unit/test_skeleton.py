@@ -63,7 +63,7 @@ class TestIgnorePatterns:
 
     def test_should_not_ignore_hidden_template_files(self):
         """Test that template hidden files are not ignored."""
-        assert not _should_ignore(Path(".env"))
+        assert not _should_ignore(Path(".env.example"))
         assert not _should_ignore(Path(".gitignore"))
         assert not _should_ignore(Path(".flashignore"))
 
@@ -95,12 +95,12 @@ class TestDetectFileConflicts:
 
     def test_detect_conflict_with_hidden_file(self, tmp_path):
         """Test that existing hidden files are detected as conflicts."""
-        (tmp_path / ".env").write_text("EXISTING=true")
+        (tmp_path / ".env.example").write_text("EXISTING=true")
 
         conflicts = detect_file_conflicts(tmp_path)
 
         conflict_names = [str(c) for c in conflicts]
-        assert ".env" in conflict_names
+        assert ".env.example" in conflict_names
 
     def test_ignore_pycache_in_conflict_detection(self, tmp_path):
         """Test that __pycache__ is ignored during conflict detection."""
@@ -143,7 +143,7 @@ class TestCreateProjectSkeleton:
         assert (tmp_path / "requirements.txt").exists()
 
         # Check that hidden files exist
-        assert (tmp_path / ".env").exists()
+        assert (tmp_path / ".env.example").exists()
         assert (tmp_path / ".gitignore").exists()
         assert (tmp_path / ".flashignore").exists()
 
@@ -179,7 +179,7 @@ class TestCreateProjectSkeleton:
         assert (tmp_path / "main.py").read_text() == existing_content
 
         # But other files should be created
-        assert (tmp_path / ".env").exists()
+        assert (tmp_path / ".env.example").exists()
 
     def test_create_skeleton_overwrites_with_force(self, tmp_path):
         """Test that existing files are overwritten with force=True."""
@@ -237,7 +237,7 @@ class TestCreateProjectSkeleton:
 
         # Should contain expected files
         assert "main.py" in created_files
-        assert ".env" in created_files
+        assert ".env.example" in created_files
         assert "README.md" in created_files
 
     def test_create_skeleton_handles_readonly_files_gracefully(self, tmp_path):
@@ -252,7 +252,7 @@ class TestCreateProjectSkeleton:
             created_files = create_project_skeleton(tmp_path, force=False)
 
             # Should still create other files
-            assert ".env" in created_files
+            assert ".env.example" in created_files
         finally:
             # Cleanup: restore write permissions
             readonly_file.chmod(0o644)
@@ -290,7 +290,7 @@ class TestEndToEndScenarios:
             "main.py",
             "README.md",
             "requirements.txt",
-            ".env",
+            ".env.example",
             ".gitignore",
             ".flashignore",
         ]
@@ -305,7 +305,7 @@ class TestEndToEndScenarios:
         """Test complete workflow when conflicts exist."""
         # Create some existing files
         (tmp_path / "main.py").write_text("# my custom main")
-        (tmp_path / ".env").write_text("MY_VAR=123")
+        (tmp_path / ".env.example").write_text("MY_VAR=123")
 
         # Detect conflicts
         conflicts = detect_file_conflicts(tmp_path)
@@ -313,14 +313,14 @@ class TestEndToEndScenarios:
 
         conflict_names = [str(c) for c in conflicts]
         assert "main.py" in conflict_names
-        assert ".env" in conflict_names
+        assert ".env.example" in conflict_names
 
         # Create skeleton without force (should preserve existing)
         create_project_skeleton(tmp_path, force=False)
 
         # Check that existing files were preserved
         assert (tmp_path / "main.py").read_text() == "# my custom main"
-        assert (tmp_path / ".env").read_text() == "MY_VAR=123"
+        assert (tmp_path / ".env.example").read_text() == "MY_VAR=123"
 
         # But new files should be created
         assert (tmp_path / "README.md").exists()
@@ -329,7 +329,7 @@ class TestEndToEndScenarios:
         """Test that all hidden template files are copied correctly."""
         create_project_skeleton(tmp_path)
 
-        hidden_files = [".env", ".gitignore", ".flashignore"]
+        hidden_files = [".env.example", ".gitignore", ".flashignore"]
 
         for hidden_file in hidden_files:
             file_path = tmp_path / hidden_file
