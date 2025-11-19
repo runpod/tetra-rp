@@ -1,7 +1,6 @@
 """Unit tests for ResourceManager."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from tetra_rp.core.resources.resource_manager import ResourceManager
@@ -29,7 +28,10 @@ class TestResourceManager:
     def mock_resource_file(self, tmp_path):
         """Mock the resource state file path."""
         resource_file = tmp_path / ".tetra_resources.pkl"
-        with patch("tetra_rp.core.resources.resource_manager.RESOURCE_STATE_FILE", resource_file):
+        with patch(
+            "tetra_rp.core.resources.resource_manager.RESOURCE_STATE_FILE",
+            resource_file,
+        ):
             yield resource_file
 
     @pytest.fixture
@@ -91,7 +93,9 @@ class TestResourceManager:
         # Ensure it's a copy, not the original
         assert resources is not manager._resources
 
-    def test_list_all_resources_returns_copy(self, mock_resource_file, sample_resources):
+    def test_list_all_resources_returns_copy(
+        self, mock_resource_file, sample_resources
+    ):
         """Test that list_all_resources returns a copy, not reference."""
         manager = ResourceManager()
         manager._resources = sample_resources.copy()
@@ -102,7 +106,9 @@ class TestResourceManager:
         # Original should still have data
         assert len(manager._resources) == 3
 
-    def test_find_resources_by_name_no_matches(self, mock_resource_file, sample_resources):
+    def test_find_resources_by_name_no_matches(
+        self, mock_resource_file, sample_resources
+    ):
         """Test find_resources_by_name returns empty list when no matches."""
         manager = ResourceManager()
         manager._resources = sample_resources.copy()
@@ -112,7 +118,9 @@ class TestResourceManager:
         assert matches == []
         assert isinstance(matches, list)
 
-    def test_find_resources_by_name_single_match(self, mock_resource_file, sample_resources):
+    def test_find_resources_by_name_single_match(
+        self, mock_resource_file, sample_resources
+    ):
         """Test find_resources_by_name returns single match."""
         manager = ResourceManager()
         manager._resources = sample_resources.copy()
@@ -124,7 +132,9 @@ class TestResourceManager:
         assert resource.name == "test-api-2"
         assert resource.id == "endpoint-id-2"
 
-    def test_find_resources_by_name_multiple_matches(self, mock_resource_file, sample_resources):
+    def test_find_resources_by_name_multiple_matches(
+        self, mock_resource_file, sample_resources
+    ):
         """Test find_resources_by_name returns multiple matches with same name."""
         manager = ResourceManager()
         manager._resources = sample_resources.copy()
@@ -140,7 +150,9 @@ class TestResourceManager:
         assert "endpoint-id-1" in ids
         assert "endpoint-id-3" in ids
 
-    def test_find_resources_by_name_exact_match_only(self, mock_resource_file, sample_resources):
+    def test_find_resources_by_name_exact_match_only(
+        self, mock_resource_file, sample_resources
+    ):
         """Test find_resources_by_name does exact match, not partial."""
         manager = ResourceManager()
         manager._resources = sample_resources.copy()
@@ -175,7 +187,7 @@ class TestResourceManager:
         )
         resource.id = "test-endpoint-id"
 
-        with patch.object(manager, '_save_resources'):
+        with patch.object(manager, "_save_resources"):
             manager.add_resource(resource.resource_id, resource)
 
         # Find by name
@@ -184,7 +196,9 @@ class TestResourceManager:
         assert matches[0][1].name == "my-endpoint"
         assert matches[0][1].id == "test-endpoint-id"
 
-    def test_remove_resource_updates_find_results(self, mock_resource_file, sample_resources):
+    def test_remove_resource_updates_find_results(
+        self, mock_resource_file, sample_resources
+    ):
         """Test that removing a resource updates find_resources_by_name results."""
         manager = ResourceManager()
         manager._resources = sample_resources.copy()
@@ -195,7 +209,7 @@ class TestResourceManager:
 
         # Remove one
         uid_to_remove = matches[0][0]
-        with patch.object(manager, '_save_resources'):
+        with patch.object(manager, "_save_resources"):
             manager.remove_resource(uid_to_remove)
 
         # Now should be 1 match
@@ -220,14 +234,14 @@ class TestResourceManager:
             flashboot=False,  # Disable to keep original name
         )
 
-        with patch.object(manager, '_save_resources'):
+        with patch.object(manager, "_save_resources"):
             manager.add_resource(resource.resource_id, resource)
 
         # Should have 1 resource
         assert len(manager.list_all_resources()) == 1
 
         # Remove resource
-        with patch.object(manager, '_save_resources'):
+        with patch.object(manager, "_save_resources"):
             manager.remove_resource(resource.resource_id)
 
         # Should be empty again
