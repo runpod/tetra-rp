@@ -9,7 +9,7 @@ You can find a repository of prebuilt Flash examples at [runpod/flash-examples](
 
 ## Table of contents
 
-- [Requirements](#requirements)
+- [Overview](#overview)
 - [Get started](#get-started)
 - [Create Flash API endpoints](#create-flash-api-endpoints)
 - [Key concepts](#key-concepts)
@@ -22,14 +22,16 @@ You can find a repository of prebuilt Flash examples at [runpod/flash-examples](
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 
-## Flash modes
+## Overview
 
-There are two basic modes for using Flash. You can either:
+There are two basic modes for using Flash. You can:
 
-- Run standalone scripts using the method above.
-- Create and deploy Flash API endpoints (using the same script syntax).
+- Build and run standalone Python scripts using the `@remote` decorator.
+- Create Flash API endpoints with FastAPI (using the same script syntax).
 
-Follow the steps in the next section to create your first Flash script. You can also jump to [this section](#create-flash-api-endpoints) to learn how to create Flash API endpoints.
+Follow the steps in the next section to install Flash and create your first script before learning how to [create Flash API endpoints](#create-flash-api-endpoints).
+
+To learn more about how Flash works, see [Key concepts](#key-concepts).
 
 ## Get started
 
