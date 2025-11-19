@@ -320,7 +320,7 @@ To create a custom API:
 1. Edit and add remote functions in the `endpoint.py` files.
 2. Test your scripts individually by running `python endpoint.py`.
 3. Configure your FASTAPI routers by editing the `__init__.py` files.
-4. Add any new endponts to your `main.py` file.
+4. Add any new endpoints to your `main.py` file.
 
 ### Step 7: Integrate Flash APIs
 
