@@ -132,6 +132,9 @@ Computed on: NVIDIA GeForce RTX 4090
 
 ## Create Flash API endpoints
 
+> [!Note]
+> **Flash API endpoints are currently only available for local testing:** Using `flash run` will start the API server on your local machine. Future updates will add the ability to build and deploy API servers for production deployments.
+
 You can use Flash to deploy and serve API endpoints that compute responses using GPU and CPU Serverless workers. These endpoints will run scripts using the same Python remote decorators [demonstrated above](#get-started)
 
 ### Step 1: Initialize a new project
@@ -149,7 +152,7 @@ You can also initialize your current directory:
 flash init
 ```
 
-### Step 2: Examine the project structure
+### Step 2: Explore the project template
 
 This is the structure of the project template created by `flash init`:
 
@@ -174,10 +177,11 @@ This template includes:
 
 - A FastAPI application entry point and routers.
 - Templates for Python dependencies, `.env`, `.gitignore`, etc.
-- Flash scripts (`endpoint.py`) for both GPU and CPU workers, with:
-    - Pre-configured worker scaling limits using the `LiveServerless()` object
-    - A simple `@remote` decorated function to 
+- Flash scripts (`endpoint.py`) for both GPU and CPU workers, which include:
+    - Pre-configured worker scaling limits using the `LiveServerless()` object.
+    - A `@remote` decorated function that returns a response from a worker.
 
+When you start the FastAPI server, it creates API endpoints at `/gpu/hello` and `/cpu/hello`, which call the remote function described in their respect `endpoint.py` files.
 
 ### Step 3: Install Python dependencies
 
@@ -212,35 +216,43 @@ Uncomment the first line and replace `your_api_key_here` with your Runpod API ke
 
 Save the file and close it.
 
-### Step 5: Open the API explorer
+### Step 6: Start the local API server
 
-Use `flash run` to run the local API explorer.
+Use `flash run` to start the API server:
 
-```
+```bash
 flash run
 ```
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs) in your web browser to explore the API.
+Open a new terminal tab or window and test your GPU API using cURL:
+
+```bash
+curl -X POST http://localhost:8888/gpu/hello \
+    -H "Content-Type: application/json" \
+    -d '{"message": "Hello from the GPU!"}'
+```
+
+If you switch back to the terminal tab where you used `flash run`, you'll see the details of the job's progress.
+
+### Step 7: Open the API explorer
+
+Besides starting the API server, `flash run` also starts an interactive API explorer. Point your web browser at [http://localhost:8000/docs](http://localhost:8000/docs) to explore the API.
 
 To run remote functions in the explorer:
 
 1. Expand one of the functions under **GPU Workers** or **CPU Workers**.
 2. Click **Try it out** and then **Execute**
 
-And that's it! You should get a response from your workers right in the explorer.
+You'll get a response from your workers right in the explorer.
 
-### Step 6: Customize your API
+### Step 8: Customize your API
 
-To create a custom API:
+To customize your API endpoint and functionality:
 
-1. Edit and add remote functions in the `endpoint.py` files.
-2. Test your scripts individually by running `python endpoint.py`.
-3. Configure your FASTAPI routers by editing the `__init__.py` files.
+1. Add/edit remote functions in your `endpoint.py` files.
+2. Test the scripts individually by running `python endpoint.py`.
+3. Configure your FastAPI routers by editing the `__init__.py` files.
 4. Add any new endpoints to your `main.py` file.
-
-### Step 7: Integrate Flash APIs
-
-You can integrate .... TODO
 
 ## Key concepts
 
