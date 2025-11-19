@@ -1,10 +1,9 @@
 import asyncio
 import cloudpickle
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from pathlib import Path
 
-from ..exceptions import RunpodAPIKeyError
 from ..exceptions import RunpodAPIKeyError
 from ..utils.singleton import SingletonMixin
 from ..utils.file_lock import file_lock, FileLockError
@@ -153,7 +152,7 @@ class ResourceManager(SingletonMixin):
         """
         return self._resources.copy()
 
-    def find_resources_by_name(self, name: str) -> List[Tuple[str, DeployableResource]]:
+    def find_resources_by_name(self, name: str) -> List[tuple[str, DeployableResource]]:
         """Find resources matching the given name.
 
         Args:
