@@ -22,7 +22,7 @@ You can find a repository of prebuilt Flash examples at [runpod/flash-examples](
 
 ## Flash modes
 
-There are two basic modes of using Flash. You can either:
+There are two basic modes for using Flash. You can either:
 
 - Run standalone scripts using the method above.
 - Create and deploy Flash API endpoints (using the same script syntax).
@@ -274,9 +274,9 @@ This template includes:
     - A simple `@remote` decorated function to 
 
 
-### Step 3: Configure API key
+### Step 3: Install Python dependencies
 
-After initialization, navigate into your project directory:
+After initializating the project, navigate into the project directory:
 
 ```bash
 cd my_project
@@ -288,7 +288,7 @@ Install required dependencies:
 pip install -r requirements.txt
 ```
 
-### Step 4: Configure API key
+### Step 4: Configure your API key
 
 Open the `.env` template file in a text editor and add your [Runpod API key](https://docs.runpod.io/get-started/api-keys):
 
@@ -305,7 +305,7 @@ Uncomment the first line and replace `your_api_key_here` with your Runpod API ke
 # LOG_LEVEL=INFO
 ```
 
-Save the file, 
+Save the file and close it.
 
 ### Step 5: Open the API explorer
 
@@ -317,7 +317,7 @@ flash run
 
 Open [http://localhost:8000/docs](http://localhost:8000/docs) in your web browser to explore the API.
 
-To run a remote function in the explorer:
+To run remote functions in the explorer:
 
 1. Expand one of the functions under **GPU Workers** or **CPU Workers**.
 2. Click **Try it out** and then **Execute**
@@ -335,8 +335,7 @@ To create a custom API:
 
 ### Step 7: Integrate Flash APIs
 
-You can integrate 
-
+You can integrate .... TODO
 
 
 
