@@ -238,7 +238,7 @@ If you switch back to the terminal tab where you used `flash run`, you'll see th
 
 ### Step 6: Open the API explorer
 
-Besides starting the API server, `flash run` also starts an interactive API explorer. Point your web browser at [http://localhost:8000/docs](http://localhost:8000/docs) to explore the API.
+Besides starting the API server, `flash run` also starts an interactive API explorer. Point your web browser at [http://localhost:8888/docs](http://localhost:8888/docs) to explore the API.
 
 To run remote functions in the explorer:
 
