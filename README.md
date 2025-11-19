@@ -10,13 +10,15 @@ You can find a repository of prebuilt Flash examples at [runpod/flash-examples](
 ## Table of contents
 
 - [Requirements](#requirements)
-- [Getting started](#getting-started)
+- [Get started](#get-started)
+- [Create Flash API endpoints](#create-flash-api-endpoints)
 - [Key concepts](#key-concepts)
 - [How it works](#how-it-works)
-- [Use cases](#use-cases)
 - [Advanced features](#advanced-features)
 - [Configuration](#configuration)
 - [Workflow examples](#workflow-examples)
+- [Use cases](#use-cases)
+- [Limitations](#limitations)
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 
@@ -29,7 +31,7 @@ There are two basic modes for using Flash. You can either:
 
 Follow the steps in the next section to create your first Flash script. You can also jump to [this section](#create-flash-api-endpoints) to learn how to create Flash API endpoints.
 
-## Getting started
+## Get started
 
 Before you can use Flash, you'll need:
 
@@ -128,95 +130,9 @@ Sum: 15
 Computed on: NVIDIA GeForce RTX 4090
 ```
 
-## Key concepts
-
-### Remote functions
-
-The Flash `@remote` decorator marks functions for execution on Runpod's infrastructure. Everything inside the decorated function runs remotely, while code outside runs locally.
-
-```python
-@remote(resource_config=config, dependencies=["pandas"])
-def process_data(data):
-    # This code runs remotely
-    import pandas as pd
-    df = pd.DataFrame(data)
-    return df.describe().to_dict()
-
-async def main():
-    # This code runs locally
-    result = await process_data(my_data)
-```
-
-### Resource configuration
-
-Flash provides fine-grained control over hardware allocation through configuration objects:
-
-```python
-from tetra_rp import LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
-
-# GPU configuration
-gpu_config = LiveServerless(
-    name="ml-inference",
-    gpus=[GpuGroup.AMPERE_80],  # A100 80GB
-    workersMax=5,
-    template=PodTemplate(containerDiskInGb=100)  # Extra disk space
-)
-
-# CPU configuration
-cpu_config = LiveServerless(
-    name="data-processor",
-    instanceIds=[CpuInstanceType.CPU5C_4_16],  # 4 vCPU, 16GB RAM
-    workersMax=3
-)
-```
-
-### Dependency management
-
-Specify Python packages in the decorator, and Flash installs them automatically:
-
-```python
-@remote(
-    resource_config=gpu_config,
-    dependencies=["transformers==4.36.0", "torch", "pillow"]
-)
-def generate_image(prompt):
-    # Import inside the function
-    from transformers import pipeline
-    import torch
-    from PIL import Image
-    
-    # Your code here
-```
-
-### Parallel execution
-
-Run multiple remote functions concurrently using Python's async capabilities:
-
-```python
-# Process multiple items in parallel
-results = await asyncio.gather(
-    process_item(item1),
-    process_item(item2),
-    process_item(item3)
-)
-```
-
-## How it works
-
-Flash orchestrates workflow execution through a sophisticated multi-step process:
-
-1. **Function identification**: The `@remote` decorator marks functions for remote execution, enabling Flash to distinguish between local and remote operations.
-2. **Dependency analysis**: Flash automatically analyzes function dependencies to construct an optimal execution order, ensuring data flows correctly between sequential and parallel operations.
-3. **Resource provisioning and execution**: For each remote function, Flash:
-   - Dynamically provisions endpoint and worker resources on Runpod's infrastructure.
-   - Serializes and securely transfers input data to the remote worker.
-   - Executes the function on the remote infrastructure with the specified GPU or CPU resources.
-   - Returns results to your local environment for further processing.
-4. **Data orchestration**: Results flow seamlessly between functions according to your local Python code structure, maintaining the same programming model whether functions run locally or remotely.
-
 ## Create Flash API endpoints
 
-You can use Flash to deploy and serve API endpoints that compute responses using GPU and CPU Serverless workers. These endpoints will run scripts using the same Python remote decorators [demonstrated above]()
+You can use Flash to deploy and serve API endpoints that compute responses using GPU and CPU Serverless workers. These endpoints will run scripts using the same Python remote decorators [demonstrated above](#get-started)
 
 ### Step 1: Initialize a new project
 
@@ -325,6 +241,93 @@ To create a custom API:
 ### Step 7: Integrate Flash APIs
 
 You can integrate .... TODO
+
+## Key concepts
+
+### Remote functions
+
+The Flash `@remote` decorator marks functions for execution on Runpod's infrastructure. Everything inside the decorated function runs remotely, while code outside runs locally.
+
+```python
+@remote(resource_config=config, dependencies=["pandas"])
+def process_data(data):
+    # This code runs remotely
+    import pandas as pd
+    df = pd.DataFrame(data)
+    return df.describe().to_dict()
+
+async def main():
+    # This code runs locally
+    result = await process_data(my_data)
+```
+
+### Resource configuration
+
+Flash provides fine-grained control over hardware allocation through configuration objects:
+
+```python
+from tetra_rp import LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
+
+# GPU configuration
+gpu_config = LiveServerless(
+    name="ml-inference",
+    gpus=[GpuGroup.AMPERE_80],  # A100 80GB
+    workersMax=5,
+    template=PodTemplate(containerDiskInGb=100)  # Extra disk space
+)
+
+# CPU configuration
+cpu_config = LiveServerless(
+    name="data-processor",
+    instanceIds=[CpuInstanceType.CPU5C_4_16],  # 4 vCPU, 16GB RAM
+    workersMax=3
+)
+```
+
+### Dependency management
+
+Specify Python packages in the decorator, and Flash installs them automatically:
+
+```python
+@remote(
+    resource_config=gpu_config,
+    dependencies=["transformers==4.36.0", "torch", "pillow"]
+)
+def generate_image(prompt):
+    # Import inside the function
+    from transformers import pipeline
+    import torch
+    from PIL import Image
+    
+    # Your code here
+```
+
+### Parallel execution
+
+Run multiple remote functions concurrently using Python's async capabilities:
+
+```python
+# Process multiple items in parallel
+results = await asyncio.gather(
+    process_item(item1),
+    process_item(item2),
+    process_item(item3)
+)
+```
+
+## How it works
+
+Flash orchestrates workflow execution through a sophisticated multi-step process:
+
+1. **Function identification**: The `@remote` decorator marks functions for remote execution, enabling Flash to distinguish between local and remote operations.
+2. **Dependency analysis**: Flash automatically analyzes function dependencies to construct an optimal execution order, ensuring data flows correctly between sequential and parallel operations.
+3. **Resource provisioning and execution**: For each remote function, Flash:
+   - Dynamically provisions endpoint and worker resources on Runpod's infrastructure.
+   - Serializes and securely transfers input data to the remote worker.
+   - Executes the function on the remote infrastructure with the specified GPU or CPU resources.
+   - Returns results to your local environment for further processing.
+4. **Data orchestration**: Results flow seamlessly between functions according to your local Python code structure, maintaining the same programming model whether functions run locally or remotely.
+
 
 ## Advanced features
 
@@ -857,17 +860,7 @@ async def text_classification_pipeline(train_texts, train_labels, test_texts):
 
 ### More examples
 
-You can find many more examples in the [tetra-examples repository](https://github.com/runpod/tetra-examples).
-
-You can also install the examples as a submodule:
-
-```bash
-git clone https://github.com/runpod/tetra-examples.git
-cd tetra-examples
-python -m examples.example
-python -m examples.image_gen
-python -m examples.matrix_operations
-```
+You can find many more examples in the [flash-examples repository](https://github.com/runpod/flash-examples).
 
 ## Use cases
 
