@@ -20,6 +20,15 @@ You can find a repository of prebuilt Flash examples at [runpod/flash-examples](
 - [Contributing](#contributing)
 - [Troubleshooting](#troubleshooting)
 
+## Flash modes
+
+There are two basic modes of using Flash. You can either:
+
+- Run standalone scripts using the method above.
+- Create and deploy Flash API endpoints (using the same script syntax).
+
+Follow the steps in the next section to create your first Flash script. You can also jump to [this section](#create-flash-api-endpoints) to learn how to create Flash API endpoints.
+
 ## Getting started
 
 Before you can use Flash, you'll need:
@@ -119,15 +128,6 @@ Sum: 15
 Computed on: NVIDIA GeForce RTX 4090
 ```
 
-## Flash modes
-
-There are two basic methods of using Flash:
-
-- Run standalone scripts using the method above.
-- Create and deploy Flash API endpoints.
-
-These both
-
 ## Key concepts
 
 ### Remote functions
@@ -224,8 +224,6 @@ Flash is well-suited for a diverse range of AI and data processing workloads:
 - **Production inference systems**: Deploy sophisticated multi-stage inference pipelines for real-world applications.
 - **Data processing workflows**: Efficiently process large datasets using CPU workers for general computation and GPU workers for accelerated tasks.
 - **Hybrid GPU/CPU workflows**: Optimize cost and performance by combining CPU preprocessing with GPU inference.
-
-
 
 ## Create Flash API endpoints
 
