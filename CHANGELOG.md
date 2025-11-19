@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/runpod/tetra-rp/compare/v0.17.0...v0.17.1) (2025-11-19)
+
+
+### Documentation
+
+* update readme for alpha release ([#120](https://github.com/runpod/tetra-rp/issues/120)) ([e8093d8](https://github.com/runpod/tetra-rp/commit/e8093d8ac878c13e578dc0ded823dfe8c73120f3))
+
 ## [0.17.0](https://github.com/runpod/tetra-rp/compare/v0.16.1...v0.17.0) (2025-11-19)
 
 
