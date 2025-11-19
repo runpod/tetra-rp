@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/runpod/tetra-rp/compare/v0.16.1...v0.17.0) (2025-11-19)
+
+
+### Features
+
+* add user-friendly error messages for missing RUNPOD_API_KEY ([#117](https://github.com/runpod/tetra-rp/issues/117)) ([32dc093](https://github.com/runpod/tetra-rp/commit/32dc0937dda02a8b6178f3f5b2219f18de1f933e))
+
+
+### Documentation
+
+* improved flash init skeleton, contributing, and misc cleanup ([#118](https://github.com/runpod/tetra-rp/issues/118)) ([91acf1a](https://github.com/runpod/tetra-rp/commit/91acf1a87b5cdcf7f66c2bfa976f6132a8ca3cea))
+
 ## [0.16.1](https://github.com/runpod/tetra-rp/compare/v0.16.0...v0.16.1) (2025-11-14)
 
 

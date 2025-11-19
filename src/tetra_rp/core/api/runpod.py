@@ -10,6 +10,8 @@ from typing import Any, Dict, Optional
 
 import aiohttp
 
+from tetra_rp.core.exceptions import RunpodAPIKeyError
+
 log = logging.getLogger(__name__)
 
 RUNPOD_API_BASE_URL = os.environ.get("RUNPOD_API_BASE_URL", "https://api.runpod.io")
@@ -27,7 +29,7 @@ class RunpodGraphQLClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
         if not self.api_key:
-            raise ValueError("Runpod API key is required")
+            raise RunpodAPIKeyError()
 
         self.session: Optional[aiohttp.ClientSession] = None
 
@@ -223,7 +225,7 @@ class RunpodRestClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
         if not self.api_key:
-            raise ValueError("Runpod API key is required")
+            raise RunpodAPIKeyError()
 
         self.session: Optional[aiohttp.ClientSession] = None
 
