@@ -216,7 +216,7 @@ Uncomment the first line and replace `your_api_key_here` with your Runpod API ke
 
 Save the file and close it.
 
-### Step 6: Start the local API server
+### Step 5: Start the local API server
 
 Use `flash run` to start the API server:
 
@@ -234,7 +234,7 @@ curl -X POST http://localhost:8888/gpu/hello \
 
 If you switch back to the terminal tab where you used `flash run`, you'll see the details of the job's progress.
 
-### Step 7: Open the API explorer
+### Step 6: Open the API explorer
 
 Besides starting the API server, `flash run` also starts an interactive API explorer. Point your web browser at [http://localhost:8000/docs](http://localhost:8000/docs) to explore the API.
 
@@ -245,7 +245,7 @@ To run remote functions in the explorer:
 
 You'll get a response from your workers right in the explorer.
 
-### Step 8: Customize your API
+### Step 7: Customize your API
 
 To customize your API endpoint and functionality:
 
@@ -386,7 +386,7 @@ config = LiveServerless(
 
 ### GPU configuration parameters
 
-The following parameters can be used with `LiveServerless` (full remote code execution) and `ServerlessEndpoint` (Dictionary payload only) to configure your Runpod GPU endpoints:
+The following parameters can be used with `LiveServerless` (full remote code execution) and `ServerlessEndpoint` (dictionary payload only) to configure your Runpod GPU endpoints:
 
 | Parameter          | Description                                     | Default       | Example Values                      |
 |--------------------|-------------------------------------------------|---------------|-------------------------------------|
@@ -417,7 +417,7 @@ The same GPU configuration parameters above apply to `LiveServerless` (full remo
 
 | Feature | LiveServerless | ServerlessEndpoint | CpuServerlessEndpoint |
 |---------|----------------|-------------------|----------------------|
-| **Remote code execution** | ✅ Full Python function execution | ❌ Dictionary payloads only | ❌ Dictionary payloads only |
+| **Remote code execution** | ✅ Full Python function execution | ❌ Dictionary payload only | ❌ Dictionary payload only |
 | **Custom Docker images** | ❌ Fixed optimized images | ✅ Any Docker image | ✅ Any Docker image |
 | **Use case** | Dynamic remote functions | Traditional API endpoints | Traditional CPU endpoints |
 | **Function returns** | Any Python object | Dictionary only | Dictionary only |
@@ -435,6 +435,7 @@ Some common GPU groups available through `GpuGroup`:
 
 
 ### Available CPU instance types
+
 - `CpuInstanceType.CPU3G_1_4` - (cpu3g-1-4) 3rd gen general purpose, 1 vCPU, 4GB RAM
 - `CpuInstanceType.CPU3G_2_8` - (cpu3g-2-8) 3rd gen general purpose, 2 vCPU, 8GB RAM
 - `CpuInstanceType.CPU3G_4_16` - (cpu3g-4-16) 3rd gen general purpose, 4 vCPU, 16GB RAM
@@ -897,23 +898,23 @@ Flash is well-suited for a diverse range of AI and data processing workloads:
 
 We welcome contributions to Flash! Whether you're fixing bugs, adding features, or improving documentation, your help makes this project better.
 
-### Development Setup
+### Development setup
 
-1. Fork and clone the repository
-2. Set up your development environment following the project guidelines
-3. Make your changes following our coding standards
-4. Test your changes thoroughly
-5. Submit a pull request
+1. Fork and clone the repository.
+2. Set up your development environment following the project guidelines.
+3. Make your changes following our coding standards.
+4. Test your changes thoroughly.
+5. Submit a pull request.
 
-### Release Process
+### Release process
 
 This project uses an automated release system built on Release Please. For detailed information about how releases work, including conventional commits, versioning, and the CI/CD pipeline, see our [Release System Documentation](RELEASE_SYSTEM.md).
 
 **Quick reference for contributors:**
 - Use conventional commits: `feat:`, `fix:`, `docs:`, etc.
-- CI automatically runs quality checks on all PRs
-- Release PRs are created automatically when changes are merged to main
-- Releases are published to PyPI automatically when release PRs are merged
+- CI automatically runs quality checks on all PRs.
+- Release PRs are created automatically when changes are merged to main.
+- Releases are published to PyPI automatically when release PRs are merged.
 
 ## Troubleshooting
 
@@ -938,9 +939,9 @@ def fetch_data(url):
 
 ### Performance optimization
 
-- Set `workersMin=1` to keep workers warm and avoid cold starts
-- Use `idleTimeout` to balance cost and responsiveness
-- Choose appropriate GPU types for your workload
+- Set `workersMin=1` to keep workers warm and avoid cold starts.
+- Use `idleTimeout` to balance cost and responsiveness.
+- Choose appropriate GPU types for your workload.
 
 ## License
 
