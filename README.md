@@ -344,9 +344,9 @@ custom_gpu = ServerlessEndpoint(
 
 Unlike `LiveServerless`, these endpoints only support dictionary payloads in the form of `{"input": {...}}` (similar to a traditional [Serverless endpoint request](https://docs.runpod.io/serverless/endpoints/send-requests)), and cannot execute arbitrary Python functions remotely.
 
-### Persistent storage
+### Persistent storage with network volumes
 
-Attach network volumes for model caching:
+Attach [network volumes](https://docs.runpod.io/storage/network-volumes) for persistent storage across workers and endpoints:
 
 ```python
 config = LiveServerless(
