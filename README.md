@@ -208,7 +208,7 @@ Open the `.env` template file in a text editor and add your [Runpod API key](htt
 cursor .env
 ```
 
-Uncomment the first line and replace `your_api_key_here` with your Runpod API key:
+Remove the `#` symbol from the beginning of the `RUNPOD_API_KEY` line and replace `your_api_key_here` with your actual Runpod API key:
 
 ```txt
 # RUNPOD_API_KEY=your_api_key_here
