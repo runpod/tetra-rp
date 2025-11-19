@@ -243,7 +243,7 @@ my_project/
 ├── workers/
 │   ├── gpu/                   # GPU worker example
 │   │   ├── __init__.py        # FastAPI router
-│   │   └── endpoint.py        # GPU scripts @remote decorated function
+│   │   └── endpoint.py        # GPU script @remote decorated function
 │   └── cpu/                   # CPU worker example
 │       ├── __init__.py        # FastAPI router
 │       └── endpoint.py        # CPU script with @remote decorated function
