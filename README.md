@@ -880,6 +880,14 @@ Flash is well-suited for a diverse range of AI and data processing workloads:
 - **Data processing workflows**: Efficiently process large datasets using CPU workers for general computation and GPU workers for accelerated tasks.
 - **Hybrid GPU/CPU workflows**: Optimize cost and performance by combining CPU preprocessing with GPU inference.
 
+## Limitations
+
+- Serverless deployments using Flash are currently restricted to the `EU-RO-1` datacenter.
+- Flash is designed primarily for local development and live-testing workflows.
+- While Flash supports provisioning traditional Serverless endpoints (non-Live endpoints), the interface for interacting with these resources will change in upcoming releases. For now, focus on using `LiveServerless` for the most stable development experience, as it provides full remote code execution without requiring custom Docker images.
+- As you work through the Flash examples repository, you'll accumulate multiple endpoints in your Runpod account. These endpoints persist until manually deleted through the Runpod console. A `flash undeploy` command is in development to streamline cleanup, but for now, regular manual deletion of unused endpoints is recommended to avoid unnecessary charges.
+- Finally, be aware of your account's maximum worker capacity limits. Flash can rapidly scale workers across multiple endpoints, and you may hit capacity constraints faster than with traditional deployment patterns. If you find yourself consistently reaching worker limits, contact Runpod support to increase your account's capacity allocation.
+
 ## Contributing
 
 We welcome contributions to Flash! Whether you're fixing bugs, adding features, or improving documentation, your help makes this project better.
