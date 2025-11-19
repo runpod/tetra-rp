@@ -1,8 +1,8 @@
-# Tetra: Serverless computing for AI workloads
+# Flash: Serverless computing for AI workloads
 
-Tetra is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's [Serverless infrastructure](http://docs.runpod.io/serverless/overview). Write Python functions locally, and Tetra handles the infrastructure, provisioning GPUs and CPUs, managing dependencies, and transferring data, allowing you to focus on building AI applications.
+Runpod Flash is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's [Serverless infrastructure](http://docs.runpod.io/serverless/overview). Write Python functions locally, and Flash handles the infrastructure, provisioning GPUs and CPUs, managing dependencies, and transferring data, allowing you to focus on building AI applications.
 
-You can find a repository of prebuilt Tetra examples at [runpod/tetra-examples](https://github.com/runpod/tetra-examples).
+You can find a repository of prebuilt Flash examples at [runpod/flash-examples](https://github.com/runpod/flash-examples).
 
 > [!Note]
 > **New feature - Consolidated template management:** `PodTemplate` overrides now seamlessly integrate with `ServerlessResource` defaults, providing more consistent resource configuration and reducing deployment complexity.
@@ -22,13 +22,13 @@ You can find a repository of prebuilt Tetra examples at [runpod/tetra-examples](
 
 ## Getting started
 
-Before you can use Tetra, you'll need:
+Before you can use Flash, you'll need:
 
 - Python 3.9 (or higher) installed on your local machine.
 - A Runpod account with API key ([sign up here](https://runpod.io/console)).
 - Basic knowledge of Python and async programming.
 
-### Step 1: Install Tetra
+### Step 1: Install Flash
 
 ```bash
 pip install tetra_rp
@@ -48,16 +48,20 @@ Or save it in a `.env` file in your project directory:
 echo "RUNPOD_API_KEY=[YOUR_API_KEY]" > .env
 ```
 
-### Step 3: Write your first Tetra function
+### Step 3: Create your first Flash function
 
 Add the following code to a new Python file:
 
 ```python
 import asyncio
 from tetra_rp import remote, LiveServerless
+from dotenv import load_dotenv
+
+# Uncomment if using a .env file
+# load_dotenv()
 
 # Configure GPU resources
-gpu_config = LiveServerless(name="tetra-quickstart")
+gpu_config = LiveServerless(name="flash-quickstart")
 
 @remote(
     resource_config=gpu_config,
@@ -92,72 +96,43 @@ Run the example:
 python your_script.py
 ```
 
-### Project initialization with flash init
+The first time you run the script, it will take significantly longer to process than successive runs (about one minute for first run vs. one second for future runs), as your endpoint must be initialized.
 
-For new projects, use the `flash init` command to generate a structured project template with GPU and CPU workers:
-
-```bash
-# Initialize a new project
-flash init my_project
-
-# Or initialize in current directory
-flash init
-```
-
-This creates a complete project structure:
-
-```
-my_project/
-├── main.py                    # FastAPI application entry point
-├── workers/
-│   ├── gpu/                   # GPU worker example
-│   │   ├── __init__.py        # FastAPI router
-│   │   └── endpoint.py        # @remote decorated function
-│   └── cpu/                   # CPU worker example
-│       ├── __init__.py        # FastAPI router
-│       └── endpoint.py        # @remote decorated function
-├── .env.example               # Environment variable template
-├── .gitignore                 # Git ignore patterns
-├── .flashignore               # Flash deployment ignore patterns
-├── requirements.txt           # Python dependencies
-└── README.md                  # Project documentation
-```
-
-> **Note:** The template provides a `.env.example` file. Copy it to `.env` and add your Runpod API key:
-> ```bash
-> cp .env.example .env
-> # Then edit .env to add your API key
-> ```
-
-The template includes:
-- Working GPU and CPU endpoint examples
-- FastAPI integration with OpenAPI docs
-- Pre-configured resource scaling
-- Development and deployment commands
-
-After initialization:
+When it's finished, you should see output similar to this:
 
 ```bash
-cd my_project
-
-# Copy the example environment file and add your API key
-cp .env.example .env
-# Edit .env to add your RUNPOD_API_KEY
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run locally
-flash run
+2025-11-19 12:35:15,109 | INFO  | Created endpoint: rb50waqznmn2kg - flash-quickstart-fb
+2025-11-19 12:35:15,112 | INFO  | URL: https://console.runpod.io/serverless/user/endpoint/rb50waqznmn2kg
+2025-11-19 12:35:15,114 | INFO  | LiveServerless:rb50waqznmn2kg | API /run
+2025-11-19 12:35:15,655 | INFO  | LiveServerless:rb50waqznmn2kg | Started Job:b0b341e7-e460-4305-9acd-fc2dfd1bd65c-u2
+2025-11-19 12:35:15,762 | INFO  | Job:b0b341e7-e460-4305-9acd-fc2dfd1bd65c-u2 | Status: IN_QUEUE
+2025-11-19 12:35:16,301 | INFO  | Job:b0b341e7-e460-4305-9acd-fc2dfd1bd65c-u2 | .
+2025-11-19 12:35:17,756 | INFO  | Job:b0b341e7-e460-4305-9acd-fc2dfd1bd65c-u2 | ..
+2025-11-19 12:35:22,610 | INFO  | Job:b0b341e7-e460-4305-9acd-fc2dfd1bd65c-u2 | ...
+2025-11-19 12:35:37,163 | INFO  | Job:b0b341e7-e460-4305-9acd-fc2dfd1bd65c-u2 | ....
+2025-11-19 12:35:59,248 | INFO  | Job:b0b341e7-e460-4305-9acd-fc2dfd1bd65c-u2 | .....
+2025-11-19 12:36:09,983 | INFO  | Job:b0b341e7-e460-4305-9acd-fc2dfd1bd65c-u2 | Status: COMPLETED
+2025-11-19 12:36:10,068 | INFO  | Worker:icmkdgnrmdf8gz | Delay Time: 51842 ms
+2025-11-19 12:36:10,068 | INFO  | Worker:icmkdgnrmdf8gz | Execution Time: 1533 ms
+2025-11-19 17:36:07,485 | INFO  | Installing Python dependencies: ['torch', 'numpy']
+Sum: 15
+Computed on: NVIDIA GeForce RTX 4090
 ```
 
-Visit http://localhost:8000/docs to explore the API.
+## Flash modes
+
+There are two basic methods of using Flash:
+
+- Run standalone scripts using the method above.
+- Create and deploy Flash API endpoints.
+
+These both
 
 ## Key concepts
 
 ### Remote functions
 
-Tetra's `@remote` decorator marks functions for execution on Runpod's infrastructure. Everything inside the decorated function runs remotely, while code outside runs locally.
+The Flash `@remote` decorator marks functions for execution on Runpod's infrastructure. Everything inside the decorated function runs remotely, while code outside runs locally.
 
 ```python
 @remote(resource_config=config, dependencies=["pandas"])
@@ -174,7 +149,7 @@ async def main():
 
 ### Resource configuration
 
-Tetra provides fine-grained control over hardware allocation through configuration objects:
+Flash provides fine-grained control over hardware allocation through configuration objects:
 
 ```python
 from tetra_rp import LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
@@ -197,7 +172,7 @@ cpu_config = LiveServerless(
 
 ### Dependency management
 
-Specify Python packages in the decorator, and Tetra installs them automatically:
+Specify Python packages in the decorator, and Flash installs them automatically:
 
 ```python
 @remote(
@@ -228,11 +203,11 @@ results = await asyncio.gather(
 
 ## How it works
 
-Tetra orchestrates workflow execution through a sophisticated multi-step process:
+Flash orchestrates workflow execution through a sophisticated multi-step process:
 
-1. **Function identification**: The `@remote` decorator marks functions for remote execution, enabling Tetra to distinguish between local and remote operations.
-2. **Dependency analysis**: Tetra automatically analyzes function dependencies to construct an optimal execution order, ensuring data flows correctly between sequential and parallel operations.
-3. **Resource provisioning and execution**: For each remote function, Tetra:
+1. **Function identification**: The `@remote` decorator marks functions for remote execution, enabling Flash to distinguish between local and remote operations.
+2. **Dependency analysis**: Flash automatically analyzes function dependencies to construct an optimal execution order, ensuring data flows correctly between sequential and parallel operations.
+3. **Resource provisioning and execution**: For each remote function, Flash:
    - Dynamically provisions endpoint and worker resources on Runpod's infrastructure.
    - Serializes and securely transfers input data to the remote worker.
    - Executes the function on the remote infrastructure with the specified GPU or CPU resources.
@@ -241,7 +216,7 @@ Tetra orchestrates workflow execution through a sophisticated multi-step process
 
 ## Use cases
 
-Tetra is well-suited for a diverse range of AI and data processing workloads:
+Flash is well-suited for a diverse range of AI and data processing workloads:
 
 - **Multi-modal AI pipelines**: Orchestrate unified workflows combining text, image, and audio models with GPU acceleration.
 - **Distributed model training**: Scale training operations across multiple GPU workers for faster model development.
@@ -250,11 +225,129 @@ Tetra is well-suited for a diverse range of AI and data processing workloads:
 - **Data processing workflows**: Efficiently process large datasets using CPU workers for general computation and GPU workers for accelerated tasks.
 - **Hybrid GPU/CPU workflows**: Optimize cost and performance by combining CPU preprocessing with GPU inference.
 
+
+
+## Create Flash API endpoints
+
+You can use Flash to deploy and serve API endpoints that compute responses using GPU and CPU Serverless workers. These endpoints will run scripts using the same Python remote decorators [demonstrated above]()
+
+### Step 1: Initialize a new project
+
+Use the `flash init` command to generate a structured project template with a preconfigured FastAPI application entry point.
+
+Run this command to initialize a new project directory:
+
+```bash
+flash init my_project
+```
+
+You can also initialize your current directory:
+```
+flash init
+```
+
+### Step 2: Examine the project structure
+
+This is the structure of the project template created by `flash init`:
+
+```txt
+my_project/
+├── main.py                    # FastAPI application entry point
+├── workers/
+│   ├── gpu/                   # GPU worker example
+│   │   ├── __init__.py        # FastAPI router
+│   │   └── endpoint.py        # GPU scripts @remote decorated function
+│   └── cpu/                   # CPU worker example
+│       ├── __init__.py        # FastAPI router
+│       └── endpoint.py        # CPU script with @remote decorated function
+├── .env               # Environment variable template
+├── .gitignore                 # Git ignore patterns
+├── .flashignore               # Flash deployment ignore patterns
+├── requirements.txt           # Python dependencies
+└── README.md                  # Project documentation
+```
+
+This template includes:
+
+- A FastAPI application entry point and routers.
+- Templates for Python dependencies, `.env`, `.gitignore`, etc.
+- Flash scripts (`endpoint.py`) for both GPU and CPU workers, with:
+    - Pre-configured worker scaling limits using the `LiveServerless()` object
+    - A simple `@remote` decorated function to 
+
+
+### Step 3: Configure API key
+
+After initialization, navigate into your project directory:
+
+```bash
+cd my_project
+```
+
+Install required dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Configure API key
+
+Open the `.env` template file in a text editor and add your [Runpod API key](https://docs.runpod.io/get-started/api-keys):
+
+```bash
+# Use your text editor of choice, e.g.
+cursor .env
+```
+
+Uncomment the first line and replace `your_api_key_here` with your Runpod API key:
+
+```txt
+# RUNPOD_API_KEY=your_api_key_here
+# PORT=80
+# LOG_LEVEL=INFO
+```
+
+Save the file, 
+
+### Step 5: Open the API explorer
+
+Use `flash run` to run the local API explorer.
+
+```
+flash run
+```
+
+Open [http://localhost:8000/docs](http://localhost:8000/docs) in your web browser to explore the API.
+
+To run a remote function in the explorer:
+
+1. Expand one of the functions under **GPU Workers** or **CPU Workers**.
+2. Click **Try it out** and then **Execute**
+
+And that's it! You should get a response from your workers right in the explorer.
+
+### Step 6: Customize your API
+
+To create a custom API:
+
+1. Edit and add remote functions in the `endpoint.py` files.
+2. Test your scripts individually by running `python endpoint.py`.
+3. Configure your FASTAPI routers by editing the `__init__.py` files.
+4. Add any new endponts to your `main.py` file.
+
+### Step 7: Integrate Flash APIs
+
+You can integrate 
+
+
+
+
+
 ## Advanced features
 
 ### Custom Docker images
 
-`LiveServerless` resources use a fixed Docker image that's optimized for Tetra runtime, and supports full remote code execution. For specialized environments that require a custom Docker image, use `ServerlessEndpoint` or `CpuServerlessEndpoint`:
+`LiveServerless` resources use a fixed Docker image that's optimized for Flash runtime, and supports full remote code execution. For specialized environments that require a custom Docker image, use `ServerlessEndpoint` or `CpuServerlessEndpoint`:
 
 ```python
 from tetra_rp import ServerlessEndpoint
@@ -795,7 +888,7 @@ python -m examples.matrix_operations
 
 ## Contributing
 
-We welcome contributions to Tetra! Whether you're fixing bugs, adding features, or improving documentation, your help makes this project better.
+We welcome contributions to Flash! Whether you're fixing bugs, adding features, or improving documentation, your help makes this project better.
 
 ### Development Setup
 
@@ -847,6 +940,6 @@ def fetch_data(url):
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 <p align="center">
-  <a href="https://github.com/runpod/tetra-rp">Tetra</a> •
+  <a href="https://github.com/runpod/tetra-rp">Flash</a> •
   <a href="https://runpod.io">Runpod</a>
 </p>
