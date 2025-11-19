@@ -265,7 +265,7 @@ This template includes:
 
 ### Step 3: Install Python dependencies
 
-After initializating the project, navigate into the project directory:
+After initializing the project, navigate into the project directory:
 
 ```bash
 cd my_project
