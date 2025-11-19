@@ -214,17 +214,6 @@ Flash orchestrates workflow execution through a sophisticated multi-step process
    - Returns results to your local environment for further processing.
 4. **Data orchestration**: Results flow seamlessly between functions according to your local Python code structure, maintaining the same programming model whether functions run locally or remotely.
 
-## Use cases
-
-Flash is well-suited for a diverse range of AI and data processing workloads:
-
-- **Multi-modal AI pipelines**: Orchestrate unified workflows combining text, image, and audio models with GPU acceleration.
-- **Distributed model training**: Scale training operations across multiple GPU workers for faster model development.
-- **AI research experimentation**: Rapidly prototype and test complex model combinations without infrastructure overhead.
-- **Production inference systems**: Deploy sophisticated multi-stage inference pipelines for real-world applications.
-- **Data processing workflows**: Efficiently process large datasets using CPU workers for general computation and GPU workers for accelerated tasks.
-- **Hybrid GPU/CPU workflows**: Optimize cost and performance by combining CPU preprocessing with GPU inference.
-
 ## Create Flash API endpoints
 
 You can use Flash to deploy and serve API endpoints that compute responses using GPU and CPU Serverless workers. These endpoints will run scripts using the same Python remote decorators [demonstrated above]()
@@ -336,9 +325,6 @@ To create a custom API:
 ### Step 7: Integrate Flash APIs
 
 You can integrate .... TODO
-
-
-
 
 ## Advanced features
 
@@ -882,6 +868,17 @@ python -m examples.example
 python -m examples.image_gen
 python -m examples.matrix_operations
 ```
+
+## Use cases
+
+Flash is well-suited for a diverse range of AI and data processing workloads:
+
+- **Multi-modal AI pipelines**: Orchestrate unified workflows combining text, image, and audio models with GPU acceleration.
+- **Distributed model training**: Scale training operations across multiple GPU workers for faster model development.
+- **AI research experimentation**: Rapidly prototype and test complex model combinations without infrastructure overhead.
+- **Production inference systems**: Deploy sophisticated multi-stage inference pipelines for real-world applications.
+- **Data processing workflows**: Efficiently process large datasets using CPU workers for general computation and GPU workers for accelerated tasks.
+- **Hybrid GPU/CPU workflows**: Optimize cost and performance by combining CPU preprocessing with GPU inference.
 
 ## Contributing
 
