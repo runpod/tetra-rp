@@ -101,11 +101,16 @@ class TestUndeployList:
             # Print output for debugging
             if result.exit_code != 0:
                 print("STDOUT:", result.stdout)
-                print("STDERR:", result.stderr if hasattr(result, 'stderr') else "N/A")
+                print("STDERR:", result.stderr if hasattr(result, "stderr") else "N/A")
                 if result.exception:
                     print("EXCEPTION:", result.exception)
                     import traceback
-                    traceback.print_exception(type(result.exception), result.exception, result.exception.__traceback__)
+
+                    traceback.print_exception(
+                        type(result.exception),
+                        result.exception,
+                        result.exception.__traceback__,
+                    )
 
             assert result.exit_code == 0
             assert "test-api-1" in result.stdout
@@ -139,9 +144,10 @@ class TestUndeployCommand:
 
     def test_undeploy_by_name_cancelled(self, runner, sample_resources):
         """Test undeploy by name cancelled by user."""
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM, \
-             patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary:
-
+        with (
+            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+            patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
+        ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
             MockRM.return_value = mock_manager
@@ -159,9 +165,10 @@ class TestUndeployCommand:
     @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
     def test_undeploy_by_name_success(self, mock_asyncio_run, runner, sample_resources):
         """Test successful undeploy by name."""
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM, \
-             patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary:
-
+        with (
+            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+            patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
+        ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
             MockRM.return_value = mock_manager
@@ -176,7 +183,7 @@ class TestUndeployCommand:
                 "success": True,
                 "name": "test-api-1",
                 "endpoint_id": "endpoint-id-1",
-                "message": "Successfully deleted"
+                "message": "Successfully deleted",
             }
 
             result = runner.invoke(app, ["undeploy", "test-api-1"])
@@ -187,9 +194,10 @@ class TestUndeployCommand:
     @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
     def test_undeploy_all_flag(self, mock_asyncio_run, runner, sample_resources):
         """Test undeploy --all flag."""
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM, \
-             patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary:
-
+        with (
+            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+            patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
+        ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
             MockRM.return_value = mock_manager
@@ -208,7 +216,7 @@ class TestUndeployCommand:
                 "success": True,
                 "name": "test-api",
                 "endpoint_id": "endpoint-id",
-                "message": "Successfully deleted"
+                "message": "Successfully deleted",
             }
 
             result = runner.invoke(app, ["undeploy", "--all"])
@@ -218,9 +226,10 @@ class TestUndeployCommand:
 
     def test_undeploy_all_wrong_confirmation(self, runner, sample_resources):
         """Test undeploy --all with wrong confirmation text."""
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM, \
-             patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary:
-
+        with (
+            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+            patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
+        ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
             MockRM.return_value = mock_manager
@@ -253,9 +262,10 @@ class TestDeleteEndpoint:
         resource_id = resource.resource_id
         name = resource.name
 
-        with patch("tetra_rp.cli.commands.undeploy.RunpodGraphQLClient") as MockClient, \
-             patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM:
-
+        with (
+            patch("tetra_rp.cli.commands.undeploy.RunpodGraphQLClient") as MockClient,
+            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+        ):
             # Mock successful API deletion
             mock_client = AsyncMock()
             mock_client.delete_endpoint.return_value = {"success": True}
