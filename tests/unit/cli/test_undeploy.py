@@ -98,19 +98,8 @@ class TestUndeployList:
 
             result = runner.invoke(app, ["undeploy", "list"])
 
-            # Print output for debugging
-            if result.exit_code != 0:
-                print("STDOUT:", result.stdout)
-                print("STDERR:", result.stderr if hasattr(result, "stderr") else "N/A")
-                if result.exception:
-                    print("EXCEPTION:", result.exception)
-                    import traceback
-
-                    traceback.print_exception(
-                        type(result.exception),
-                        result.exception,
-                        result.exception.__traceback__,
-                    )
+            if result.exception:
+                raise result.exception
 
             assert result.exit_code == 0
             assert "test-api-1" in result.stdout

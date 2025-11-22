@@ -1,7 +1,7 @@
 import asyncio
 import cloudpickle
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
 from ..exceptions import RunpodAPIKeyError
@@ -152,7 +152,7 @@ class ResourceManager(SingletonMixin):
         """
         return self._resources.copy()
 
-    def find_resources_by_name(self, name: str) -> List[tuple[str, DeployableResource]]:
+    def find_resources_by_name(self, name: str) -> List[Tuple[str, DeployableResource]]:
         """Find resources matching the given name.
 
         Args:

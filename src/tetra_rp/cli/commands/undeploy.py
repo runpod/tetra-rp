@@ -1,7 +1,7 @@
 """Undeploy command for managing RunPod serverless endpoints."""
 
 import asyncio
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -16,7 +16,7 @@ from ...core.api.runpod import RunpodGraphQLClient
 console = Console()
 
 
-def _get_resource_status(resource) -> tuple[str, str]:
+def _get_resource_status(resource) -> Tuple[str, str]:
     """Get resource status with icon and text.
 
     Args:
