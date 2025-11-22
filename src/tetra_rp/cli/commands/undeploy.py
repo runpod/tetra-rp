@@ -140,26 +140,26 @@ async def _delete_endpoint(endpoint_id: str, resource_id: str, name: str) -> dic
         Dict with success status and message
     """
     try:
-        client = RunpodGraphQLClient()
-        result = await client.delete_endpoint(endpoint_id)
+        async with RunpodGraphQLClient() as client:
+            result = await client.delete_endpoint(endpoint_id)
 
-        if result.get("success"):
-            # Remove from tracking
-            manager = ResourceManager()
-            manager.remove_resource(resource_id)
-            return {
-                "success": True,
-                "name": name,
-                "endpoint_id": endpoint_id,
-                "message": f"Successfully deleted endpoint '{name}' ({endpoint_id})",
-            }
-        else:
-            return {
-                "success": False,
-                "name": name,
-                "endpoint_id": endpoint_id,
-                "message": f"Failed to delete endpoint '{name}' ({endpoint_id})",
-            }
+            if result.get("success"):
+                # Remove from tracking
+                manager = ResourceManager()
+                manager.remove_resource(resource_id)
+                return {
+                    "success": True,
+                    "name": name,
+                    "endpoint_id": endpoint_id,
+                    "message": f"Successfully deleted endpoint '{name}' ({endpoint_id})",
+                }
+            else:
+                return {
+                    "success": False,
+                    "name": name,
+                    "endpoint_id": endpoint_id,
+                    "message": f"Failed to delete endpoint '{name}' ({endpoint_id})",
+                }
     except Exception as e:
         return {
             "success": False,

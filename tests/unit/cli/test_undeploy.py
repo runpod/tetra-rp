@@ -269,6 +269,8 @@ class TestDeleteEndpoint:
             # Mock successful API deletion
             mock_client = AsyncMock()
             mock_client.delete_endpoint.return_value = {"success": True}
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
             # Mock manager
@@ -284,13 +286,15 @@ class TestDeleteEndpoint:
 
     @pytest.mark.asyncio
     async def test_delete_endpoint_api_failure(self):
-        """Test endpoint deletion with API failure."""
+        """Test endpoint deletion with API failure (malformed response)."""
         from tetra_rp.cli.commands.undeploy import _delete_endpoint
 
         with patch("tetra_rp.cli.commands.undeploy.RunpodGraphQLClient") as MockClient:
-            # Mock failed API deletion
+            # Mock failed API deletion - returns empty dict (missing deleteEndpoint key)
             mock_client = AsyncMock()
             mock_client.delete_endpoint.return_value = {"success": False}
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
             result = await _delete_endpoint("endpoint-id", "resource-id", "test-name")
@@ -307,6 +311,8 @@ class TestDeleteEndpoint:
             # Mock exception during deletion
             mock_client = AsyncMock()
             mock_client.delete_endpoint.side_effect = Exception("API Error")
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             MockClient.return_value = mock_client
 
             result = await _delete_endpoint("endpoint-id", "resource-id", "test-name")
