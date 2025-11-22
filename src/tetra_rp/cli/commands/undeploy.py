@@ -1,13 +1,15 @@
 """Undeploy command for managing RunPod serverless endpoints."""
 
 import asyncio
-from typing import Optional
+from typing import Dict, Optional
 import typer
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from rich.prompt import Confirm
 import questionary
 
+from ...core.resources.base import DeployableResource
 from ...core.resources.resource_manager import ResourceManager
 from ...core.api.runpod import RunpodGraphQLClient
 
@@ -169,6 +171,65 @@ async def _delete_endpoint(endpoint_id: str, resource_id: str, name: str) -> dic
         }
 
 
+def _cleanup_stale_endpoints(
+    resources: Dict[str, DeployableResource], manager: ResourceManager
+) -> None:
+    """Remove inactive endpoints from tracking (already deleted externally).
+
+    Args:
+        resources: Dictionary of resource_id -> DeployableResource
+        manager: ResourceManager instance for removing resources
+    """
+    console.print(
+        Panel(
+            "Checking for inactive endpoints...\n\n"
+            "This will remove endpoints from tracking that are no longer active\n"
+            "(already deleted via RunPod UI or API).",
+            title="Cleanup Stale Endpoints",
+            expand=False,
+        )
+    )
+
+    # Find inactive endpoints
+    inactive = []
+    with console.status("Checking endpoint status..."):
+        for resource_id, resource in resources.items():
+            status_icon, status_text = _get_resource_status(resource)
+            if status_text == "Inactive":
+                inactive.append((resource_id, resource))
+
+    if not inactive:
+        console.print("\n[green]✓[/green] No inactive endpoints found")
+        return
+
+    # Show what will be removed
+    console.print(f"\nFound [yellow]{len(inactive)}[/yellow] inactive endpoint(s):")
+    for resource_id, resource in inactive:
+        console.print(f"  • {resource.name} ({getattr(resource, 'id', 'N/A')})")
+
+    # Confirm removal
+    if not Confirm.ask(
+        "\n[yellow]⚠️  Remove these from tracking?[/yellow]",
+        default=False,
+    ):
+        console.print("[yellow]Cancelled[/yellow]")
+        return
+
+    # Remove from tracking
+    removed_count = 0
+    for resource_id, resource in inactive:
+        try:
+            manager.remove_resource(resource_id)
+            removed_count += 1
+            console.print(
+                f"[green]✓[/green] Removed [cyan]{resource.name}[/cyan] from tracking"
+            )
+        except Exception as e:
+            console.print(f"[red]✗[/red] Failed to remove {resource.name}: {str(e)}")
+
+    console.print(f"\n[green]✓[/green] Cleaned up {removed_count} inactive endpoint(s)")
+
+
 def undeploy_command(
     name: Optional[str] = typer.Argument(
         None, help="Name of the endpoint to undeploy (or 'list' to show all)"
@@ -176,6 +237,11 @@ def undeploy_command(
     all: bool = typer.Option(False, "--all", help="Undeploy all endpoints"),
     interactive: bool = typer.Option(
         False, "--interactive", "-i", help="Interactive selection with checkboxes"
+    ),
+    cleanup_stale: bool = typer.Option(
+        False,
+        "--cleanup-stale",
+        help="Remove inactive endpoints from tracking (already deleted externally)",
     ),
 ):
     """Undeploy (delete) RunPod serverless endpoints.
@@ -193,6 +259,9 @@ def undeploy_command(
 
         # Interactive selection
         flash undeploy --interactive
+
+        # Remove stale endpoint tracking (already deleted externally)
+        flash undeploy --cleanup-stale
     """
     # Handle "list" as a special case
     if name == "list":
@@ -211,6 +280,11 @@ def undeploy_command(
                 expand=False,
             )
         )
+        return
+
+    # Handle cleanup-stale mode
+    if cleanup_stale:
+        _cleanup_stale_endpoints(resources, manager)
         return
 
     # Handle different modes
