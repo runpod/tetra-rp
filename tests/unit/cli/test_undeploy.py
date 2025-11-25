@@ -59,6 +59,7 @@ def sample_resources():
 @pytest.fixture
 def mock_asyncio_run_coro():
     """Create a mock asyncio.run that executes coroutines."""
+
     def run_coro(coro):
         import asyncio
 
@@ -167,7 +168,9 @@ class TestUndeployCommand:
             assert "cancelled" in result.stdout.lower()
 
     @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
-    def test_undeploy_by_name_success(self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro):
+    def test_undeploy_by_name_success(
+        self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro
+    ):
         """Test successful undeploy by name."""
         with (
             patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
@@ -201,7 +204,9 @@ class TestUndeployCommand:
             assert "Successfully" in result.stdout
 
     @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
-    def test_undeploy_all_flag(self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro):
+    def test_undeploy_all_flag(
+        self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro
+    ):
         """Test undeploy --all flag."""
         with (
             patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
