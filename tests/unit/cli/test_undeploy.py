@@ -56,6 +56,21 @@ def sample_resources():
     }
 
 
+@pytest.fixture
+def mock_asyncio_run_coro():
+    """Create a mock asyncio.run that executes coroutines."""
+    def run_coro(coro):
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    return run_coro
+
+
 class TestUndeployList:
     """Test undeploy list command."""
 
@@ -152,7 +167,7 @@ class TestUndeployCommand:
             assert "cancelled" in result.stdout.lower()
 
     @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
-    def test_undeploy_by_name_success(self, mock_asyncio_run, runner, sample_resources):
+    def test_undeploy_by_name_success(self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro):
         """Test successful undeploy by name."""
         with (
             patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
@@ -178,17 +193,7 @@ class TestUndeployCommand:
             mock_confirm.ask.return_value = True
             mock_questionary.confirm.return_value = mock_confirm
 
-            # Mock asyncio.run to execute the coroutine
-            def run_coro(coro):
-                import asyncio
-
-                loop = asyncio.new_event_loop()
-                try:
-                    return loop.run_until_complete(coro)
-                finally:
-                    loop.close()
-
-            mock_asyncio_run.side_effect = run_coro
+            mock_asyncio_run.side_effect = mock_asyncio_run_coro
 
             result = runner.invoke(app, ["undeploy", "test-api-1"])
 
@@ -196,7 +201,7 @@ class TestUndeployCommand:
             assert "Successfully" in result.stdout
 
     @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
-    def test_undeploy_all_flag(self, mock_asyncio_run, runner, sample_resources):
+    def test_undeploy_all_flag(self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro):
         """Test undeploy --all flag."""
         with (
             patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
@@ -226,17 +231,7 @@ class TestUndeployCommand:
             mock_questionary.confirm.return_value = mock_confirm
             mock_questionary.text.return_value = mock_text
 
-            # Mock asyncio.run to execute the coroutine
-            def run_coro(coro):
-                import asyncio
-
-                loop = asyncio.new_event_loop()
-                try:
-                    return loop.run_until_complete(coro)
-                finally:
-                    loop.close()
-
-            mock_asyncio_run.side_effect = run_coro
+            mock_asyncio_run.side_effect = mock_asyncio_run_coro
 
             result = runner.invoke(app, ["undeploy", "--all"])
 
