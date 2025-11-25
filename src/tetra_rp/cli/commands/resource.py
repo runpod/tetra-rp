@@ -85,8 +85,8 @@ def clean_command(
                 task, description=f"Removing {resource.__class__.__name__}..."
             )
 
-            # Remove resource (this will also clean up remotely if needed)
-            resource_manager.remove_resource(uid)
+            # Remove resource from tracking (does not delete remote resources)
+            resource_manager._remove_resource(uid)
 
             progress.advance(task)
             time.sleep(0.1)  # Small delay for visual feedback
