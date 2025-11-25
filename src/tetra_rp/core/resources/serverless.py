@@ -78,6 +78,7 @@ class ServerlessResource(DeployableResource):
     Base class for GPU serverless resource
     """
 
+    # Fields marked as _input_only are excluded from gql requests to make the client impl simpler
     _input_only = {
         "id",
         "cudaVersions",
@@ -87,6 +88,29 @@ class ServerlessResource(DeployableResource):
         "flashboot",
         "imageName",
         "networkVolume",
+        "resource_hash",
+        "fields_to_update",
+    }
+
+    # hashed fields are fields that define configuration of an object. they are used for computing
+    # if a resource has changed and should only be mutable fields from the perspective of the platform.
+    # does not account for platform (Runpod) state fields (eg endpoint id) right now.
+    _hashed_fields = {
+            "datacenter",
+            "env",
+            "gpuIds",
+            "networkVolume",
+            "executionTimeoutMs",
+            "gpuCount",
+            "locations",
+            "name",
+            "networkVolumeId",
+            "scalerType",
+            "scalerValue",
+            "workersMax",
+            "workersMin",
+            "workersPFBTarget",
+            "allowedCudaVersions", 
     }
 
     # === Input-only Fields ===
@@ -99,7 +123,7 @@ class ServerlessResource(DeployableResource):
     datacenter: DataCenter = Field(default=DataCenter.EU_RO_1)
 
     # === Input Fields ===
-    executionTimeoutMs: Optional[int] = None
+    executionTimeoutMs: Optional[int] = 0
     gpuCount: Optional[int] = 1
     idleTimeout: Optional[int] = 5
     locations: Optional[str] = None
@@ -111,12 +135,12 @@ class ServerlessResource(DeployableResource):
     type: Optional[ServerlessType] = None
     workersMax: Optional[int] = 3
     workersMin: Optional[int] = 0
-    workersPFBTarget: Optional[int] = None
+    workersPFBTarget: Optional[int] = 0
 
     # === Runtime Fields ===
     activeBuildid: Optional[str] = None
     aiKey: Optional[str] = None
-    allowedCudaVersions: Optional[str] = None
+    allowedCudaVersions: str = ""
     computeType: Optional[str] = None
     createdAt: Optional[str] = None  # TODO: use datetime
     gpuIds: Optional[str] = ""
@@ -171,7 +195,7 @@ class ServerlessResource(DeployableResource):
     @model_validator(mode="after")
     def sync_input_fields(self):
         """Sync between temporary inputs and exported fields"""
-        if self.flashboot:
+        if self.flashboot and not self.name.endswith("-fb"):
             self.name += "-fb"
 
         # Sync datacenter to locations field for API
@@ -195,7 +219,10 @@ class ServerlessResource(DeployableResource):
 
     def _sync_input_fields_gpu(self):
         # GPU-specific fields
-        if self.gpus:
+        # the response from the api for gpus is none
+        # apply this path only if gpuIds is None, otherwise we overwrite gpuIds
+        # with ANY gpu because the default for gpus is any
+        if self.gpus and not self.gpuIds:
             # Convert gpus list to gpuIds string
             self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
         elif self.gpuIds:
@@ -227,6 +254,43 @@ class ServerlessResource(DeployableResource):
             deployedNetworkVolume = await self.networkVolume.deploy()
             self.networkVolumeId = deployedNetworkVolume.id
 
+    async def _sync_graphql_object_with_inputs(self, returned_endpoint: "ServerlessResource"):
+        for _input_field in self._input_only:
+            if _input_field not in ["resource_hash"] and getattr(self, _input_field) is not None:
+                # sync input only fields stripped from gql request back to endpoint
+                setattr(returned_endpoint, _input_field,  getattr(self, _input_field))
+
+        # assigning template info back to the object is needed for updating it in the future
+        returned_endpoint.template = self.template
+        if returned_endpoint.template:
+            returned_endpoint.template.id = returned_endpoint.templateId
+
+        return returned_endpoint
+
+    async def sync_config_with_deployed_resource(self, existing: "ServerlessResource") -> None:
+        self.id = existing.id
+        if not existing.template:
+            raise ValueError("Existing resource does not have a template, this is an invalid state. Update resources and try again")
+        self.template.id = existing.template.id
+
+    async def _update_template(self) -> "DeployableResource":
+        if not self.template:
+            raise ValueError("Tried to update a template that doesn't exist. Redeploy endpoint or attach a template to it")
+
+        try:
+            async with RunpodGraphQLClient() as client:
+                payload = self.template.model_dump(exclude={"resource_hash", "fields_to_update"}, exclude_none=True)
+                result = await client.update_template(payload)
+            if template := self.template.__class__(**result):
+                return template 
+
+            raise ValueError("Deployment failed, no endpoint was returned.")
+
+        except Exception as e:
+            log.error(f"{self} failed to update: {e}")
+            raise
+
+
     def is_deployed(self) -> bool:
         """
         Checks if the serverless resource is deployed and available.
@@ -256,16 +320,56 @@ class ServerlessResource(DeployableResource):
             await self._ensure_network_volume_deployed()
 
             async with RunpodGraphQLClient() as client:
-                payload = self.model_dump(exclude=self._input_only, exclude_none=True)
+                # some "input only" fields are specific to tetra and not used in gql
+                exclude = {
+                    f: ... for f in self._input_only} | {"template": {"resource_hash", "fields_to_update", "volumeInGb"} 
+                 } # TODO: maybe include this as a class attr
+                payload = self.model_dump(exclude=exclude, exclude_none=True)
                 result = await client.create_endpoint(payload)
 
+            # we need to merge the returned fields from gql with what the inputs are here
             if endpoint := self.__class__(**result):
-                return endpoint
+                endpoint = await self._sync_graphql_object_with_inputs(endpoint)
+                return endpoint 
 
             raise ValueError("Deployment failed, no endpoint was returned.")
 
         except Exception as e:
             log.error(f"{self} failed to deploy: {e}")
+            raise
+
+    async def update(self) -> "DeployableResource":
+        # check if we need to update the template
+        # only update if the template exists already and there are fields to update for it
+        if self.template and self.fields_to_update & set(self.template.model_fields):
+            # we need to add the template id back here from hydrated state
+            log.debug(f"loaded template to update: {self.template.model_dump()}")
+            template = await self._update_template()
+            self.template = template
+
+            # if the only fields that need updated are template-only, just return now
+            if self.fields_to_update ^ set(template.model_fields):
+                log.debug("template-only update to endpoint complete")
+                return self
+
+        try:
+            async with RunpodGraphQLClient() as client:
+                exclude = {f: ... for f in self._input_only} | {"template": {"resource_hash", "fields_to_update", "volumeInGb", "id"}} # TODO: maybe include this as a class attr
+                # we need to include the id here so we update the existing endpoint
+                del exclude["id"]
+                payload = self.model_dump(exclude=exclude, exclude_none=True)
+                result = await client.update_endpoint(payload)
+
+            if endpoint := self.__class__(**result):
+                # TODO: should we check that the returned id = the input?
+                # we could "soft fail" and notify the user if we fall back to making a new endpoint
+                endpoint = await self._sync_graphql_object_with_inputs(endpoint)
+                return endpoint 
+
+            raise ValueError("Update failed, no endpoint was returned.")
+
+        except Exception as e:
+            log.error(f"{self} failed to update: {e}")
             raise
 
     async def run_sync(self, payload: Dict[str, Any]) -> "JobOutput":

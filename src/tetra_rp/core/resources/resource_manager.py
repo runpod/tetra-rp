@@ -124,6 +124,7 @@ class ResourceManager(SingletonMixin):
         async with resource_lock:
             # Double-check pattern: check again inside the lock
             if existing := self._resources.get(uid):
+                # if the old resource isn't actually deployed, then we can just deploy the new one
                 if not existing.is_deployed():
                     log.warning(f"{existing} is no longer valid, redeploying.")
                     self.remove_resource(uid)
@@ -133,6 +134,25 @@ class ResourceManager(SingletonMixin):
                     self.add_resource(uid, deployed_resource)
                     return deployed_resource
 
+                # if the old resource is actually deployed, then we need to update it
+                if existing.resource_hash != config.resource_hash:
+                    log.info(f"change in resource configuration detected, updating resource.")
+                    for field in existing.__class__._hashed_fields:
+                        existing_value, new_value = getattr(existing, field), getattr(config, field)
+                        if existing_value != new_value:
+                            log.debug(f"field: {field}, existing value: {getattr(existing, field)}, new value: {getattr(config, field)}")
+                            config.fields_to_update.add(field)
+
+                    # there are some fields that should be stored in pickled state and should be loaded back to the new obj
+                    # these are used to make updates to platform endpoints/resources
+                    # TODO: clean this up
+                    await config.sync_config_with_deployed_resource(existing)
+                    deployed_resource = await config.update()
+                    self.remove_resource(uid)
+                    self.add_resource(uid, deployed_resource)
+                    return deployed_resource
+
+                # otherwise, nothing has changed and we just return what we already have
                 log.debug(f"{existing} exists, reusing.")
                 log.info(f"URL: {existing.url}")
                 return existing
