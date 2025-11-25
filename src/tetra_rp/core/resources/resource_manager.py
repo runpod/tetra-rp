@@ -1,7 +1,7 @@
 import asyncio
 import cloudpickle
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
 from ..exceptions import RunpodAPIKeyError
@@ -143,3 +143,26 @@ class ResourceManager(SingletonMixin):
             log.info(f"URL: {deployed_resource.url}")
             self.add_resource(uid, deployed_resource)
             return deployed_resource
+
+    def list_all_resources(self) -> Dict[str, DeployableResource]:
+        """List all tracked resources.
+
+        Returns:
+            Dictionary of resource_id -> DeployableResource
+        """
+        return self._resources.copy()
+
+    def find_resources_by_name(self, name: str) -> List[Tuple[str, DeployableResource]]:
+        """Find resources matching the given name.
+
+        Args:
+            name: The name to search for (exact match)
+
+        Returns:
+            List of (resource_id, resource) tuples matching the name
+        """
+        matches = []
+        for uid, resource in self._resources.items():
+            if hasattr(resource, "name") and resource.name == name:
+                matches.append((uid, resource))
+        return matches

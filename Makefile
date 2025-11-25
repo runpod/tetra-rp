@@ -33,7 +33,6 @@ clean: # Remove build artifacts and cache files
 	rm -rf dist build *.egg-info
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pkl" -delete
 
 build: clean dev # Build PyPI Package
 	uv build

@@ -202,7 +202,13 @@ class RunpodGraphQLClient:
         log.info(f"Deleting endpoint: {endpoint_id}")
 
         result = await self._execute_graphql(mutation, variables)
-        return {"success": result.get("deleteEndpoint") is not None}
+
+        # If _execute_graphql didn't raise an exception, the deletion succeeded.
+        # The GraphQL mutation returns null on success, but presence of the key
+        # (even with null value) indicates the mutation executed.
+        # If the mutation failed, _execute_graphql would have raised an exception.
+
+        return {"success": "deleteEndpoint" in result}
 
     async def close(self):
         """Close the HTTP session."""

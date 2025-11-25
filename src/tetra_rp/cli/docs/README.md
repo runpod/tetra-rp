@@ -73,6 +73,46 @@ flash run --port 3000
 
 ---
 
+### flash undeploy
+
+Manage and delete RunPod serverless endpoints.
+
+```bash
+flash undeploy [NAME|list] [OPTIONS]
+```
+
+**Options:**
+- `--all`: Undeploy all endpoints (requires confirmation)
+- `--interactive, -i`: Interactive checkbox selection
+- `--cleanup-stale`: Remove inactive endpoints from tracking
+
+**Examples:**
+```bash
+# List all tracked endpoints
+flash undeploy list
+
+# Undeploy specific endpoint by name
+flash undeploy my-api
+
+# Undeploy all endpoints
+flash undeploy --all
+
+# Interactive selection
+flash undeploy --interactive
+
+# Clean up stale endpoint tracking
+flash undeploy --cleanup-stale
+```
+
+**Status Indicators:**
+- 🟢 **Active**: Endpoint is running and healthy
+- 🔴 **Inactive**: Endpoint deleted externally (use --cleanup-stale to remove from tracking)
+- ❓ **Unknown**: Health check failed
+
+[Full documentation](./flash-undeploy.md)
+
+---
+
 ## Project Structure
 
 ```

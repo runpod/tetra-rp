@@ -2906,7 +2906,7 @@ wheels = [
 
 [[package]]
 name = "tetra-rp"
-version = "0.16.1"
+version = "0.17.1"
 source = { editable = "." }
 dependencies = [
     { name = "cloudpickle" },

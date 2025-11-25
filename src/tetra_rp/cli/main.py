@@ -11,6 +11,7 @@ from .commands import (
     build,
     # resource,
     deploy,
+    undeploy,
 )
 
 
@@ -57,6 +58,12 @@ deploy_app.command("new")(deploy.new_command)
 
 # command: flash deploy *
 app.add_typer(deploy_app, name="deploy")
+
+
+# command: flash undeploy
+# Note: Using a simple command instead of sub-app to allow both "undeploy list" and "undeploy <name>"
+# The undeploy_command internally handles the "list" case
+app.command("undeploy")(undeploy.undeploy_command)
 
 
 @app.callback(invoke_without_command=True)
