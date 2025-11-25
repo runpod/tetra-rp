@@ -45,3 +45,12 @@ class DeployableResource(BaseResource, ABC):
     async def deploy(self) -> "DeployableResource":
         """Deploy the resource."""
         raise NotImplementedError("Subclasses should implement this method.")
+
+    @abstractmethod
+    async def undeploy(self) -> bool:
+        """Undeploy/delete the resource.
+
+        Returns:
+            True if successfully undeployed, False otherwise
+        """
+        raise NotImplementedError("Subclasses should implement this method.")
