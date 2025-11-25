@@ -146,3 +146,18 @@ class NetworkVolume(DeployableResource):
         except Exception as e:
             log.error(f"{self} failed to deploy: {e}")
             raise
+
+    async def undeploy(self) -> bool:
+        """
+        Undeploy network volume.
+
+        Returns:
+            True if successfully undeployed, False otherwise
+
+        Raises:
+            NotImplementedError: NetworkVolume undeploy is not yet supported
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} undeploy is not yet supported. "
+            "Network volumes must be manually deleted via RunPod UI or API."
+        )

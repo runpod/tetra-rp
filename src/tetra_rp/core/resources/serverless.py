@@ -268,6 +268,33 @@ class ServerlessResource(DeployableResource):
             log.error(f"{self} failed to deploy: {e}")
             raise
 
+    async def undeploy(self) -> bool:
+        """
+        Undeploys (deletes) the serverless endpoint.
+
+        Returns:
+            True if successfully undeployed, False otherwise
+        """
+        if not self.id:
+            log.warning(f"{self} has no endpoint ID, cannot undeploy")
+            return False
+
+        try:
+            async with RunpodGraphQLClient() as client:
+                result = await client.delete_endpoint(self.id)
+                success = result.get("success", False)
+
+                if success:
+                    log.info(f"{self} successfully undeployed")
+                else:
+                    log.error(f"{self} failed to undeploy")
+
+                return success
+
+        except Exception as e:
+            log.error(f"{self} failed to undeploy: {e}")
+            return False
+
     async def run_sync(self, payload: Dict[str, Any]) -> "JobOutput":
         """
         Executes a serverless endpoint request with the payload.
