@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.18.0](https://github.com/runpod/tetra-rp/compare/v0.17.1...v0.18.0) (2025-11-28)
+
+
+### Features
+
+* **cli:** Add `flash undeploy` command for endpoint management ([#121](https://github.com/runpod/tetra-rp/issues/121)) ([cd32ffc](https://github.com/runpod/tetra-rp/commit/cd32ffc40ac26c2f1aaa1235b044798ec7b9f605))
+
+
+### Code Refactoring
+
+* move endpoint deletion logic to proper abstraction layers ([#124](https://github.com/runpod/tetra-rp/issues/124)) ([c253d3b](https://github.com/runpod/tetra-rp/commit/c253d3b6f959dc8514b91b5e79f6f73fe9593b89))
+
 ## [0.17.1](https://github.com/runpod/tetra-rp/compare/v0.17.0...v0.17.1) (2025-11-19)
 
 
