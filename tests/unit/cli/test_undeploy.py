@@ -1,7 +1,7 @@
 """Unit tests for undeploy CLI command."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
 from tetra_rp.cli.main import app
@@ -54,6 +54,22 @@ def sample_resources():
         resource1.resource_id: resource1,
         resource2.resource_id: resource2,
     }
+
+
+@pytest.fixture
+def mock_asyncio_run_coro():
+    """Create a mock asyncio.run that executes coroutines."""
+
+    def run_coro(coro):
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    return run_coro
 
 
 class TestUndeployList:
@@ -152,7 +168,9 @@ class TestUndeployCommand:
             assert "cancelled" in result.stdout.lower()
 
     @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
-    def test_undeploy_by_name_success(self, mock_asyncio_run, runner, sample_resources):
+    def test_undeploy_by_name_success(
+        self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro
+    ):
         """Test successful undeploy by name."""
         with (
             patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
@@ -160,6 +178,17 @@ class TestUndeployCommand:
         ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
+
+            # Mock undeploy_resource as async coroutine that returns success
+            async def mock_undeploy(resource_id, name):
+                return {
+                    "success": True,
+                    "name": name,
+                    "endpoint_id": "endpoint-id-1",
+                    "message": f"Successfully undeployed '{name}'",
+                }
+
+            mock_manager.undeploy_resource = mock_undeploy
             MockRM.return_value = mock_manager
 
             # User confirms
@@ -167,21 +196,17 @@ class TestUndeployCommand:
             mock_confirm.ask.return_value = True
             mock_questionary.confirm.return_value = mock_confirm
 
-            # Mock successful deletion
-            mock_asyncio_run.return_value = {
-                "success": True,
-                "name": "test-api-1",
-                "endpoint_id": "endpoint-id-1",
-                "message": "Successfully deleted",
-            }
+            mock_asyncio_run.side_effect = mock_asyncio_run_coro
 
             result = runner.invoke(app, ["undeploy", "test-api-1"])
 
             assert result.exit_code == 0
-            assert "Successfully deleted" in result.stdout
+            assert "Successfully" in result.stdout
 
     @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
-    def test_undeploy_all_flag(self, mock_asyncio_run, runner, sample_resources):
+    def test_undeploy_all_flag(
+        self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro
+    ):
         """Test undeploy --all flag."""
         with (
             patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
@@ -189,6 +214,17 @@ class TestUndeployCommand:
         ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
+
+            # Mock undeploy_resource as async coroutine that returns success
+            async def mock_undeploy(resource_id, name):
+                return {
+                    "success": True,
+                    "name": name,
+                    "endpoint_id": "endpoint-id",
+                    "message": f"Successfully undeployed '{name}'",
+                }
+
+            mock_manager.undeploy_resource = mock_undeploy
             MockRM.return_value = mock_manager
 
             # User confirms both prompts
@@ -200,18 +236,12 @@ class TestUndeployCommand:
             mock_questionary.confirm.return_value = mock_confirm
             mock_questionary.text.return_value = mock_text
 
-            # Mock successful deletions
-            mock_asyncio_run.return_value = {
-                "success": True,
-                "name": "test-api",
-                "endpoint_id": "endpoint-id",
-                "message": "Successfully deleted",
-            }
+            mock_asyncio_run.side_effect = mock_asyncio_run_coro
 
             result = runner.invoke(app, ["undeploy", "--all"])
 
             assert result.exit_code == 0
-            assert "Successfully deleted" in result.stdout
+            assert "Successfully" in result.stdout
 
     def test_undeploy_all_wrong_confirmation(self, runner, sample_resources):
         """Test undeploy --all with wrong confirmation text."""
@@ -236,79 +266,6 @@ class TestUndeployCommand:
 
             assert result.exit_code == 1
             assert "Confirmation failed" in result.stdout
-
-
-class TestDeleteEndpoint:
-    """Test _delete_endpoint helper function."""
-
-    @pytest.mark.asyncio
-    async def test_delete_endpoint_success(self, sample_resources):
-        """Test successful endpoint deletion."""
-        from tetra_rp.cli.commands.undeploy import _delete_endpoint
-
-        resource = list(sample_resources.values())[0]
-        endpoint_id = resource.id
-        resource_id = resource.resource_id
-        name = resource.name
-
-        with (
-            patch("tetra_rp.cli.commands.undeploy.RunpodGraphQLClient") as MockClient,
-            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
-        ):
-            # Mock successful API deletion
-            mock_client = AsyncMock()
-            mock_client.delete_endpoint.return_value = {"success": True}
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            MockClient.return_value = mock_client
-
-            # Mock manager
-            mock_manager = MagicMock()
-            MockRM.return_value = mock_manager
-
-            result = await _delete_endpoint(endpoint_id, resource_id, name)
-
-            assert result["success"] is True
-            assert result["name"] == name
-            assert result["endpoint_id"] == endpoint_id
-            mock_manager.remove_resource.assert_called_once_with(resource_id)
-
-    @pytest.mark.asyncio
-    async def test_delete_endpoint_api_failure(self):
-        """Test endpoint deletion with API failure (malformed response)."""
-        from tetra_rp.cli.commands.undeploy import _delete_endpoint
-
-        with patch("tetra_rp.cli.commands.undeploy.RunpodGraphQLClient") as MockClient:
-            # Mock failed API deletion - returns empty dict (missing deleteEndpoint key)
-            mock_client = AsyncMock()
-            mock_client.delete_endpoint.return_value = {"success": False}
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            MockClient.return_value = mock_client
-
-            result = await _delete_endpoint("endpoint-id", "resource-id", "test-name")
-
-            assert result["success"] is False
-            assert "Failed to delete" in result["message"]
-
-    @pytest.mark.asyncio
-    async def test_delete_endpoint_exception(self):
-        """Test endpoint deletion with exception."""
-        from tetra_rp.cli.commands.undeploy import _delete_endpoint
-
-        with patch("tetra_rp.cli.commands.undeploy.RunpodGraphQLClient") as MockClient:
-            # Mock exception during deletion
-            mock_client = AsyncMock()
-            mock_client.delete_endpoint.side_effect = Exception("API Error")
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            MockClient.return_value = mock_client
-
-            result = await _delete_endpoint("endpoint-id", "resource-id", "test-name")
-
-            assert result["success"] is False
-            assert "Error deleting" in result["message"]
-            assert "API Error" in result["message"]
 
 
 class TestResourceStatusHelpers:

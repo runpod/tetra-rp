@@ -38,7 +38,6 @@ app.command("init")(init.init_command)
 app.command("run")(run.run_command)
 app.command("build")(build.build_command)
 # app.command("report")(resource.report_command)
-# app.command("clean")(resource.clean_command)
 
 
 # command: flash deploy

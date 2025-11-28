@@ -188,7 +188,7 @@ class TestResourceManager:
         resource.id = "test-endpoint-id"
 
         with patch.object(manager, "_save_resources"):
-            manager.add_resource(resource.resource_id, resource)
+            manager._add_resource(resource.resource_id, resource)
 
         # Find by name
         matches = manager.find_resources_by_name("my-endpoint")
@@ -210,7 +210,7 @@ class TestResourceManager:
         # Remove one
         uid_to_remove = matches[0][0]
         with patch.object(manager, "_save_resources"):
-            manager.remove_resource(uid_to_remove)
+            manager._remove_resource(uid_to_remove)
 
         # Now should be 1 match
         matches_after = manager.find_resources_by_name("test-api-1")
@@ -235,14 +235,14 @@ class TestResourceManager:
         )
 
         with patch.object(manager, "_save_resources"):
-            manager.add_resource(resource.resource_id, resource)
+            manager._add_resource(resource.resource_id, resource)
 
         # Should have 1 resource
         assert len(manager.list_all_resources()) == 1
 
         # Remove resource
         with patch.object(manager, "_save_resources"):
-            manager.remove_resource(resource.resource_id)
+            manager._remove_resource(resource.resource_id)
 
         # Should be empty again
         assert len(manager.list_all_resources()) == 0

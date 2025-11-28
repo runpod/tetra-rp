@@ -1,7 +1,7 @@
 import asyncio
 import cloudpickle
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
 from ..exceptions import RunpodAPIKeyError
@@ -64,14 +64,13 @@ class ResourceManager(SingletonMixin):
             log.error(f"Failed to save resources to {RESOURCE_STATE_FILE}: {e}")
             raise
 
-    def add_resource(self, uid: str, resource: DeployableResource):
-        """Add a resource to the manager."""
+    def _add_resource(self, uid: str, resource: DeployableResource):
+        """Add a resource to the manager (protected method for internal use)."""
         self._resources[uid] = resource
         self._save_resources()
 
-    # function to check if resource still exists remotely, else remove it
-    def remove_resource(self, uid: str):
-        """Remove a resource from the manager."""
+    def _remove_resource(self, uid: str):
+        """Remove a resource from the manager (protected method for internal use)."""
         if uid not in self._resources:
             log.warning(f"Resource {uid} not found for removal")
             return
@@ -126,11 +125,11 @@ class ResourceManager(SingletonMixin):
             if existing := self._resources.get(uid):
                 if not existing.is_deployed():
                     log.warning(f"{existing} is no longer valid, redeploying.")
-                    self.remove_resource(uid)
+                    self._remove_resource(uid)
                     # Don't recursive call - deploy directly within the lock
                     deployed_resource = await self._deploy_with_error_context(config)
                     log.info(f"URL: {deployed_resource.url}")
-                    self.add_resource(uid, deployed_resource)
+                    self._add_resource(uid, deployed_resource)
                     return deployed_resource
 
                 log.debug(f"{existing} exists, reusing.")
@@ -141,7 +140,7 @@ class ResourceManager(SingletonMixin):
             log.debug(f"Deploying new resource: {uid}")
             deployed_resource = await self._deploy_with_error_context(config)
             log.info(f"URL: {deployed_resource.url}")
-            self.add_resource(uid, deployed_resource)
+            self._add_resource(uid, deployed_resource)
             return deployed_resource
 
     def list_all_resources(self) -> Dict[str, DeployableResource]:
@@ -166,3 +165,86 @@ class ResourceManager(SingletonMixin):
             if hasattr(resource, "name") and resource.name == name:
                 matches.append((uid, resource))
         return matches
+
+    async def undeploy_resource(
+        self,
+        resource_id: str,
+        resource_name: Optional[str] = None,
+        force_remove: bool = False,
+    ) -> Dict[str, Any]:
+        """Undeploy a resource and remove from tracking.
+
+        This is the public interface for removing resources. It calls the resource's
+        undeploy() method (polymorphic) and removes from tracking on success.
+
+        Args:
+            resource_id: The resource ID to undeploy
+            resource_name: Optional human-readable name for error messages
+            force_remove: If True, remove from tracking even if undeploy fails.
+                         Use this for cleanup scenarios where resource is already deleted remotely.
+
+        Returns:
+            Dict with keys:
+                - success: bool indicating if undeploy succeeded
+                - name: resource name (if available)
+                - endpoint_id: resource endpoint ID (if available)
+                - message: status message
+        """
+        resource = self._resources.get(resource_id)
+
+        if not resource:
+            return {
+                "success": False,
+                "name": resource_name or "Unknown",
+                "endpoint_id": "N/A",
+                "message": f"Resource {resource_id} not found in tracking",
+            }
+
+        # Get resource metadata for response
+        name = resource_name or getattr(resource, "name", "Unknown")
+        endpoint_id = getattr(resource, "id", "N/A")
+
+        try:
+            # Call polymorphic undeploy method
+            success = await resource.undeploy()
+
+            if success:
+                # Remove from tracking on successful undeploy
+                self._remove_resource(resource_id)
+                return {
+                    "success": True,
+                    "name": name,
+                    "endpoint_id": endpoint_id,
+                    "message": f"Successfully undeployed '{name}' ({endpoint_id})",
+                }
+            else:
+                # Force remove if requested (e.g., cleanup of already-deleted resources)
+                if force_remove:
+                    self._remove_resource(resource_id)
+                return {
+                    "success": False,
+                    "name": name,
+                    "endpoint_id": endpoint_id,
+                    "message": f"Failed to undeploy '{name}' ({endpoint_id})",
+                }
+
+        except NotImplementedError as e:
+            # Resource type doesn't support undeploy yet
+            if force_remove:
+                self._remove_resource(resource_id)
+            return {
+                "success": False,
+                "name": name,
+                "endpoint_id": endpoint_id,
+                "message": f"Cannot undeploy '{name}': {str(e)}",
+            }
+        except Exception as e:
+            # Unexpected error during undeploy (e.g., already deleted remotely)
+            if force_remove:
+                self._remove_resource(resource_id)
+            return {
+                "success": False,
+                "name": name,
+                "endpoint_id": endpoint_id,
+                "message": f"Error undeploying '{name}': {str(e)}",
+            }

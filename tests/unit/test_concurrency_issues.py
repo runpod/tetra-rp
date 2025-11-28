@@ -68,6 +68,11 @@ class MockDeployableResource(DeployableResource):
         deployed._deploy_count = self._deploy_count
         return deployed
 
+    async def undeploy(self) -> bool:
+        """Mock undeploy method."""
+        self._deployed = False
+        return True
+
 
 class TestSingleton:
     """Test thread safety of SingletonMixin."""
@@ -237,7 +242,7 @@ class TestResourceManagerConcurrency:
 
         def save_resource_1():
             try:
-                manager1.add_resource("resource1", resource1)
+                manager1._add_resource("resource1", resource1)
                 # Add delay to increase race condition likelihood
                 time.sleep(0.01)
             except Exception as e:
@@ -245,7 +250,7 @@ class TestResourceManagerConcurrency:
 
         def save_resource_2():
             try:
-                manager2.add_resource("resource2", resource2)
+                manager2._add_resource("resource2", resource2)
                 time.sleep(0.01)
             except Exception as e:
                 exceptions.append(e)

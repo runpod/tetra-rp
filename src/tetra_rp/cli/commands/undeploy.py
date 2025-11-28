@@ -11,7 +11,6 @@ import questionary
 
 from ...core.resources.base import DeployableResource
 from ...core.resources.resource_manager import ResourceManager
-from ...core.api.runpod import RunpodGraphQLClient
 
 console = Console()
 
@@ -130,47 +129,6 @@ def list_command():
     )
 
 
-async def _delete_endpoint(endpoint_id: str, resource_id: str, name: str) -> dict:
-    """Delete an endpoint via RunPod API and remove from tracking.
-
-    Args:
-        endpoint_id: RunPod endpoint ID
-        resource_id: Local resource ID for tracking
-        name: Human-readable name
-
-    Returns:
-        Dict with success status and message
-    """
-    try:
-        async with RunpodGraphQLClient() as client:
-            result = await client.delete_endpoint(endpoint_id)
-
-            if result.get("success"):
-                # Remove from tracking
-                manager = ResourceManager()
-                manager.remove_resource(resource_id)
-                return {
-                    "success": True,
-                    "name": name,
-                    "endpoint_id": endpoint_id,
-                    "message": f"Successfully deleted endpoint '{name}' ({endpoint_id})",
-                }
-            else:
-                return {
-                    "success": False,
-                    "name": name,
-                    "endpoint_id": endpoint_id,
-                    "message": f"Failed to delete endpoint '{name}' ({endpoint_id})",
-                }
-    except Exception as e:
-        return {
-            "success": False,
-            "name": name,
-            "endpoint_id": endpoint_id,
-            "message": f"Error deleting endpoint '{name}': {str(e)}",
-        }
-
-
 def _cleanup_stale_endpoints(
     resources: Dict[str, DeployableResource], manager: ResourceManager
 ) -> None:
@@ -215,17 +173,24 @@ def _cleanup_stale_endpoints(
         console.print("[yellow]Cancelled[/yellow]")
         return
 
-    # Remove from tracking
+    # Undeploy inactive endpoints (force remove from tracking even if already deleted remotely)
     removed_count = 0
     for resource_id, resource in inactive:
-        try:
-            manager.remove_resource(resource_id)
+        result = asyncio.run(
+            manager.undeploy_resource(resource_id, resource.name, force_remove=True)
+        )
+
+        if result["success"]:
             removed_count += 1
             console.print(
                 f"[green]✓[/green] Removed [cyan]{resource.name}[/cyan] from tracking"
             )
-        except Exception as e:
-            console.print(f"[red]✗[/red] Failed to remove {resource.name}: {str(e)}")
+        else:
+            # Resource already deleted remotely, but force_remove cleaned up tracking
+            removed_count += 1
+            console.print(
+                f"[yellow]⚠[/yellow] {resource.name}: Already deleted remotely, removed from tracking"
+            )
 
     console.print(f"\n[green]✓[/green] Cleaned up {removed_count} inactive endpoint(s)")
 
@@ -359,24 +324,11 @@ def _undeploy_by_name(name: str, resources: dict):
         raise typer.Exit(0)
 
     # Delete endpoints
+    manager = ResourceManager()
     with console.status("Deleting endpoint(s)..."):
         results = []
         for resource_id, resource in matches:
-            endpoint_id = getattr(resource, "id", None)
-            if not endpoint_id:
-                results.append(
-                    {
-                        "success": False,
-                        "name": resource.name,
-                        "endpoint_id": "N/A",
-                        "message": f"Skipped '{resource.name}': No endpoint ID found",
-                    }
-                )
-                continue
-
-            result = asyncio.run(
-                _delete_endpoint(endpoint_id, resource_id, resource.name)
-            )
+            result = asyncio.run(manager.undeploy_resource(resource_id, resource.name))
             results.append(result)
 
     # Show results
@@ -437,24 +389,12 @@ def _undeploy_all(resources: dict):
         raise typer.Exit(0)
 
     # Delete all endpoints
+    manager = ResourceManager()
     with console.status(f"Deleting {len(resources)} endpoint(s)..."):
         results = []
         for resource_id, resource in resources.items():
-            endpoint_id = getattr(resource, "id", None)
             name = getattr(resource, "name", "N/A")
-
-            if not endpoint_id:
-                results.append(
-                    {
-                        "success": False,
-                        "name": name,
-                        "endpoint_id": "N/A",
-                        "message": f"Skipped '{name}': No endpoint ID found",
-                    }
-                )
-                continue
-
-            result = asyncio.run(_delete_endpoint(endpoint_id, resource_id, name))
+            result = asyncio.run(manager.undeploy_resource(resource_id, name))
             results.append(result)
 
     # Show results
@@ -534,24 +474,12 @@ def _interactive_undeploy(resources: dict):
         raise typer.Exit(0)
 
     # Delete selected endpoints
+    manager = ResourceManager()
     with console.status(f"Deleting {len(selected_resources)} endpoint(s)..."):
         results = []
         for resource_id, resource in selected_resources:
-            endpoint_id = getattr(resource, "id", None)
             name = getattr(resource, "name", "N/A")
-
-            if not endpoint_id:
-                results.append(
-                    {
-                        "success": False,
-                        "name": name,
-                        "endpoint_id": "N/A",
-                        "message": f"Skipped '{name}': No endpoint ID found",
-                    }
-                )
-                continue
-
-            result = asyncio.run(_delete_endpoint(endpoint_id, resource_id, name))
+            result = asyncio.run(manager.undeploy_resource(resource_id, name))
             results.append(result)
 
     # Show results
