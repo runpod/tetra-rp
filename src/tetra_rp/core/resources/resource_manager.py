@@ -167,7 +167,10 @@ class ResourceManager(SingletonMixin):
         return matches
 
     async def undeploy_resource(
-        self, resource_id: str, resource_name: Optional[str] = None
+        self,
+        resource_id: str,
+        resource_name: Optional[str] = None,
+        force_remove: bool = False,
     ) -> Dict[str, Any]:
         """Undeploy a resource and remove from tracking.
 
@@ -177,6 +180,8 @@ class ResourceManager(SingletonMixin):
         Args:
             resource_id: The resource ID to undeploy
             resource_name: Optional human-readable name for error messages
+            force_remove: If True, remove from tracking even if undeploy fails.
+                         Use this for cleanup scenarios where resource is already deleted remotely.
 
         Returns:
             Dict with keys:
@@ -213,6 +218,9 @@ class ResourceManager(SingletonMixin):
                     "message": f"Successfully undeployed '{name}' ({endpoint_id})",
                 }
             else:
+                # Force remove if requested (e.g., cleanup of already-deleted resources)
+                if force_remove:
+                    self._remove_resource(resource_id)
                 return {
                     "success": False,
                     "name": name,
@@ -222,6 +230,8 @@ class ResourceManager(SingletonMixin):
 
         except NotImplementedError as e:
             # Resource type doesn't support undeploy yet
+            if force_remove:
+                self._remove_resource(resource_id)
             return {
                 "success": False,
                 "name": name,
@@ -229,7 +239,9 @@ class ResourceManager(SingletonMixin):
                 "message": f"Cannot undeploy '{name}': {str(e)}",
             }
         except Exception as e:
-            # Unexpected error during undeploy
+            # Unexpected error during undeploy (e.g., already deleted remotely)
+            if force_remove:
+                self._remove_resource(resource_id)
             return {
                 "success": False,
                 "name": name,
