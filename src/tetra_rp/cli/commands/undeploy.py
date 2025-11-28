@@ -173,17 +173,23 @@ def _cleanup_stale_endpoints(
         console.print("[yellow]Cancelled[/yellow]")
         return
 
-    # Remove from tracking
+    # Undeploy inactive endpoints
     removed_count = 0
     for resource_id, resource in inactive:
-        try:
-            manager._remove_resource(resource_id)
+        result = asyncio.run(manager.undeploy_resource(resource_id, resource.name))
+
+        if result["success"]:
             removed_count += 1
             console.print(
                 f"[green]✓[/green] Removed [cyan]{resource.name}[/cyan] from tracking"
             )
-        except Exception as e:
-            console.print(f"[red]✗[/red] Failed to remove {resource.name}: {str(e)}")
+        else:
+            # Resource might already be deleted remotely, try to clean up tracking anyway
+            console.print(
+                f"[yellow]⚠[/yellow] {resource.name}: Already deleted remotely, removing from tracking"
+            )
+            manager._remove_resource(resource_id)
+            removed_count += 1
 
     console.print(f"\n[green]✓[/green] Cleaned up {removed_count} inactive endpoint(s)")
 
