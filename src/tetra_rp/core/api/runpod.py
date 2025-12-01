@@ -10,6 +10,8 @@ from typing import Any, Dict, Optional
 
 import aiohttp
 
+from tetra_rp.core.exceptions import RunpodAPIKeyError
+
 log = logging.getLogger(__name__)
 
 RUNPOD_API_BASE_URL = os.environ.get("RUNPOD_API_BASE_URL", "https://api.runpod.io")
@@ -27,7 +29,7 @@ class RunpodGraphQLClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
         if not self.api_key:
-            raise ValueError("Runpod API key is required")
+            raise RunpodAPIKeyError()
 
         self.session: Optional[aiohttp.ClientSession] = None
 
@@ -200,7 +202,13 @@ class RunpodGraphQLClient:
         log.info(f"Deleting endpoint: {endpoint_id}")
 
         result = await self._execute_graphql(mutation, variables)
-        return {"success": result.get("deleteEndpoint") is not None}
+
+        # If _execute_graphql didn't raise an exception, the deletion succeeded.
+        # The GraphQL mutation returns null on success, but presence of the key
+        # (even with null value) indicates the mutation executed.
+        # If the mutation failed, _execute_graphql would have raised an exception.
+
+        return {"success": "deleteEndpoint" in result}
 
     async def close(self):
         """Close the HTTP session."""
@@ -223,7 +231,7 @@ class RunpodRestClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
         if not self.api_key:
-            raise ValueError("Runpod API key is required")
+            raise RunpodAPIKeyError()
 
         self.session: Optional[aiohttp.ClientSession] = None
 

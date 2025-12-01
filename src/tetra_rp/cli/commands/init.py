@@ -85,7 +85,7 @@ def init_command(
     panel_content += "  ├── workers/\n"
     panel_content += "  │   ├── gpu/             # GPU worker\n"
     panel_content += "  │   └── cpu/             # CPU worker\n"
-    panel_content += "  ├── .env\n"
+    panel_content += "  ├── .env.example\n"
     panel_content += "  ├── requirements.txt\n"
     panel_content += "  └── README.md\n"
 
@@ -105,11 +105,15 @@ def init_command(
 
     steps_table.add_row(f"{step_num}.", "pip install -r requirements.txt")
     step_num += 1
+    steps_table.add_row(f"{step_num}.", "cp .env.example .env")
+    step_num += 1
     steps_table.add_row(f"{step_num}.", "Add your RUNPOD_API_KEY to .env")
     step_num += 1
     steps_table.add_row(f"{step_num}.", "flash run")
 
     console.print(steps_table)
 
-    console.print("\nVisit http://localhost:8888/docs")
+    console.print("\n[bold]Get your API key:[/bold]")
+    console.print("  https://docs.runpod.io/get-started/api-keys")
+    console.print("\nVisit http://localhost:8888/docs after running")
     console.print("\nCheck out the README.md for more")
