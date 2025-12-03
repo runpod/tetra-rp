@@ -170,11 +170,15 @@ class ServerlessResource(DeployableResource):
 
     @model_validator(mode="after")
     def sync_input_fields(self):
-        """Sync between temporary inputs and exported fields"""
-        if self.flashboot:
+        """Sync between temporary inputs and exported fields.
+
+        Idempotent: Can be called multiple times safely without changing the result.
+        """
+        # Only append "-fb" if flashboot is enabled and not already present
+        if self.flashboot and not self.name.endswith("-fb"):
             self.name += "-fb"
 
-        # Sync datacenter to locations field for API
+        # Sync datacenter to locations field for API (only if not already set)
         if not self.locations:
             self.locations = self.datacenter.value
 
@@ -194,19 +198,19 @@ class ServerlessResource(DeployableResource):
         return self
 
     def _sync_input_fields_gpu(self):
-        # GPU-specific fields
-        if self.gpus:
+        # GPU-specific fields (idempotent - only set if not already set)
+        if self.gpus and not self.gpuIds:
             # Convert gpus list to gpuIds string
             self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
-        elif self.gpuIds:
+        elif self.gpuIds and not self.gpus:
             # Convert gpuIds string to gpus list (from backend responses)
             gpu_values = [v.strip() for v in self.gpuIds.split(",") if v.strip()]
             self.gpus = [GpuGroup(value) for value in gpu_values]
 
-        if self.cudaVersions:
+        if self.cudaVersions and not self.allowedCudaVersions:
             # Convert cudaVersions list to allowedCudaVersions string
             self.allowedCudaVersions = ",".join(v.value for v in self.cudaVersions)
-        elif self.allowedCudaVersions:
+        elif self.allowedCudaVersions and not self.cudaVersions:
             # Convert allowedCudaVersions string to cudaVersions list (from backend responses)
             version_values = [
                 v.strip() for v in self.allowedCudaVersions.split(",") if v.strip()

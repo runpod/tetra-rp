@@ -484,9 +484,8 @@ class TestServerlessResourceDeployment:
 
         # Should return new instance with deployment data
         assert result.id == "endpoint-123"
-        # The returned object gets the name from the API response, which gets processed again
-        # result is a DeployableResource, so we need to cast it
-        assert hasattr(result, "name") and result.name == "test-serverless-fb-fb"
+        # Validator is now idempotent - only adds "-fb" once, not twice
+        assert hasattr(result, "name") and result.name == "test-serverless-fb"
         # Verify locations was set from datacenter
         assert hasattr(result, "locations") and result.locations == "EU-RO-1"
 
