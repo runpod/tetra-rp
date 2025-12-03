@@ -1,0 +1,327 @@
+"""Resource discovery for auto-provisioning during flash run startup."""
+
+import ast
+import importlib.util
+import logging
+import sys
+from pathlib import Path
+from typing import Dict, List, Set
+
+from .resources.base import DeployableResource
+
+log = logging.getLogger(__name__)
+
+
+class ResourceDiscovery:
+    """Discovers DeployableResource instances by parsing @remote decorators."""
+
+    def __init__(self, entry_point: str, max_depth: int = 2):
+        """Initialize resource discovery.
+
+        Args:
+            entry_point: Path to entry point file (e.g., "main.py")
+            max_depth: Maximum depth for recursive module scanning
+        """
+        self.entry_point = Path(entry_point)
+        self.max_depth = max_depth
+        self._cache: Dict[str, List[DeployableResource]] = {}
+        self._scanned_modules: Set[str] = set()
+
+    def discover(self) -> List[DeployableResource]:
+        """Discover all DeployableResource instances in entry point and imports.
+
+        Returns:
+            List of discovered deployable resources
+        """
+        if str(self.entry_point) in self._cache:
+            return self._cache[str(self.entry_point)]
+
+        resources = []
+
+        try:
+            # Parse entry point to find @remote decorators
+            resource_var_names = self._find_resource_config_vars(self.entry_point)
+
+            if not resource_var_names:
+                log.debug(f"No @remote decorators found in {self.entry_point}")
+                self._cache[str(self.entry_point)] = []
+                return []
+
+            # Import entry point module to resolve variables
+            module = self._import_module(self.entry_point)
+
+            if not module:
+                log.warning(f"Failed to import {self.entry_point}")
+                return []
+
+            # Resolve variable names to actual DeployableResource objects
+            for var_name in resource_var_names:
+                resource = self._resolve_resource_variable(module, var_name)
+                if resource:
+                    resources.append(resource)
+                    log.debug(
+                        f"Discovered resource: {var_name} -> {resource.__class__.__name__}"
+                    )
+
+            # Recursively scan imported modules
+            imported_resources = self._scan_imports(self.entry_point, depth=1)
+            resources.extend(imported_resources)
+
+            # Cache results
+            self._cache[str(self.entry_point)] = resources
+
+        except Exception as e:
+            log.error(f"Error discovering resources in {self.entry_point}: {e}")
+
+        return resources
+
+    def _find_resource_config_vars(self, file_path: Path) -> Set[str]:
+        """Find variable names used in @remote decorators via AST parsing.
+
+        Args:
+            file_path: Path to Python file to parse
+
+        Returns:
+            Set of variable names referenced in @remote decorators
+        """
+        var_names = set()
+
+        try:
+            tree = ast.parse(file_path.read_text(encoding="utf-8"))
+
+            for node in ast.walk(tree):
+                if isinstance(
+                    node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+                ):
+                    for decorator in node.decorator_list:
+                        if self._is_remote_decorator(decorator):
+                            # Extract resource_config variable name
+                            var_name = self._extract_resource_config_var(decorator)
+                            if var_name:
+                                var_names.add(var_name)
+
+        except Exception as e:
+            log.warning(f"Failed to parse {file_path}: {e}")
+
+        return var_names
+
+    def _is_remote_decorator(self, decorator: ast.expr) -> bool:
+        """Check if decorator is @remote.
+
+        Args:
+            decorator: AST decorator node
+
+        Returns:
+            True if decorator is @remote
+        """
+        if isinstance(decorator, ast.Call):
+            func_name = None
+            if isinstance(decorator.func, ast.Name):
+                func_name = decorator.func.id
+            elif isinstance(decorator.func, ast.Attribute):
+                func_name = decorator.func.attr
+
+            return func_name == "remote"
+
+        return False
+
+    def _extract_resource_config_var(self, decorator: ast.Call) -> str:
+        """Extract resource_config variable name from @remote decorator.
+
+        Handles both:
+        - @remote(resource_config=my_config)
+        - @remote(my_config) (positional argument)
+
+        Args:
+            decorator: AST Call node for @remote decorator
+
+        Returns:
+            Variable name or empty string
+        """
+        # Check keyword argument: resource_config=var_name
+        for keyword in decorator.keywords:
+            if keyword.arg == "resource_config":
+                if isinstance(keyword.value, ast.Name):
+                    return keyword.value.id
+
+        # Check positional argument: @remote(var_name)
+        if decorator.args and isinstance(decorator.args[0], ast.Name):
+            return decorator.args[0].id
+
+        return ""
+
+    def _import_module(self, file_path: Path):
+        """Import a Python module from file path.
+
+        Args:
+            file_path: Path to Python file
+
+        Returns:
+            Imported module or None if import fails
+        """
+        try:
+            # Create module spec
+            module_name = file_path.stem
+            spec = importlib.util.spec_from_file_location(module_name, file_path)
+
+            if not spec or not spec.loader:
+                return None
+
+            # Load module
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+
+            self._scanned_modules.add(module_name)
+
+            return module
+
+        except Exception as e:
+            log.warning(f"Failed to import {file_path}: {e}")
+            return None
+
+    def _resolve_resource_variable(self, module, var_name: str) -> DeployableResource:
+        """Resolve variable name to DeployableResource instance.
+
+        Args:
+            module: Imported module
+            var_name: Variable name to resolve
+
+        Returns:
+            DeployableResource instance or None
+        """
+        try:
+            obj = getattr(module, var_name, None)
+
+            if obj and isinstance(obj, DeployableResource):
+                return obj
+
+            log.debug(
+                f"Variable '{var_name}' is not a DeployableResource (type: {type(obj)})"
+            )
+
+        except Exception as e:
+            log.warning(f"Failed to resolve variable '{var_name}': {e}")
+
+        return None
+
+    def _scan_imports(self, file_path: Path, depth: int) -> List[DeployableResource]:
+        """Recursively scan imported modules for resources.
+
+        Args:
+            file_path: Path to Python file
+            depth: Current recursion depth
+
+        Returns:
+            List of discovered resources from imports
+        """
+        if depth > self.max_depth:
+            return []
+
+        resources = []
+
+        try:
+            tree = ast.parse(file_path.read_text(encoding="utf-8"))
+
+            # Find import statements
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        module_name = alias.name
+                        if module_name not in self._scanned_modules:
+                            imported_resources = self._scan_imported_module(
+                                module_name, depth
+                            )
+                            resources.extend(imported_resources)
+
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module and node.module not in self._scanned_modules:
+                        imported_resources = self._scan_imported_module(
+                            node.module, depth
+                        )
+                        resources.extend(imported_resources)
+
+        except Exception as e:
+            log.debug(f"Failed to scan imports in {file_path}: {e}")
+
+        return resources
+
+    def _scan_imported_module(
+        self, module_name: str, depth: int
+    ) -> List[DeployableResource]:
+        """Scan an imported module for resources.
+
+        Args:
+            module_name: Name of module to scan
+            depth: Current recursion depth
+
+        Returns:
+            List of discovered resources
+        """
+        resources = []
+
+        try:
+            # Try to find module file
+            module_path = self._resolve_module_path(module_name)
+
+            if not module_path or not module_path.exists():
+                return []
+
+            # Mark as scanned to avoid cycles
+            self._scanned_modules.add(module_name)
+
+            # Find resources in this module
+            resource_vars = self._find_resource_config_vars(module_path)
+
+            if resource_vars:
+                # Import module and resolve variables
+                module = self._import_module(module_path)
+                if module:
+                    for var_name in resource_vars:
+                        resource = self._resolve_resource_variable(module, var_name)
+                        if resource:
+                            resources.append(resource)
+
+            # Recursively scan imports
+            imported_resources = self._scan_imports(module_path, depth + 1)
+            resources.extend(imported_resources)
+
+        except Exception as e:
+            log.debug(f"Failed to scan imported module '{module_name}': {e}")
+
+        return resources
+
+    def _resolve_module_path(self, module_name: str) -> Path:
+        """Resolve module name to file path.
+
+        Args:
+            module_name: Name of module (e.g., "workers.gpu")
+
+        Returns:
+            Path to module file or None
+        """
+        try:
+            # Handle relative imports from entry point directory
+            parts = module_name.split(".")
+            current_dir = self.entry_point.parent
+
+            # Try as relative path first
+            module_path = current_dir / "/".join(parts)
+
+            # Check for .py file
+            if module_path.with_suffix(".py").exists():
+                return module_path.with_suffix(".py")
+
+            # Check for package (__init__.py)
+            if (module_path / "__init__.py").exists():
+                return module_path / "__init__.py"
+
+        except Exception as e:
+            log.debug(f"Failed to resolve module path for '{module_name}': {e}")
+
+        return None
+
+    def clear_cache(self):
+        """Clear discovery cache (for reload mode)."""
+        self._cache.clear()
+        self._scanned_modules.clear()

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+import questionary
 import typer
 from rich.console import Console
 
@@ -18,6 +19,11 @@ def run_command(
     port: int = typer.Option(8888, "--port", "-p", help="Port to bind to"),
     reload: bool = typer.Option(
         True, "--reload/--no-reload", help="Enable auto-reload"
+    ),
+    auto_provision: bool = typer.Option(
+        False,
+        "--auto-provision",
+        help="Auto-provision deployable resources on startup",
     ),
 ):
     """Run Flash development server with uvicorn."""
@@ -35,6 +41,20 @@ def run_command(
         console.print(f"[red]Error:[/red] No FastAPI app found in {entry_point}")
         console.print("Make sure your main.py contains: app = FastAPI()")
         raise typer.Exit(1)
+
+    # Auto-provision resources if flag is set and not a reload
+    if auto_provision and not _is_reload():
+        resources = _discover_resources(entry_point)
+
+        if resources:
+            # If many resources found, ask for confirmation
+            if len(resources) > 5:
+                if not _confirm_large_provisioning(resources):
+                    console.print("[yellow]Auto-provisioning cancelled[/yellow]\n")
+                else:
+                    _start_background_provisioning(resources)
+            else:
+                _start_background_provisioning(resources)
 
     console.print("[green]Starting Flash Server[/green]")
     console.print(f"Entry point: [bold]{app_location}[/bold]")
@@ -149,3 +169,82 @@ def check_fastapi_app(entry_point: str) -> Optional[str]:
 
     except Exception:
         return None
+
+
+def _is_reload() -> bool:
+    """Check if running in uvicorn reload subprocess.
+
+    Returns:
+        True if running in a reload subprocess
+    """
+    return "UVICORN_RELOADER_PID" in os.environ or "RUN_MAIN" in os.environ
+
+
+def _discover_resources(entry_point: str):
+    """Discover deployable resources in entry point.
+
+    Args:
+        entry_point: Path to entry point file
+
+    Returns:
+        List of discovered DeployableResource instances
+    """
+    from ...core.discovery import ResourceDiscovery
+
+    try:
+        discovery = ResourceDiscovery(entry_point, max_depth=2)
+        resources = discovery.discover()
+        return resources
+    except Exception as e:
+        console.print(f"[yellow]Warning:[/yellow] Resource discovery failed: {e}")
+        return []
+
+
+def _confirm_large_provisioning(resources) -> bool:
+    """Show resources and prompt user for confirmation.
+
+    Args:
+        resources: List of resources to provision
+
+    Returns:
+        True if user confirms, False otherwise
+    """
+    try:
+        console.print(
+            f"\n[yellow]Found {len(resources)} resources to provision:[/yellow]"
+        )
+
+        for resource in resources:
+            name = getattr(resource, "name", "Unknown")
+            resource_type = resource.__class__.__name__
+            console.print(f"  • {name} ({resource_type})")
+
+        console.print()
+
+        confirmed = questionary.confirm(
+            "This may take several minutes. Do you want to proceed?"
+        ).ask()
+
+        return confirmed if confirmed is not None else False
+
+    except (KeyboardInterrupt, EOFError):
+        console.print("\n[yellow]Cancelled[/yellow]")
+        return False
+    except Exception as e:
+        console.print(f"[yellow]Warning:[/yellow] Confirmation failed: {e}")
+        return False
+
+
+def _start_background_provisioning(resources):
+    """Start background provisioning of resources.
+
+    Args:
+        resources: List of resources to provision
+    """
+    from ...core.deployment import DeploymentOrchestrator
+
+    try:
+        orchestrator = DeploymentOrchestrator(max_concurrent=3)
+        orchestrator.deploy_all_background(resources)
+    except Exception as e:
+        console.print(f"[yellow]Warning:[/yellow] Background provisioning failed: {e}")
