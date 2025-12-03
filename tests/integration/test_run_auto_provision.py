@@ -105,7 +105,7 @@ class TestRunAutoProvision:
         monkeypatch.chdir(temp_project)
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("subprocess.Popen") as mock_popen:
+        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
@@ -124,7 +124,7 @@ class TestRunAutoProvision:
         monkeypatch.chdir(temp_project)
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("subprocess.Popen") as mock_popen:
+        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
@@ -146,7 +146,7 @@ class TestRunAutoProvision:
         monkeypatch.setenv("UVICORN_RELOADER_PID", "12345")
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("subprocess.Popen") as mock_popen:
+        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
@@ -170,7 +170,7 @@ class TestRunAutoProvision:
         mock_resources = [MagicMock(name=f"endpoint-{i}") for i in range(6)]
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("subprocess.Popen") as mock_popen:
+        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
@@ -208,7 +208,7 @@ class TestRunAutoProvision:
         mock_resources = [MagicMock(name=f"endpoint-{i}") for i in range(6)]
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("subprocess.Popen") as mock_popen:
+        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
@@ -241,7 +241,7 @@ class TestRunAutoProvision:
         monkeypatch.chdir(temp_project)
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("subprocess.Popen") as mock_popen:
+        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
@@ -278,7 +278,7 @@ class TestRunAutoProvision:
         )
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("subprocess.Popen") as mock_popen:
+        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
