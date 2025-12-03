@@ -289,3 +289,48 @@ class TestResourceDiscovery:
 
         # Should respect max_depth and not crash
         assert isinstance(resources, list)
+
+    def test_discover_with_directory_scan(self, tmp_path):
+        """Test directory scanning fallback for dynamic imports."""
+        # Create entry point without @remote decorators
+        entry_file = tmp_path / "main.py"
+        entry_file.write_text(
+            dedent(
+                """
+                # Dynamic imports using importlib.util
+                import importlib.util
+                """
+            )
+        )
+
+        # Create worker file in subdirectory with @remote decorator
+        workers_dir = tmp_path / "workers"
+        workers_dir.mkdir()
+        worker_file = workers_dir / "gpu_worker.py"
+        worker_file.write_text(
+            dedent(
+                """
+                from tetra_rp.client import remote
+                from tetra_rp.core.resources.serverless import ServerlessResource
+
+                gpu_config = ServerlessResource(
+                    name="test-gpu-worker",
+                    gpuCount=1,
+                    workersMax=3,
+                    workersMin=0,
+                    flashboot=False,
+                )
+
+                @remote(resource_config=gpu_config)
+                async def gpu_task():
+                    return "result"
+                """
+            )
+        )
+
+        discovery = ResourceDiscovery(str(entry_file))
+        resources = discovery.discover()
+
+        # Should find resource via directory scanning
+        assert len(resources) == 1
+        assert resources[0].name == "test-gpu-worker"

@@ -42,30 +42,34 @@ class ResourceDiscovery:
             # Parse entry point to find @remote decorators
             resource_var_names = self._find_resource_config_vars(self.entry_point)
 
-            if not resource_var_names:
-                log.debug(f"No @remote decorators found in {self.entry_point}")
-                self._cache[str(self.entry_point)] = []
-                return []
+            # Import entry point module to resolve variables (if any found)
+            if resource_var_names:
+                module = self._import_module(self.entry_point)
 
-            # Import entry point module to resolve variables
-            module = self._import_module(self.entry_point)
+                if module:
+                    # Resolve variable names to actual DeployableResource objects
+                    for var_name in resource_var_names:
+                        resource = self._resolve_resource_variable(module, var_name)
+                        if resource:
+                            resources.append(resource)
+                            log.debug(
+                                f"Discovered resource: {var_name} -> {resource.__class__.__name__}"
+                            )
+                else:
+                    log.warning(f"Failed to import {self.entry_point}")
 
-            if not module:
-                log.warning(f"Failed to import {self.entry_point}")
-                return []
-
-            # Resolve variable names to actual DeployableResource objects
-            for var_name in resource_var_names:
-                resource = self._resolve_resource_variable(module, var_name)
-                if resource:
-                    resources.append(resource)
-                    log.debug(
-                        f"Discovered resource: {var_name} -> {resource.__class__.__name__}"
-                    )
-
-            # Recursively scan imported modules
+            # Recursively scan imported modules (static imports)
             imported_resources = self._scan_imports(self.entry_point, depth=1)
             resources.extend(imported_resources)
+
+            # Fallback: Scan project directory for Python files with @remote decorators
+            # This handles dynamic imports (importlib.util) that AST parsing misses
+            if not resources:
+                log.debug(
+                    "No resources found via static imports, scanning project directory"
+                )
+                directory_resources = self._scan_project_directory()
+                resources.extend(directory_resources)
 
             # Cache results
             self._cache[str(self.entry_point)] = resources
@@ -320,6 +324,84 @@ class ResourceDiscovery:
             log.debug(f"Failed to resolve module path for '{module_name}': {e}")
 
         return None
+
+    def _scan_project_directory(self) -> List[DeployableResource]:
+        """Scan project directory for Python files with @remote decorators.
+
+        This is a fallback for projects that use dynamic imports (importlib.util)
+        which cannot be detected via static AST import scanning.
+
+        Returns:
+            List of discovered resources
+        """
+        resources = []
+        project_root = self.entry_point.parent
+
+        try:
+            # Find all Python files in project (excluding common ignore patterns)
+            python_files = []
+            for pattern in ["**/*.py"]:
+                for file_path in project_root.glob(pattern):
+                    # Skip entry point (already processed)
+                    if file_path == self.entry_point:
+                        continue
+
+                    # Skip common directories
+                    rel_path = str(file_path.relative_to(project_root))
+                    if any(
+                        skip in rel_path
+                        for skip in [
+                            ".venv/",
+                            "venv/",
+                            "__pycache__/",
+                            ".git/",
+                            "site-packages/",
+                            ".pytest_cache/",
+                            "build/",
+                            "dist/",
+                            ".tox/",
+                            "node_modules/",
+                        ]
+                    ):
+                        continue
+
+                    python_files.append(file_path)
+
+            log.debug(f"Scanning {len(python_files)} Python files in {project_root}")
+
+            # Check each file for @remote decorators
+            for file_path in python_files:
+                try:
+                    # Quick check: does file contain "@remote"?
+                    content = file_path.read_text(encoding="utf-8")
+                    if "@remote" not in content:
+                        continue
+
+                    # Find resource config variables via AST
+                    resource_vars = self._find_resource_config_vars(file_path)
+                    if not resource_vars:
+                        continue
+
+                    # Import module and resolve variables
+                    module = self._import_module(file_path)
+                    if module:
+                        for var_name in resource_vars:
+                            resource = self._resolve_resource_variable(module, var_name)
+                            if resource:
+                                resources.append(resource)
+                                log.debug(
+                                    f"Discovered resource in {file_path.relative_to(project_root)}: "
+                                    f"{var_name} -> {resource.__class__.__name__}"
+                                )
+
+                except Exception as e:
+                    log.debug(f"Failed to scan {file_path}: {e}")
+                    continue
+
+        except Exception as e:
+            log.warning(f"Failed to scan project directory: {e}")
+
+        return resources
 
     def clear_cache(self):
         """Clear discovery cache (for reload mode)."""
