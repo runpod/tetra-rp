@@ -129,11 +129,30 @@ class TestUndeployCommand:
 
     def test_undeploy_no_args_shows_help(self, runner):
         """Test undeploy without arguments shows help/usage."""
-        result = runner.invoke(app, ["undeploy"])
+        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM:
+            mock_manager = MagicMock()
+            mock_manager.list_all_resources.return_value = {}
+            MockRM.return_value = mock_manager
+
+            result = runner.invoke(app, ["undeploy"])
 
         # With no args, Typer shows help (exit_code 0) due to no_args_is_help
         assert result.exit_code == 0
         assert "Usage" in result.stdout or "undeploy" in result.stdout.lower()
+
+    def test_undeploy_no_args_shows_usage_text(self, runner):
+        """Ensure usage panel is rendered when no args are provided."""
+        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM:
+            mock_resource = MagicMock()
+            mock_resource.name = "foo"
+            mock_manager = MagicMock()
+            mock_manager.list_all_resources.return_value = {"rid": mock_resource}
+            MockRM.return_value = mock_manager
+
+            result = runner.invoke(app, ["undeploy"])
+
+        assert "usage: flash undeploy" in result.stdout.lower()
+        assert "please specify a name" in result.stdout.lower()
 
     def test_undeploy_nonexistent_name(self, runner, sample_resources):
         """Test undeploy with nonexistent name."""

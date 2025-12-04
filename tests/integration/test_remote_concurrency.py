@@ -100,7 +100,7 @@ class TestRemoteConcurrency:
 
         # Mock at the deployment level to let ResourceManager handle concurrency
         with (
-            patch.object(CpuServerlessEndpoint, "deploy", mock_deploy),
+            patch.object(CpuServerlessEndpoint, "_do_deploy", mock_deploy),
             patch.object(CpuServerlessEndpoint, "is_deployed", mock_is_deployed),
         ):
 
@@ -339,7 +339,7 @@ class TestRemoteConcurrency:
 
         # Mock at the deployment level to let ResourceManager handle concurrency
         with (
-            patch.object(CpuServerlessEndpoint, "deploy", mock_deploy),
+            patch.object(CpuServerlessEndpoint, "_do_deploy", mock_deploy),
             patch.object(CpuServerlessEndpoint, "is_deployed", mock_is_deployed),
         ):
 
@@ -427,7 +427,7 @@ class TestRemoteConcurrency:
 
         # Mock at the deployment level to let ResourceManager handle concurrency
         with (
-            patch.object(ServerlessEndpoint, "deploy", mock_deploy),
+            patch.object(ServerlessEndpoint, "_do_deploy", mock_deploy),
             patch.object(ServerlessEndpoint, "is_deployed", mock_is_deployed),
         ):
 
@@ -524,7 +524,7 @@ class TestRemoteConcurrency:
 
         # Mock at the deployment level to let ResourceManager handle concurrency
         with (
-            patch.object(ServerlessEndpoint, "deploy", mock_deploy),
+            patch.object(ServerlessEndpoint, "_do_deploy", mock_deploy),
             patch.object(ServerlessEndpoint, "is_deployed", mock_is_deployed),
         ):
 
@@ -612,7 +612,7 @@ class TestRemoteConcurrency:
 
         # Mock at the deployment level to let ResourceManager handle concurrency
         with (
-            patch.object(LiveServerless, "deploy", mock_deploy),
+            patch.object(LiveServerless, "_do_deploy", mock_deploy),
             patch.object(LiveServerless, "is_deployed", mock_is_deployed),
         ):
 
@@ -719,7 +719,7 @@ class TestRemoteConcurrency:
 
         # Mock at the deployment level to let ResourceManager handle concurrency
         with (
-            patch.object(LiveServerless, "deploy", mock_deploy),
+            patch.object(LiveServerless, "_do_deploy", mock_deploy),
             patch.object(LiveServerless, "is_deployed", mock_is_deployed),
         ):
 
@@ -816,7 +816,7 @@ class TestRemoteConcurrency:
 
         # Mock at the deployment level to let ResourceManager handle concurrency
         with (
-            patch.object(CpuLiveServerless, "deploy", mock_deploy),
+            patch.object(CpuLiveServerless, "_do_deploy", mock_deploy),
             patch.object(CpuLiveServerless, "is_deployed", mock_is_deployed),
         ):
 
@@ -923,7 +923,7 @@ class TestRemoteConcurrency:
 
         # Mock at the deployment level to let ResourceManager handle concurrency
         with (
-            patch.object(CpuLiveServerless, "deploy", mock_deploy),
+            patch.object(CpuLiveServerless, "_do_deploy", mock_deploy),
             patch.object(CpuLiveServerless, "is_deployed", mock_is_deployed),
         ):
 

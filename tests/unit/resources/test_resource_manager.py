@@ -1,10 +1,12 @@
 """Unit tests for ResourceManager."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 from tetra_rp.core.resources.resource_manager import ResourceManager
+from tetra_rp.core.utils.singleton import SingletonMixin
 from tetra_rp.core.resources.serverless import ServerlessResource
+from tetra_rp.core.exceptions import RunpodAPIKeyError
 
 
 class TestResourceManager:
@@ -17,12 +19,14 @@ class TestResourceManager:
         ResourceManager._deployment_locks = {}
         ResourceManager._resources_initialized = False
         ResourceManager._lock_initialized = False
+        SingletonMixin._instances.pop(ResourceManager, None)
         yield
         # Cleanup after test
         ResourceManager._resources = {}
         ResourceManager._deployment_locks = {}
         ResourceManager._resources_initialized = False
         ResourceManager._lock_initialized = False
+        SingletonMixin._instances.pop(ResourceManager, None)
 
     @pytest.fixture
     def mock_resource_file(self, tmp_path):
@@ -246,3 +250,41 @@ class TestResourceManager:
 
         # Should be empty again
         assert len(manager.list_all_resources()) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_or_deploy_resource_calls_do_deploy_once(
+        self, mock_resource_file
+    ):
+        """Ensure get_or_deploy_resource triggers _do_deploy exactly once."""
+        manager = ResourceManager()
+        resource = ServerlessResource(name="rm-test", flashboot=False)
+        resource.id = "endpoint-rm-test"
+
+        with patch.object(ServerlessResource, "is_deployed", return_value=False):
+            with patch.object(
+                ServerlessResource, "_do_deploy", new=AsyncMock(return_value=resource)
+            ) as mock_do_deploy:
+                with patch.object(manager, "_add_resource") as mock_add:
+                    result = await manager.get_or_deploy_resource(resource)
+
+        mock_do_deploy.assert_awaited_once()
+        mock_add.assert_called_once_with(resource.resource_id, resource)
+        assert result is resource
+
+    @pytest.mark.asyncio
+    async def test_deploy_with_error_context_adds_resource_name(
+        self, mock_resource_file
+    ):
+        """RunpodAPIKeyError should mention the resource name for context."""
+        manager = ResourceManager()
+        resource = ServerlessResource(name="error-test", flashboot=False)
+
+        with patch.object(
+            ServerlessResource,
+            "_do_deploy",
+            new=AsyncMock(side_effect=RunpodAPIKeyError("missing key")),
+        ):
+            with pytest.raises(RunpodAPIKeyError) as excinfo:
+                await manager._deploy_with_error_context(resource)
+
+        assert "error-test" in str(excinfo.value)

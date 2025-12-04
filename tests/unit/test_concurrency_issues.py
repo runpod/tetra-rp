@@ -15,6 +15,7 @@ import threading
 import time
 import tempfile
 import shutil
+from typing import Dict, Any
 from pathlib import Path
 from unittest.mock import patch
 
@@ -36,6 +37,7 @@ from tetra_rp.execute_class import _SERIALIZED_CLASS_CACHE
 class MockDeployableResource(DeployableResource):
     """Mock deployable resource for testing."""
 
+    _hashed_fields = {"name"}
     name: str = "test-resource"
     deploy_delay: float = 0.1
 
@@ -53,7 +55,7 @@ class MockDeployableResource(DeployableResource):
     def is_deployed(self) -> bool:
         return self._deployed
 
-    async def deploy(self) -> "DeployableResource":
+    async def _do_deploy(self) -> "DeployableResource":
         """Simulate deployment with delay to trigger race conditions."""
         await asyncio.sleep(self.deploy_delay)
         self._deploy_count += 1
@@ -68,10 +70,19 @@ class MockDeployableResource(DeployableResource):
         deployed._deploy_count = self._deploy_count
         return deployed
 
-    async def undeploy(self) -> bool:
+    async def deploy(self) -> "DeployableResource":
+        resource_manager = ResourceManager()
+        return await resource_manager.get_or_deploy_resource(self)
+
+    async def _do_undeploy(self) -> bool:
         """Mock undeploy method."""
         self._deployed = False
         return True
+
+    async def undeploy(self) -> Dict[str, Any]:
+        resource_manager = ResourceManager()
+        result = await resource_manager.undeploy_resource(self.resource_id)
+        return result
 
 
 class TestSingleton:

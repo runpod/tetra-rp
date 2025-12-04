@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from enum import Enum
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from pydantic import (
     Field,
@@ -11,6 +11,7 @@ from pydantic import (
 from ..api.runpod import RunpodRestClient
 from .base import DeployableResource
 from .constants import CONSOLE_BASE_URL
+from .resource_manager import ResourceManager
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,12 @@ class NetworkVolume(DeployableResource):
     where multiple volumes with the same name will reuse existing volumes.
 
     """
+
+    _hashed_fields = {
+        "dataCenterId",
+        "size",
+        "name",
+    }
 
     # Internal fixed value
     dataCenterId: DataCenter = Field(default=DataCenter.EU_RO_1, frozen=True)
@@ -124,7 +131,7 @@ class NetworkVolume(DeployableResource):
 
         raise ValueError("Deployment failed, no volume was created.")
 
-    async def deploy(self) -> "DeployableResource":
+    async def _do_deploy(self) -> "DeployableResource":
         """
         Deploys the network volume resource using the provided configuration.
         Returns a DeployableResource object.
@@ -147,7 +154,30 @@ class NetworkVolume(DeployableResource):
             log.error(f"{self} failed to deploy: {e}")
             raise
 
-    async def undeploy(self) -> bool:
+    async def deploy(self) -> "DeployableResource":
+        resource_manager = ResourceManager()
+        resource = await resource_manager.get_or_deploy_resource(self)
+        # hydrate the id onto the resource so it's usable when this is called directly
+        # on a config
+        self.id = resource.id
+        return self
+
+    async def undeploy(self) -> Dict[str, Any]:
+        """
+        Undeploy network volume.
+
+        Returns:
+            True if successfully undeployed, False otherwise
+
+        Raises:
+            NotImplementedError: NetworkVolume undeploy is not yet supported
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} undeploy is not yet supported. "
+            "Network volumes must be manually deleted via RunPod UI or API."
+        )
+
+    async def _do_undeploy(self) -> bool:
         """
         Undeploy network volume.
 
