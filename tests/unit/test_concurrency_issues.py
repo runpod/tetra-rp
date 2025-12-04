@@ -55,7 +55,6 @@ class MockDeployableResource(DeployableResource):
     def is_deployed(self) -> bool:
         return self._deployed
 
-
     async def _do_deploy(self) -> "DeployableResource":
         """Simulate deployment with delay to trigger race conditions."""
         await asyncio.sleep(self.deploy_delay)
@@ -73,7 +72,7 @@ class MockDeployableResource(DeployableResource):
 
     async def deploy(self) -> "DeployableResource":
         resource_manager = ResourceManager()
-        return await resource_manager.get_or_deploy_resource(self) 
+        return await resource_manager.get_or_deploy_resource(self)
 
     async def _do_undeploy(self) -> bool:
         """Mock undeploy method."""

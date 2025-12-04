@@ -212,11 +212,13 @@ class ServerlessResource(DeployableResource):
 
         return self
 
-    async def _sync_graphql_object_with_inputs(self, returned_endpoint: "ServerlessResource"):
+    async def _sync_graphql_object_with_inputs(
+        self, returned_endpoint: "ServerlessResource"
+    ):
         for _input_field in self._input_only:
             if getattr(self, _input_field) is not None:
                 # sync input only fields stripped from gql request back to endpoint
-                setattr(returned_endpoint, _input_field,  getattr(self, _input_field))
+                setattr(returned_endpoint, _input_field, getattr(self, _input_field))
 
         return returned_endpoint
 

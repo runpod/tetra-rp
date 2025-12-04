@@ -20,7 +20,9 @@ class BaseResource(BaseModel):
     def resource_id(self) -> str:
         """Unique resource ID based on configuration."""
         resource_type = self.__class__.__name__
-        config_str = self.model_dump_json(include=self.__class__._hashed_fields, exclude_none=True)
+        config_str = self.model_dump_json(
+            include=self.__class__._hashed_fields, exclude_none=True
+        )
         hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
         return f"{resource_type}_{hash_obj.hexdigest()}"
 

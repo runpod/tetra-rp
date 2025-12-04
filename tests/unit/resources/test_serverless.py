@@ -534,7 +534,9 @@ class TestServerlessResourceDeployment:
                 "_ensure_network_volume_deployed",
                 new=AsyncMock(),
             ):
-                with patch.object(ServerlessResource, "is_deployed", return_value=False):
+                with patch.object(
+                    ServerlessResource, "is_deployed", return_value=False
+                ):
                     result = await serverless._do_deploy()
 
         assert result.env == serverless.env

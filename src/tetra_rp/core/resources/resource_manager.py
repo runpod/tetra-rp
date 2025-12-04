@@ -143,7 +143,7 @@ class ResourceManager(SingletonMixin):
             log.info(f"URL: {deployed_resource.url}")
             self._add_resource(uid, deployed_resource)
             return deployed_resource
-    
+
     @asynccontextmanager
     async def resource_lock(self, uid: str):
         # Ensure global lock is initialized (should be done in __init__)

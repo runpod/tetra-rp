@@ -165,7 +165,9 @@ class TestNetworkVolumeIdempotent:
             "tetra_rp.core.resources.network_volume.ResourceManager"
         ) as mock_manager_cls:
             mock_manager = MagicMock()
-            mock_manager.get_or_deploy_resource = AsyncMock(return_value=deployed_volume)
+            mock_manager.get_or_deploy_resource = AsyncMock(
+                return_value=deployed_volume
+            )
             mock_manager_cls.return_value = mock_manager
 
             result = await volume.deploy()
