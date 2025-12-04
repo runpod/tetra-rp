@@ -2,7 +2,7 @@
 Unit tests for NetworkVolume idempotent behavior.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 
 from tetra_rp.core.resources.network_volume import NetworkVolume, DataCenter
@@ -48,7 +48,7 @@ class TestNetworkVolumeIdempotent:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__ = AsyncMock()
             # Act
-            result = await volume.deploy()
+            result = await volume._do_deploy()
 
         # Assert
         mock_runpod_client.list_network_volumes.assert_called_once()
@@ -73,7 +73,7 @@ class TestNetworkVolumeIdempotent:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__ = AsyncMock()
             # Act
-            result = await volume.deploy()
+            result = await volume._do_deploy()
 
         # Assert
         mock_runpod_client.list_network_volumes.assert_called_once()
@@ -103,7 +103,7 @@ class TestNetworkVolumeIdempotent:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__ = AsyncMock()
             # Act
-            result = await volume.deploy()
+            result = await volume._do_deploy()
 
         # Assert
         mock_runpod_client.list_network_volumes.assert_called_once()
@@ -132,8 +132,8 @@ class TestNetworkVolumeIdempotent:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__ = AsyncMock()
             # Act
-            result1 = await volume1.deploy()
-            result2 = await volume2.deploy()
+            result1 = await volume1._do_deploy()
+            result2 = await volume2._do_deploy()
 
         # Assert
         assert mock_runpod_client.list_network_volumes.call_count == 2
@@ -152,3 +152,24 @@ class TestNetworkVolumeIdempotent:
         # Assert
         assert volume1.resource_id == volume2.resource_id  # Same name + datacenter
         assert volume1.resource_id != volume3.resource_id  # Different name
+
+    @pytest.mark.asyncio
+    async def test_deploy_uses_resource_manager_to_register(self, sample_volume_data):
+        """deploy() should go through the ResourceManager for persistence."""
+        volume = NetworkVolume(name="manager-volume", size=50)
+
+        deployed_volume = NetworkVolume(name="manager-volume", size=50)
+        deployed_volume.id = sample_volume_data["id"]
+
+        with patch(
+            "tetra_rp.core.resources.network_volume.ResourceManager"
+        ) as mock_manager_cls:
+            mock_manager = MagicMock()
+            mock_manager.get_or_deploy_resource = AsyncMock(return_value=deployed_volume)
+            mock_manager_cls.return_value = mock_manager
+
+            result = await volume.deploy()
+
+        mock_manager.get_or_deploy_resource.assert_awaited_once_with(volume)
+        assert result is volume
+        assert volume.id == deployed_volume.id

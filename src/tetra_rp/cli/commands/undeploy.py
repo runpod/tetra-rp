@@ -261,12 +261,16 @@ def undeploy_command(
         _undeploy_by_name(name, resources)
     else:
         console.print(
-            "[red]Error:[/red] Please specify an endpoint name, use --all, or use --interactive"
+            Panel(
+                "Usage: flash undeploy [name | list | --all | --interactive | --cleanup-stale]",
+                title="Undeploy Help",
+                expand=False,
+            )
         )
         console.print(
-            "\n💡 Use [bold]flash undeploy list[/bold] to see available endpoints"
+            "[red]Error:[/red] Please specify a name, use --all/--interactive, or run `flash undeploy list`"
         )
-        raise typer.Exit(1)
+        raise typer.Exit(0)
 
 
 def _undeploy_by_name(name: str, resources: dict):

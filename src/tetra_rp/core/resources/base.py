@@ -1,6 +1,6 @@
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Dict, Any, ClassVar
 from pydantic import BaseModel, ConfigDict
 
 
@@ -14,12 +14,13 @@ class BaseResource(BaseModel):
     )
 
     id: Optional[str] = None
+    _hashed_fields: ClassVar[set] = set()
 
     @property
     def resource_id(self) -> str:
         """Unique resource ID based on configuration."""
         resource_type = self.__class__.__name__
-        config_str = self.model_dump_json(exclude_none=True)
+        config_str = self.model_dump_json(include=self.__class__._hashed_fields, exclude_none=True)
         hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
         return f"{resource_type}_{hash_obj.hexdigest()}"
 
@@ -42,15 +43,34 @@ class DeployableResource(BaseResource, ABC):
         raise NotImplementedError("Subclasses should implement this method.")
 
     @abstractmethod
-    async def deploy(self) -> "DeployableResource":
-        """Deploy the resource."""
+    async def _do_deploy(self) -> "DeployableResource":
+        """Internal API for actually deploying a resource."""
         raise NotImplementedError("Subclasses should implement this method.")
 
     @abstractmethod
-    async def undeploy(self) -> bool:
-        """Undeploy/delete the resource.
+    async def deploy(self) -> "DeployableResource":
+        """Deploy the resource. Hooks into state manager to handle persistence
+        of resource config."""
+        raise NotImplementedError("Subclasses should implement this method.")
+
+    @abstractmethod
+    async def _do_undeploy(self) -> bool:
+        """Internal API for undeploying a resource.
 
         Returns:
             True if successfully undeployed, False otherwise
+        """
+        raise NotImplementedError("Subclasses should implement this method.")
+
+    @abstractmethod
+    async def undeploy(self) -> Dict[str, Any]:
+        """Undeploy/delete the resource.
+
+        Returns:
+            Dict with keys:
+                - success: bool indicating if undeploy succeeded
+                - name: resource name (if available)
+                - endpoint_id: resource endpoint ID (if available)
+                - message: status message
         """
         raise NotImplementedError("Subclasses should implement this method.")

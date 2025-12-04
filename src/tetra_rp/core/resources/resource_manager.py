@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import asynccontextmanager
 import cloudpickle
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -80,6 +81,12 @@ class ResourceManager(SingletonMixin):
 
         self._save_resources()
 
+    async def register_resource(self, resource: DeployableResource) -> str:
+        """Persist a resource config into pickled state. Not thread safe."""
+        uid = resource.resource_id
+        self._add_resource(uid, resource)
+        return uid
+
     async def _deploy_with_error_context(
         self, config: DeployableResource
     ) -> DeployableResource:
@@ -95,10 +102,13 @@ class ResourceManager(SingletonMixin):
             RunpodAPIKeyError: If deployment fails due to missing API key, with resource context.
         """
         try:
-            return await config.deploy()
+            return await config._do_deploy()
         except RunpodAPIKeyError as e:
             error_msg = f"Cannot deploy resource '{config.name}': {str(e)}"
             raise RunpodAPIKeyError(error_msg) from e
+
+    async def get_resource_from_store(self, uid: str):
+        return self._resources.get(uid)
 
     async def get_or_deploy_resource(
         self, config: DeployableResource
@@ -110,19 +120,10 @@ class ResourceManager(SingletonMixin):
         """
         uid = config.resource_id
 
-        # Ensure global lock is initialized (should be done in __init__)
-        assert ResourceManager._global_lock is not None, "Global lock not initialized"
-
-        # Get or create a per-resource lock
-        async with ResourceManager._global_lock:
-            if uid not in ResourceManager._deployment_locks:
-                ResourceManager._deployment_locks[uid] = asyncio.Lock()
-            resource_lock = ResourceManager._deployment_locks[uid]
-
         # Acquire per-resource lock for this specific configuration
-        async with resource_lock:
+        async with self.resource_lock(uid):
             # Double-check pattern: check again inside the lock
-            if existing := self._resources.get(uid):
+            if existing := await self.get_resource_from_store(uid):
                 if not existing.is_deployed():
                     log.warning(f"{existing} is no longer valid, redeploying.")
                     self._remove_resource(uid)
@@ -142,6 +143,20 @@ class ResourceManager(SingletonMixin):
             log.info(f"URL: {deployed_resource.url}")
             self._add_resource(uid, deployed_resource)
             return deployed_resource
+    
+    @asynccontextmanager
+    async def resource_lock(self, uid: str):
+        # Ensure global lock is initialized (should be done in __init__)
+        assert ResourceManager._global_lock is not None, "Global lock not initialized"
+
+        # Get or create a per-resource lock
+        async with ResourceManager._global_lock:
+            if uid not in ResourceManager._deployment_locks:
+                ResourceManager._deployment_locks[uid] = asyncio.Lock()
+            resource_lock = ResourceManager._deployment_locks[uid]
+
+        async with resource_lock:
+            yield
 
     def list_all_resources(self) -> Dict[str, DeployableResource]:
         """List all tracked resources.
@@ -175,7 +190,7 @@ class ResourceManager(SingletonMixin):
         """Undeploy a resource and remove from tracking.
 
         This is the public interface for removing resources. It calls the resource's
-        undeploy() method (polymorphic) and removes from tracking on success.
+        _do_undeploy() method (polymorphic) and removes from tracking on success.
 
         Args:
             resource_id: The resource ID to undeploy
@@ -191,6 +206,7 @@ class ResourceManager(SingletonMixin):
                 - message: status message
         """
         resource = self._resources.get(resource_id)
+        log.debug(f"existing resources: {self._resources}")
 
         if not resource:
             return {
@@ -206,7 +222,7 @@ class ResourceManager(SingletonMixin):
 
         try:
             # Call polymorphic undeploy method
-            success = await resource.undeploy()
+            success = await resource._do_undeploy()
 
             if success:
                 # Remove from tracking on successful undeploy

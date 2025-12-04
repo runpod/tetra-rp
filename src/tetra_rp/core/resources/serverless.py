@@ -21,6 +21,7 @@ from .environment import EnvironmentVars
 from .gpu import GpuGroup
 from .network_volume import NetworkVolume, DataCenter
 from .template import KeyValuePair, PodTemplate
+from .resource_manager import ResourceManager
 
 
 # Environment variables are loaded from the .env file
@@ -89,6 +90,24 @@ class ServerlessResource(DeployableResource):
         "networkVolume",
     }
 
+    _hashed_fields = {
+        "datacenter",
+        "env",
+        "gpuIds",
+        "executionTimeoutMs",
+        "gpuCount",
+        "locations",
+        "name",
+        "networkVolumeId",
+        "scalerType",
+        "scalerValue",
+        "workersMax",
+        "workersMin",
+        "workersPFBTarget",
+        "allowedCudaVersions",
+        "type",
+    }
+
     # === Input-only Fields ===
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
@@ -99,7 +118,7 @@ class ServerlessResource(DeployableResource):
     datacenter: DataCenter = Field(default=DataCenter.EU_RO_1)
 
     # === Input Fields ===
-    executionTimeoutMs: Optional[int] = None
+    executionTimeoutMs: Optional[int] = 0
     gpuCount: Optional[int] = 1
     idleTimeout: Optional[int] = 5
     locations: Optional[str] = None
@@ -108,15 +127,15 @@ class ServerlessResource(DeployableResource):
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
     templateId: Optional[str] = None
-    type: Optional[ServerlessType] = None
+    type: Optional[ServerlessType] = ServerlessType.QB
     workersMax: Optional[int] = 3
     workersMin: Optional[int] = 0
-    workersPFBTarget: Optional[int] = None
+    workersPFBTarget: Optional[int] = 0
 
     # === Runtime Fields ===
     activeBuildid: Optional[str] = None
     aiKey: Optional[str] = None
-    allowedCudaVersions: Optional[str] = None
+    allowedCudaVersions: Optional[str] = ""
     computeType: Optional[str] = None
     createdAt: Optional[str] = None  # TODO: use datetime
     gpuIds: Optional[str] = ""
@@ -171,7 +190,7 @@ class ServerlessResource(DeployableResource):
     @model_validator(mode="after")
     def sync_input_fields(self):
         """Sync between temporary inputs and exported fields"""
-        if self.flashboot:
+        if self.flashboot and not self.name.endswith("-fb"):
             self.name += "-fb"
 
         # Sync datacenter to locations field for API
@@ -193,9 +212,20 @@ class ServerlessResource(DeployableResource):
 
         return self
 
+    async def _sync_graphql_object_with_inputs(self, returned_endpoint: "ServerlessResource"):
+        for _input_field in self._input_only:
+            if getattr(self, _input_field) is not None:
+                # sync input only fields stripped from gql request back to endpoint
+                setattr(returned_endpoint, _input_field,  getattr(self, _input_field))
+
+        return returned_endpoint
+
     def _sync_input_fields_gpu(self):
         # GPU-specific fields
-        if self.gpus:
+        # the response from the api for gpus is none
+        # apply this path only if gpuIds is None, otherwise we overwrite gpuIds
+        # with ANY gpu because the default for gpus is any
+        if self.gpus and not self.gpuIds:
             # Convert gpus list to gpuIds string
             self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
         elif self.gpuIds:
@@ -241,7 +271,7 @@ class ServerlessResource(DeployableResource):
             log.error(f"Error checking {self}: {e}")
             return False
 
-    async def deploy(self) -> "DeployableResource":
+    async def _do_deploy(self) -> "DeployableResource":
         """
         Deploys the serverless resource using the provided configuration.
         Returns a DeployableResource object.
@@ -260,6 +290,8 @@ class ServerlessResource(DeployableResource):
                 result = await client.create_endpoint(payload)
 
             if endpoint := self.__class__(**result):
+                endpoint = await self._sync_graphql_object_with_inputs(endpoint)
+                self.id = endpoint.id
                 return endpoint
 
             raise ValueError("Deployment failed, no endpoint was returned.")
@@ -268,7 +300,15 @@ class ServerlessResource(DeployableResource):
             log.error(f"{self} failed to deploy: {e}")
             raise
 
-    async def undeploy(self) -> bool:
+    async def deploy(self) -> "DeployableResource":
+        resource_manager = ResourceManager()
+        resource = await resource_manager.get_or_deploy_resource(self)
+        # hydrate the id onto the resource so it's usable when this is called directly
+        # on a config
+        self.id = resource.id
+        return self
+
+    async def _do_undeploy(self) -> bool:
         """
         Undeploys (deletes) the serverless endpoint.
 
@@ -294,6 +334,12 @@ class ServerlessResource(DeployableResource):
         except Exception as e:
             log.error(f"{self} failed to undeploy: {e}")
             return False
+
+    async def undeploy(self) -> Dict[str, Any]:
+        resource_manager = ResourceManager()
+        result = await resource_manager.undeploy_resource(self.resource_id)
+        log.debug(f"undeployment result: {result}")
+        return result
 
     async def run_sync(self, payload: Dict[str, Any]) -> "JobOutput":
         """

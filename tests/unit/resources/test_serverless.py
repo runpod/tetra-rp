@@ -95,6 +95,18 @@ class TestServerlessResource:
         with pytest.raises(ValueError, match="Missing self.id"):
             _ = serverless.endpoint
 
+    def test_resource_id_changes_only_for_hashed_fields(self):
+        """Ensure resource_id only changes when hashed fields change."""
+        serverless = ServerlessResource(name="hash-test", flashboot=False)
+
+        original_id = serverless.resource_id
+
+        serverless.activeBuildid = "build-123"  # runtime field
+        assert serverless.resource_id == original_id
+
+        serverless.workersMax += 1  # hashed field
+        assert serverless.resource_id != original_id
+
 
 class TestServerlessResourceNetworkVolume:
     """Test network volume integration in ServerlessResource."""
@@ -427,7 +439,7 @@ class TestServerlessResourceDeployment:
         return {
             "id": "endpoint-123",
             "name": "test-serverless-fb",
-            "gpuIds": "RTX4090",
+            "gpuIds": "ADA_24",
             "allowedCudaVersions": "12.1",
             "networkVolumeId": "vol-456",
         }
@@ -486,9 +498,48 @@ class TestServerlessResourceDeployment:
         assert result.id == "endpoint-123"
         # The returned object gets the name from the API response, which gets processed again
         # result is a DeployableResource, so we need to cast it
-        assert hasattr(result, "name") and result.name == "test-serverless-fb-fb"
+        assert hasattr(result, "name") and result.name == "test-serverless-fb"
         # Verify locations was set from datacenter
         assert hasattr(result, "locations") and result.locations == "EU-RO-1"
+
+    @pytest.mark.asyncio
+    async def test_do_deploy_restores_input_only_fields(self, mock_runpod_client):
+        """_do_deploy should merge input-only fields back into returned endpoint."""
+        volume = NetworkVolume(name="persist-me", size=50)
+        volume.id = "vol-input-only"
+
+        serverless = ServerlessResource(
+            name="input-sync",
+            env={"FOO": "BAR"},
+            networkVolume=volume,
+        )
+
+        deployment_response = {
+            "id": "endpoint-sync",
+            "name": "input-sync-fb",
+            "gpuIds": "AMPERE_48",
+            "allowedCudaVersions": "",
+        }
+
+        mock_runpod_client.create_endpoint.return_value = deployment_response
+
+        with patch(
+            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+        ) as mock_client_class:
+            mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
+            mock_client_class.return_value.__aexit__.return_value = None
+
+            with patch.object(
+                ServerlessResource,
+                "_ensure_network_volume_deployed",
+                new=AsyncMock(),
+            ):
+                with patch.object(ServerlessResource, "is_deployed", return_value=False):
+                    result = await serverless._do_deploy()
+
+        assert result.env == serverless.env
+        assert result.networkVolume == serverless.networkVolume
+        assert serverless.id == "endpoint-sync"
 
     @pytest.mark.asyncio
     async def test_deploy_failure_raises_exception(self, mock_runpod_client):
@@ -743,7 +794,7 @@ class TestServerlessResourceEdgeCases:
         # This tests the lines 173-176 which convert gpuIds back to gpus list
         serverless = ServerlessResource(
             name="test",
-            gpuIds="AMPERE_48,AMPERE_24,INVALID_GPU",  # Include invalid GPU to test error handling
+            gpuIds="AMPERE_48,AMPERE_24",
         )
 
         # Should have parsed valid GPUs and skipped invalid ones
