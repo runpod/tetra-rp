@@ -78,14 +78,11 @@ class ServerlessResource(DeployableResource):
     Base class for GPU serverless resource
     """
 
-    # Fields that are user inputs, not server-assigned
-    # Note: 'env' is excluded because it's dynamically computed from the environment
-    # at initialization time. Including it would cause false drift detection across
-    # different Python processes that might have different .env files or environment state.
     _input_only = {
         "id",
         "cudaVersions",
         "datacenter",
+        "env",
         "gpus",
         "flashboot",
         "imageName",
@@ -170,6 +167,39 @@ class ServerlessResource(DeployableResource):
         if value == [GpuGroup.ANY]:
             return GpuGroup.all()
         return value
+
+    @property
+    def config_hash(self) -> str:
+        """Get config hash excluding env to prevent false drift detection.
+
+        Environment variables are dynamically computed at initialization time from the .env file.
+        Including them in the config hash causes false drift detection when the same resource
+        is deployed in different Python processes that might have different .env files or
+        environment state. This override computes the hash using only structural fields.
+        """
+        import hashlib
+        import json
+
+        resource_type = self.__class__.__name__
+
+        # Use _input_only fields but exclude 'env' to avoid dynamic drift
+        if hasattr(self, "_input_only"):
+            include_fields = self._input_only - {"id", "env"}  # Exclude id and env
+            config_dict = self.model_dump(
+                exclude_none=True, include=include_fields, mode="json"
+            )
+        else:
+            # Fallback
+            config_dict = self.model_dump(
+                exclude_none=True, exclude={"id", "env"}, mode="json"
+            )
+
+        # Convert to JSON string for hashing
+        config_str = json.dumps(config_dict, sort_keys=True)
+        hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
+        hash_value = hash_obj.hexdigest()
+
+        return hash_value
 
     @model_validator(mode="after")
     def sync_input_fields(self):
