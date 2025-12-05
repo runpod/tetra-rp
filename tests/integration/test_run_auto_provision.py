@@ -107,17 +107,23 @@ class TestRunAutoProvision:
         # Mock subprocess to prevent actual uvicorn start
         with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
+            mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
-            # Mock discovery to track if it was called
-            with patch(
-                "tetra_rp.cli.commands.run._discover_resources"
-            ) as mock_discover:
-                runner.invoke(app, ["run"])
+            # Mock OS-level process group operations to prevent hanging
+            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+                mock_getpgid.return_value = 12345
 
-                # Discovery should not be called
-                mock_discover.assert_not_called()
+                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                    # Mock discovery to track if it was called
+                    with patch(
+                        "tetra_rp.cli.commands.run._discover_resources"
+                    ) as mock_discover:
+                        runner.invoke(app, ["run"])
+
+                        # Discovery should not be called
+                        mock_discover.assert_not_called()
 
     def test_run_with_auto_provision_single_resource(self, temp_project, monkeypatch):
         """Test flash run --auto-provision with single resource."""
@@ -126,17 +132,23 @@ class TestRunAutoProvision:
         # Mock subprocess to prevent actual uvicorn start
         with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
+            mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
-            # Mock deployment orchestrator
-            with patch(
-                "tetra_rp.cli.commands.run._start_background_provisioning"
-            ) as mock_provision:
-                runner.invoke(app, ["run", "--auto-provision"])
+            # Mock OS-level process group operations
+            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+                mock_getpgid.return_value = 12345
 
-                # Provisioning should be called
-                mock_provision.assert_called_once()
+                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                    # Mock deployment orchestrator
+                    with patch(
+                        "tetra_rp.cli.commands.run._start_background_provisioning"
+                    ) as mock_provision:
+                        runner.invoke(app, ["run", "--auto-provision"])
+
+                        # Provisioning should be called
+                        mock_provision.assert_called_once()
 
     def test_run_with_auto_provision_skips_reload(self, temp_project, monkeypatch):
         """Test that auto-provision is skipped on reload."""
@@ -148,17 +160,23 @@ class TestRunAutoProvision:
         # Mock subprocess to prevent actual uvicorn start
         with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
+            mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
-            # Mock provisioning
-            with patch(
-                "tetra_rp.cli.commands.run._start_background_provisioning"
-            ) as mock_provision:
-                runner.invoke(app, ["run", "--auto-provision"])
+            # Mock OS-level process group operations
+            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+                mock_getpgid.return_value = 12345
 
-                # Provisioning should NOT be called on reload
-                mock_provision.assert_not_called()
+                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                    # Mock provisioning
+                    with patch(
+                        "tetra_rp.cli.commands.run._start_background_provisioning"
+                    ) as mock_provision:
+                        runner.invoke(app, ["run", "--auto-provision"])
+
+                        # Provisioning should NOT be called on reload
+                        mock_provision.assert_not_called()
 
     def test_run_with_auto_provision_many_resources_confirmed(
         self, temp_project, monkeypatch
@@ -172,31 +190,37 @@ class TestRunAutoProvision:
         # Mock subprocess to prevent actual uvicorn start
         with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
+            mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
-            # Mock discovery to return > 5 resources
-            with patch(
-                "tetra_rp.cli.commands.run._discover_resources"
-            ) as mock_discover:
-                mock_discover.return_value = mock_resources
+            # Mock OS-level process group operations
+            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+                mock_getpgid.return_value = 12345
 
-                # Mock questionary to simulate user confirmation
-                with patch(
-                    "tetra_rp.cli.commands.run.questionary.confirm"
-                ) as mock_confirm:
-                    mock_confirm.return_value.ask.return_value = True
-
+                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                    # Mock discovery to return > 5 resources
                     with patch(
-                        "tetra_rp.cli.commands.run._start_background_provisioning"
-                    ) as mock_provision:
-                        runner.invoke(app, ["run", "--auto-provision"])
+                        "tetra_rp.cli.commands.run._discover_resources"
+                    ) as mock_discover:
+                        mock_discover.return_value = mock_resources
 
-                        # Should prompt for confirmation
-                        mock_confirm.assert_called_once()
+                        # Mock questionary to simulate user confirmation
+                        with patch(
+                            "tetra_rp.cli.commands.run.questionary.confirm"
+                        ) as mock_confirm:
+                            mock_confirm.return_value.ask.return_value = True
 
-                        # Should provision after confirmation
-                        mock_provision.assert_called_once()
+                            with patch(
+                                "tetra_rp.cli.commands.run._start_background_provisioning"
+                            ) as mock_provision:
+                                runner.invoke(app, ["run", "--auto-provision"])
+
+                                # Should prompt for confirmation
+                                mock_confirm.assert_called_once()
+
+                                # Should provision after confirmation
+                                mock_provision.assert_called_once()
 
     def test_run_with_auto_provision_many_resources_cancelled(
         self, temp_project, monkeypatch
@@ -210,31 +234,37 @@ class TestRunAutoProvision:
         # Mock subprocess to prevent actual uvicorn start
         with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
+            mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
-            # Mock discovery to return > 5 resources
-            with patch(
-                "tetra_rp.cli.commands.run._discover_resources"
-            ) as mock_discover:
-                mock_discover.return_value = mock_resources
+            # Mock OS-level process group operations
+            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+                mock_getpgid.return_value = 12345
 
-                # Mock questionary to simulate user cancellation
-                with patch(
-                    "tetra_rp.cli.commands.run.questionary.confirm"
-                ) as mock_confirm:
-                    mock_confirm.return_value.ask.return_value = False
-
+                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                    # Mock discovery to return > 5 resources
                     with patch(
-                        "tetra_rp.cli.commands.run._start_background_provisioning"
-                    ) as mock_provision:
-                        runner.invoke(app, ["run", "--auto-provision"])
+                        "tetra_rp.cli.commands.run._discover_resources"
+                    ) as mock_discover:
+                        mock_discover.return_value = mock_resources
 
-                        # Should prompt for confirmation
-                        mock_confirm.assert_called_once()
+                        # Mock questionary to simulate user cancellation
+                        with patch(
+                            "tetra_rp.cli.commands.run.questionary.confirm"
+                        ) as mock_confirm:
+                            mock_confirm.return_value.ask.return_value = False
 
-                        # Should NOT provision after cancellation
-                        mock_provision.assert_not_called()
+                            with patch(
+                                "tetra_rp.cli.commands.run._start_background_provisioning"
+                            ) as mock_provision:
+                                runner.invoke(app, ["run", "--auto-provision"])
+
+                                # Should prompt for confirmation
+                                mock_confirm.assert_called_once()
+
+                                # Should NOT provision after cancellation
+                                mock_provision.assert_not_called()
 
     def test_run_auto_provision_discovery_error(self, temp_project, monkeypatch):
         """Test that run handles discovery errors gracefully."""
@@ -243,19 +273,25 @@ class TestRunAutoProvision:
         # Mock subprocess to prevent actual uvicorn start
         with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
+            mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
-            # Mock discovery to raise exception
-            with patch(
-                "tetra_rp.cli.commands.run._discover_resources"
-            ) as mock_discover:
-                mock_discover.return_value = []
+            # Mock OS-level process group operations
+            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+                mock_getpgid.return_value = 12345
 
-                runner.invoke(app, ["run", "--auto-provision"])
+                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                    # Mock discovery to raise exception
+                    with patch(
+                        "tetra_rp.cli.commands.run._discover_resources"
+                    ) as mock_discover:
+                        mock_discover.return_value = []
 
-                # Server should still start despite discovery error
-                mock_popen.assert_called_once()
+                        runner.invoke(app, ["run", "--auto-provision"])
+
+                        # Server should still start despite discovery error
+                        mock_popen.assert_called_once()
 
     def test_run_auto_provision_no_resources_found(self, tmp_path, monkeypatch):
         """Test auto-provision when no resources are found."""
@@ -280,16 +316,22 @@ class TestRunAutoProvision:
         # Mock subprocess to prevent actual uvicorn start
         with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
+            mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
-            with patch(
-                "tetra_rp.cli.commands.run._start_background_provisioning"
-            ) as mock_provision:
-                runner.invoke(app, ["run", "--auto-provision"])
+            # Mock OS-level process group operations
+            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+                mock_getpgid.return_value = 12345
 
-                # Provisioning should not be called
-                mock_provision.assert_not_called()
+                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                    with patch(
+                        "tetra_rp.cli.commands.run._start_background_provisioning"
+                    ) as mock_provision:
+                        runner.invoke(app, ["run", "--auto-provision"])
 
-                # Server should still start
-                mock_popen.assert_called_once()
+                        # Provisioning should not be called
+                        mock_provision.assert_not_called()
+
+                        # Server should still start
+                        mock_popen.assert_called_once()
