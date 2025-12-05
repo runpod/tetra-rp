@@ -803,7 +803,9 @@ class TestServerlessResourceUndeploy:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("tetra_rp.core.resources.serverless.RunpodGraphQLClient") as MockClient:
+        with patch(
+            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+        ) as MockClient:
             MockClient.return_value = mock_client
             result = await serverless.undeploy()
 
@@ -819,11 +821,15 @@ class TestServerlessResourceUndeploy:
         mock_client.delete_endpoint = AsyncMock(
             side_effect=Exception("Something went wrong. Please try again later")
         )
-        mock_client.endpoint_exists = AsyncMock(return_value=True)  # Endpoint still exists
+        mock_client.endpoint_exists = AsyncMock(
+            return_value=True
+        )  # Endpoint still exists
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("tetra_rp.core.resources.serverless.RunpodGraphQLClient") as MockClient:
+        with patch(
+            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+        ) as MockClient:
             MockClient.return_value = mock_client
             result = await serverless.undeploy()
 
@@ -841,11 +847,15 @@ class TestServerlessResourceUndeploy:
         mock_client.delete_endpoint = AsyncMock(
             side_effect=Exception("Something went wrong. Please try again later")
         )
-        mock_client.endpoint_exists = AsyncMock(return_value=False)  # Endpoint not found
+        mock_client.endpoint_exists = AsyncMock(
+            return_value=False
+        )  # Endpoint not found
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("tetra_rp.core.resources.serverless.RunpodGraphQLClient") as MockClient:
+        with patch(
+            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+        ) as MockClient:
             MockClient.return_value = mock_client
             result = await serverless.undeploy()
 

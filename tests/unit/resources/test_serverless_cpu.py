@@ -385,13 +385,11 @@ class TestCpuConfigHash:
                 old_sorted = sorted(str(v) for v in old_val)
                 new_sorted = sorted(str(v) for v in new_val)
                 assert old_sorted == new_sorted, (
-                    f"Structural change in '{field}': "
-                    f"loaded={old_val} vs new={new_val}"
+                    f"Structural change in '{field}': loaded={old_val} vs new={new_val}"
                 )
             else:
                 assert old_val == new_val, (
-                    f"Structural change in '{field}': "
-                    f"loaded={old_val} vs new={new_val}"
+                    f"Structural change in '{field}': loaded={old_val} vs new={new_val}"
                 )
 
     def test_config_hash_excludes_gpu_fields(self):

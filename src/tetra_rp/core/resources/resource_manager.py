@@ -114,7 +114,7 @@ class ResourceManager(SingletonMixin):
         updated = False
 
         for key, resource in self._resources.items():
-            if not hasattr(resource, 'config_hash'):
+            if not hasattr(resource, "config_hash"):
                 continue
 
             # Compute fresh hash with current code

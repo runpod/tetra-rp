@@ -46,16 +46,21 @@ class BaseResource(BaseModel):
         """
         import json
         import logging
+
         resource_type = self.__class__.__name__
 
         # If resource defines input_only fields, use only those for hash
         if hasattr(self, "_input_only"):
             # Include only user-provided input fields, not server-assigned ones
             include_fields = self._input_only - {"id"}  # Exclude id from input fields
-            config_dict = self.model_dump(exclude_none=True, include=include_fields, mode='json')
+            config_dict = self.model_dump(
+                exclude_none=True, include=include_fields, mode="json"
+            )
         else:
             # Fallback: exclude only id field
-            config_dict = self.model_dump(exclude_none=True, exclude={"id"}, mode='json')
+            config_dict = self.model_dump(
+                exclude_none=True, exclude={"id"}, mode="json"
+            )
 
         # Convert to JSON string for hashing
         config_str = json.dumps(config_dict, sort_keys=True)

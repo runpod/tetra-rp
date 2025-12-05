@@ -144,7 +144,9 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
             "gpus",
             "networkVolume",
         }
-        config_dict = self.model_dump(exclude_none=True, include=cpu_fields, mode='json')
+        config_dict = self.model_dump(
+            exclude_none=True, include=cpu_fields, mode="json"
+        )
         config_str = json.dumps(config_dict, sort_keys=True)
         hash_obj = hashlib.md5(f"{self.__class__.__name__}:{config_str}".encode())
         return hash_obj.hexdigest()

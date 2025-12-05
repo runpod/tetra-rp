@@ -125,7 +125,9 @@ class DeploymentOrchestrator:
                 )
 
                 # Wait for all deployments
-                self.results = await asyncio.gather(*deploy_tasks, return_exceptions=False)
+                self.results = await asyncio.gather(
+                    *deploy_tasks, return_exceptions=False
+                )
 
                 progress.update(
                     task_id,
