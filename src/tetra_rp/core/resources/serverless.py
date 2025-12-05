@@ -78,11 +78,14 @@ class ServerlessResource(DeployableResource):
     Base class for GPU serverless resource
     """
 
+    # Fields that are user inputs, not server-assigned
+    # Note: 'env' is excluded because it's dynamically computed from the environment
+    # at initialization time. Including it would cause false drift detection across
+    # different Python processes that might have different .env files or environment state.
     _input_only = {
         "id",
         "cudaVersions",
         "datacenter",
-        "env",
         "gpus",
         "flashboot",
         "imageName",

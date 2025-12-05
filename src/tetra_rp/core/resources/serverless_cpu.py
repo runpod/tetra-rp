@@ -114,7 +114,6 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
         "id",
         "cudaVersions",  # GPU-specific, exclude from API payload
         "datacenter",
-        "env",
         "gpus",  # Inherited from parent, but always None for CPU endpoints
         "gpuIds",  # GPU-specific API field, exclude from payload
         "gpuCount",  # GPU-specific API field, exclude from payload
