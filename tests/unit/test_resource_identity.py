@@ -214,3 +214,35 @@ class TestResourceIdentity:
 
         # Should have the same resource_id despite different ids
         assert config1.resource_id == config2.resource_id
+
+    def test_config_hash_excludes_server_assigned_fields(self):
+        """Test that config_hash excludes server-assigned fields.
+
+        Server-assigned fields like templateId, aiKey, userId should not affect
+        config hash for drift detection.
+        """
+        # Create a fresh config
+        fresh_config = LiveServerless(
+            name="test-endpoint",
+            gpus=[GpuGroup.ADA_24],
+            workersMin=0,
+            workersMax=3,
+            flashboot=True,
+        )
+
+        # Get hash before "deployment"
+        hash_before = fresh_config.config_hash
+
+        # Simulate server response by setting server-assigned fields
+        fresh_config.templateId = "ig8m26v4p8"
+        fresh_config.aiKey = "some-ai-key"
+        fresh_config.userId = "user_123"
+        fresh_config.type = "QB"
+        fresh_config.executionTimeoutMs = 0
+        fresh_config.allowedCudaVersions = ""
+
+        # Get hash after "deployment"
+        hash_after = fresh_config.config_hash
+
+        # Hashes should be identical - server fields shouldn't affect hash
+        assert hash_before == hash_after

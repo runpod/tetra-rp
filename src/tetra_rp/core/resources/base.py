@@ -36,13 +36,27 @@ class BaseResource(BaseModel):
 
     @property
     def config_hash(self) -> str:
-        """Get hash of current configuration (excluding id).
+        """Get hash of current configuration (excluding id and server-assigned fields).
 
         Unlike resource_id which is cached, this always computes fresh hash.
         Used for drift detection.
+
+        For resources with _input_only set, only those fields are included in the hash
+        to avoid drift from server-assigned fields.
         """
         resource_type = self.__class__.__name__
-        config_str = self.model_dump_json(exclude_none=True, exclude={"id"})
+
+        # If resource defines input_only fields, use only those for hash
+        if hasattr(self, "_input_only"):
+            # Include only user-provided input fields, not server-assigned ones
+            include_fields = self._input_only - {"id"}  # Exclude id from input fields
+            config_str = self.model_dump_json(
+                exclude_none=True, include=include_fields
+            )
+        else:
+            # Fallback: exclude only id field
+            config_str = self.model_dump_json(exclude_none=True, exclude={"id"})
+
         hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
         return hash_obj.hexdigest()
 
