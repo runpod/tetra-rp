@@ -27,10 +27,16 @@ Get your API key from [Runpod Settings](https://www.runpod.io/console/user/setti
 ### 3. Run Locally
 
 ```bash
+# Standard run
 flash run
+
+# Faster development: pre-provision endpoints (eliminates cold-start delays)
+flash run --auto-provision
 ```
 
 Server starts at **http://localhost:8000**
+
+With `--auto-provision`, all serverless endpoints deploy before testing begins. This is much faster for development because endpoints are cached and reused across server restarts. Subsequent runs skip deployment and start immediately.
 
 ### 4. Test the API
 

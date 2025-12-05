@@ -62,6 +62,7 @@ flash run [OPTIONS]
 - `--host`: Host to bind to (default: localhost)
 - `--port, -p`: Port to bind to (default: 8888)
 - `--reload/--no-reload`: Enable auto-reload (default: enabled)
+- `--auto-provision`: Auto-provision serverless endpoints on startup (default: disabled)
 
 **Example:**
 ```bash

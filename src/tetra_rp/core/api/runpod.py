@@ -210,6 +210,30 @@ class RunpodGraphQLClient:
 
         return {"success": "deleteEndpoint" in result}
 
+    async def endpoint_exists(self, endpoint_id: str) -> bool:
+        """Check if an endpoint exists by querying the user's endpoint list."""
+        query = """
+        query {
+            myself {
+                endpoints {
+                    id
+                }
+            }
+        }
+        """
+
+        try:
+            result = await self._execute_graphql(query)
+            endpoints = result.get("myself", {}).get("endpoints", [])
+            endpoint_ids = [ep.get("id") for ep in endpoints]
+            exists = endpoint_id in endpoint_ids
+
+            log.debug(f"Endpoint {endpoint_id} exists: {exists}")
+            return exists
+        except Exception as e:
+            log.error(f"Error checking endpoint existence: {e}")
+            return False
+
     async def close(self):
         """Close the HTTP session."""
         if self.session and not self.session.closed:

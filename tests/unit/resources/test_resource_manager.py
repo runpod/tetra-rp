@@ -246,3 +246,158 @@ class TestResourceManager:
 
         # Should be empty again
         assert len(manager.list_all_resources()) == 0
+
+
+class TestConfigHashStability:
+    """Test that config_hash is stable and excludes dynamic fields like env."""
+
+    @pytest.fixture(autouse=True)
+    def reset_singleton(self):
+        """Reset singleton state before each test."""
+        ResourceManager._resources = {}
+        ResourceManager._deployment_locks = {}
+        ResourceManager._resources_initialized = False
+        ResourceManager._lock_initialized = False
+        yield
+        ResourceManager._resources = {}
+        ResourceManager._deployment_locks = {}
+        ResourceManager._resources_initialized = False
+        ResourceManager._lock_initialized = False
+
+    def test_config_hash_stable_across_instances(self):
+        """Test that config_hash is identical for two instances with same config."""
+        config1 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+        )
+
+        config2 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+        )
+
+        # Hashes should be identical despite being different instances
+        assert config1.config_hash == config2.config_hash
+
+    def test_config_hash_excludes_env_from_drift(self):
+        """Test that env field changes don't trigger drift detection.
+
+        This test verifies the fix for: auto-provisioned endpoints being
+        recreated instead of reused when env vars change between processes.
+        """
+        config1 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+        )
+
+        # Simulate API response with different env
+        config2 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+            env={"CUSTOM_VAR": "custom_value"},  # Different env
+        )
+
+        # Config hashes should still be the same (env excluded from hash)
+        assert config1.config_hash == config2.config_hash
+
+    def test_config_hash_includes_structural_changes(self):
+        """Test that config_hash detects actual structural changes.
+
+        Tests changes to fields in _input_only set (the fields used for config hashing).
+        Changes to other fields (like workersMax) don't affect the hash since they're
+        API-managed.
+        """
+        config1 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+        )
+
+        config2 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=True,  # Different flashboot (in _input_only)
+        )
+
+        # Hashes should be different (flashboot changed)
+        assert config1.config_hash != config2.config_hash
+
+    def test_config_hash_with_different_image(self):
+        """Test that different images produce different hashes."""
+        config1 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            imageName="image1:latest",
+            flashboot=False,
+        )
+
+        config2 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            imageName="image2:latest",
+            flashboot=False,
+        )
+
+        # Hashes should be different (different image)
+        assert config1.config_hash != config2.config_hash
+
+
+class TestCpuEndpointConfigHash:
+    """Test config_hash for CPU endpoints excludes env."""
+
+    @pytest.fixture(autouse=True)
+    def reset_singleton(self):
+        """Reset singleton state before each test."""
+        ResourceManager._resources = {}
+        ResourceManager._deployment_locks = {}
+        ResourceManager._resources_initialized = False
+        ResourceManager._lock_initialized = False
+        yield
+        ResourceManager._resources = {}
+        ResourceManager._deployment_locks = {}
+        ResourceManager._resources_initialized = False
+        ResourceManager._lock_initialized = False
+
+    def test_cpu_config_hash_excludes_env(self):
+        """Test that CPU endpoint config_hash excludes env to prevent drift."""
+        from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
+
+        config1 = CpuServerlessEndpoint(
+            name="test-cpu",
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+            imageName="runpod/tetra-rp-cpu:latest",
+        )
+
+        config2 = CpuServerlessEndpoint(
+            name="test-cpu",
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+            imageName="runpod/tetra-rp-cpu:latest",
+            env={"DIFFERENT_ENV": "value"},
+        )
+
+        # Hashes should be the same (env excluded from CPU hash too)
+        assert config1.config_hash == config2.config_hash

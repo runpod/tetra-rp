@@ -236,6 +236,16 @@ curl -X POST http://localhost:8888/gpu/hello \
 
 If you switch back to the terminal tab where you used `flash run`, you'll see the details of the job's progress.
 
+### Faster testing with auto-provisioning
+
+For development with multiple endpoints, use `--auto-provision` to deploy all resources before testing:
+
+```bash
+flash run --auto-provision
+```
+
+This eliminates cold-start delays by provisioning all serverless endpoints upfront. Endpoints are cached and reused across server restarts, making subsequent runs much faster. Resources are identified by name, so the same endpoint won't be re-deployed if configuration hasn't changed.
+
 ### Step 6: Open the API explorer
 
 Besides starting the API server, `flash run` also starts an interactive API explorer. Point your web browser at [http://localhost:8888/docs](http://localhost:8888/docs) to explore the API.
@@ -383,6 +393,8 @@ config = LiveServerless(
     env={"HF_TOKEN": "your_token", "MODEL_ID": "gpt2"}
 )
 ```
+
+Environment variables are excluded from configuration hashing, which means changing environment values won't trigger endpoint recreation. This allows different processes to load environment variables from `.env` files without causing false drift detection. Only structural changes (like GPU type, image, or template modifications) trigger endpoint updates.
 
 ## Configuration
 

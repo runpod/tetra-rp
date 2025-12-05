@@ -173,8 +173,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-.tetra_resources.pkl
 .DS_Store
+
+# Runpod Flash state
+.runpod/
 
 # dev only
 .envrc
