@@ -272,6 +272,101 @@ class ServerlessResource(DeployableResource):
             log.error(f"{self} failed to deploy: {e}")
             raise
 
+    async def update(self, new_config: "ServerlessResource") -> "ServerlessResource":
+        """
+        Update existing endpoint with new configuration.
+
+        Uses saveEndpoint mutation which handles both create and update.
+        When 'id' is included in the payload, it updates the existing endpoint.
+
+        Args:
+            new_config: New configuration to apply
+
+        Returns:
+            Updated ServerlessResource instance
+
+        Raises:
+            ValueError: If endpoint not deployed or structural changes detected
+        """
+        if not self.id:
+            raise ValueError("Cannot update: endpoint not deployed")
+
+        # Check for structural changes that require redeploy
+        if self._has_structural_changes(new_config):
+            log.warning(
+                f"{self.name}: Structural changes detected. "
+                "Redeploying with new configuration."
+            )
+            # Undeploy current, deploy new
+            await self.undeploy()
+            return await new_config.deploy()
+
+        try:
+            log.info(f"Updating endpoint '{self.name}' (ID: {self.id})")
+
+            # Ensure network volume is deployed if specified
+            await new_config._ensure_network_volume_deployed()
+
+            async with RunpodGraphQLClient() as client:
+                # Include the endpoint ID to trigger update
+                payload = new_config.model_dump(
+                    exclude=new_config._input_only, exclude_none=True
+                )
+                payload["id"] = self.id  # Critical: include ID for update
+
+                result = await client.create_endpoint(payload)
+
+            if updated := self.__class__(**result):
+                log.info(f"Successfully updated endpoint '{self.name}' (ID: {self.id})")
+                return updated
+
+            raise ValueError("Update failed, no endpoint was returned.")
+
+        except Exception as e:
+            log.error(f"Failed to update {self.name}: {e}")
+            raise
+
+    def _has_structural_changes(self, new_config: "ServerlessResource") -> bool:
+        """
+        Check if config changes require redeploy vs update.
+
+        Structural changes (GPU type, image, flashboot) require full redeploy.
+        Scaling parameters can be updated in-place.
+
+        Args:
+            new_config: New configuration to compare against
+
+        Returns:
+            True if structural changes detected (requires redeploy)
+        """
+        structural_fields = [
+            "gpus",
+            "gpuIds",
+            "template",
+            "templateId",
+            "imageName",
+            "flashboot",
+            "allowedCudaVersions",
+            "cudaVersions",
+            "instanceIds",
+        ]
+
+        for field in structural_fields:
+            old_val = getattr(self, field, None)
+            new_val = getattr(new_config, field, None)
+
+            # Handle list comparison
+            if isinstance(old_val, list) and isinstance(new_val, list):
+                if sorted(str(v) for v in old_val) != sorted(str(v) for v in new_val):
+                    log.debug(f"Structural change in '{field}': {old_val} → {new_val}")
+                    return True
+            # Handle other types
+            elif old_val != new_val:
+                log.debug(f"Structural change in '{field}': {old_val} → {new_val}")
+                return True
+
+        return False
+
     async def undeploy(self) -> bool:
         """
         Undeploys (deletes) the serverless endpoint.

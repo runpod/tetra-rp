@@ -158,3 +158,59 @@ class TestResourceIdentity:
 
         # Both should have the same resource_id (None values excluded)
         assert config1.resource_id == config2.resource_id
+
+    def test_resource_id_stable_after_id_field_set(self):
+        """Test that resource_id remains stable even after 'id' field is set.
+
+        This simulates the real-world scenario where:
+        1. Config created before deployment (no id)
+        2. resource_id computed and cached
+        3. Resource deployed, id field set to endpoint ID
+        4. resource_id should remain unchanged
+        """
+        config = LiveServerless(
+            name="test-deployment",
+            gpus=[GpuGroup.ADA_24],
+            workersMin=0,
+            workersMax=3,
+            flashboot=True,
+        )
+
+        # Get resource_id before deployment (no id field)
+        id_before_deployment = config.resource_id
+
+        # Simulate deployment - set the id field (like deploy() method does)
+        config.id = "abc123endpoint"
+
+        # Get resource_id after deployment
+        id_after_deployment = config.resource_id
+
+        # Should be identical - id field should not affect hash
+        assert id_before_deployment == id_after_deployment
+
+    def test_resource_id_excludes_id_field_from_hash(self):
+        """Test that the 'id' field is excluded from resource_id computation.
+
+        Two configs with identical parameters but different 'id' fields
+        should produce the same resource_id.
+        """
+        config1 = LiveServerless(
+            name="test-endpoint",
+            gpus=[GpuGroup.ADA_24],
+            workersMin=0,
+            workersMax=3,
+            flashboot=True,
+        )
+        config1.id = "endpoint-123"
+
+        config2 = LiveServerless(
+            name="test-endpoint",
+            gpus=[GpuGroup.ADA_24],
+            workersMin=0,
+            workersMax=3,
+            flashboot=True,
+        )
+        config2.id = "endpoint-456"  # Different endpoint ID
+
+        # Should have the same resource_id despite different ids
+        assert config1.resource_id == config2.resource_id
