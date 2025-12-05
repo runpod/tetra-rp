@@ -371,8 +371,11 @@ class ServerlessResource(DeployableResource):
         """
         Undeploys (deletes) the serverless endpoint.
 
+        If deletion fails, verifies the endpoint still exists. If not, treats it as
+        successfully undeployed (handles cases where endpoint was deleted externally).
+
         Returns:
-            True if successfully undeployed, False otherwise
+            True if successfully undeployed or endpoint doesn't exist, False otherwise
         """
         if not self.id:
             log.warning(f"{self} has no endpoint ID, cannot undeploy")
@@ -385,13 +388,28 @@ class ServerlessResource(DeployableResource):
 
                 if success:
                     log.info(f"{self} successfully undeployed")
+                    return True
                 else:
                     log.error(f"{self} failed to undeploy")
-
-                return success
+                    return False
 
         except Exception as e:
             log.error(f"{self} failed to undeploy: {e}")
+
+            # Deletion failed. Check if endpoint still exists.
+            # If it doesn't exist, treat as successful cleanup (orphaned endpoint).
+            try:
+                async with RunpodGraphQLClient() as client:
+                    if not await client.endpoint_exists(self.id):
+                        log.info(
+                            f"{self} no longer exists on RunPod, removing from cache"
+                        )
+                        return True
+            except Exception as check_error:
+                log.warning(
+                    f"Could not verify endpoint existence: {check_error}"
+                )
+
             return False
 
     async def run_sync(self, payload: Dict[str, Any]) -> "JobOutput":

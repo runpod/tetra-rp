@@ -789,6 +789,81 @@ class TestServerlessResourceEdgeCases:
                 await serverless.run_sync({"input": "test"})
 
 
+class TestServerlessResourceUndeploy:
+    """Test undeploy behavior for orphaned endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_undeploy_success(self):
+        """Test successful undeploy."""
+        serverless = ServerlessResource(name="test")
+        serverless.id = "endpoint-123"
+
+        mock_client = AsyncMock()
+        mock_client.delete_endpoint = AsyncMock(return_value={"success": True})
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("tetra_rp.core.resources.serverless.RunpodGraphQLClient") as MockClient:
+            MockClient.return_value = mock_client
+            result = await serverless.undeploy()
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_undeploy_api_failure_when_endpoint_exists(self):
+        """Test undeploy returns False when API fails and endpoint still exists."""
+        serverless = ServerlessResource(name="test")
+        serverless.id = "endpoint-123"
+
+        mock_client = AsyncMock()
+        mock_client.delete_endpoint = AsyncMock(
+            side_effect=Exception("Something went wrong. Please try again later")
+        )
+        mock_client.endpoint_exists = AsyncMock(return_value=True)  # Endpoint still exists
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("tetra_rp.core.resources.serverless.RunpodGraphQLClient") as MockClient:
+            MockClient.return_value = mock_client
+            result = await serverless.undeploy()
+
+        # API failed and endpoint still exists, so undeploy fails
+        assert result is False
+        mock_client.endpoint_exists.assert_called_once_with("endpoint-123")
+
+    @pytest.mark.asyncio
+    async def test_undeploy_auto_cleanup_when_endpoint_not_found(self):
+        """Test undeploy auto-cleans cache when endpoint was deleted externally."""
+        serverless = ServerlessResource(name="test")
+        serverless.id = "endpoint-123"
+
+        mock_client = AsyncMock()
+        mock_client.delete_endpoint = AsyncMock(
+            side_effect=Exception("Something went wrong. Please try again later")
+        )
+        mock_client.endpoint_exists = AsyncMock(return_value=False)  # Endpoint not found
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("tetra_rp.core.resources.serverless.RunpodGraphQLClient") as MockClient:
+            MockClient.return_value = mock_client
+            result = await serverless.undeploy()
+
+        # API failed but endpoint doesn't exist, so treat as successful cleanup
+        assert result is True
+        mock_client.endpoint_exists.assert_called_once_with("endpoint-123")
+
+    @pytest.mark.asyncio
+    async def test_undeploy_no_id(self):
+        """Test undeploy returns False when endpoint has no ID."""
+        serverless = ServerlessResource(name="test")
+        # No ID set
+
+        result = await serverless.undeploy()
+
+        assert result is False
+
+
 class TestHealthModels:
     """Test health-related models."""
 
