@@ -59,7 +59,10 @@ class ResourceManager(SingletonMixin):
                             self._resources = data
                             self._resource_configs = {}
 
-                        log.debug(f"Loaded saved resources from {RESOURCE_STATE_FILE}")
+                        log.debug(
+                            f"Loaded {len(self._resources)} saved resources from {RESOURCE_STATE_FILE}:\n"
+                            f"  Keys: {list(self._resources.keys())}"
+                        )
             except (FileLockError, Exception) as e:
                 log.error(f"Failed to load resources from {RESOURCE_STATE_FILE}: {e}")
         return self._resources
@@ -211,6 +214,15 @@ class ResourceManager(SingletonMixin):
         resource_key = config.get_resource_key()
         new_config_hash = config.config_hash
 
+        log.debug(
+            f"get_or_deploy_resource called:\n"
+            f"  Config type: {type(config).__name__}\n"
+            f"  Config name: {getattr(config, 'name', 'N/A')}\n"
+            f"  Resource key: {resource_key}\n"
+            f"  New config hash: {new_config_hash[:16]}...\n"
+            f"  Available keys in cache: {list(self._resources.keys())}"
+        )
+
         # Ensure global lock is initialized
         assert ResourceManager._global_lock is not None, "Global lock not initialized"
 
@@ -225,6 +237,7 @@ class ResourceManager(SingletonMixin):
             existing = self._resources.get(resource_key)
 
             if existing:
+                log.debug(f"Resource found in cache: {resource_key}")
                 # Resource exists - check if still valid
                 if not existing.is_deployed():
                     log.warning(f"{existing} is no longer valid, redeploying.")
@@ -275,7 +288,10 @@ class ResourceManager(SingletonMixin):
                 return existing
 
             # No existing resource, deploy new one
-            log.debug(f"Deploying new resource: {resource_key}")
+            log.debug(
+                f"Resource NOT found in cache, deploying new: {resource_key}\n"
+                f"  Searched in keys: {list(self._resources.keys())}"
+            )
             deployed_resource = await self._deploy_with_error_context(config)
             log.info(f"URL: {deployed_resource.url}")
             self._add_resource(resource_key, deployed_resource)
