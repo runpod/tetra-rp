@@ -310,7 +310,7 @@ class ResourceDiscovery:
             current_dir = self.entry_point.parent
 
             # Try as relative path first
-            module_path = current_dir / "/".join(parts)
+            module_path = current_dir.joinpath(*parts)
 
             # Check for .py file
             if module_path.with_suffix(".py").exists():

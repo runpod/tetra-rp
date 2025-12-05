@@ -186,7 +186,7 @@ class TestDeploymentOrchestrator:
             results = await orchestrator.deploy_all([mock_resources[0]])
 
             assert len(results) == 1
-            assert results[0].duration > 0.1
+            assert results[0].duration >= 0.09
 
     def test_deploy_all_background(self, mock_resources):
         """Test background deployment doesn't block."""

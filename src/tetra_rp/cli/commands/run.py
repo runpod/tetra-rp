@@ -101,8 +101,7 @@ def run_command(
         if process:
             try:
                 if sys.platform == "win32":
-                    # Windows: send CTRL_BREAK_EVENT to process group
-                    process.send_signal(signal.CTRL_BREAK_EVENT)
+                    # Windows: terminate the process
                     process.terminate()
                 else:
                     # Unix: kill entire process group
@@ -179,7 +178,7 @@ def _is_reload() -> bool:
     Returns:
         True if running in a reload subprocess
     """
-    return "UVICORN_RELOADER_PID" in os.environ or "RUN_MAIN" in os.environ
+    return "UVICORN_RELOADER_PID" in os.environ
 
 
 def _discover_resources(entry_point: str):
