@@ -50,9 +50,7 @@ class BaseResource(BaseModel):
         if hasattr(self, "_input_only"):
             # Include only user-provided input fields, not server-assigned ones
             include_fields = self._input_only - {"id"}  # Exclude id from input fields
-            config_str = self.model_dump_json(
-                exclude_none=True, include=include_fields
-            )
+            config_str = self.model_dump_json(exclude_none=True, include=include_fields)
         else:
             # Fallback: exclude only id field
             config_str = self.model_dump_json(exclude_none=True, exclude={"id"})
