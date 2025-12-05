@@ -44,17 +44,20 @@ class BaseResource(BaseModel):
         For resources with _input_only set, only those fields are included in the hash
         to avoid drift from server-assigned fields.
         """
+        import json
         resource_type = self.__class__.__name__
 
         # If resource defines input_only fields, use only those for hash
         if hasattr(self, "_input_only"):
             # Include only user-provided input fields, not server-assigned ones
             include_fields = self._input_only - {"id"}  # Exclude id from input fields
-            config_str = self.model_dump_json(exclude_none=True, include=include_fields)
+            config_dict = self.model_dump(exclude_none=True, include=include_fields, mode='json')
         else:
             # Fallback: exclude only id field
-            config_str = self.model_dump_json(exclude_none=True, exclude={"id"})
+            config_dict = self.model_dump(exclude_none=True, exclude={"id"}, mode='json')
 
+        # Convert to JSON string for hashing
+        config_str = json.dumps(config_dict, sort_keys=True)
         hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
         return hash_obj.hexdigest()
 

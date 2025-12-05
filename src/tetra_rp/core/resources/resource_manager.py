@@ -39,6 +39,7 @@ class ResourceManager(SingletonMixin):
         if not ResourceManager._resources_initialized:
             self._load_resources()
             self._migrate_to_name_based_keys()  # Auto-migrate legacy resources
+            self._refresh_config_hashes()  # Refresh config hashes after code changes
             ResourceManager._resources_initialized = True
 
     def _load_resources(self) -> Dict[str, DeployableResource]:
@@ -100,6 +101,39 @@ class ResourceManager(SingletonMixin):
             self._resources = migrated
             self._resource_configs = migrated_configs
             self._save_resources()  # Persist migration
+
+    def _refresh_config_hashes(self) -> None:
+        """Refresh stored config hashes to match current code.
+
+        This is needed when code changes affect how config_hash is computed
+        (e.g., adding field_serializers, changing _input_only sets).
+
+        Compares stored hash with freshly computed hash. If they differ,
+        updates the stored hash to prevent false drift detection.
+        """
+        updated = False
+
+        for key, resource in self._resources.items():
+            if not hasattr(resource, 'config_hash'):
+                continue
+
+            # Compute fresh hash with current code
+            fresh_hash = resource.config_hash
+            stored_hash = self._resource_configs.get(key, "")
+
+            # If hashes differ, update stored hash
+            if stored_hash != fresh_hash:
+                log.debug(
+                    f"Refreshing config hash for '{key}': "
+                    f"{stored_hash[:8]}... → {fresh_hash[:8]}..."
+                )
+                self._resource_configs[key] = fresh_hash
+                updated = True
+
+        # Save if any hashes were updated
+        if updated:
+            log.info("Refreshed config hashes after code changes")
+            self._save_resources()
 
     def _save_resources(self) -> None:
         """Persist state of resources to disk using cross-platform file locking."""

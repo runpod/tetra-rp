@@ -260,7 +260,7 @@ class ServerlessResource(DeployableResource):
             await self._ensure_network_volume_deployed()
 
             async with RunpodGraphQLClient() as client:
-                payload = self.model_dump(exclude=self._input_only, exclude_none=True)
+                payload = self.model_dump(exclude=self._input_only, exclude_none=True, mode='json')
                 result = await client.create_endpoint(payload)
 
             if endpoint := self.__class__(**result):
@@ -310,7 +310,7 @@ class ServerlessResource(DeployableResource):
             async with RunpodGraphQLClient() as client:
                 # Include the endpoint ID to trigger update
                 payload = new_config.model_dump(
-                    exclude=new_config._input_only, exclude_none=True
+                    exclude=new_config._input_only, exclude_none=True, mode='json'
                 )
                 payload["id"] = self.id  # Critical: include ID for update
 

@@ -105,6 +105,22 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
     Represents a CPU-only serverless endpoint distinct from a live serverless.
     """
 
+    # Override _input_only to exclude 'gpus' and GPU-specific API fields for CPU endpoints
+    # Note: instanceIds is NOT in _input_only, so it will be sent to the API
+    _input_only = {
+        "id",
+        "cudaVersions",
+        "datacenter",
+        "env",
+        "gpus",  # Inherited user-input field
+        "gpuIds",  # GPU-specific API field
+        "gpuCount",  # GPU-specific API field
+        "allowedCudaVersions",  # GPU-specific API field
+        "flashboot",
+        "imageName",
+        "networkVolume",
+    }
+
     instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
 
     def _create_new_template(self) -> PodTemplate:
