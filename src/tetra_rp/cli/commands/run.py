@@ -52,11 +52,11 @@ def run_command(
                 if not _confirm_large_provisioning(resources):
                     console.print("[yellow]Auto-provisioning cancelled[/yellow]\n")
                 else:
-                    _start_background_provisioning(resources)
+                    _provision_resources(resources)
             else:
-                _start_background_provisioning(resources)
+                _provision_resources(resources)
 
-    console.print("[green]Starting Flash Server[/green]")
+    console.print("\n[green]Starting Flash Server[/green]")
     console.print(f"Entry point: [bold]{app_location}[/bold]")
     console.print(f"Server: [bold]http://{host}:{port}[/bold]")
     console.print(f"Auto-reload: [bold]{'enabled' if reload else 'disabled'}[/bold]")
@@ -72,6 +72,8 @@ def run_command(
         host,
         "--port",
         str(port),
+        "--log-level",
+        "warning",
     ]
 
     if reload:
@@ -235,16 +237,24 @@ def _confirm_large_provisioning(resources) -> bool:
         return False
 
 
-def _start_background_provisioning(resources):
-    """Start background provisioning of resources.
+def _provision_resources(resources):
+    """Provision resources and wait for completion.
 
     Args:
         resources: List of resources to provision
     """
+    import asyncio
     from ...core.deployment import DeploymentOrchestrator
 
     try:
+        console.print(f"\n[bold]Provisioning {len(resources)} resource(s)...[/bold]")
         orchestrator = DeploymentOrchestrator(max_concurrent=3)
-        orchestrator.deploy_all_background(resources)
+
+        # Run provisioning with progress shown
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(orchestrator.deploy_all(resources, show_progress=True))
+        loop.close()
+
     except Exception as e:
-        console.print(f"[yellow]Warning:[/yellow] Background provisioning failed: {e}")
+        console.print(f"[yellow]Warning:[/yellow] Provisioning failed: {e}")

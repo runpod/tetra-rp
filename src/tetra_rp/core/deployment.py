@@ -9,6 +9,7 @@ from enum import Enum
 from typing import List
 
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .resources.base import DeployableResource
 from .resources.resource_manager import ResourceManager
@@ -72,8 +73,8 @@ class DeploymentOrchestrator:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
 
-                # Run deployment
-                loop.run_until_complete(self.deploy_all(resources))
+                # Run deployment silently in background
+                loop.run_until_complete(self.deploy_all(resources, show_progress=False))
 
             except Exception as e:
                 log.error(f"Background deployment failed: {e}")
@@ -89,23 +90,19 @@ class DeploymentOrchestrator:
         )
 
     async def deploy_all(
-        self, resources: List[DeployableResource]
+        self, resources: List[DeployableResource], show_progress: bool = True
     ) -> List[DeploymentResult]:
         """Deploy all resources in parallel with progress tracking.
 
         Args:
             resources: List of resources to deploy
+            show_progress: Whether to show progress indicator and summary (default: True)
 
         Returns:
             List of deployment results
         """
         if not resources:
             return []
-
-        console.print(
-            f"\n[bold]Auto-Provisioning Resources[/bold] ({len(resources)} found)"
-        )
-        console.print()
 
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(self.max_concurrent)
@@ -115,11 +112,32 @@ class DeploymentOrchestrator:
             self._deploy_with_semaphore(resource, semaphore) for resource in resources
         ]
 
-        # Wait for all deployments
-        self.results = await asyncio.gather(*deploy_tasks, return_exceptions=False)
+        # Deploy with progress indication
+        if show_progress:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+            ) as progress:
+                task_id = progress.add_task(
+                    f"Provisioning {len(resources)} resource(s)...",
+                    total=None,
+                )
 
-        # Display summary
-        self._display_summary()
+                # Wait for all deployments
+                self.results = await asyncio.gather(*deploy_tasks, return_exceptions=False)
+
+                progress.update(
+                    task_id,
+                    description=f"[green]✓ Provisioned {len(resources)} resource(s)",
+                )
+                progress.stop_task(task_id)
+
+            # Display summary
+            self._display_summary()
+        else:
+            # Silent deployment for background provisioning
+            self.results = await asyncio.gather(*deploy_tasks, return_exceptions=False)
 
         return self.results
 
@@ -141,14 +159,8 @@ class DeploymentOrchestrator:
         async with semaphore:
             try:
                 # Quick check if already deployed
-                console.print(f"  ⚙ Checking {resource_name}...")
-
                 if resource.is_deployed():
                     duration = (datetime.now() - start_time).total_seconds()
-                    console.print(
-                        f"  ✓ {resource_name} [dim](cached, {duration:.1f}s)[/dim]"
-                    )
-
                     return DeploymentResult(
                         resource=resource,
                         status=DeploymentStatus.CACHED,
@@ -157,14 +169,8 @@ class DeploymentOrchestrator:
                     )
 
                 # Deploy resource
-                console.print(f"  ⚙ Deploying {resource_name}...")
-
                 deployed = await self.manager.get_or_deploy_resource(resource)
                 duration = (datetime.now() - start_time).total_seconds()
-
-                console.print(
-                    f"  ✓ {resource_name} [dim](deployed, {duration:.1f}s)[/dim]"
-                )
 
                 return DeploymentResult(
                     resource=deployed,
@@ -175,9 +181,6 @@ class DeploymentOrchestrator:
 
             except Exception as e:
                 duration = (datetime.now() - start_time).total_seconds()
-                console.print(
-                    f"  ⚠ {resource_name} [yellow](failed, {duration:.1f}s)[/yellow]"
-                )
                 log.error(f"Failed to deploy {resource_name}: {e}")
 
                 return DeploymentResult(

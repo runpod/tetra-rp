@@ -143,7 +143,7 @@ class TestRunAutoProvision:
                 with patch("tetra_rp.cli.commands.run.os.killpg"):
                     # Mock deployment orchestrator
                     with patch(
-                        "tetra_rp.cli.commands.run._start_background_provisioning"
+                        "tetra_rp.cli.commands.run._provision_resources"
                     ) as mock_provision:
                         runner.invoke(app, ["run", "--auto-provision"])
 
@@ -171,7 +171,7 @@ class TestRunAutoProvision:
                 with patch("tetra_rp.cli.commands.run.os.killpg"):
                     # Mock provisioning
                     with patch(
-                        "tetra_rp.cli.commands.run._start_background_provisioning"
+                        "tetra_rp.cli.commands.run._provision_resources"
                     ) as mock_provision:
                         runner.invoke(app, ["run", "--auto-provision"])
 
@@ -212,7 +212,7 @@ class TestRunAutoProvision:
                             mock_confirm.return_value.ask.return_value = True
 
                             with patch(
-                                "tetra_rp.cli.commands.run._start_background_provisioning"
+                                "tetra_rp.cli.commands.run._provision_resources"
                             ) as mock_provision:
                                 runner.invoke(app, ["run", "--auto-provision"])
 
@@ -256,7 +256,7 @@ class TestRunAutoProvision:
                             mock_confirm.return_value.ask.return_value = False
 
                             with patch(
-                                "tetra_rp.cli.commands.run._start_background_provisioning"
+                                "tetra_rp.cli.commands.run._provision_resources"
                             ) as mock_provision:
                                 runner.invoke(app, ["run", "--auto-provision"])
 
@@ -326,7 +326,7 @@ class TestRunAutoProvision:
 
                 with patch("tetra_rp.cli.commands.run.os.killpg"):
                     with patch(
-                        "tetra_rp.cli.commands.run._start_background_provisioning"
+                        "tetra_rp.cli.commands.run._provision_resources"
                     ) as mock_provision:
                         runner.invoke(app, ["run", "--auto-provision"])
 
