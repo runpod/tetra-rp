@@ -136,9 +136,10 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
         but these fields should not be included in config_hash to avoid false drift
         detection. This override computes the hash using only CPU-relevant fields.
         """
+        # CPU-relevant fields for config hash, excluding 'env' to prevent false drift
+        # (env is dynamically computed from .env file at initialization time)
         cpu_fields = {
             "datacenter",
-            "env",
             "flashboot",
             "imageName",
             "gpus",
