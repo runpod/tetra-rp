@@ -13,8 +13,9 @@ from .base import DeployableResource
 
 log = logging.getLogger(__name__)
 
-# File to persist state of resources
-RESOURCE_STATE_FILE = Path(".tetra_resources.pkl")
+# Directory and file to persist state of resources
+RUNPOD_FLASH_DIR = Path(".runpod")
+RESOURCE_STATE_FILE = RUNPOD_FLASH_DIR / "resources.pkl"
 
 
 class ResourceManager(SingletonMixin):
@@ -54,6 +55,9 @@ class ResourceManager(SingletonMixin):
     def _save_resources(self) -> None:
         """Persist state of resources to disk using cross-platform file locking."""
         try:
+            # Ensure directory exists
+            RUNPOD_FLASH_DIR.mkdir(parents=True, exist_ok=True)
+
             with open(RESOURCE_STATE_FILE, "wb") as f:
                 # Acquire exclusive lock for writing (cross-platform)
                 with file_lock(f, exclusive=True):
