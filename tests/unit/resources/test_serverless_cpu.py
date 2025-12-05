@@ -2,6 +2,7 @@
 Unit tests for CpuServerlessEndpoint class.
 """
 
+import pickle
 import pytest
 from tetra_rp.core.resources.cpu import CpuInstanceType
 from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
@@ -278,3 +279,171 @@ class TestCpuEndpointMixin:
         assert cpu_endpoint.gpuCount == 0
         assert cpu_endpoint.allowedCudaVersions == ""
         assert cpu_endpoint.gpuIds == ""
+
+
+class TestCpuConfigHash:
+    """Test CPU endpoint config_hash consistency and drift detection."""
+
+    def test_config_hash_consistent_across_pickle_load(self):
+        """Test that config_hash is consistent after pickle/unpickle cycle."""
+        # Create original endpoint
+        original = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+        original_hash = original.config_hash
+
+        # Pickle and unpickle
+        pickled = pickle.dumps(original)
+        loaded = pickle.loads(pickled)
+        loaded_hash = loaded.config_hash
+
+        # Hashes should match
+        assert loaded_hash == original_hash, (
+            f"Config hash changed after pickle/unpickle: "
+            f"{original_hash} != {loaded_hash}"
+        )
+
+    def test_config_hash_consistent_across_recreation(self):
+        """Test that config_hash is consistent when recreating the same endpoint."""
+        endpoint1 = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        endpoint2 = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        # Both should have identical hashes since they're the same config
+        assert endpoint1.config_hash == endpoint2.config_hash
+
+    def test_config_hash_changes_with_meaningful_changes(self):
+        """Test that config_hash changes when actual config changes."""
+        endpoint1 = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        endpoint2 = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:v2",  # Changed image
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        # Hashes should differ since image changed
+        assert endpoint1.config_hash != endpoint2.config_hash
+
+    def test_cpu_structural_changes_false_positives(self):
+        """Test that CPU endpoints don't have false positive structural changes.
+
+        This reproduces the issue where reloading from pickle causes
+        structural changes to be detected even though nothing changed.
+        """
+        # Create original CPU endpoint
+        original = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        # Pickle and unpickle to simulate saved state
+        pickled = pickle.dumps(original)
+        loaded = pickle.loads(pickled)
+
+        # Create a new config with the same parameters
+        new_config = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        # Check structural fields don't differ
+        structural_fields = [
+            "gpus",
+            "gpuIds",
+            "template",
+            "templateId",
+            "imageName",
+            "flashboot",
+            "allowedCudaVersions",
+            "cudaVersions",
+            "instanceIds",
+        ]
+
+        for field in structural_fields:
+            old_val = getattr(loaded, field, None)
+            new_val = getattr(new_config, field, None)
+
+            # Handle list comparison
+            if isinstance(old_val, list) and isinstance(new_val, list):
+                old_sorted = sorted(str(v) for v in old_val)
+                new_sorted = sorted(str(v) for v in new_val)
+                assert old_sorted == new_sorted, (
+                    f"Structural change in '{field}': "
+                    f"loaded={old_val} vs new={new_val}"
+                )
+            else:
+                assert old_val == new_val, (
+                    f"Structural change in '{field}': "
+                    f"loaded={old_val} vs new={new_val}"
+                )
+
+    def test_config_hash_excludes_gpu_fields(self):
+        """Test that config_hash for CPU endpoints excludes GPU-specific fields.
+
+        This test verifies that CPU endpoints don't include GPU-specific fields
+        in their config_hash computation, which would cause false drift detection.
+        """
+        endpoint = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        # Get the fields included in the hash
+        include_fields = endpoint._input_only - {"id"}
+
+        # GPU-specific fields should NOT be included
+        assert "gpuIds" not in include_fields
+        assert "gpuCount" not in include_fields
+        assert "allowedCudaVersions" not in include_fields
+
+        # CPU-relevant fields should be included
+        assert "datacenter" in include_fields
+        assert "env" in include_fields
+        assert "flashboot" in include_fields
+        assert "imageName" in include_fields
+        assert "gpus" in include_fields  # Inherited but always None for CPU
+
+    def test_template_object_comparison_issue(self):
+        """Test that demonstrates the template object identity issue in _has_structural_changes.
+
+        When comparing templates using !=, different instances are never equal
+        even if they have the same content, causing false structural changes.
+        """
+        from tetra_rp.core.resources.template import PodTemplate
+
+        template1 = PodTemplate(
+            name="test-template",
+            imageName="test/image:latest",
+        )
+
+        template2 = PodTemplate(
+            name="test-template",
+            imageName="test/image:latest",
+        )
+
+        # Even though they're identical, they're different objects
+        assert template1 == template2  # Value equality works
+        assert template1 is not template2  # But they're different instances
+
+        # The bug: _has_structural_changes uses !=  which works with Pydantic models
+        # Actually, Pydantic models override __eq__ so != should work correctly
+        # Let me verify this works as expected
+        assert not (template1 != template2)

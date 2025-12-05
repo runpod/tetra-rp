@@ -105,17 +105,15 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
     Represents a CPU-only serverless endpoint distinct from a live serverless.
     """
 
-    # Override _input_only to exclude 'gpus' and GPU-specific API fields for CPU endpoints
+    # CPU endpoints don't use GPU-specific fields, so exclude them from _input_only
+    # This prevents false drift detection and ensures config_hash only includes
+    # fields relevant to CPU endpoints.
     # Note: instanceIds is NOT in _input_only, so it will be sent to the API
     _input_only = {
         "id",
-        "cudaVersions",
         "datacenter",
         "env",
-        "gpus",  # Inherited user-input field
-        "gpuIds",  # GPU-specific API field
-        "gpuCount",  # GPU-specific API field
-        "allowedCudaVersions",  # GPU-specific API field
+        "gpus",  # Inherited from parent, but always None for CPU endpoints
         "flashboot",
         "imageName",
         "networkVolume",
