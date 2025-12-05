@@ -251,12 +251,15 @@ class ResourceManager(SingletonMixin):
                 stored_config_hash = self._resource_configs.get(resource_key, "")
 
                 if stored_config_hash != new_config_hash:
+                    # Detailed drift debugging
                     log.debug(
                         f"DRIFT DEBUG for '{config.name}':\n"
                         f"  Stored hash: {stored_config_hash}\n"
                         f"  New hash: {new_config_hash}\n"
                         f"  Stored resource type: {type(existing).__name__}\n"
-                        f"  New resource type: {type(config).__name__}"
+                        f"  New resource type: {type(config).__name__}\n"
+                        f"  Existing config fields: {existing.model_dump(exclude_none=True, exclude={'id'}) if hasattr(existing, 'model_dump') else 'N/A'}\n"
+                        f"  New config fields: {config.model_dump(exclude_none=True, exclude={'id'}) if hasattr(config, 'model_dump') else 'N/A'}"
                     )
                     log.info(
                         f"Config drift detected for '{config.name}': "
