@@ -4,6 +4,8 @@ CPU-specific serverless endpoint classes.
 This module contains all CPU-related serverless functionality, separate from GPU serverless.
 """
 
+import hashlib
+import json
 from typing import List, Optional
 
 from pydantic import field_serializer, model_validator, field_validator
@@ -105,15 +107,18 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
     Represents a CPU-only serverless endpoint distinct from a live serverless.
     """
 
-    # CPU endpoints don't use GPU-specific fields, so exclude them from _input_only
-    # This prevents false drift detection and ensures config_hash only includes
-    # fields relevant to CPU endpoints.
+    # CPU endpoints don't use GPU-specific fields, so exclude them from API payload
+    # This prevents the RunPod GraphQL API from rejecting CPU endpoints with GPU-specific fields
     # Note: instanceIds is NOT in _input_only, so it will be sent to the API
     _input_only = {
         "id",
+        "cudaVersions",  # GPU-specific, exclude from API payload
         "datacenter",
         "env",
         "gpus",  # Inherited from parent, but always None for CPU endpoints
+        "gpuIds",  # GPU-specific API field, exclude from payload
+        "gpuCount",  # GPU-specific API field, exclude from payload
+        "allowedCudaVersions",  # GPU-specific API field, exclude from payload
         "flashboot",
         "imageName",
         "networkVolume",
@@ -122,6 +127,27 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
     # Override GPU field from parent to None for CPU endpoints
     gpus: Optional[List] = None
     instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
+
+    @property
+    def config_hash(self) -> str:
+        """Get hash of current configuration excluding GPU-specific fields.
+
+        CPU endpoints need GPU fields in _input_only to exclude them from API payload,
+        but these fields should not be included in config_hash to avoid false drift
+        detection. This override computes the hash using only CPU-relevant fields.
+        """
+        cpu_fields = {
+            "datacenter",
+            "env",
+            "flashboot",
+            "imageName",
+            "gpus",
+            "networkVolume",
+        }
+        config_dict = self.model_dump(exclude_none=True, include=cpu_fields, mode='json')
+        config_str = json.dumps(config_dict, sort_keys=True)
+        hash_obj = hashlib.md5(f"{self.__class__.__name__}:{config_str}".encode())
+        return hash_obj.hexdigest()
 
     def _create_new_template(self) -> PodTemplate:
         """Create a new PodTemplate with CPU-appropriate disk sizing."""

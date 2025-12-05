@@ -397,8 +397,9 @@ class TestCpuConfigHash:
     def test_config_hash_excludes_gpu_fields(self):
         """Test that config_hash for CPU endpoints excludes GPU-specific fields.
 
-        This test verifies that CPU endpoints don't include GPU-specific fields
-        in their config_hash computation, which would cause false drift detection.
+        This test verifies that:
+        1. GPU-specific fields ARE in _input_only (for API payload exclusion)
+        2. GPU-specific fields are NOT included in config_hash (to avoid false drift detection)
         """
         endpoint = CpuServerlessEndpoint(
             name="test-cpu-endpoint",
@@ -406,20 +407,31 @@ class TestCpuConfigHash:
             instanceIds=[CpuInstanceType.CPU3G_1_4],
         )
 
-        # Get the fields included in the hash
-        include_fields = endpoint._input_only - {"id"}
+        # GPU-specific fields should be in _input_only for API payload exclusion
+        assert "cudaVersions" in endpoint._input_only
+        assert "gpuIds" in endpoint._input_only
+        assert "gpuCount" in endpoint._input_only
+        assert "allowedCudaVersions" in endpoint._input_only
 
-        # GPU-specific fields should NOT be included
-        assert "gpuIds" not in include_fields
-        assert "gpuCount" not in include_fields
-        assert "allowedCudaVersions" not in include_fields
+        # Create two endpoints with different GPU field values
+        endpoint1 = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+        endpoint1.gpuCount = 0
+        endpoint1.allowedCudaVersions = ""
 
-        # CPU-relevant fields should be included
-        assert "datacenter" in include_fields
-        assert "env" in include_fields
-        assert "flashboot" in include_fields
-        assert "imageName" in include_fields
-        assert "gpus" in include_fields  # Inherited but always None for CPU
+        endpoint2 = CpuServerlessEndpoint(
+            name="test-cpu-endpoint",
+            imageName="test/cpu-image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+        endpoint2.gpuCount = 1  # Different value
+        endpoint2.allowedCudaVersions = "11.8"  # Different value
+
+        # Config hashes should be identical since GPU fields are excluded
+        assert endpoint1.config_hash == endpoint2.config_hash
 
     def test_template_object_comparison_issue(self):
         """Test that demonstrates the template object identity issue in _has_structural_changes.
