@@ -115,7 +115,7 @@ class TestRunAutoProvision:
             with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                with patch("tetra_rp.cli.commands.run.os.killpg"):
                     # Mock discovery to track if it was called
                     with patch(
                         "tetra_rp.cli.commands.run._discover_resources"
@@ -140,7 +140,7 @@ class TestRunAutoProvision:
             with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                with patch("tetra_rp.cli.commands.run.os.killpg"):
                     # Mock deployment orchestrator
                     with patch(
                         "tetra_rp.cli.commands.run._start_background_provisioning"
@@ -168,7 +168,7 @@ class TestRunAutoProvision:
             with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                with patch("tetra_rp.cli.commands.run.os.killpg"):
                     # Mock provisioning
                     with patch(
                         "tetra_rp.cli.commands.run._start_background_provisioning"
@@ -198,7 +198,7 @@ class TestRunAutoProvision:
             with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                with patch("tetra_rp.cli.commands.run.os.killpg"):
                     # Mock discovery to return > 5 resources
                     with patch(
                         "tetra_rp.cli.commands.run._discover_resources"
@@ -242,7 +242,7 @@ class TestRunAutoProvision:
             with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                with patch("tetra_rp.cli.commands.run.os.killpg"):
                     # Mock discovery to return > 5 resources
                     with patch(
                         "tetra_rp.cli.commands.run._discover_resources"
@@ -281,7 +281,7 @@ class TestRunAutoProvision:
             with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                with patch("tetra_rp.cli.commands.run.os.killpg"):
                     # Mock discovery to raise exception
                     with patch(
                         "tetra_rp.cli.commands.run._discover_resources"
@@ -324,7 +324,7 @@ class TestRunAutoProvision:
             with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg") as mock_killpg:
+                with patch("tetra_rp.cli.commands.run.os.killpg"):
                     with patch(
                         "tetra_rp.cli.commands.run._start_background_provisioning"
                     ) as mock_provision:
