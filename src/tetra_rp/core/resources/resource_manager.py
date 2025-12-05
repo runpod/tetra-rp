@@ -238,6 +238,13 @@ class ResourceManager(SingletonMixin):
                 stored_config_hash = self._resource_configs.get(resource_key, "")
 
                 if stored_config_hash != new_config_hash:
+                    log.debug(
+                        f"DRIFT DEBUG for '{config.name}':\n"
+                        f"  Stored hash: {stored_config_hash}\n"
+                        f"  New hash: {new_config_hash}\n"
+                        f"  Stored resource type: {type(existing).__name__}\n"
+                        f"  New resource type: {type(config).__name__}"
+                    )
                     log.info(
                         f"Config drift detected for '{config.name}': "
                         f"Automatically updating endpoint"

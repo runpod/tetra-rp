@@ -121,6 +121,8 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
         "networkVolume",
     }
 
+    # Override GPU field from parent to None for CPU endpoints
+    gpus: Optional[List] = None
     instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
 
     def _create_new_template(self) -> PodTemplate:

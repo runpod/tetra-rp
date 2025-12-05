@@ -45,6 +45,7 @@ class BaseResource(BaseModel):
         to avoid drift from server-assigned fields.
         """
         import json
+        import logging
         resource_type = self.__class__.__name__
 
         # If resource defines input_only fields, use only those for hash
@@ -59,7 +60,19 @@ class BaseResource(BaseModel):
         # Convert to JSON string for hashing
         config_str = json.dumps(config_dict, sort_keys=True)
         hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
-        return hash_obj.hexdigest()
+        hash_value = hash_obj.hexdigest()
+
+        # Debug logging to see what's being hashed
+        log = logging.getLogger(__name__)
+        if hasattr(self, "name"):
+            log.debug(
+                f"CONFIG HASH for {self.name} ({resource_type}):\n"
+                f"  Fields included: {sorted(config_dict.keys())}\n"
+                f"  Config dict: {config_str}\n"
+                f"  Hash: {hash_value}"
+            )
+
+        return hash_value
 
     def get_resource_key(self) -> str:
         """Get stable resource key for tracking.
