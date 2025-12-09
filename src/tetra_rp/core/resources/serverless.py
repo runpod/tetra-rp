@@ -296,7 +296,7 @@ class ServerlessResource(DeployableResource):
                 payload = self.model_dump(
                     exclude=self._input_only, exclude_none=True, mode="json"
                 )
-                result = await client.create_endpoint(payload)
+                result = await client.save_endpoint(payload)
 
             if endpoint := self.__class__(**result):
                 return endpoint
@@ -349,7 +349,7 @@ class ServerlessResource(DeployableResource):
                 )
                 payload["id"] = self.id  # Critical: include ID for update
 
-                result = await client.create_endpoint(payload)
+                result = await client.save_endpoint(payload)
 
             if updated := self.__class__(**result):
                 log.info(f"Successfully updated endpoint '{self.name}' (ID: {self.id})")

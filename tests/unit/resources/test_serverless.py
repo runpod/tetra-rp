@@ -40,7 +40,7 @@ class TestServerlessResource:
     def mock_runpod_client(self):
         """Mock RunpodGraphQLClient."""
         client = AsyncMock()
-        client.create_endpoint = AsyncMock()
+        client.save_endpoint = AsyncMock()
         return client
 
     def test_serverless_resource_initialization(self, basic_serverless_config):
@@ -418,7 +418,7 @@ class TestServerlessResourceDeployment:
     def mock_runpod_client(self):
         """Mock RunpodGraphQLClient."""
         client = AsyncMock()
-        client.create_endpoint = AsyncMock()
+        client.save_endpoint = AsyncMock()
         return client
 
     @pytest.fixture
@@ -460,7 +460,7 @@ class TestServerlessResourceDeployment:
             cudaVersions=[CudaVersion.V12_1],
         )
 
-        mock_runpod_client.create_endpoint.return_value = deployment_response
+        mock_runpod_client.save_endpoint.return_value = deployment_response
 
         with patch(
             "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
@@ -479,8 +479,8 @@ class TestServerlessResourceDeployment:
         # Should call network volume deployment
         mock_ensure_volume.assert_called_once()
 
-        # Should call create_endpoint
-        mock_runpod_client.create_endpoint.assert_called_once()
+        # Should call save_endpoint
+        mock_runpod_client.save_endpoint.assert_called_once()
 
         # Should return new instance with deployment data
         assert result.id == "endpoint-123"
@@ -494,7 +494,7 @@ class TestServerlessResourceDeployment:
         """Test deployment failure raises exception."""
         serverless = ServerlessResource(name="test")
 
-        mock_runpod_client.create_endpoint.side_effect = Exception("API Error")
+        mock_runpod_client.save_endpoint.side_effect = Exception("API Error")
 
         with patch(
             "tetra_rp.core.resources.serverless.RunpodGraphQLClient"

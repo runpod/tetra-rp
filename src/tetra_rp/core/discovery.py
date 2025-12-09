@@ -200,8 +200,10 @@ class ResourceDiscovery:
             if obj and isinstance(obj, DeployableResource):
                 return obj
 
-            log.debug(
-                f"Variable '{var_name}' is not a DeployableResource (type: {type(obj)})"
+            log.warning(
+                f"Resource '{var_name}' failed to resolve to DeployableResource "
+                f"(found type: {type(obj).__name__}). "
+                f"Check that '{var_name}' is defined as a ServerlessResource or other DeployableResource type."
             )
 
         except Exception as e:

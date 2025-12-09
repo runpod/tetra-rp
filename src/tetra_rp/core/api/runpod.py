@@ -80,9 +80,10 @@ class RunpodGraphQLClient:
             log.error(f"HTTP client error: {e}")
             raise Exception(f"HTTP request failed: {e}")
 
-    async def create_endpoint(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def save_endpoint(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a serverless endpoint using direct GraphQL mutation.
+        Create or update a serverless endpoint using direct GraphQL mutation.
+        When 'id' is included in the input, updates the existing endpoint.
         Supports both GPU and CPU endpoints with full field support.
         """
         # GraphQL mutation for saveEndpoint (based on actual schema)
@@ -118,9 +119,7 @@ class RunpodGraphQLClient:
 
         variables = {"input": input_data}
 
-        log.debug(
-            f"Creating endpoint with GraphQL: {input_data.get('name', 'unnamed')}"
-        )
+        log.debug(f"Saving endpoint with GraphQL: {input_data.get('name', 'unnamed')}")
 
         result = await self._execute_graphql(mutation, variables)
 
@@ -129,7 +128,7 @@ class RunpodGraphQLClient:
 
         endpoint_data = result["saveEndpoint"]
         log.info(
-            f"Created endpoint: {endpoint_data.get('id', 'unknown')} - {endpoint_data.get('name', 'unnamed')}"
+            f"Saved endpoint: {endpoint_data.get('id', 'unknown')} - {endpoint_data.get('name', 'unnamed')}"
         )
 
         return endpoint_data
