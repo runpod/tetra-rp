@@ -41,7 +41,6 @@ class TestServerlessResource:
         """Mock RunpodGraphQLClient."""
         client = AsyncMock()
         client.save_endpoint = AsyncMock()
-        client.save_endpoint = AsyncMock()
         return client
 
     def test_serverless_resource_initialization(self, basic_serverless_config):
@@ -121,6 +120,7 @@ class TestServerlessResource:
         )
         id3 = serverless3.resource_id
         assert id1 != id3
+
 
 class TestServerlessResourceNetworkVolume:
     """Test network volume integration in ServerlessResource."""
