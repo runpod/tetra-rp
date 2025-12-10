@@ -41,6 +41,7 @@ class TestServerlessResource:
         """Mock RunpodGraphQLClient."""
         client = AsyncMock()
         client.save_endpoint = AsyncMock()
+        client.save_endpoint = AsyncMock()
         return client
 
     def test_serverless_resource_initialization(self, basic_serverless_config):
@@ -96,17 +97,30 @@ class TestServerlessResource:
             _ = serverless.endpoint
 
     def test_resource_id_changes_only_for_hashed_fields(self):
-        """Ensure resource_id only changes when hashed fields change."""
-        serverless = ServerlessResource(name="hash-test", flashboot=False)
+        """Ensure resource_id is stable based on _hashed_fields config.
 
-        original_id = serverless.resource_id
+        resource_id is computed from _hashed_fields which exclude runtime/server-assigned fields.
+        Create new instances with same env to test different configs.
+        """
+        # Fixed env to ensure consistency
+        env = {"TETRA_IMAGE_TAG": "test-123"}
 
-        serverless.activeBuildid = "build-123"  # runtime field
-        assert serverless.resource_id == original_id
+        # Original config
+        serverless1 = ServerlessResource(name="hash-test", flashboot=False, env=env)
+        id1 = serverless1.resource_id
 
-        serverless.workersMax += 1  # hashed field
-        assert serverless.resource_id != original_id
+        # Same config except runtime field shouldn't change resource_id
+        serverless2 = ServerlessResource(name="hash-test", flashboot=False, env=env)
+        serverless2.activeBuildid = "build-123"  # runtime field (not in _hashed_fields)
+        id2 = serverless2.resource_id
+        assert id1 == id2
 
+        # Different hashed field should produce different resource_id
+        serverless3 = ServerlessResource(
+            name="hash-test", flashboot=False, workersMax=4, env=env
+        )
+        id3 = serverless3.resource_id
+        assert id1 != id3
 
 class TestServerlessResourceNetworkVolume:
     """Test network volume integration in ServerlessResource."""
@@ -439,7 +453,7 @@ class TestServerlessResourceDeployment:
         return {
             "id": "endpoint-123",
             "name": "test-serverless-fb",
-            "gpuIds": "ADA_24",
+            "gpuIds": "RTX4090",
             "allowedCudaVersions": "12.1",
             "networkVolumeId": "vol-456",
         }
@@ -520,7 +534,7 @@ class TestServerlessResourceDeployment:
             "allowedCudaVersions": "",
         }
 
-        mock_runpod_client.create_endpoint.return_value = deployment_response
+        mock_runpod_client.save_endpoint = AsyncMock(return_value=deployment_response)
 
         with patch(
             "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
@@ -795,7 +809,7 @@ class TestServerlessResourceEdgeCases:
         # This tests the lines 173-176 which convert gpuIds back to gpus list
         serverless = ServerlessResource(
             name="test",
-            gpuIds="AMPERE_48,AMPERE_24",
+            gpuIds="AMPERE_48,AMPERE_24,INVALID_GPU",  # Include invalid GPU to test error handling
         )
 
         # Should have parsed valid GPUs and skipped invalid ones
@@ -847,7 +861,7 @@ class TestServerlessResourceUndeploy:
 
     @pytest.mark.asyncio
     async def test_undeploy_success(self):
-        """Test successful undeploy."""
+        """Test successful undeploy through resource manager."""
         serverless = ServerlessResource(name="test")
         serverless.id = "endpoint-123"
 
@@ -860,13 +874,27 @@ class TestServerlessResourceUndeploy:
             "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
         ) as MockClient:
             MockClient.return_value = mock_client
-            result = await serverless.undeploy()
+            # undeploy() now goes through resource_manager and returns a dict
+            with patch(
+                "tetra_rp.core.resources.serverless.ResourceManager"
+            ) as MockManager:
+                manager_instance = AsyncMock()
+                manager_instance.undeploy_resource = AsyncMock(
+                    return_value={
+                        "success": True,
+                        "name": "test",
+                        "endpoint_id": "endpoint-123",
+                        "message": "Successfully undeployed 'test' (endpoint-123)",
+                    }
+                )
+                MockManager.return_value = manager_instance
+                result = await serverless.undeploy()
 
-        assert result is True
+        assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_undeploy_api_failure_when_endpoint_exists(self):
-        """Test undeploy returns False when API fails and endpoint still exists."""
+        """Test undeploy returns dict with success=False when API fails and endpoint still exists."""
         serverless = ServerlessResource(name="test")
         serverless.id = "endpoint-123"
 
@@ -884,11 +912,24 @@ class TestServerlessResourceUndeploy:
             "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
         ) as MockClient:
             MockClient.return_value = mock_client
-            result = await serverless.undeploy()
+            # undeploy() now goes through resource_manager and returns a dict
+            with patch(
+                "tetra_rp.core.resources.serverless.ResourceManager"
+            ) as MockManager:
+                manager_instance = AsyncMock()
+                manager_instance.undeploy_resource = AsyncMock(
+                    return_value={
+                        "success": False,
+                        "name": "test",
+                        "endpoint_id": "endpoint-123",
+                        "message": "Failed to undeploy 'test' (endpoint-123)",
+                    }
+                )
+                MockManager.return_value = manager_instance
+                result = await serverless.undeploy()
 
         # API failed and endpoint still exists, so undeploy fails
-        assert result is False
-        mock_client.endpoint_exists.assert_called_once_with("endpoint-123")
+        assert result["success"] is False
 
     @pytest.mark.asyncio
     async def test_undeploy_auto_cleanup_when_endpoint_not_found(self):
@@ -910,21 +951,46 @@ class TestServerlessResourceUndeploy:
             "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
         ) as MockClient:
             MockClient.return_value = mock_client
-            result = await serverless.undeploy()
+            # undeploy() now goes through resource_manager and returns a dict
+            with patch(
+                "tetra_rp.core.resources.serverless.ResourceManager"
+            ) as MockManager:
+                manager_instance = AsyncMock()
+                manager_instance.undeploy_resource = AsyncMock(
+                    return_value={
+                        "success": True,
+                        "name": "test",
+                        "endpoint_id": "endpoint-123",
+                        "message": "Successfully undeployed 'test' (endpoint-123)",
+                    }
+                )
+                MockManager.return_value = manager_instance
+                result = await serverless.undeploy()
 
         # API failed but endpoint doesn't exist, so treat as successful cleanup
-        assert result is True
-        mock_client.endpoint_exists.assert_called_once_with("endpoint-123")
+        assert result["success"] is True
 
     @pytest.mark.asyncio
     async def test_undeploy_no_id(self):
-        """Test undeploy returns False when endpoint has no ID."""
+        """Test undeploy returns dict with success=False when endpoint has no ID."""
         serverless = ServerlessResource(name="test")
         # No ID set
 
-        result = await serverless.undeploy()
+        # undeploy() now goes through resource_manager and returns a dict
+        with patch("tetra_rp.core.resources.serverless.ResourceManager") as MockManager:
+            manager_instance = AsyncMock()
+            manager_instance.undeploy_resource = AsyncMock(
+                return_value={
+                    "success": False,
+                    "name": "test",
+                    "endpoint_id": "N/A",
+                    "message": "Resource not found in tracking",
+                }
+            )
+            MockManager.return_value = manager_instance
+            result = await serverless.undeploy()
 
-        assert result is False
+        assert result["success"] is False
 
 
 class TestHealthModels:

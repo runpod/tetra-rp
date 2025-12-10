@@ -268,7 +268,8 @@ class TestResourceManager:
                     result = await manager.get_or_deploy_resource(resource)
 
         mock_do_deploy.assert_awaited_once()
-        mock_add.assert_called_once_with(resource.resource_id, resource)
+        # Use get_resource_key() to get the name-based key format
+        mock_add.assert_called_once_with(resource.get_resource_key(), resource)
         assert result is resource
 
     @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, ClassVar
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from typing import Optional, Dict, Any
+from pydantic import BaseModel, ConfigDict
 
 
 class BaseResource(BaseModel):
@@ -14,7 +14,6 @@ class BaseResource(BaseModel):
     )
 
     id: Optional[str] = None
-    _resource_id: Optional[str] = PrivateAttr(default=None)
 
     @property
     def resource_id(self) -> str:
@@ -25,14 +24,38 @@ class BaseResource(BaseModel):
 
         The hash excludes the 'id' field since it's assigned by the provider after
         deployment and should not affect resource identity.
+
+        If the resource defines _hashed_fields as a class variable, only those fields
+        are included in the hash.
         """
-        if self._resource_id is None:
+        # Use a private attribute in __dict__ for caching (handles pickle correctly)
+        cache_key = "_cached_resource_id"
+        if cache_key not in self.__dict__:
             resource_type = self.__class__.__name__
-            # Exclude 'id' field from hash - it's assigned post-deployment
-            config_str = self.model_dump_json(exclude_none=True, exclude={"id"})
+            # Check if resource defines _hashed_fields as a set/frozenset or ModelPrivateAttr
+            hashed_fields_attr = getattr(self.__class__, "_hashed_fields", None)
+            include_fields = None
+
+            if isinstance(hashed_fields_attr, (set, frozenset)):
+                # Direct set/frozenset
+                include_fields = hashed_fields_attr - {"id"}
+            elif hasattr(hashed_fields_attr, "default") and isinstance(
+                hashed_fields_attr.default, (set, frozenset)
+            ):
+                # Pydantic ModelPrivateAttr with set/frozenset default
+                include_fields = hashed_fields_attr.default - {"id"}
+
+            if include_fields:
+                config_str = self.model_dump_json(
+                    exclude_none=True, include=include_fields
+                )
+            else:
+                # Fallback: Exclude only id field
+                config_str = self.model_dump_json(exclude_none=True, exclude={"id"})
+
             hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
-            self._resource_id = f"{resource_type}_{hash_obj.hexdigest()}"
-        return self._resource_id
+            self.__dict__[cache_key] = f"{resource_type}_{hash_obj.hexdigest()}"
+        return self.__dict__[cache_key]
 
     @property
     def config_hash(self) -> str:
@@ -92,6 +115,40 @@ class BaseResource(BaseModel):
         # Fallback to resource_id for resources without names
         return self.resource_id
 
+    def __getstate__(self) -> Dict[str, Any]:
+        """Get state for pickling, excluding non-pickleable items."""
+        import weakref as weakref_module
+
+        state = self.__dict__.copy()
+
+        # Remove any weakrefs from the state dict
+        # This handles cases where threading.Lock or similar objects leak weakrefs
+        keys_to_remove = []
+        for key, value in state.items():
+            # Direct weakref
+            if isinstance(value, weakref_module.ref):
+                keys_to_remove.append(key)
+                continue
+
+            # Check if value holds weakrefs in its __dict__
+            if hasattr(value, "__dict__"):
+                try:
+                    for sub_value in value.__dict__.values():
+                        if isinstance(sub_value, weakref_module.ref):
+                            keys_to_remove.append(key)
+                            break
+                except Exception:
+                    pass
+
+        for key in keys_to_remove:
+            del state[key]
+
+        return state
+
+    def __setstate__(self, state: Dict[str, Any]) -> None:
+        """Restore state from pickling."""
+        self.__dict__.update(state)
+
 
 class DeployableResource(BaseResource, ABC):
     """Base class for deployable resources."""
@@ -111,34 +168,15 @@ class DeployableResource(BaseResource, ABC):
         raise NotImplementedError("Subclasses should implement this method.")
 
     @abstractmethod
-    async def _do_deploy(self) -> "DeployableResource":
-        """Internal API for actually deploying a resource."""
-        raise NotImplementedError("Subclasses should implement this method.")
-
-    @abstractmethod
     async def deploy(self) -> "DeployableResource":
-        """Deploy the resource. Hooks into state manager to handle persistence
-        of resource config."""
+        """Deploy the resource."""
         raise NotImplementedError("Subclasses should implement this method.")
 
     @abstractmethod
-    async def _do_undeploy(self) -> bool:
-        """Internal API for undeploying a resource.
-
-        Returns:
-            True if successfully undeployed, False otherwise
-        """
-        raise NotImplementedError("Subclasses should implement this method.")
-
-    @abstractmethod
-    async def undeploy(self) -> Dict[str, Any]:
+    async def undeploy(self) -> bool:
         """Undeploy/delete the resource.
 
         Returns:
-            Dict with keys:
-                - success: bool indicating if undeploy succeeded
-                - name: resource name (if available)
-                - endpoint_id: resource endpoint ID (if available)
-                - message: status message
+            True if successfully undeployed, False otherwise
         """
         raise NotImplementedError("Subclasses should implement this method.")
