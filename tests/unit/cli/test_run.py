@@ -24,7 +24,9 @@ def temp_fastapi_app(tmp_path):
 class TestRunCommandEnvironmentVariables:
     """Test flash run command environment variable support."""
 
-    def test_port_from_environment_variable(self, runner, temp_fastapi_app, monkeypatch):
+    def test_port_from_environment_variable(
+        self, runner, temp_fastapi_app, monkeypatch
+    ):
         """Test that FLASH_PORT environment variable is respected."""
         monkeypatch.chdir(temp_fastapi_app)
         monkeypatch.setenv("FLASH_PORT", "8080")
@@ -48,7 +50,9 @@ class TestRunCommandEnvironmentVariables:
                     port_index = call_args.index("--port")
                     assert call_args[port_index + 1] == "8080"
 
-    def test_host_from_environment_variable(self, runner, temp_fastapi_app, monkeypatch):
+    def test_host_from_environment_variable(
+        self, runner, temp_fastapi_app, monkeypatch
+    ):
         """Test that FLASH_HOST environment variable is respected."""
         monkeypatch.chdir(temp_fastapi_app)
         monkeypatch.setenv("FLASH_HOST", "0.0.0.0")

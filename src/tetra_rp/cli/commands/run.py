@@ -16,10 +16,17 @@ console = Console()
 
 def run_command(
     host: str = typer.Option(
-        "localhost", "--host", envvar="FLASH_HOST", help="Host to bind to (env: FLASH_HOST)"
+        "localhost",
+        "--host",
+        envvar="FLASH_HOST",
+        help="Host to bind to (env: FLASH_HOST)",
     ),
     port: int = typer.Option(
-        8888, "--port", "-p", envvar="FLASH_PORT", help="Port to bind to (env: FLASH_PORT)"
+        8888,
+        "--port",
+        "-p",
+        envvar="FLASH_PORT",
+        help="Port to bind to (env: FLASH_PORT)",
     ),
     reload: bool = typer.Option(
         True, "--reload/--no-reload", help="Enable auto-reload"
