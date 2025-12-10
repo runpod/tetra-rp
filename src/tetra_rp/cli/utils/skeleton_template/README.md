@@ -248,7 +248,7 @@ async def my_function(data: dict) -> dict:
 RUNPOD_API_KEY=your_api_key
 
 # Optional
-PORT=8000
+FLASH_PORT=8888
 LOG_LEVEL=INFO
 ```
 
