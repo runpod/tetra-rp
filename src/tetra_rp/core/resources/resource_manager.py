@@ -14,8 +14,9 @@ from .base import DeployableResource
 
 log = logging.getLogger(__name__)
 
-# File to persist state of resources
-RESOURCE_STATE_FILE = Path(".tetra_resources.pkl")
+# Directory and file to persist state of resources
+RUNPOD_FLASH_DIR = Path(".runpod")
+RESOURCE_STATE_FILE = RUNPOD_FLASH_DIR / "resources.pkl"
 
 
 class ResourceManager(SingletonMixin):
@@ -23,6 +24,7 @@ class ResourceManager(SingletonMixin):
 
     # Class variables shared across all instances (singleton)
     _resources: Dict[str, DeployableResource] = {}
+    _resource_configs: Dict[str, str] = {}  # Tracks config hashes for drift detection
     _deployment_locks: Dict[str, asyncio.Lock] = {}
     _global_lock: Optional[asyncio.Lock] = None
     _lock_initialized = False
@@ -37,6 +39,8 @@ class ResourceManager(SingletonMixin):
         # Load resources immediately on initialization (only once)
         if not ResourceManager._resources_initialized:
             self._load_resources()
+            self._migrate_to_name_based_keys()  # Auto-migrate legacy resources
+            self._refresh_config_hashes()  # Refresh config hashes after code changes
             ResourceManager._resources_initialized = True
 
     def _load_resources(self) -> Dict[str, DeployableResource]:
@@ -46,19 +50,107 @@ class ResourceManager(SingletonMixin):
                 with open(RESOURCE_STATE_FILE, "rb") as f:
                     # Acquire shared lock for reading (cross-platform)
                     with file_lock(f, exclusive=False):
-                        self._resources = cloudpickle.load(f)
-                        log.debug(f"Loaded saved resources from {RESOURCE_STATE_FILE}")
+                        data = cloudpickle.load(f)
+
+                        # Handle both old (dict) and new (tuple) pickle formats
+                        if isinstance(data, tuple) and len(data) == 2:
+                            self._resources, self._resource_configs = data
+                        else:
+                            # Legacy format: just resources dict
+                            self._resources = data
+                            self._resource_configs = {}
+
+                        log.debug(
+                            f"Loaded {len(self._resources)} saved resources from {RESOURCE_STATE_FILE}:\n"
+                            f"  Keys: {list(self._resources.keys())}"
+                        )
             except (FileLockError, Exception) as e:
                 log.error(f"Failed to load resources from {RESOURCE_STATE_FILE}: {e}")
         return self._resources
 
+    def _migrate_to_name_based_keys(self) -> None:
+        """Migrate from hash-based keys to name-based keys.
+
+        Legacy format: {resource_id_hash: resource}
+        New format: {ResourceType:name: resource}
+
+        This enables config drift detection and updates.
+        """
+        migrated = {}
+        migrated_configs = {}
+
+        for key, resource in self._resources.items():
+            # Check if already using name-based key format
+            if ":" in key and not key.startswith(resource.__class__.__name__ + "_"):
+                # Already migrated
+                migrated[key] = resource
+                migrated_configs[key] = self._resource_configs.get(
+                    key, resource.config_hash
+                )
+                continue
+
+            # Legacy hash-based key - migrate to name-based
+            if hasattr(resource, "get_resource_key"):
+                new_key = resource.get_resource_key()
+                migrated[new_key] = resource
+                migrated_configs[new_key] = resource.config_hash
+                log.debug(f"Migrated resource: {key} → {new_key}")
+            else:
+                # Fallback: keep original key if no name available
+                migrated[key] = resource
+                migrated_configs[key] = self._resource_configs.get(key, "")
+
+        if len(migrated) != len(self._resources):
+            log.info(f"Migrated {len(self._resources)} resources to name-based keys")
+            self._resources = migrated
+            self._resource_configs = migrated_configs
+            self._save_resources()  # Persist migration
+
+    def _refresh_config_hashes(self) -> None:
+        """Refresh stored config hashes to match current code.
+
+        This is needed when code changes affect how config_hash is computed
+        (e.g., adding field_serializers, changing _input_only sets).
+
+        Compares stored hash with freshly computed hash. If they differ,
+        updates the stored hash to prevent false drift detection.
+        """
+        updated = False
+
+        for key, resource in self._resources.items():
+            if not hasattr(resource, "config_hash"):
+                continue
+
+            # Compute fresh hash with current code
+            fresh_hash = resource.config_hash
+            stored_hash = self._resource_configs.get(key, "")
+
+            # If hashes differ, update stored hash
+            if stored_hash != fresh_hash:
+                log.debug(
+                    f"Refreshing config hash for '{key}': "
+                    f"{stored_hash[:8]}... → {fresh_hash[:8]}..."
+                )
+                self._resource_configs[key] = fresh_hash
+                updated = True
+
+        # Save if any hashes were updated
+        if updated:
+            log.info("Refreshed config hashes after code changes")
+            self._save_resources()
+
     def _save_resources(self) -> None:
         """Persist state of resources to disk using cross-platform file locking."""
         try:
+            # Ensure directory exists
+            RUNPOD_FLASH_DIR.mkdir(parents=True, exist_ok=True)
+
             with open(RESOURCE_STATE_FILE, "wb") as f:
                 # Acquire exclusive lock for writing (cross-platform)
                 with file_lock(f, exclusive=True):
-                    cloudpickle.dump(self._resources, f)
+                    # Save both resources and config hashes as tuple
+                    data = (self._resources, self._resource_configs)
+                    cloudpickle.dump(data, f)
                     f.flush()  # Ensure data is written to disk
                     log.debug(f"Saved resources in {RESOURCE_STATE_FILE}")
         except (FileLockError, Exception) as e:
@@ -68,6 +160,7 @@ class ResourceManager(SingletonMixin):
     def _add_resource(self, uid: str, resource: DeployableResource):
         """Add a resource to the manager (protected method for internal use)."""
         self._resources[uid] = resource
+        self._resource_configs[uid] = resource.config_hash
         self._save_resources()
 
     def _remove_resource(self, uid: str):
@@ -77,6 +170,7 @@ class ResourceManager(SingletonMixin):
             return
 
         del self._resources[uid]
+        self._resource_configs.pop(uid, None)  # Remove config hash too
         log.debug(f"Removed resource {uid}")
 
         self._save_resources()
@@ -113,35 +207,107 @@ class ResourceManager(SingletonMixin):
     async def get_or_deploy_resource(
         self, config: DeployableResource
     ) -> DeployableResource:
-        """Get existing or create new resource based on config.
+        """Get existing, update if config changed, or deploy new resource.
 
-        Thread-safe implementation that prevents concurrent deployments
-        of the same resource configuration.
+        Uses name-based identity (ResourceType:name) instead of config hash.
+        This enables automatic config drift detection and updates.
+
+        Flow:
+        1. Check if resource with same name exists
+        2. If exists, compare config hashes
+        3. If config changed, automatically update the endpoint
+        4. If no resource exists, deploy new one
+
+        Thread-safe implementation that prevents concurrent deployments.
         """
-        uid = config.resource_id
+        # Use name-based key instead of hash
+        resource_key = config.get_resource_key()
+        new_config_hash = config.config_hash
 
-        # Acquire per-resource lock for this specific configuration
-        async with self.resource_lock(uid):
-            # Double-check pattern: check again inside the lock
-            if existing := await self.get_resource_from_store(uid):
+        log.debug(
+            f"get_or_deploy_resource called:\n"
+            f"  Config type: {type(config).__name__}\n"
+            f"  Config name: {getattr(config, 'name', 'N/A')}\n"
+            f"  Resource key: {resource_key}\n"
+            f"  New config hash: {new_config_hash[:16]}...\n"
+            f"  Available keys in cache: {list(self._resources.keys())}"
+        )
+
+        # Ensure global lock is initialized
+        assert ResourceManager._global_lock is not None, "Global lock not initialized"
+
+        # Get or create a per-resource lock (use name-based key)
+        async with ResourceManager._global_lock:
+            if resource_key not in ResourceManager._deployment_locks:
+                ResourceManager._deployment_locks[resource_key] = asyncio.Lock()
+            resource_lock = ResourceManager._deployment_locks[resource_key]
+
+        # Acquire per-resource lock
+        async with resource_lock:
+            existing = self._resources.get(resource_key)
+
+            if existing:
+                log.debug(f"Resource found in cache: {resource_key}")
+                # Resource exists - check if still valid
                 if not existing.is_deployed():
                     log.warning(f"{existing} is no longer valid, redeploying.")
-                    self._remove_resource(uid)
-                    # Don't recursive call - deploy directly within the lock
+                    self._remove_resource(resource_key)
                     deployed_resource = await self._deploy_with_error_context(config)
                     log.info(f"URL: {deployed_resource.url}")
-                    self._add_resource(uid, deployed_resource)
+                    self._add_resource(resource_key, deployed_resource)
                     return deployed_resource
 
-                log.debug(f"{existing} exists, reusing.")
+                # Check for config drift
+                stored_config_hash = self._resource_configs.get(resource_key, "")
+
+                if stored_config_hash != new_config_hash:
+                    # Detailed drift debugging
+                    log.debug(
+                        f"DRIFT DEBUG for '{config.name}':\n"
+                        f"  Stored hash: {stored_config_hash}\n"
+                        f"  New hash: {new_config_hash}\n"
+                        f"  Stored resource type: {type(existing).__name__}\n"
+                        f"  New resource type: {type(config).__name__}\n"
+                        f"  Existing config fields: {existing.model_dump(exclude_none=True, exclude={'id'}) if hasattr(existing, 'model_dump') else 'N/A'}\n"
+                        f"  New config fields: {config.model_dump(exclude_none=True, exclude={'id'}) if hasattr(config, 'model_dump') else 'N/A'}"
+                    )
+                    log.info(
+                        f"Config drift detected for '{config.name}': "
+                        f"Automatically updating endpoint"
+                    )
+
+                    # Attempt update (will redeploy if structural changes detected)
+                    if hasattr(existing, "update"):
+                        updated_resource = await existing.update(config)
+                        self._add_resource(resource_key, updated_resource)
+                        return updated_resource
+                    else:
+                        # Fallback: redeploy if update not supported
+                        log.warning(
+                            f"{config.name}: Resource type doesn't support updates, "
+                            "redeploying"
+                        )
+                        await existing.undeploy()
+                        deployed_resource = await self._deploy_with_error_context(
+                            config
+                        )
+                        log.info(f"URL: {deployed_resource.url}")
+                        self._add_resource(resource_key, deployed_resource)
+                        return deployed_resource
+
+                # Config unchanged, reuse existing
+                log.debug(f"{existing} exists, reusing (config unchanged)")
                 log.info(f"URL: {existing.url}")
                 return existing
 
             # No existing resource, deploy new one
-            log.debug(f"Deploying new resource: {uid}")
+            log.debug(
+                f"Resource NOT found in cache, deploying new: {resource_key}\n"
+                f"  Searched in keys: {list(self._resources.keys())}"
+            )
             deployed_resource = await self._deploy_with_error_context(config)
             log.info(f"URL: {deployed_resource.url}")
-            self._add_resource(uid, deployed_resource)
+            self._add_resource(resource_key, deployed_resource)
             return deployed_resource
 
     @asynccontextmanager

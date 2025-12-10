@@ -187,13 +187,50 @@ class ServerlessResource(DeployableResource):
             return GpuGroup.all()
         return value
 
+    @property
+    def config_hash(self) -> str:
+        """Get config hash excluding env to prevent false drift detection.
+
+        Environment variables are dynamically computed at initialization time from the .env file.
+        Including them in the config hash causes false drift detection when the same resource
+        is deployed in different Python processes that might have different .env files or
+        environment state. This override computes the hash using only structural fields.
+        """
+        import hashlib
+        import json
+
+        resource_type = self.__class__.__name__
+
+        # Use _input_only fields but exclude 'env' to avoid dynamic drift
+        if hasattr(self, "_input_only"):
+            include_fields = self._input_only - {"id", "env"}  # Exclude id and env
+            config_dict = self.model_dump(
+                exclude_none=True, include=include_fields, mode="json"
+            )
+        else:
+            # Fallback
+            config_dict = self.model_dump(
+                exclude_none=True, exclude={"id", "env"}, mode="json"
+            )
+
+        # Convert to JSON string for hashing
+        config_str = json.dumps(config_dict, sort_keys=True)
+        hash_obj = hashlib.md5(f"{resource_type}:{config_str}".encode())
+        hash_value = hash_obj.hexdigest()
+
+        return hash_value
+
     @model_validator(mode="after")
     def sync_input_fields(self):
-        """Sync between temporary inputs and exported fields"""
+        """Sync between temporary inputs and exported fields.
+
+        Idempotent: Can be called multiple times safely without changing the result.
+        """
+        # Only append "-fb" if flashboot is enabled and not already present
         if self.flashboot and not self.name.endswith("-fb"):
             self.name += "-fb"
 
-        # Sync datacenter to locations field for API
+        # Sync datacenter to locations field for API (only if not already set)
         if not self.locations:
             self.locations = self.datacenter.value
 
@@ -223,22 +260,19 @@ class ServerlessResource(DeployableResource):
         return returned_endpoint
 
     def _sync_input_fields_gpu(self):
-        # GPU-specific fields
-        # the response from the api for gpus is none
-        # apply this path only if gpuIds is None, otherwise we overwrite gpuIds
-        # with ANY gpu because the default for gpus is any
+        # GPU-specific fields (idempotent - only set if not already set)
         if self.gpus and not self.gpuIds:
             # Convert gpus list to gpuIds string
             self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
-        elif self.gpuIds:
+        elif self.gpuIds and not self.gpus:
             # Convert gpuIds string to gpus list (from backend responses)
             gpu_values = [v.strip() for v in self.gpuIds.split(",") if v.strip()]
             self.gpus = [GpuGroup(value) for value in gpu_values]
 
-        if self.cudaVersions:
+        if self.cudaVersions and not self.allowedCudaVersions:
             # Convert cudaVersions list to allowedCudaVersions string
             self.allowedCudaVersions = ",".join(v.value for v in self.cudaVersions)
-        elif self.allowedCudaVersions:
+        elif self.allowedCudaVersions and not self.cudaVersions:
             # Convert allowedCudaVersions string to cudaVersions list (from backend responses)
             version_values = [
                 v.strip() for v in self.allowedCudaVersions.split(",") if v.strip()
@@ -288,8 +322,10 @@ class ServerlessResource(DeployableResource):
             await self._ensure_network_volume_deployed()
 
             async with RunpodGraphQLClient() as client:
-                payload = self.model_dump(exclude=self._input_only, exclude_none=True)
-                result = await client.create_endpoint(payload)
+                payload = self.model_dump(
+                    exclude=self._input_only, exclude_none=True, mode="json"
+                )
+                result = await client.save_endpoint(payload)
 
             if endpoint := self.__class__(**result):
                 endpoint = await self._sync_graphql_object_with_inputs(endpoint)
@@ -301,6 +337,101 @@ class ServerlessResource(DeployableResource):
         except Exception as e:
             log.error(f"{self} failed to deploy: {e}")
             raise
+
+    async def update(self, new_config: "ServerlessResource") -> "ServerlessResource":
+        """
+        Update existing endpoint with new configuration.
+
+        Uses saveEndpoint mutation which handles both create and update.
+        When 'id' is included in the payload, it updates the existing endpoint.
+
+        Args:
+            new_config: New configuration to apply
+
+        Returns:
+            Updated ServerlessResource instance
+
+        Raises:
+            ValueError: If endpoint not deployed or structural changes detected
+        """
+        if not self.id:
+            raise ValueError("Cannot update: endpoint not deployed")
+
+        # Check for structural changes that require redeploy
+        if self._has_structural_changes(new_config):
+            log.warning(
+                f"{self.name}: Structural changes detected. "
+                "Redeploying with new configuration."
+            )
+            # Undeploy current, deploy new
+            await self.undeploy()
+            return await new_config.deploy()
+
+        try:
+            log.info(f"Updating endpoint '{self.name}' (ID: {self.id})")
+
+            # Ensure network volume is deployed if specified
+            await new_config._ensure_network_volume_deployed()
+
+            async with RunpodGraphQLClient() as client:
+                # Include the endpoint ID to trigger update
+                payload = new_config.model_dump(
+                    exclude=new_config._input_only, exclude_none=True, mode="json"
+                )
+                payload["id"] = self.id  # Critical: include ID for update
+
+                result = await client.save_endpoint(payload)
+
+            if updated := self.__class__(**result):
+                log.info(f"Successfully updated endpoint '{self.name}' (ID: {self.id})")
+                return updated
+
+            raise ValueError("Update failed, no endpoint was returned.")
+
+        except Exception as e:
+            log.error(f"Failed to update {self.name}: {e}")
+            raise
+
+    def _has_structural_changes(self, new_config: "ServerlessResource") -> bool:
+        """
+        Check if config changes require redeploy vs update.
+
+        Structural changes (GPU type, image, flashboot) require full redeploy.
+        Scaling parameters can be updated in-place.
+
+        Args:
+            new_config: New configuration to compare against
+
+        Returns:
+            True if structural changes detected (requires redeploy)
+        """
+        structural_fields = [
+            "gpus",
+            "gpuIds",
+            "template",
+            "templateId",
+            "imageName",
+            "flashboot",
+            "allowedCudaVersions",
+            "cudaVersions",
+            "instanceIds",
+        ]
+
+        for field in structural_fields:
+            old_val = getattr(self, field, None)
+            new_val = getattr(new_config, field, None)
+
+            # Handle list comparison
+            if isinstance(old_val, list) and isinstance(new_val, list):
+                if sorted(str(v) for v in old_val) != sorted(str(v) for v in new_val):
+                    log.debug(f"Structural change in '{field}': {old_val} → {new_val}")
+                    return True
+            # Handle other types
+            elif old_val != new_val:
+                log.debug(f"Structural change in '{field}': {old_val} → {new_val}")
+                return True
+
+        return False
 
     async def deploy(self) -> "DeployableResource":
         resource_manager = ResourceManager()
@@ -314,8 +445,11 @@ class ServerlessResource(DeployableResource):
         """
         Undeploys (deletes) the serverless endpoint.
 
+        If deletion fails, verifies the endpoint still exists. If not, treats it as
+        successfully undeployed (handles cases where endpoint was deleted externally).
+
         Returns:
-            True if successfully undeployed, False otherwise
+            True if successfully undeployed or endpoint doesn't exist, False otherwise
         """
         if not self.id:
             log.warning(f"{self} has no endpoint ID, cannot undeploy")
@@ -328,13 +462,26 @@ class ServerlessResource(DeployableResource):
 
                 if success:
                     log.info(f"{self} successfully undeployed")
+                    return True
                 else:
                     log.error(f"{self} failed to undeploy")
-
-                return success
+                    return False
 
         except Exception as e:
             log.error(f"{self} failed to undeploy: {e}")
+
+            # Deletion failed. Check if endpoint still exists.
+            # If it doesn't exist, treat as successful cleanup (orphaned endpoint).
+            try:
+                async with RunpodGraphQLClient() as client:
+                    if not await client.endpoint_exists(self.id):
+                        log.info(
+                            f"{self} no longer exists on RunPod, removing from cache"
+                        )
+                        return True
+            except Exception as check_error:
+                log.warning(f"Could not verify endpoint existence: {check_error}")
+
             return False
 
     async def undeploy(self) -> Dict[str, Any]:

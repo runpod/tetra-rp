@@ -56,7 +56,7 @@ def mock_runpod_client():
     client = Mock()
 
     # Mock common API responses
-    client.create_endpoint = AsyncMock(
+    client.save_endpoint = AsyncMock(
         return_value={"id": "test-endpoint-id", "status": "active"}
     )
     client.get_endpoint = AsyncMock(
