@@ -7,6 +7,27 @@ from .logger import setup_logging  # noqa: E402
 
 setup_logging()
 
+# TYPE_CHECKING imports provide full IDE support (autocomplete, type hints)
+# while __getattr__ enables lazy loading at runtime for fast CLI startup
+from typing import TYPE_CHECKING  # noqa: E402
+
+if TYPE_CHECKING:
+    from .client import remote
+    from .core.resources import (
+        CpuInstanceType,
+        CpuLiveServerless,
+        CpuServerlessEndpoint,
+        CudaVersion,
+        DataCenter,
+        GpuGroup,
+        LiveServerless,
+        NetworkVolume,
+        PodTemplate,
+        ResourceManager,
+        ServerlessEndpoint,
+        ServerlessType,
+    )
+
 
 def __getattr__(name):
     """Lazily import core modules only when accessed."""
