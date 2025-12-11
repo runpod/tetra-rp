@@ -19,8 +19,16 @@ console = Console()
 
 
 def _get_resource_manager():
-    """Lazily import and return ResourceManager instance."""
+    """Get ResourceManager instance with lazy loading.
+
+    Imports are deferred to avoid loading heavy dependencies (runpod, aiohttp, etc)
+    at CLI startup time. This allows fast commands like 'flash init' to run without
+    loading unnecessary dependencies.
+
+    Can be mocked in tests: @patch('tetra_rp.cli.commands.undeploy._get_resource_manager')
+    """
     from ...core.resources.resource_manager import ResourceManager
+
     return ResourceManager()
 
 
