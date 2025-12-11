@@ -211,8 +211,9 @@ cursor .env
 Remove the `#` symbol from the beginning of the `RUNPOD_API_KEY` line and replace `your_api_key_here` with your actual Runpod API key:
 
 ```txt
-# RUNPOD_API_KEY=your_api_key_here
-# PORT=80
+RUNPOD_API_KEY=your_api_key_here
+# FLASH_HOST=localhost
+# FLASH_PORT=8888
 # LOG_LEVEL=INFO
 ```
 
