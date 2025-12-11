@@ -12,6 +12,7 @@ def __getattr__(name):
     """Lazily import core modules only when accessed."""
     if name == "remote":
         from .client import remote
+
         return remote
     elif name in (
         "CpuServerlessEndpoint",
