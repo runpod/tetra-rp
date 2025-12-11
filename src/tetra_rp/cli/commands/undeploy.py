@@ -1,7 +1,9 @@
 """Undeploy command for managing RunPod serverless endpoints."""
 
+from __future__ import annotations
+
 import asyncio
-from typing import Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -9,10 +11,17 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 import questionary
 
-from ...core.resources.base import DeployableResource
-from ...core.resources.resource_manager import ResourceManager
+if TYPE_CHECKING:
+    from ...core.resources.base import DeployableResource
+    from ...core.resources.resource_manager import ResourceManager
 
 console = Console()
+
+
+def _get_resource_manager():
+    """Lazily import and return ResourceManager instance."""
+    from ...core.resources.resource_manager import ResourceManager
+    return ResourceManager()
 
 
 def _get_resource_status(resource) -> Tuple[str, str]:
@@ -49,7 +58,7 @@ def _get_resource_type(resource) -> str:
 
 def list_command():
     """List all deployed endpoints tracked in .tetra_resources.pkl."""
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     resources = manager.list_all_resources()
 
     if not resources:
@@ -233,7 +242,7 @@ def undeploy_command(
         list_command()
         return
 
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     resources = manager.list_all_resources()
 
     if not resources:
@@ -324,7 +333,7 @@ def _undeploy_by_name(name: str, resources: dict):
         raise typer.Exit(0)
 
     # Delete endpoints
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     with console.status("Deleting endpoint(s)..."):
         results = []
         for resource_id, resource in matches:
@@ -389,7 +398,7 @@ def _undeploy_all(resources: dict):
         raise typer.Exit(0)
 
     # Delete all endpoints
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     with console.status(f"Deleting {len(resources)} endpoint(s)..."):
         results = []
         for resource_id, resource in resources.items():
@@ -474,7 +483,7 @@ def _interactive_undeploy(resources: dict):
         raise typer.Exit(0)
 
     # Delete selected endpoints
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     with console.status(f"Deleting {len(selected_resources)} endpoint(s)..."):
         results = []
         for resource_id, resource in selected_resources:
