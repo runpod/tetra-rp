@@ -37,7 +37,7 @@ def ping():
 if __name__ == "__main__":
     import uvicorn
 
-    host = str(os.getenv("FLASH_HOST", "localhost"))
+    host = os.getenv("FLASH_HOST", "localhost")
     port = int(os.getenv("FLASH_PORT", 8888))
     logger.info(f"Starting Flash server on {host}:{port}")
 
