@@ -248,8 +248,9 @@ async def my_function(data: dict) -> dict:
 RUNPOD_API_KEY=your_api_key
 
 # Optional
-FLASH_PORT=8888
-LOG_LEVEL=INFO
+FLASH_HOST=localhost  # Host to bind the server to (default: localhost)
+FLASH_PORT=8888       # Port to bind the server to (default: 8888)
+LOG_LEVEL=INFO        # Logging level (default: INFO)
 ```
 
 ## Next Steps
