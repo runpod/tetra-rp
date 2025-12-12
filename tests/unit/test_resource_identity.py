@@ -92,6 +92,8 @@ class TestResourceIdentity:
 
     def test_pickled_resource_preserves_id(self):
         """Test that pickling and unpickling preserves resource_id."""
+        import gc
+
         config = LiveServerless(
             name="test-pickle",
             gpus=[GpuGroup.ADA_24],
@@ -102,6 +104,10 @@ class TestResourceIdentity:
 
         # Get resource_id before pickling
         id_before = config.resource_id
+
+        # Force garbage collection to clear any stray references
+        # that might have been left by previous tests
+        gc.collect()
 
         # Pickle and unpickle
         pickled = cloudpickle.dumps(config)

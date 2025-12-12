@@ -388,9 +388,16 @@ class TestCpuConfigHash:
                     f"Structural change in '{field}': loaded={old_val} vs new={new_val}"
                 )
             else:
-                assert old_val == new_val, (
-                    f"Structural change in '{field}': loaded={old_val} vs new={new_val}"
-                )
+                # For Pydantic models, compare their data representation to avoid
+                # internal state differences after pickle/unpickle (e.g., __pydantic_fields_set__)
+                if hasattr(old_val, "model_dump") and hasattr(new_val, "model_dump"):
+                    assert old_val.model_dump() == new_val.model_dump(), (
+                        f"Structural change in '{field}': loaded={old_val} vs new={new_val}"
+                    )
+                else:
+                    assert old_val == new_val, (
+                        f"Structural change in '{field}': loaded={old_val} vs new={new_val}"
+                    )
 
     def test_config_hash_excludes_gpu_fields(self):
         """Test that config_hash for CPU endpoints excludes GPU-specific fields.
