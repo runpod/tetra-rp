@@ -133,10 +133,12 @@ class TestUndeployCommand:
 
     def test_undeploy_no_args_shows_help(self, runner):
         """Test undeploy without arguments shows help/usage."""
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM:
+        with patch(
+            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+        ) as mock_get_rm:
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = {}
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             result = runner.invoke(app, ["undeploy"])
 
@@ -146,12 +148,14 @@ class TestUndeployCommand:
 
     def test_undeploy_no_args_shows_usage_text(self, runner):
         """Ensure usage panel is rendered when no args are provided."""
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM:
+        with patch(
+            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+        ) as mock_get_rm:
             mock_resource = MagicMock()
             mock_resource.name = "foo"
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = {"rid": mock_resource}
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             result = runner.invoke(app, ["undeploy"])
 
