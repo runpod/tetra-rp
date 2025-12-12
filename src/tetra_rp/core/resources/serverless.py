@@ -226,8 +226,10 @@ class ServerlessResource(DeployableResource):
 
         Idempotent: Can be called multiple times safely without changing the result.
         """
-        # Only append "-fb" if flashboot is enabled and not already present
-        if self.flashboot and not self.name.endswith("-fb"):
+        if self.flashboot:
+            # Remove all trailing '-fb' suffixes, then add one
+            while self.name.endswith("-fb"):
+                self.name = self.name[:-3]
             self.name += "-fb"
 
         # Sync datacenter to locations field for API (only if not already set)

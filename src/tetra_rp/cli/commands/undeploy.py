@@ -287,6 +287,7 @@ def undeploy_command(
         console.print(
             "[red]Error:[/red] Please specify a name, use --all/--interactive, or run `flash undeploy list`"
         )
+        # Exit 0: Treat usage help display as successful operation for better UX
         raise typer.Exit(0)
 
 

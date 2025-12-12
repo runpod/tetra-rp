@@ -372,7 +372,7 @@ class ResourceManager(SingletonMixin):
                 - message: status message
         """
         resource = self._resources.get(resource_id)
-        log.debug(f"existing resources: {self._resources}")
+        log.debug(f"existing resource IDs: {list(self._resources.keys())}")
 
         if not resource:
             return {
