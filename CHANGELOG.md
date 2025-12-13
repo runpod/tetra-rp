@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.19.0](https://github.com/runpod/tetra-rp/compare/v0.18.0...v0.19.0) (2025-12-12)
+
+
+### Features
+
+* AE-1512: deploy() and undeploy() deployable resources directly ([#126](https://github.com/runpod/tetra-rp/issues/126)) ([3deac3a](https://github.com/runpod/tetra-rp/commit/3deac3a91b84fa4cf07cf553c46431907290a61c))
+* **cli:** Add --auto-provision flag to flash run command ([#125](https://github.com/runpod/tetra-rp/issues/125)) ([ee5793c](https://github.com/runpod/tetra-rp/commit/ee5793c33537acc15e26b680e3bac5aedb3c0735))
+
+
+### Code Refactoring
+
+* use env vars FLASH_HOST and FLASH_PORT ([#128](https://github.com/runpod/tetra-rp/issues/128)) ([117a6ae](https://github.com/runpod/tetra-rp/commit/117a6aea91b9ca53fc3671150f746766307dbab4))
+
 ## [0.18.0](https://github.com/runpod/tetra-rp/compare/v0.17.1...v0.18.0) (2025-11-28)
 
 

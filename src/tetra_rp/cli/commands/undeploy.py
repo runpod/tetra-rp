@@ -1,7 +1,9 @@
 """Undeploy command for managing RunPod serverless endpoints."""
 
+from __future__ import annotations
+
 import asyncio
-from typing import Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -9,10 +11,25 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 import questionary
 
-from ...core.resources.base import DeployableResource
-from ...core.resources.resource_manager import ResourceManager
+if TYPE_CHECKING:
+    from ...core.resources.base import DeployableResource
+    from ...core.resources.resource_manager import ResourceManager
 
 console = Console()
+
+
+def _get_resource_manager():
+    """Get ResourceManager instance with lazy loading.
+
+    Imports are deferred to avoid loading heavy dependencies (runpod, aiohttp, etc)
+    at CLI startup time. This allows fast commands like 'flash init' to run without
+    loading unnecessary dependencies.
+
+    Can be mocked in tests: @patch('tetra_rp.cli.commands.undeploy._get_resource_manager')
+    """
+    from ...core.resources.resource_manager import ResourceManager
+
+    return ResourceManager()
 
 
 def _get_resource_status(resource) -> Tuple[str, str]:
@@ -49,7 +66,7 @@ def _get_resource_type(resource) -> str:
 
 def list_command():
     """List all deployed endpoints tracked in .tetra_resources.pkl."""
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     resources = manager.list_all_resources()
 
     if not resources:
@@ -233,7 +250,7 @@ def undeploy_command(
         list_command()
         return
 
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     resources = manager.list_all_resources()
 
     if not resources:
@@ -261,12 +278,17 @@ def undeploy_command(
         _undeploy_by_name(name, resources)
     else:
         console.print(
-            "[red]Error:[/red] Please specify an endpoint name, use --all, or use --interactive"
+            Panel(
+                "Usage: flash undeploy [name | list | --all | --interactive | --cleanup-stale]",
+                title="Undeploy Help",
+                expand=False,
+            )
         )
         console.print(
-            "\n💡 Use [bold]flash undeploy list[/bold] to see available endpoints"
+            "[red]Error:[/red] Please specify a name, use --all/--interactive, or run `flash undeploy list`"
         )
-        raise typer.Exit(1)
+        # Exit 0: Treat usage help display as successful operation for better UX
+        raise typer.Exit(0)
 
 
 def _undeploy_by_name(name: str, resources: dict):
@@ -324,7 +346,7 @@ def _undeploy_by_name(name: str, resources: dict):
         raise typer.Exit(0)
 
     # Delete endpoints
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     with console.status("Deleting endpoint(s)..."):
         results = []
         for resource_id, resource in matches:
@@ -389,7 +411,7 @@ def _undeploy_all(resources: dict):
         raise typer.Exit(0)
 
     # Delete all endpoints
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     with console.status(f"Deleting {len(resources)} endpoint(s)..."):
         results = []
         for resource_id, resource in resources.items():
@@ -474,7 +496,7 @@ def _interactive_undeploy(resources: dict):
         raise typer.Exit(0)
 
     # Delete selected endpoints
-    manager = ResourceManager()
+    manager = _get_resource_manager()
     with console.status(f"Deleting {len(selected_resources)} endpoint(s)..."):
         results = []
         for resource_id, resource in selected_resources:

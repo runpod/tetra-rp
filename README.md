@@ -211,8 +211,9 @@ cursor .env
 Remove the `#` symbol from the beginning of the `RUNPOD_API_KEY` line and replace `your_api_key_here` with your actual Runpod API key:
 
 ```txt
-# RUNPOD_API_KEY=your_api_key_here
-# PORT=80
+RUNPOD_API_KEY=your_api_key_here
+# FLASH_HOST=localhost
+# FLASH_PORT=8888
 # LOG_LEVEL=INFO
 ```
 
@@ -235,6 +236,16 @@ curl -X POST http://localhost:8888/gpu/hello \
 ```
 
 If you switch back to the terminal tab where you used `flash run`, you'll see the details of the job's progress.
+
+### Faster testing with auto-provisioning
+
+For development with multiple endpoints, use `--auto-provision` to deploy all resources before testing:
+
+```bash
+flash run --auto-provision
+```
+
+This eliminates cold-start delays by provisioning all serverless endpoints upfront. Endpoints are cached and reused across server restarts, making subsequent runs much faster. Resources are identified by name, so the same endpoint won't be re-deployed if configuration hasn't changed.
 
 ### Step 6: Open the API explorer
 
@@ -383,6 +394,8 @@ config = LiveServerless(
     env={"HF_TOKEN": "your_token", "MODEL_ID": "gpt2"}
 )
 ```
+
+Environment variables are excluded from configuration hashing, which means changing environment values won't trigger endpoint recreation. This allows different processes to load environment variables from `.env` files without causing false drift detection. Only structural changes (like GPU type, image, or template modifications) trigger endpoint updates.
 
 ## Configuration
 

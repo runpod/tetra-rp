@@ -1,10 +1,12 @@
 """Unit tests for ResourceManager."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 from tetra_rp.core.resources.resource_manager import ResourceManager
+from tetra_rp.core.utils.singleton import SingletonMixin
 from tetra_rp.core.resources.serverless import ServerlessResource
+from tetra_rp.core.exceptions import RunpodAPIKeyError
 
 
 class TestResourceManager:
@@ -17,12 +19,14 @@ class TestResourceManager:
         ResourceManager._deployment_locks = {}
         ResourceManager._resources_initialized = False
         ResourceManager._lock_initialized = False
+        SingletonMixin._instances.pop(ResourceManager, None)
         yield
         # Cleanup after test
         ResourceManager._resources = {}
         ResourceManager._deployment_locks = {}
         ResourceManager._resources_initialized = False
         ResourceManager._lock_initialized = False
+        SingletonMixin._instances.pop(ResourceManager, None)
 
     @pytest.fixture
     def mock_resource_file(self, tmp_path):
@@ -246,3 +250,197 @@ class TestResourceManager:
 
         # Should be empty again
         assert len(manager.list_all_resources()) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_or_deploy_resource_calls_do_deploy_once(
+        self, mock_resource_file
+    ):
+        """Ensure get_or_deploy_resource triggers _do_deploy exactly once."""
+        manager = ResourceManager()
+        resource = ServerlessResource(name="rm-test", flashboot=False)
+        resource.id = "endpoint-rm-test"
+
+        with patch.object(ServerlessResource, "is_deployed", return_value=False):
+            with patch.object(
+                ServerlessResource, "_do_deploy", new=AsyncMock(return_value=resource)
+            ) as mock_do_deploy:
+                with patch.object(manager, "_add_resource") as mock_add:
+                    result = await manager.get_or_deploy_resource(resource)
+
+        mock_do_deploy.assert_awaited_once()
+        # Use get_resource_key() to get the name-based key format
+        mock_add.assert_called_once_with(resource.get_resource_key(), resource)
+        assert result is resource
+
+    @pytest.mark.asyncio
+    async def test_deploy_with_error_context_adds_resource_name(
+        self, mock_resource_file
+    ):
+        """RunpodAPIKeyError should mention the resource name for context."""
+        manager = ResourceManager()
+        resource = ServerlessResource(name="error-test", flashboot=False)
+
+        with patch.object(
+            ServerlessResource,
+            "_do_deploy",
+            new=AsyncMock(side_effect=RunpodAPIKeyError("missing key")),
+        ):
+            with pytest.raises(RunpodAPIKeyError) as excinfo:
+                await manager._deploy_with_error_context(resource)
+
+        assert "error-test" in str(excinfo.value)
+
+
+class TestConfigHashStability:
+    """Test that config_hash is stable and excludes dynamic fields like env."""
+
+    @pytest.fixture(autouse=True)
+    def reset_singleton(self):
+        """Reset singleton state before each test."""
+        ResourceManager._resources = {}
+        ResourceManager._deployment_locks = {}
+        ResourceManager._resources_initialized = False
+        ResourceManager._lock_initialized = False
+        yield
+        ResourceManager._resources = {}
+        ResourceManager._deployment_locks = {}
+        ResourceManager._resources_initialized = False
+        ResourceManager._lock_initialized = False
+
+    def test_config_hash_stable_across_instances(self):
+        """Test that config_hash is identical for two instances with same config."""
+        config1 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+        )
+
+        config2 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+        )
+
+        # Hashes should be identical despite being different instances
+        assert config1.config_hash == config2.config_hash
+
+    def test_config_hash_excludes_env_from_drift(self):
+        """Test that env field changes don't trigger drift detection.
+
+        This test verifies the fix for: auto-provisioned endpoints being
+        recreated instead of reused when env vars change between processes.
+        """
+        config1 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+        )
+
+        # Simulate API response with different env
+        config2 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+            env={"CUSTOM_VAR": "custom_value"},  # Different env
+        )
+
+        # Config hashes should still be the same (env excluded from hash)
+        assert config1.config_hash == config2.config_hash
+
+    def test_config_hash_includes_structural_changes(self):
+        """Test that config_hash detects actual structural changes.
+
+        Tests changes to fields in _input_only set (the fields used for config hashing).
+        Changes to other fields (like workersMax) don't affect the hash since they're
+        API-managed.
+        """
+        config1 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+        )
+
+        config2 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            flashboot=True,  # Different flashboot (in _input_only)
+        )
+
+        # Hashes should be different (flashboot changed)
+        assert config1.config_hash != config2.config_hash
+
+    def test_config_hash_with_different_image(self):
+        """Test that different images produce different hashes."""
+        config1 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            imageName="image1:latest",
+            flashboot=False,
+        )
+
+        config2 = ServerlessResource(
+            name="test-gpu",
+            gpuCount=1,
+            workersMax=3,
+            workersMin=0,
+            imageName="image2:latest",
+            flashboot=False,
+        )
+
+        # Hashes should be different (different image)
+        assert config1.config_hash != config2.config_hash
+
+
+class TestCpuEndpointConfigHash:
+    """Test config_hash for CPU endpoints excludes env."""
+
+    @pytest.fixture(autouse=True)
+    def reset_singleton(self):
+        """Reset singleton state before each test."""
+        ResourceManager._resources = {}
+        ResourceManager._deployment_locks = {}
+        ResourceManager._resources_initialized = False
+        ResourceManager._lock_initialized = False
+        yield
+        ResourceManager._resources = {}
+        ResourceManager._deployment_locks = {}
+        ResourceManager._resources_initialized = False
+        ResourceManager._lock_initialized = False
+
+    def test_cpu_config_hash_excludes_env(self):
+        """Test that CPU endpoint config_hash excludes env to prevent drift."""
+        from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
+
+        config1 = CpuServerlessEndpoint(
+            name="test-cpu",
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+            imageName="runpod/tetra-rp-cpu:latest",
+        )
+
+        config2 = CpuServerlessEndpoint(
+            name="test-cpu",
+            workersMax=3,
+            workersMin=0,
+            flashboot=False,
+            imageName="runpod/tetra-rp-cpu:latest",
+            env={"DIFFERENT_ENV": "value"},
+        )
+
+        # Hashes should be the same (env excluded from CPU hash too)
+        assert config1.config_hash == config2.config_hash

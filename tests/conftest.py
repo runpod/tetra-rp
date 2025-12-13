@@ -56,7 +56,7 @@ def mock_runpod_client():
     client = Mock()
 
     # Mock common API responses
-    client.create_endpoint = AsyncMock(
+    client.save_endpoint = AsyncMock(
         return_value={"id": "test-endpoint-id", "status": "active"}
     )
     client.get_endpoint = AsyncMock(
@@ -172,15 +172,72 @@ def reset_singletons():
     This fixture runs automatically for all tests to ensure
     clean state between test executions.
     """
+    import gc
+    import threading
+
     # Import here to avoid circular dependencies
     from tetra_rp.core.resources.resource_manager import ResourceManager
+    from tetra_rp.core.utils.singleton import SingletonMixin
+
+    # Patch cloudpickle to handle threading.Lock objects that may be left over
+    # from previous tests. This prevents "cannot pickle '_thread.lock'" errors
+    # when test pollution causes old lock instances to be in the object graph.
+    try:
+        import cloudpickle
+        import copyreg
+
+        def _lock_reducer(lock):
+            """Reducer for threading.Lock that creates a new lock on unpickle."""
+            return (threading.Lock, ())
+
+        # Register the reducer for threading.Lock in copyreg so cloudpickle uses it
+        copyreg.pickle(threading.Lock, _lock_reducer)
+
+        # Also patch cloudpickle.CloudPickler to use the reducer
+        original_reducer_override = cloudpickle.CloudPickler.reducer_override
+
+        def patched_reducer_override(self, obj):
+            if isinstance(obj, type(threading.Lock())):
+                return _lock_reducer(obj)
+            return original_reducer_override(self, obj)
+
+        cloudpickle.CloudPickler.reducer_override = patched_reducer_override
+    except Exception:
+        # If patching fails, continue anyway - the test might still pass
+        pass
+
+    # Reset SingletonMixin instances to clear any accumulated state
+    # This prevents old singleton instances from leaking into object graphs during pickling
+    SingletonMixin._instances = {}
+
+    # Also reset ResourceManager class variables to ensure clean state
+    ResourceManager._resources = {}
+    ResourceManager._resource_configs = {}
+    ResourceManager._deployment_locks = {}
+    ResourceManager._global_lock = None
+    ResourceManager._lock_initialized = False
+    ResourceManager._resources_initialized = False
 
     # Reset ResourceManager singleton if it exists
     if hasattr(ResourceManager, "_instance"):
         ResourceManager._instance = None
 
+    # Force garbage collection to ensure old instances are truly freed
+    gc.collect()
+
     yield
 
     # Cleanup after test
+    SingletonMixin._instances = {}
+
+    ResourceManager._resources = {}
+    ResourceManager._resource_configs = {}
+    ResourceManager._deployment_locks = {}
+    ResourceManager._global_lock = None
+    ResourceManager._lock_initialized = False
+    ResourceManager._resources_initialized = False
+
     if hasattr(ResourceManager, "_instance"):
         ResourceManager._instance = None
+
+    gc.collect()

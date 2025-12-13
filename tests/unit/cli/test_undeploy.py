@@ -77,10 +77,12 @@ class TestUndeployList:
 
     def test_list_no_endpoints(self, runner):
         """Test list command with no endpoints."""
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM:
+        with patch(
+            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+        ) as mock_get_rm:
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = {}
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             result = runner.invoke(app, ["undeploy", "list"])
 
@@ -107,10 +109,12 @@ class TestUndeployList:
             "resource-id-2": mock_resource2,
         }
 
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM:
+        with patch(
+            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+        ) as mock_get_rm:
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = mock_resources
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             result = runner.invoke(app, ["undeploy", "list"])
 
@@ -129,18 +133,43 @@ class TestUndeployCommand:
 
     def test_undeploy_no_args_shows_help(self, runner):
         """Test undeploy without arguments shows help/usage."""
-        result = runner.invoke(app, ["undeploy"])
+        with patch(
+            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+        ) as mock_get_rm:
+            mock_manager = MagicMock()
+            mock_manager.list_all_resources.return_value = {}
+            mock_get_rm.return_value = mock_manager
+
+            result = runner.invoke(app, ["undeploy"])
 
         # With no args, Typer shows help (exit_code 0) due to no_args_is_help
         assert result.exit_code == 0
         assert "Usage" in result.stdout or "undeploy" in result.stdout.lower()
 
+    def test_undeploy_no_args_shows_usage_text(self, runner):
+        """Ensure usage panel is rendered when no args are provided."""
+        with patch(
+            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+        ) as mock_get_rm:
+            mock_resource = MagicMock()
+            mock_resource.name = "foo"
+            mock_manager = MagicMock()
+            mock_manager.list_all_resources.return_value = {"rid": mock_resource}
+            mock_get_rm.return_value = mock_manager
+
+            result = runner.invoke(app, ["undeploy"])
+
+        assert "usage: flash undeploy" in result.stdout.lower()
+        assert "please specify a name" in result.stdout.lower()
+
     def test_undeploy_nonexistent_name(self, runner, sample_resources):
         """Test undeploy with nonexistent name."""
-        with patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM:
+        with patch(
+            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+        ) as mock_get_rm:
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             result = runner.invoke(app, ["undeploy", "nonexistent"])
 
@@ -150,12 +179,14 @@ class TestUndeployCommand:
     def test_undeploy_by_name_cancelled(self, runner, sample_resources):
         """Test undeploy by name cancelled by user."""
         with (
-            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+            patch(
+                "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            ) as mock_get_rm,
             patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
         ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             # User cancels confirmation
             mock_confirm = MagicMock()
@@ -173,7 +204,9 @@ class TestUndeployCommand:
     ):
         """Test successful undeploy by name."""
         with (
-            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+            patch(
+                "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            ) as mock_get_rm,
             patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
         ):
             mock_manager = MagicMock()
@@ -189,7 +222,7 @@ class TestUndeployCommand:
                 }
 
             mock_manager.undeploy_resource = mock_undeploy
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             # User confirms
             mock_confirm = MagicMock()
@@ -209,7 +242,9 @@ class TestUndeployCommand:
     ):
         """Test undeploy --all flag."""
         with (
-            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+            patch(
+                "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            ) as mock_get_rm,
             patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
         ):
             mock_manager = MagicMock()
@@ -225,7 +260,7 @@ class TestUndeployCommand:
                 }
 
             mock_manager.undeploy_resource = mock_undeploy
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             # User confirms both prompts
             mock_confirm = MagicMock()
@@ -246,12 +281,14 @@ class TestUndeployCommand:
     def test_undeploy_all_wrong_confirmation(self, runner, sample_resources):
         """Test undeploy --all with wrong confirmation text."""
         with (
-            patch("tetra_rp.cli.commands.undeploy.ResourceManager") as MockRM,
+            patch(
+                "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            ) as mock_get_rm,
             patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
         ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
-            MockRM.return_value = mock_manager
+            mock_get_rm.return_value = mock_manager
 
             # User confirms first prompt but wrong text on second
             mock_confirm = MagicMock()
