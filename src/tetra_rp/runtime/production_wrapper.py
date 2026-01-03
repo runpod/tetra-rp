@@ -4,10 +4,7 @@ import base64
 import logging
 from typing import Any, Callable, Dict, Optional
 
-try:
-    import cloudpickle
-except ImportError:
-    cloudpickle = None
+import cloudpickle
 
 from .service_registry import ServiceRegistry
 
@@ -57,12 +54,6 @@ class ProductionWrapper:
         Raises:
             Exception: If execution fails.
         """
-        if cloudpickle is None:
-            raise ImportError(
-                "cloudpickle required for ProductionWrapper. "
-                "Install with: pip install cloudpickle"
-            )
-
         function_name = func.__name__
 
         # Ensure directory is loaded
