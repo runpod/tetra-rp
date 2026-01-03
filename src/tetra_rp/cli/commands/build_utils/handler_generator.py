@@ -1,7 +1,11 @@
 """Generator for handler_<name>.py files."""
 
+import importlib.util
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
+
+logger = logging.getLogger(__name__)
 
 HANDLER_TEMPLATE = '''"""
 Auto-generated handler for resource: {resource_name}
@@ -71,6 +75,10 @@ class HandlerGenerator:
         )
 
         handler_path.write_text(handler_code)
+
+        # Validate that generated handler can be imported
+        self._validate_handler_imports(handler_path)
+
         return handler_path
 
     def _generate_imports(self, functions: List[Dict[str, Any]]) -> str:
@@ -98,3 +106,32 @@ class HandlerGenerator:
             registry_lines.append(f'    "{name}": {name},')
 
         return "\n".join(registry_lines)
+
+    def _validate_handler_imports(self, handler_path: Path) -> None:
+        """Validate that generated handler has valid Python syntax.
+
+        Attempts to load the handler module to catch syntax errors.
+        ImportErrors for missing worker modules are logged but not fatal,
+        as those imports may not be available at build time.
+
+        Args:
+            handler_path: Path to generated handler file
+
+        Raises:
+            ValueError: If handler has syntax errors or cannot be parsed
+        """
+        try:
+            spec = importlib.util.spec_from_file_location("handler", handler_path)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+            else:
+                raise ValueError("Failed to create module spec")
+        except SyntaxError as e:
+            raise ValueError(f"Handler has syntax errors: {e}") from e
+        except ImportError as e:
+            # Log but don't fail - imports might not be available at build time
+            logger.debug(f"Handler import validation: {e}")
+        except Exception as e:
+            # Only raise for truly unexpected errors
+            logger.warning(f"Handler validation warning: {e}")

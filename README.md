@@ -460,6 +460,24 @@ After `flash build` completes:
 
 For more details on the handler architecture, see [docs/Runtime_Generic_Handler.md](docs/Runtime_Generic_Handler.md).
 
+#### Troubleshooting Build Issues
+
+**No @remote functions found:**
+- Ensure your functions are decorated with `@remote(resource_config)`
+- Check that Python files are not excluded by `.gitignore` or `.flashignore`
+- Verify function decorators have valid syntax
+
+**Handler generation failed:**
+- Check for syntax errors in your Python files (these will be logged)
+- Verify all imports in your worker modules are available
+- Ensure resource config variables (e.g., `gpu_config`) are defined before functions reference them
+- Use `--keep-build` to inspect generated handler files in `.flash/.build/`
+
+**Build succeeded but deployment failed:**
+- Verify all function imports work in the deployment environment
+- Check that environment variables required by your functions are available
+- Review the generated `flash_manifest.json` for correct function mappings
+
 ## Configuration
 
 ### GPU configuration parameters

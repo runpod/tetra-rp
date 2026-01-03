@@ -64,14 +64,24 @@ class ManifestBuilder:
                 for f in functions
             ]
 
+            # Use actual resource type from first function in group
+            resource_type = (
+                functions[0].resource_type if functions else "LiveServerless"
+            )
+
             resources_dict[resource_name] = {
-                "resource_type": "LiveServerless",
+                "resource_type": resource_type,
                 "handler_file": handler_file,
                 "functions": functions_list,
             }
 
             # Build function registry for quick lookup
             for f in functions:
+                if f.function_name in function_registry:
+                    raise ValueError(
+                        f"Duplicate function name '{f.function_name}' found in "
+                        f"resources '{function_registry[f.function_name]}' and '{resource_name}'"
+                    )
                 function_registry[f.function_name] = resource_name
 
         return {

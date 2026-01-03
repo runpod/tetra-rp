@@ -12,20 +12,46 @@ import cloudpickle
 logger = logging.getLogger(__name__)
 
 
-def load_manifest() -> Dict[str, Any]:
-    """Load flash_manifest.json from current directory.
+def load_manifest(manifest_path: Path | None = None) -> Dict[str, Any]:
+    """Load flash_manifest.json with fallback search.
+
+    Searches multiple locations for manifest:
+    1. Provided path (if given)
+    2. Current working directory
+    3. Module directory
+    4. Three levels up (legacy location)
+
+    Args:
+        manifest_path: Optional explicit path to manifest file
 
     Returns:
         Manifest dictionary, or empty dict if not found
     """
-    try:
-        manifest_path = Path(__file__).parent.parent.parent / "flash_manifest.json"
-        if manifest_path.exists():
+    if manifest_path and manifest_path.exists():
+        try:
             with open(manifest_path) as f:
                 return json.load(f)
-    except Exception as e:
-        logger.warning(f"Failed to load manifest: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to load manifest from {manifest_path}: {e}")
+            return {"resources": {}, "function_registry": {}}
 
+    # Search multiple locations
+    search_paths = [
+        Path.cwd() / "flash_manifest.json",
+        Path(__file__).parent / "flash_manifest.json",
+        Path(__file__).parent.parent.parent / "flash_manifest.json",
+    ]
+
+    for path in search_paths:
+        if path.exists():
+            try:
+                with open(path) as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.debug(f"Failed to load manifest from {path}: {e}")
+                continue
+
+    logger.warning("flash_manifest.json not found in any expected location")
     return {"resources": {}, "function_registry": {}}
 
 
@@ -153,6 +179,7 @@ def create_handler(function_registry: Dict[str, Callable]) -> Callable:
                 "success": False,
                 "error": f"Function '{function_name}' not found in registry. "
                 f"Available: {list(function_registry.keys())}",
+                "traceback": "",
             }
 
         try:

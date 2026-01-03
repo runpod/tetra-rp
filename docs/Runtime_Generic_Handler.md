@@ -204,14 +204,23 @@ def execute_function(
 #### load_manifest()
 
 ```python
-def load_manifest() -> Dict[str, Any]:
-    """Load flash_manifest.json from current directory.
+def load_manifest(manifest_path: Path | None = None) -> Dict[str, Any]:
+    """Load flash_manifest.json with fallback search.
+
+    Searches multiple locations in order:
+    1. Provided path (if given)
+    2. Current working directory
+    3. Module directory
+    4. Three levels up (legacy location)
 
     The manifest contains:
     - resources: Mapping of resource_config to function groups
     - function_registry: Flat list of all functions across all endpoints
 
     Used for cross-endpoint function discovery at runtime.
+
+    Args:
+        manifest_path: Optional explicit path to manifest file
 
     Returns:
         Manifest dictionary, or empty dict structure if not found
@@ -475,13 +484,13 @@ handler = create_handler(FUNCTION_REGISTRY)
 # Handler execution is efficient and direct
 ```
 
-**Zero Runtime Penalty**: The factory approach is efficient because:
+**Minimal Runtime Overhead**: The factory approach has minimal performance impact because:
 - Factory called once at startup (not per-request)
 - Returned handler function is lightweight and direct
 - No additional indirection in the request execution path
 
 
-## Future Extensions
+## Future Enhancements (Not Yet Implemented)
 
 ### Potential Enhancements
 
