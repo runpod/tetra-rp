@@ -6,6 +6,9 @@ from typing import Any, Callable, Dict, Optional
 
 import cloudpickle
 
+from tetra_rp.core.resources.serverless import ServerlessResource
+
+from .exceptions import RemoteExecutionError, SerializationError
 from .service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -152,11 +155,11 @@ class ProductionWrapper:
 
     async def _execute_remote(
         self,
-        resource,
+        resource: ServerlessResource,
         function_name: str,
         args: tuple,
         kwargs: dict,
-        execution_type: str,
+        execution_type: str = "function",
     ) -> Any:
         """Execute function on remote endpoint.
 
@@ -171,16 +174,22 @@ class ProductionWrapper:
             Execution result.
 
         Raises:
-            Exception: If execution fails.
+            SerializationError: If serialization fails.
+            RemoteExecutionError: If remote execution fails.
         """
         # Serialize arguments
-        serialized_args = [
-            base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-        ]
-        serialized_kwargs = {
-            k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-            for k, v in kwargs.items()
-        }
+        try:
+            serialized_args = [
+                base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
+            ]
+            serialized_kwargs = {
+                k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
+                for k, v in kwargs.items()
+            }
+        except Exception as e:
+            raise SerializationError(
+                f"Failed to serialize arguments for {function_name}: {e}"
+            ) from e
 
         # Build payload matching RunPod format
         payload = {
@@ -196,9 +205,10 @@ class ProductionWrapper:
         result = await resource.run_sync(payload)
 
         # Handle response
-        if not result.success:
-            error = getattr(result, "error", "Unknown error")
-            raise Exception(f"Remote execution of {function_name} failed: {error}")
+        if result.error:
+            raise RemoteExecutionError(
+                f"Remote execution of {function_name} failed: {result.error}"
+            )
 
         return result.output
 

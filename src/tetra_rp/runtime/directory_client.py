@@ -10,13 +10,10 @@ try:
 except ImportError:
     httpx = None
 
+from .config import DEFAULT_MAX_RETRIES, DEFAULT_REQUEST_TIMEOUT
+from .exceptions import DirectoryUnavailableError
+
 logger = logging.getLogger(__name__)
-
-
-class DirectoryUnavailableError(Exception):
-    """Raised when directory service is unavailable."""
-
-    pass
 
 
 class DirectoryClient:
@@ -29,8 +26,8 @@ class DirectoryClient:
     def __init__(
         self,
         mothership_url: Optional[str] = None,
-        timeout: int = 10,
-        max_retries: int = 3,
+        timeout: int = DEFAULT_REQUEST_TIMEOUT,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ):
         """Initialize directory client.
 
@@ -69,6 +66,8 @@ class DirectoryClient:
                 "httpx required for DirectoryClient. Install with: pip install httpx"
             )
 
+        last_exception: Optional[Exception] = None
+
         for attempt in range(self.max_retries):
             try:
                 client = await self._get_client()
@@ -84,25 +83,17 @@ class DirectoryClient:
                     )
 
                 data = response.json()
-                directory = data.get("directory", {})
+                if "directory" not in data:
+                    raise DirectoryUnavailableError(
+                        "Invalid directory response: missing 'directory' key"
+                    )
 
+                directory = data["directory"]
                 logger.debug(f"Directory loaded: {len(directory)} endpoints")
                 return directory
 
-            except asyncio.TimeoutError:
-                if attempt < self.max_retries - 1:
-                    backoff = 2**attempt
-                    logger.warning(
-                        f"Directory request timed out (attempt {attempt + 1}), "
-                        f"retrying in {backoff}s..."
-                    )
-                    await asyncio.sleep(backoff)
-                    continue
-                raise DirectoryUnavailableError(
-                    f"Directory request timed out after {self.max_retries} attempts"
-                )
-
-            except Exception as e:
+            except (asyncio.TimeoutError, DirectoryUnavailableError, Exception) as e:
+                last_exception = e
                 if attempt < self.max_retries - 1:
                     backoff = 2**attempt
                     logger.warning(
@@ -111,11 +102,10 @@ class DirectoryClient:
                     )
                     await asyncio.sleep(backoff)
                     continue
-                raise DirectoryUnavailableError(
-                    f"Failed to fetch directory after {self.max_retries} attempts: {e}"
-                )
 
-        raise DirectoryUnavailableError("Exhausted retries for directory fetch")
+        raise DirectoryUnavailableError(
+            f"Failed to fetch directory after {self.max_retries} attempts: {last_exception}"
+        )
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client with proper configuration."""

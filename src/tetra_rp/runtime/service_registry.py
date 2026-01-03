@@ -1,14 +1,17 @@
 """Runtime service registry for cross-endpoint function routing."""
 
+import asyncio
 import json
 import logging
 import os
 import time
 from pathlib import Path
 from typing import Dict, Optional
+from urllib.parse import urlparse
 
 from tetra_rp.core.resources.serverless import ServerlessResource
 
+from .config import DEFAULT_CACHE_TTL
 from .directory_client import DirectoryClient, DirectoryUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -26,7 +29,7 @@ class ServiceRegistry:
         self,
         manifest_path: Optional[Path] = None,
         directory_client: Optional[DirectoryClient] = None,
-        cache_ttl: int = 300,
+        cache_ttl: int = DEFAULT_CACHE_TTL,
     ):
         """Initialize service registry.
 
@@ -45,6 +48,7 @@ class ServiceRegistry:
         self._directory: Dict[str, str] = {}
         self._directory_loaded_at = 0.0
         self._manifest: Dict = {}
+        self._directory_lock = asyncio.Lock()
 
         # Load manifest
         self._load_manifest(manifest_path)
@@ -111,27 +115,28 @@ class ServiceRegistry:
 
     async def _ensure_directory_loaded(self) -> None:
         """Load directory from mothership if cache expired or not loaded."""
-        now = time.time()
-        cache_age = now - self._directory_loaded_at
+        async with self._directory_lock:
+            now = time.time()
+            cache_age = now - self._directory_loaded_at
 
-        if cache_age > self.cache_ttl:
-            if self._directory_client is None:
-                logger.debug("Directory client not available, skipping refresh")
-                return
+            if cache_age > self.cache_ttl:
+                if self._directory_client is None:
+                    logger.debug("Directory client not available, skipping refresh")
+                    return
 
-            try:
-                self._directory = await self._directory_client.get_directory()
-                self._directory_loaded_at = now
-                logger.debug(
-                    f"Directory loaded: {len(self._directory)} endpoints, "
-                    f"cache TTL {self.cache_ttl}s"
-                )
-            except DirectoryUnavailableError as e:
-                logger.warning(
-                    f"Failed to load directory: {e}. "
-                    f"Cross-endpoint routing unavailable."
-                )
-                self._directory = {}
+                try:
+                    self._directory = await self._directory_client.get_directory()
+                    self._directory_loaded_at = now
+                    logger.debug(
+                        f"Directory loaded: {len(self._directory)} endpoints, "
+                        f"cache TTL {self.cache_ttl}s"
+                    )
+                except DirectoryUnavailableError as e:
+                    logger.warning(
+                        f"Failed to load directory: {e}. "
+                        f"Cross-endpoint routing unavailable."
+                    )
+                    self._directory = {}
 
     def get_endpoint_for_function(self, function_name: str) -> Optional[str]:
         """Get endpoint URL for a function.
@@ -172,7 +177,9 @@ class ServiceRegistry:
 
         return endpoint_url
 
-    def get_resource_for_function(self, function_name: str):
+    def get_resource_for_function(
+        self, function_name: str
+    ) -> Optional[ServerlessResource]:
         """Get ServerlessResource for a function.
 
         Creates a ServerlessResource with the correct endpoint ID if the function
@@ -194,7 +201,20 @@ class ServiceRegistry:
             return None  # Local function
 
         # Extract endpoint ID from URL (format: https://api.runpod.io/v2/{endpoint_id})
-        endpoint_id = endpoint_url.split("/")[-1]
+        try:
+            parsed = urlparse(endpoint_url)
+            # Get the last path component (the endpoint ID)
+            path_parts = parsed.path.rstrip("/").split("/")
+            endpoint_id = path_parts[-1] if path_parts else ""
+
+            if not endpoint_id:
+                raise ValueError(
+                    f"Invalid endpoint URL format: {endpoint_url} - no endpoint ID found"
+                )
+        except Exception as e:
+            raise ValueError(
+                f"Failed to parse endpoint URL '{endpoint_url}': {e}"
+            ) from e
 
         # Create and return ServerlessResource
         resource = ServerlessResource(name=f"remote_{function_name}")

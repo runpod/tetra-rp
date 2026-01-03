@@ -151,7 +151,7 @@ class TestCrossEndpointRoutingIntegration:
                 mock_resource = AsyncMock()
                 mock_resource.run_sync = AsyncMock()
                 mock_resource.run_sync.return_value = MagicMock(
-                    success=True, output="processed"
+                    error="", output="processed"
                 )
 
                 wrapper = ProductionWrapper(registry)
@@ -221,9 +221,7 @@ class TestCrossEndpointRoutingIntegration:
                 # Mock get_resource_for_function to return a mock resource
                 mock_resource = AsyncMock()
                 mock_resource.run_sync = AsyncMock()
-                mock_resource.run_sync.return_value = MagicMock(
-                    success=True, output=None
-                )
+                mock_resource.run_sync.return_value = MagicMock(error="", output=None)
 
                 with patch.object(
                     registry, "get_resource_for_function", return_value=mock_resource

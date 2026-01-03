@@ -72,7 +72,7 @@ class TestProductionWrapper:
         """Test routing remote function via ServerlessResource."""
         mock_resource = AsyncMock()
         mock_resource.run_sync = AsyncMock()
-        mock_resource.run_sync.return_value = MagicMock(success=True, output=42)
+        mock_resource.run_sync.return_value = MagicMock(error="", output=42)
 
         mock_registry.get_resource_for_function.return_value = mock_resource
 
@@ -121,9 +121,7 @@ class TestProductionWrapper:
         """Test error handling for failed remote execution."""
         mock_resource = AsyncMock()
         mock_resource.run_sync = AsyncMock()
-        mock_resource.run_sync.return_value = MagicMock(
-            success=False, error="Remote execution failed"
-        )
+        mock_resource.run_sync.return_value = MagicMock(error="Remote execution failed")
 
         mock_registry.get_resource_for_function.return_value = mock_resource
 
@@ -184,7 +182,7 @@ class TestProductionWrapper:
 
         mock_resource = AsyncMock()
         mock_resource.run_sync = AsyncMock()
-        mock_resource.run_sync.return_value = MagicMock(success=True, output="done")
+        mock_resource.run_sync.return_value = MagicMock(error="", output="done")
 
         mock_registry.get_resource_for_function.return_value = mock_resource
 
@@ -209,7 +207,7 @@ class TestProductionWrapper:
         """Test that remote payload matches RunPod format."""
         mock_resource = AsyncMock()
         mock_resource.run_sync = AsyncMock()
-        mock_resource.run_sync.return_value = MagicMock(success=True, output=None)
+        mock_resource.run_sync.return_value = MagicMock(error="", output=None)
 
         with patch("tetra_rp.runtime.production_wrapper.cloudpickle") as mock_pickle:
             mock_pickle.dumps.return_value = b"pickled"

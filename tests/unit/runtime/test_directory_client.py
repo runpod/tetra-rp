@@ -98,7 +98,7 @@ class TestDirectoryClient:
             mock_http_client.is_closed = False
             mock_get_client.return_value = mock_http_client
 
-            with pytest.raises(DirectoryUnavailableError, match="timed out"):
+            with pytest.raises(DirectoryUnavailableError, match="after \\d+ attempts"):
                 await client.get_directory()
 
     @pytest.mark.asyncio
