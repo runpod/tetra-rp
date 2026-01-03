@@ -9,11 +9,16 @@ Provides shared fixtures for:
 - Logger suppression
 """
 
+import gc
+import threading
 from pathlib import Path
 from typing import Any, Dict
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+
+from tetra_rp.core.resources.resource_manager import ResourceManager
+from tetra_rp.core.utils.singleton import SingletonMixin
 
 
 @pytest.fixture
@@ -172,13 +177,6 @@ def reset_singletons():
     This fixture runs automatically for all tests to ensure
     clean state between test executions.
     """
-    import gc
-    import threading
-
-    # Import here to avoid circular dependencies
-    from tetra_rp.core.resources.resource_manager import ResourceManager
-    from tetra_rp.core.utils.singleton import SingletonMixin
-
     # Patch cloudpickle to handle threading.Lock objects that may be left over
     # from previous tests. This prevents "cannot pickle '_thread.lock'" errors
     # when test pollution causes old lock instances to be in the object graph.
