@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from typing import Dict, Optional
 
+from tetra_rp.core.resources.serverless import ServerlessResource
+
 from .directory_client import DirectoryClient, DirectoryUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -169,6 +171,36 @@ class ServiceRegistry:
             )
 
         return endpoint_url
+
+    def get_resource_for_function(self, function_name: str):
+        """Get ServerlessResource for a function.
+
+        Creates a ServerlessResource with the correct endpoint ID if the function
+        is remote, returns None if local.
+
+        Args:
+            function_name: Name of the function to route.
+
+        Returns:
+            ServerlessResource with ID set if function is remote
+            None if function runs on current endpoint
+
+        Raises:
+            ValueError: If function not in manifest.
+        """
+        endpoint_url = self.get_endpoint_for_function(function_name)
+
+        if endpoint_url is None:
+            return None  # Local function
+
+        # Extract endpoint ID from URL (format: https://api.runpod.io/v2/{endpoint_id})
+        endpoint_id = endpoint_url.split("/")[-1]
+
+        # Create and return ServerlessResource
+        resource = ServerlessResource(name=f"remote_{function_name}")
+        resource.id = endpoint_id
+
+        return resource
 
     def is_local_function(self, function_name: str) -> bool:
         """Check if function executes on current endpoint.

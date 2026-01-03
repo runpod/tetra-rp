@@ -9,7 +9,6 @@ try:
 except ImportError:
     cloudpickle = None
 
-from .http_client import CrossEndpointClient
 from .service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -22,19 +21,13 @@ class ProductionWrapper:
     directly) or remote (call via HTTP to another endpoint).
     """
 
-    def __init__(
-        self,
-        service_registry: ServiceRegistry,
-        http_client: CrossEndpointClient,
-    ):
+    def __init__(self, service_registry: ServiceRegistry):
         """Initialize production wrapper.
 
         Args:
             service_registry: Service registry for routing decisions.
-            http_client: HTTP client for remote execution.
         """
         self.service_registry = service_registry
-        self.http_client = http_client
         self._directory_loaded = False
 
     async def wrap_function_execution(
@@ -77,9 +70,7 @@ class ProductionWrapper:
 
         # Determine routing
         try:
-            endpoint_url = self.service_registry.get_endpoint_for_function(
-                function_name
-            )
+            resource = self.service_registry.get_resource_for_function(function_name)
         except ValueError as e:
             # Function not in manifest, execute locally
             logger.debug(
@@ -95,7 +86,7 @@ class ProductionWrapper:
             )
 
         # Local execution
-        if endpoint_url is None:
+        if resource is None:
             logger.debug(f"Executing local function: {function_name}")
             return await original_stub_func(
                 func,
@@ -107,9 +98,9 @@ class ProductionWrapper:
             )
 
         # Remote execution
-        logger.debug(f"Routing function {function_name} to {endpoint_url}")
+        logger.debug(f"Routing function {function_name} to remote endpoint")
         return await self._execute_remote(
-            endpoint_url,
+            resource,
             function_name,
             args,
             kwargs,
@@ -144,24 +135,24 @@ class ProductionWrapper:
 
         # Determine routing
         try:
-            endpoint_url = self.service_registry.get_endpoint_for_function(class_name)
+            resource = self.service_registry.get_resource_for_function(class_name)
         except ValueError:
             # Class not in manifest, execute locally
             logger.debug(f"Class {class_name} not in manifest, executing locally")
             return await original_method_func(request)
 
         # Local execution
-        if endpoint_url is None:
+        if resource is None:
             logger.debug(f"Executing local class method: {class_name}")
             return await original_method_func(request)
 
         # Remote execution
-        logger.debug(f"Routing class {class_name} to {endpoint_url}")
+        logger.debug(f"Routing class {class_name} to remote endpoint")
 
         # Convert FunctionRequest to dict payload
         payload = self._build_class_payload(request)
         return await self._execute_remote(
-            endpoint_url,
+            resource,
             class_name,
             (),
             payload.get("input", {}),
@@ -170,16 +161,16 @@ class ProductionWrapper:
 
     async def _execute_remote(
         self,
-        endpoint_url: str,
+        resource,
         function_name: str,
         args: tuple,
         kwargs: dict,
         execution_type: str,
     ) -> Any:
-        """Execute function on remote endpoint via HTTP.
+        """Execute function on remote endpoint.
 
         Args:
-            endpoint_url: Target endpoint URL.
+            resource: ServerlessResource with endpoint ID set.
             function_name: Name of function/class to execute.
             args: Positional arguments.
             kwargs: Keyword arguments.
@@ -210,15 +201,15 @@ class ProductionWrapper:
             }
         }
 
-        # Execute via HTTP
-        response = await self.http_client.execute(endpoint_url, payload, sync=False)
+        # Execute via ServerlessResource
+        result = await resource.run_sync(payload)
 
         # Handle response
-        if not response.get("success"):
-            error = response.get("error", "Unknown error")
+        if not result.success:
+            error = getattr(result, "error", "Unknown error")
             raise Exception(f"Remote execution of {function_name} failed: {error}")
 
-        return response.get("result")
+        return result.output
 
     def _build_class_payload(self, request: Any) -> Dict[str, Any]:
         """Build payload from FunctionRequest for class execution.
@@ -259,13 +250,11 @@ _wrapper_instance: Optional[ProductionWrapper] = None
 
 def create_production_wrapper(
     service_registry: Optional[ServiceRegistry] = None,
-    http_client: Optional[CrossEndpointClient] = None,
 ) -> ProductionWrapper:
     """Create or get singleton ProductionWrapper instance.
 
     Args:
         service_registry: Service registry. Creates if not provided.
-        http_client: HTTP client. Creates if not provided.
 
     Returns:
         ProductionWrapper instance.
@@ -277,10 +266,7 @@ def create_production_wrapper(
         if service_registry is None:
             service_registry = ServiceRegistry()
 
-        if http_client is None:
-            http_client = CrossEndpointClient()
-
-        _wrapper_instance = ProductionWrapper(service_registry, http_client)
+        _wrapper_instance = ProductionWrapper(service_registry)
 
     return _wrapper_instance
 

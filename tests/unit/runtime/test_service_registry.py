@@ -145,6 +145,42 @@ class TestServiceRegistry:
         with pytest.raises(ValueError, match="not found in manifest"):
             registry.get_endpoint_for_function("unknown_function")
 
+    def test_get_resource_for_function_local(self, manifest_file):
+        """Test getting ServerlessResource for local function."""
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+            registry = ServiceRegistry(manifest_path=manifest_file)
+            resource = registry.get_resource_for_function("gpu_task")
+            # Local function returns None
+            assert resource is None
+
+    def test_get_resource_for_function_remote(self, manifest_file):
+        """Test getting ServerlessResource for remote function."""
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+            mock_client = AsyncMock()
+            mock_client.get_directory.return_value = {
+                "cpu_config": "https://api.runpod.io/v2/abc123"
+            }
+
+            registry = ServiceRegistry(
+                manifest_path=manifest_file, directory_client=mock_client
+            )
+            # Manually set directory to simulate loaded state
+            registry._directory = {"cpu_config": "https://api.runpod.io/v2/abc123"}
+
+            resource = registry.get_resource_for_function("preprocess")
+
+            # Should return ServerlessResource
+            assert resource is not None
+            assert resource.id == "abc123"
+            # Name starts with remote_preprocess (may have random suffix appended)
+            assert resource.name.startswith("remote_preprocess")
+
+    def test_get_resource_for_function_not_in_manifest(self, manifest_file):
+        """Test getting resource for unknown function."""
+        registry = ServiceRegistry(manifest_path=manifest_file)
+        with pytest.raises(ValueError, match="not found in manifest"):
+            registry.get_resource_for_function("unknown_function")
+
     @pytest.mark.asyncio
     async def test_ensure_directory_loaded(self, manifest_file):
         """Test lazy loading of directory from client."""

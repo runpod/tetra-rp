@@ -10,7 +10,6 @@ from tetra_rp.runtime.production_wrapper import (
     reset_wrapper,
 )
 from tetra_rp.runtime.service_registry import ServiceRegistry
-from tetra_rp.runtime.http_client import CrossEndpointClient
 
 
 class TestProductionWrapper:
@@ -24,14 +23,9 @@ class TestProductionWrapper:
         return registry
 
     @pytest.fixture
-    def mock_http_client(self):
-        """Mock HTTP client."""
-        return AsyncMock(spec=CrossEndpointClient)
-
-    @pytest.fixture
-    def wrapper(self, mock_registry, mock_http_client):
+    def wrapper(self, mock_registry):
         """Create wrapper with mocked dependencies."""
-        return ProductionWrapper(mock_registry, mock_http_client)
+        return ProductionWrapper(mock_registry)
 
     @pytest.fixture
     def sample_function(self):
@@ -52,7 +46,7 @@ class TestProductionWrapper:
         self, wrapper, mock_registry, original_stub, sample_function
     ):
         """Test routing local function to original stub."""
-        mock_registry.get_endpoint_for_function.return_value = None
+        mock_registry.get_resource_for_function.return_value = None
 
         await wrapper.wrap_function_execution(
             original_stub,
@@ -73,13 +67,14 @@ class TestProductionWrapper:
 
     @pytest.mark.asyncio
     async def test_wrap_function_remote_execution(
-        self, wrapper, mock_registry, mock_http_client, original_stub, sample_function
+        self, wrapper, mock_registry, original_stub, sample_function
     ):
-        """Test routing remote function via HTTP."""
-        mock_registry.get_endpoint_for_function.return_value = (
-            "https://remote.example.com"
-        )
-        mock_http_client.execute.return_value = {"success": True, "result": 42}
+        """Test routing remote function via ServerlessResource."""
+        mock_resource = AsyncMock()
+        mock_resource.run_sync = AsyncMock()
+        mock_resource.run_sync.return_value = MagicMock(success=True, output=42)
+
+        mock_registry.get_resource_for_function.return_value = mock_resource
 
         result = await wrapper.wrap_function_execution(
             original_stub,
@@ -94,15 +89,15 @@ class TestProductionWrapper:
         assert result == 42
         # Should NOT call original stub
         original_stub.assert_not_called()
-        # Should call HTTP client
-        mock_http_client.execute.assert_called_once()
+        # Should call ServerlessResource.run_sync()
+        mock_resource.run_sync.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_wrap_function_not_in_manifest(
         self, wrapper, mock_registry, original_stub, sample_function
     ):
         """Test function not found in manifest executes locally."""
-        mock_registry.get_endpoint_for_function.side_effect = ValueError(
+        mock_registry.get_resource_for_function.side_effect = ValueError(
             "Function not found"
         )
 
@@ -121,16 +116,16 @@ class TestProductionWrapper:
 
     @pytest.mark.asyncio
     async def test_wrap_function_remote_error(
-        self, wrapper, mock_registry, mock_http_client, original_stub, sample_function
+        self, wrapper, mock_registry, original_stub, sample_function
     ):
         """Test error handling for failed remote execution."""
-        mock_registry.get_endpoint_for_function.return_value = (
-            "https://remote.example.com"
+        mock_resource = AsyncMock()
+        mock_resource.run_sync = AsyncMock()
+        mock_resource.run_sync.return_value = MagicMock(
+            success=False, error="Remote execution failed"
         )
-        mock_http_client.execute.return_value = {
-            "success": False,
-            "error": "Remote execution failed",
-        }
+
+        mock_registry.get_resource_for_function.return_value = mock_resource
 
         with pytest.raises(Exception, match="Remote execution failed"):
             await wrapper.wrap_function_execution(
@@ -144,7 +139,7 @@ class TestProductionWrapper:
     @pytest.mark.asyncio
     async def test_wrap_function_loads_directory(self, wrapper, mock_registry):
         """Test that directory is loaded before routing decision."""
-        mock_registry.get_endpoint_for_function.return_value = None
+        mock_registry.get_resource_for_function.return_value = None
 
         async def sample_func():
             pass
@@ -163,7 +158,7 @@ class TestProductionWrapper:
         request = MagicMock()
         request.class_name = "MyClass"
 
-        mock_registry.get_endpoint_for_function.return_value = None
+        mock_registry.get_resource_for_function.return_value = None
 
         await wrapper.wrap_class_method_execution(original_stub, request)
 
@@ -172,7 +167,7 @@ class TestProductionWrapper:
 
     @pytest.mark.asyncio
     async def test_wrap_class_method_remote(
-        self, wrapper, mock_registry, mock_http_client, original_stub
+        self, wrapper, mock_registry, original_stub
     ):
         """Test routing remote class method."""
         request = MagicMock()
@@ -187,16 +182,17 @@ class TestProductionWrapper:
             }
         )
 
-        mock_registry.get_endpoint_for_function.return_value = (
-            "https://remote.example.com"
-        )
-        mock_http_client.execute.return_value = {"success": True, "result": "done"}
+        mock_resource = AsyncMock()
+        mock_resource.run_sync = AsyncMock()
+        mock_resource.run_sync.return_value = MagicMock(success=True, output="done")
+
+        mock_registry.get_resource_for_function.return_value = mock_resource
 
         result = await wrapper.wrap_class_method_execution(original_stub, request)
 
         assert result == "done"
         original_stub.assert_not_called()
-        mock_http_client.execute.assert_called_once()
+        mock_resource.run_sync.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_wrap_class_method_no_class_name(self, wrapper, original_stub):
@@ -209,25 +205,25 @@ class TestProductionWrapper:
         original_stub.assert_called_once_with(request)
 
     @pytest.mark.asyncio
-    async def test_execute_remote_payload_format(
-        self, wrapper, mock_http_client, sample_function
-    ):
+    async def test_execute_remote_payload_format(self, wrapper, sample_function):
         """Test that remote payload matches RunPod format."""
-        mock_http_client.execute.return_value = {"success": True, "result": None}
+        mock_resource = AsyncMock()
+        mock_resource.run_sync = AsyncMock()
+        mock_resource.run_sync.return_value = MagicMock(success=True, output=None)
 
         with patch("tetra_rp.runtime.production_wrapper.cloudpickle") as mock_pickle:
             mock_pickle.dumps.return_value = b"pickled"
 
             await wrapper._execute_remote(
-                "https://endpoint.example.com",
+                mock_resource,
                 "gpu_task",
                 (1, 2),
                 {"key": "value"},
                 execution_type="function",
             )
 
-        call_args = mock_http_client.execute.call_args
-        payload = call_args[0][1]
+        call_args = mock_resource.run_sync.call_args
+        payload = call_args[0][0]
 
         assert payload["input"]["function_name"] == "gpu_task"
         assert payload["input"]["execution_type"] == "function"
@@ -281,29 +277,23 @@ class TestCreateProductionWrapper:
 
         assert wrapper1 is wrapper2
 
-    def test_create_wrapper_with_custom_components(self):
-        """Test creating wrapper with custom registry and client."""
+    def test_create_wrapper_with_custom_registry(self):
+        """Test creating wrapper with custom registry."""
         registry = AsyncMock(spec=ServiceRegistry)
-        client = AsyncMock(spec=CrossEndpointClient)
 
-        wrapper = create_production_wrapper(registry, client)
+        wrapper = create_production_wrapper(registry)
 
         assert wrapper.service_registry is registry
-        assert wrapper.http_client is client
 
     def test_create_wrapper_creates_defaults(self):
         """Test that wrapper creates default components."""
         with patch(
             "tetra_rp.runtime.production_wrapper.ServiceRegistry"
         ) as mock_registry_class:
-            with patch(
-                "tetra_rp.runtime.production_wrapper.CrossEndpointClient"
-            ) as mock_client_class:
-                create_production_wrapper()
+            create_production_wrapper()
 
-                # Should have created instances
-                assert mock_registry_class.called
-                assert mock_client_class.called
+            # Should have created ServiceRegistry instance
+            assert mock_registry_class.called
 
     def test_reset_wrapper(self):
         """Test resetting wrapper singleton."""
