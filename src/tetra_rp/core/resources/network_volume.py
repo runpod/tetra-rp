@@ -46,7 +46,7 @@ class NetworkVolume(DeployableResource):
 
     id: Optional[str] = Field(default=None)
     name: str
-    size: Optional[int] = Field(default=100, gt=0)  # Size in GB
+    size: Optional[int] = Field(default=10, gt=0)  # Size in GB
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}:{self.id}"
