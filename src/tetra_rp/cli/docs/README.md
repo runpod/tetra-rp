@@ -50,6 +50,29 @@ flash init my-project --force
 
 ---
 
+### flash build
+
+Build Flash application for deployment.
+
+```bash
+flash build [OPTIONS]
+```
+
+**Options:**
+- `--no-deps`: Skip transitive dependencies during pip install
+- `--keep-build`: Keep `.flash/.build` directory after creating archive
+- `--output, -o`: Custom archive name (default: archive.tar.gz)
+
+**Example:**
+```bash
+flash build
+flash build --keep-build --output deploy.tar.gz
+```
+
+[Full documentation](./flash-build.md)
+
+---
+
 ### flash run
 
 Run Flash development server.
