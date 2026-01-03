@@ -180,4 +180,4 @@ cython_debug/
 
 # dev only
 .envrc
-test_app/
+.flash/

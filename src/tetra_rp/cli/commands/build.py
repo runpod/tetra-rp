@@ -56,7 +56,7 @@ def build_command(
             expand=False,
         )
     )
-    return
+    # return
 
     try:
         # Validate project structure
@@ -133,6 +133,24 @@ def build_command(
                 description=f"[green]✓ Discovered {total} handlers ({queue_count} queue, {lb_count} load-balancer)",
             )
             progress.stop_task(discover_task)
+
+            # Generate deployment configurations
+            config_task = progress.add_task("Generating deployment configs...")
+            from tetra_rp.cli.utils.deployment_config import (
+                generate_deployment_manifest,
+                write_deployment_manifest,
+            )
+
+            deployment_manifest = generate_deployment_manifest(
+                discovery_result, app_name, build_dir
+            )
+            write_deployment_manifest(deployment_manifest, build_dir)
+
+            progress.update(
+                config_task,
+                description=f"[green]✓ Generated {total} endpoint configurations",
+            )
+            progress.stop_task(config_task)
 
             # Install dependencies
             deps_task = progress.add_task("Installing dependencies...")
