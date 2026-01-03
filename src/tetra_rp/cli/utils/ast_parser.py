@@ -23,6 +23,7 @@ class RouterInfo:
     variable_name: str
     routes: list[RouteInfo]
     line_number: int
+    source_file: Path | None = None  # Source file path
 
 
 @dataclass
@@ -201,6 +202,26 @@ class FastAPIASTParser:
 class RemoteDecoratorParser:
     """Parser for @remote decorator configurations."""
 
+    # Recognized resource config class names
+    RESOURCE_CLASSES = {
+        "LiveServerless",
+        "CpuLiveServerless",
+        "Cpu",
+        "ServerlessEndpoint",
+        "CpuServerlessEndpoint",
+        "serverless",  # Legacy alias
+    }
+
+    # Compute type mapping based on class name
+    COMPUTE_TYPE_MAP = {
+        "LiveServerless": "gpu",
+        "CpuLiveServerless": "cpu",
+        "Cpu": "cpu",
+        "ServerlessEndpoint": "gpu",
+        "CpuServerlessEndpoint": "cpu",
+        "serverless": "gpu",  # Legacy default
+    }
+
     def __init__(self, source_code: str):
         """Initialize parser with Python source code.
 
@@ -212,37 +233,41 @@ class RemoteDecoratorParser:
         self.config_variables: dict[str, dict[str, Any]] = {}
 
     def extract_remote_configs(self) -> dict[str, dict[str, Any]]:
-        """Extract @remote decorator configurations mapped by class name.
+        """Extract @remote decorator configurations mapped by function/class name.
 
         Returns:
-            Dict mapping class names to their serverless configs
+            Dict mapping function/class names to their serverless configs
         """
         # First pass: extract config variable assignments
         self._extract_config_variables()
 
-        # Second pass: extract @remote decorators
+        # Second pass: extract @remote decorators from classes and functions
         configs: dict[str, dict[str, Any]] = {}
 
         for node in ast.walk(self.tree):
             if isinstance(node, ast.ClassDef):
-                config = self._extract_remote_from_class(node)
+                config = self._extract_remote_from_decorated(node)
+                if config is not None:
+                    configs[node.name] = config
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                config = self._extract_remote_from_decorated(node)
                 if config is not None:
                     configs[node.name] = config
 
         return configs
 
     def _extract_config_variables(self) -> None:
-        """Extract LiveServerless config variable assignments."""
+        """Extract resource config variable assignments (LiveServerless, CpuLiveServerless, etc.)."""
         for node in ast.walk(self.tree):
             if isinstance(node, ast.Assign):
                 if isinstance(node.value, ast.Call):
                     call_name = self._get_call_name(node.value)
-                    if call_name in ("LiveServerless", "serverless"):
-                        config = self._parse_live_serverless(node.value)
+                    if call_name in self.RESOURCE_CLASSES:
+                        config = self._parse_resource_config(node.value, call_name)
                         if config and len(node.targets) == 1:
                             if isinstance(node.targets[0], ast.Name):
                                 var_name = node.targets[0].id
-                                self.config_variables[var_name] = {"serverless": config}
+                                self.config_variables[var_name] = config
 
     def _get_call_name(self, node: ast.Call) -> str | None:
         """Get the name of the called function/class."""
@@ -252,8 +277,10 @@ class RemoteDecoratorParser:
             return node.func.attr
         return None
 
-    def _extract_remote_from_class(self, node: ast.ClassDef) -> dict[str, Any] | None:
-        """Extract @remote decorator config from class definition."""
+    def _extract_remote_from_decorated(
+        self, node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> dict[str, Any] | None:
+        """Extract @remote decorator config from decorated class or function."""
         for decorator in node.decorator_list:
             if isinstance(decorator, ast.Call):
                 decorator_name = self._get_call_name(decorator)
@@ -268,24 +295,42 @@ class RemoteDecoratorParser:
         """Parse @remote decorator arguments into config dict."""
         config: dict[str, Any] = {}
 
-        # Parse keyword arguments
+        # Parse keyword arguments (looking for resource_config specifically)
         for keyword in node.keywords:
-            if keyword.arg:
+            if keyword.arg == "resource_config":
+                # Check if it's a direct resource class call (e.g., LiveServerless(...))
+                if isinstance(keyword.value, ast.Call):
+                    call_name = self._get_call_name(keyword.value)
+                    if call_name in self.RESOURCE_CLASSES:
+                        resource_config = self._parse_resource_config(
+                            keyword.value, call_name
+                        )
+                        if resource_config:
+                            config.update(resource_config)
+                # Check if it's a variable reference (e.g., resource_config=gpu_config)
+                elif isinstance(keyword.value, ast.Name):
+                    var_name = keyword.value.id
+                    if var_name in self.config_variables:
+                        config.update(self.config_variables[var_name])
+            elif keyword.arg:
+                # Store other keyword arguments (like dependencies)
                 value = self._eval_node(keyword.value)
                 if value is not None:
                     config[keyword.arg] = value
 
-        # Parse positional argument (LiveServerless config object)
-        if node.args:
+        # Parse first positional argument (legacy support)
+        if node.args and not config:
             first_arg = node.args[0]
 
-            # Check if it's a direct LiveServerless(...) call
+            # Check if it's a direct resource class call
             if isinstance(first_arg, ast.Call):
-                serverless_config = self._parse_live_serverless(first_arg)
-                if serverless_config:
-                    config["serverless"] = serverless_config
+                call_name = self._get_call_name(first_arg)
+                if call_name in self.RESOURCE_CLASSES:
+                    resource_config = self._parse_resource_config(first_arg, call_name)
+                    if resource_config:
+                        config.update(resource_config)
 
-            # Check if it's a variable reference (e.g., @remote(config))
+            # Check if it's a variable reference
             elif isinstance(first_arg, ast.Name):
                 var_name = first_arg.id
                 if var_name in self.config_variables:
@@ -293,20 +338,38 @@ class RemoteDecoratorParser:
 
         return config
 
-    def _parse_live_serverless(self, node: ast.Call) -> dict[str, Any] | None:
-        """Parse LiveServerless(...) configuration."""
-        call_name = self._get_call_name(node)
-        if call_name not in ("LiveServerless", "serverless"):
+    def _parse_resource_config(
+        self, node: ast.Call, resource_class: str
+    ) -> dict[str, Any] | None:
+        """Parse resource config class instantiation (LiveServerless, CpuLiveServerless, etc.).
+
+        Args:
+            node: AST Call node for the resource class instantiation
+            resource_class: Name of the resource class being parsed
+
+        Returns:
+            Dict with resource_class, compute_type, and serverless config parameters
+        """
+        if resource_class not in self.RESOURCE_CLASSES:
             return None
 
-        config: dict[str, Any] = {}
+        # Extract all keyword arguments from the resource class instantiation
+        serverless_config: dict[str, Any] = {}
         for keyword in node.keywords:
             if keyword.arg:
                 value = self._eval_node(keyword.value)
                 if value is not None:
-                    config[keyword.arg] = value
+                    serverless_config[keyword.arg] = value
 
-        return config
+        # Determine compute type from resource class
+        compute_type = self.COMPUTE_TYPE_MAP.get(resource_class, "gpu")
+
+        # Return structured config with metadata
+        return {
+            "resource_class": resource_class,
+            "compute_type": compute_type,
+            "serverless": serverless_config,
+        }
 
     def _eval_node(self, node: ast.AST) -> Any:
         """Safely evaluate AST node to Python value."""

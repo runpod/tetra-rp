@@ -25,6 +25,8 @@ class HandlerMetadata:
     routes: list[dict[str, Any]]
     source_file: str
     source_router: str | None = None
+    compute_type: str = "gpu"  # "gpu" or "cpu", default to GPU
+    resource_class: str | None = None  # e.g., "LiveServerless", "CpuLiveServerless"
 
 
 @dataclass
@@ -175,6 +177,9 @@ class HandlerDiscovery:
 
             try:
                 _, routers = parse_fastapi_file(worker_file)
+                # Set source file for each router
+                for router_info in routers.values():
+                    router_info.source_file = worker_file
                 all_routers.update(routers)
             except Exception as e:
                 self.warnings.append(
@@ -221,6 +226,8 @@ class HandlerDiscovery:
                     routes=[self._route_to_dict(route) for route in routes],
                     source_file="main.py",
                     source_router=app_info.variable_name,
+                    compute_type=config.get("compute_type", "gpu"),
+                    resource_class=config.get("resource_class"),
                 )
             )
 
@@ -242,8 +249,8 @@ class HandlerDiscovery:
             )
             return
 
-        # Infer config for this router (use first route as representative)
-        config = self._infer_route_config(router_info.routes[0], worker_configs)
+        # Infer config for this router based on source file and worker configs
+        config = self._infer_router_config(router_info, worker_configs)
         config_hash = self._hash_config(config)
 
         handler_id = f"{router_info.variable_name}_{config_hash[:8]}"
@@ -267,6 +274,8 @@ class HandlerDiscovery:
                 routes=[self._route_to_dict(route) for route in router_info.routes],
                 source_file="main.py",
                 source_router=router_info.variable_name,
+                compute_type=config.get("compute_type", "gpu"),
+                resource_class=config.get("resource_class"),
             )
         )
 
@@ -298,25 +307,87 @@ class HandlerDiscovery:
 
         return groups
 
+    def _infer_router_config(
+        self, router_info: RouterInfo, worker_configs: dict[str, dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Infer serverless config for a router using multiple strategies.
+
+        Strategy priority:
+        1. Match router's first route function to worker configs
+        2. Use directory-based heuristics (workers/cpu/ → CPU, workers/gpu/ → GPU)
+        3. Fall back to default GPU config
+
+        Args:
+            router_info: Router information including source file
+            worker_configs: Available worker configurations from @remote decorators
+
+        Returns:
+            Serverless configuration dict with compute_type and resource_class
+        """
+        # Strategy 1: Try matching by function name
+        if router_info.routes:
+            first_route = router_info.routes[0]
+            if first_route.function_name in worker_configs:
+                return worker_configs[first_route.function_name]
+
+        # Strategy 2: Directory-based heuristics
+        if router_info.source_file:
+            source_path_str = str(router_info.source_file)
+            if (
+                "/workers/cpu/" in source_path_str
+                or "\\workers\\cpu\\" in source_path_str
+            ):
+                # CPU worker directory
+                return {
+                    "serverless": {},
+                    "compute_type": "cpu",
+                    "resource_class": "CpuLiveServerless",
+                }
+            elif (
+                "/workers/gpu/" in source_path_str
+                or "\\workers\\gpu\\" in source_path_str
+            ):
+                # GPU worker directory (explicit)
+                return {
+                    "serverless": {},
+                    "compute_type": "gpu",
+                    "resource_class": "LiveServerless",
+                }
+
+        # Strategy 3: Default to GPU
+        return {
+            "serverless": {},
+            "compute_type": "gpu",
+            "resource_class": "LiveServerless",
+        }
+
     def _infer_route_config(
         self, route: RouteInfo, worker_configs: dict[str, dict[str, Any]]
     ) -> dict[str, Any]:
-        """Infer serverless config for a route.
+        """Infer serverless config for a route by matching to worker functions.
 
-        This is a simplified implementation. Future enhancement would analyze
-        the function body to detect which worker class is instantiated.
+        Attempts to match the route's function name to a worker function with
+        @remote decorator config. If found, returns that config. Otherwise
+        returns default GPU config.
 
         Args:
             route: Route information
-            worker_configs: Available worker configurations
+            worker_configs: Available worker configurations from @remote decorators
 
         Returns:
-            Serverless configuration dict
+            Serverless configuration dict with compute_type and resource_class
         """
-        default_config: dict[str, Any] = {"serverless": {}}
+        # Try to find matching worker config by function name
+        if route.function_name in worker_configs:
+            # Found matching @remote decorated function
+            return worker_configs[route.function_name]
 
-        # TODO: Analyze function body to detect worker instantiation
-        # For now, return default config
+        # No matching config found, return default GPU config
+        default_config: dict[str, Any] = {
+            "serverless": {},
+            "compute_type": "gpu",
+            "resource_class": None,
+        }
         return default_config
 
     def _hash_config(self, config: dict[str, Any]) -> str:
