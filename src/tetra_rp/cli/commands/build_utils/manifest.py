@@ -18,7 +18,7 @@ class ManifestFunction:
     is_async: bool
     is_class: bool
     http_method: str = None  # HTTP method for LB endpoints (GET, POST, etc.)
-    http_path: str = None    # HTTP path for LB endpoints (/api/process)
+    http_path: str = None  # HTTP path for LB endpoints (/api/process)
 
 
 @dataclass
@@ -52,7 +52,9 @@ class ManifestBuilder:
         # Build manifest structure
         resources_dict: Dict[str, Dict[str, Any]] = {}
         function_registry: Dict[str, str] = {}
-        routes_dict: Dict[str, Dict[str, str]] = {}  # resource_name -> {route_key -> function_name}
+        routes_dict: Dict[
+            str, Dict[str, str]
+        ] = {}  # resource_name -> {route_key -> function_name}
 
         for resource_name, functions in sorted(resources.items()):
             handler_file = f"handler_{resource_name}.py"
@@ -96,7 +98,11 @@ class ManifestBuilder:
                     "module": f.module_path,
                     "is_async": f.is_async,
                     "is_class": f.is_class,
-                    **({"http_method": f.http_method, "http_path": f.http_path} if resource_type == "LoadBalancerSlsResource" else {}),
+                    **(
+                        {"http_method": f.http_method, "http_path": f.http_path}
+                        if resource_type == "LoadBalancerSlsResource"
+                        else {}
+                    ),
                 }
                 for f in functions
             ]

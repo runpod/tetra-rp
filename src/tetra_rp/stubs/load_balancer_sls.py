@@ -33,7 +33,13 @@ class LoadBalancerSlsStub:
         self.server = server
 
     async def __call__(
-        self, func, dependencies, system_dependencies, accelerate_downloads, *args, **kwargs
+        self,
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        *args,
+        **kwargs,
     ):
         """Execute function on load-balanced endpoint.
 
@@ -53,7 +59,12 @@ class LoadBalancerSlsStub:
         """
         # 1. Prepare request (serialize function + args)
         request = self._prepare_request(
-            func, dependencies, system_dependencies, accelerate_downloads, *args, **kwargs
+            func,
+            dependencies,
+            system_dependencies,
+            accelerate_downloads,
+            *args,
+            **kwargs,
         )
 
         # 2. Execute via HTTP POST to endpoint
@@ -63,7 +74,13 @@ class LoadBalancerSlsStub:
         return self._handle_response(response)
 
     def _prepare_request(
-        self, func, dependencies, system_dependencies, accelerate_downloads, *args, **kwargs
+        self,
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        *args,
+        **kwargs,
     ) -> dict:
         """Prepare HTTP request payload.
 
@@ -120,7 +137,9 @@ class LoadBalancerSlsStub:
             ValueError: If endpoint_url not available
         """
         if not self.server.endpoint_url:
-            raise ValueError("Endpoint URL not available - endpoint may not be deployed")
+            raise ValueError(
+                "Endpoint URL not available - endpoint may not be deployed"
+            )
 
         execute_url = f"{self.server.endpoint_url}/execute"
 

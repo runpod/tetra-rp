@@ -133,7 +133,12 @@ def _(resource, **extra):
         **kwargs,
     ) -> dict:
         return await stub(
-            func, dependencies, system_dependencies, accelerate_downloads, *args, **kwargs
+            func,
+            dependencies,
+            system_dependencies,
+            accelerate_downloads,
+            *args,
+            **kwargs,
         )
 
     return stubbed_resource

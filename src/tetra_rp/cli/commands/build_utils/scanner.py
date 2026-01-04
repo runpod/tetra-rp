@@ -22,7 +22,7 @@ class RemoteFunctionMetadata:
     is_class: bool
     file_path: Path
     http_method: Optional[str] = None  # HTTP method for LB endpoints: GET, POST, etc.
-    http_path: Optional[str] = None    # HTTP path for LB endpoints: /api/process
+    http_path: Optional[str] = None  # HTTP path for LB endpoints: /api/process
 
 
 class RemoteDecoratorScanner:
@@ -117,7 +117,9 @@ class RemoteDecoratorScanner:
                         resource_type = self._get_resource_type(resource_config_name)
 
                         # Extract HTTP routing metadata (for LB endpoints)
-                        http_method, http_path = self._extract_http_routing(remote_decorator)
+                        http_method, http_path = self._extract_http_routing(
+                            remote_decorator
+                        )
 
                         metadata = RemoteFunctionMetadata(
                             function_name=node.name,
