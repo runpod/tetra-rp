@@ -154,7 +154,11 @@ class LBHandlerGenerator:
                     f"Function '{name}' missing http_method or http_path. Skipping."
                 )
 
-        return "\n".join(registry_lines) if registry_lines else "    # No routes registered"
+        return (
+            "\n".join(registry_lines)
+            if registry_lines
+            else "    # No routes registered"
+        )
 
     def _validate_handler_imports(self, handler_path: Path) -> None:
         """Validate that generated handler has valid Python syntax.

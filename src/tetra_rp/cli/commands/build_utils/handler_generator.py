@@ -41,10 +41,14 @@ class HandlerGenerator:
         self.build_dir = build_dir
 
     def generate_handlers(self) -> List[Path]:
-        """Generate all handler files."""
+        """Generate all handler files for queue-based (non-LB) resources."""
         handler_paths = []
 
         for resource_name, resource_data in self.manifest.get("resources", {}).items():
+            # Skip load-balanced resources (handled by LBHandlerGenerator)
+            if resource_data.get("resource_type") == "LoadBalancerSlsResource":
+                continue
+
             handler_path = self._generate_handler(resource_name, resource_data)
             handler_paths.append(handler_path)
 

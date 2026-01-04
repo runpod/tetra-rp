@@ -1,4 +1,19 @@
-"""Factory for creating FastAPI load-balanced handlers."""
+"""Factory for creating FastAPI load-balanced handlers.
+
+This module provides the factory function for generating FastAPI applications
+that handle load-balanced serverless endpoints. It supports both user-defined
+HTTP routes and the framework's /execute endpoint for @remote function execution.
+
+Security Model:
+    The /execute endpoint accepts and executes serialized function code. This is
+    secure because:
+    1. The function code originates from the client's @remote decorator
+    2. The client (user) controls what function gets sent
+    3. This mirrors the trusted client model of LiveServerlessStub
+    4. In production, API authentication should protect the /execute endpoint
+
+    Users should NOT expose the /execute endpoint to untrusted clients.
+"""
 
 import base64
 import inspect
@@ -25,8 +40,12 @@ def create_lb_handler(route_registry: Dict[tuple[str, str], Callable]) -> FastAP
 
     # Register /execute endpoint for @remote stub execution
     @app.post("/execute")
-    async def execute_remote_function(request: Request) -> dict:
+    async def execute_remote_function(request: Request) -> Dict[str, Any]:
         """Framework endpoint for @remote decorator execution.
+
+        WARNING: This endpoint is INTERNAL to the Flash framework. It should only be
+        called by the @remote stub from tetra_rp.stubs.load_balancer_sls. Exposing
+        this endpoint to untrusted clients could allow arbitrary code execution.
 
         Accepts serialized function code and arguments, executes them,
         and returns serialized result.

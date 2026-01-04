@@ -6,6 +6,8 @@ via direct HTTP calls instead of queue-based job submission.
 
 import base64
 import logging
+from typing import Any, Callable, Dict, List, Optional
+
 import httpx
 import cloudpickle
 
@@ -17,30 +19,45 @@ log = logging.getLogger(__name__)
 class LoadBalancerSlsStub:
     """HTTP-based stub for load-balanced serverless endpoint execution.
 
-    Differs from LiveServerlessStub:
+    Implements the stub interface for @remote decorator with LoadBalancerSlsResource,
+    providing direct HTTP-based function execution instead of queue-based processing.
+
+    Key differences from LiveServerlessStub:
     - Direct HTTP POST to /execute endpoint (not queue-based)
-    - No job ID polling
-    - Synchronous HTTP response
+    - No job ID polling - synchronous HTTP response
     - Same function serialization pattern (cloudpickle + base64)
+    - Lower latency but no automatic retries
+
+    Architecture:
+        1. User calls @remote decorated function
+        2. Decorator dispatches to this stub via singledispatch
+        3. Stub serializes function code and arguments
+        4. Stub POSTs to endpoint /execute with serialized data
+        5. Endpoint deserializes, executes, and returns result
+        6. Stub deserializes result and returns to user
+
+    Example:
+        stub = LoadBalancerSlsStub(lb_resource)
+        result = await stub(my_func, deps, sys_deps, accel, arg1, arg2)
     """
 
-    def __init__(self, server):
+    def __init__(self, server: Any) -> None:
         """Initialize stub with LoadBalancerSlsResource server.
 
         Args:
-            server: LoadBalancerSlsResource instance
+            server: LoadBalancerSlsResource instance with endpoint_url configured
         """
         self.server = server
 
     async def __call__(
         self,
-        func,
-        dependencies,
-        system_dependencies,
-        accelerate_downloads,
-        *args,
-        **kwargs,
-    ):
+        func: Callable[..., Any],
+        dependencies: Optional[List[str]],
+        system_dependencies: Optional[List[str]],
+        accelerate_downloads: bool,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
         """Execute function on load-balanced endpoint.
 
         Args:
@@ -75,13 +92,13 @@ class LoadBalancerSlsStub:
 
     def _prepare_request(
         self,
-        func,
-        dependencies,
-        system_dependencies,
-        accelerate_downloads,
-        *args,
-        **kwargs,
-    ) -> dict:
+        func: Callable[..., Any],
+        dependencies: Optional[List[str]],
+        system_dependencies: Optional[List[str]],
+        accelerate_downloads: bool,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
         """Prepare HTTP request payload.
 
         Extracts function source code and serializes arguments using cloudpickle.
@@ -98,6 +115,7 @@ class LoadBalancerSlsStub:
             Request dictionary with serialized function and arguments
         """
         source, _ = get_function_source(func)
+        log.debug(f"Extracted source for {func.__name__} ({len(source)} bytes)")
 
         request = {
             "function_name": func.__name__,
@@ -109,18 +127,23 @@ class LoadBalancerSlsStub:
 
         # Serialize arguments using cloudpickle + base64
         if args:
-            request["args"] = [
+            serialized_args = [
                 base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
             ]
+            request["args"] = serialized_args
+            log.debug(f"Serialized {len(args)} positional args for {func.__name__}")
+
         if kwargs:
-            request["kwargs"] = {
+            serialized_kwargs = {
                 k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
                 for k, v in kwargs.items()
             }
+            request["kwargs"] = serialized_kwargs
+            log.debug(f"Serialized {len(kwargs)} keyword args for {func.__name__}")
 
         return request
 
-    async def _execute_function(self, request: dict) -> dict:
+    async def _execute_function(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Execute function via direct HTTP POST to endpoint.
 
         Posts serialized function and arguments to /execute endpoint.
@@ -153,16 +176,20 @@ class LoadBalancerSlsStub:
                 f"Execution timeout on {self.server.name} after 30s: {e}"
             ) from e
         except httpx.HTTPStatusError as e:
+            # Truncate response body to prevent huge error messages
+            response_text = e.response.text
+            if len(response_text) > 500:
+                response_text = response_text[:500] + "... (truncated)"
             raise RuntimeError(
                 f"HTTP error from endpoint {self.server.name}: "
-                f"{e.response.status_code} - {e.response.text}"
+                f"{e.response.status_code} - {response_text}"
             ) from e
         except httpx.RequestError as e:
             raise ConnectionError(
                 f"Failed to connect to endpoint {self.server.name} ({execute_url}): {e}"
             ) from e
 
-    def _handle_response(self, response: dict):
+    def _handle_response(self, response: Dict[str, Any]) -> Any:
         """Deserialize and validate response.
 
         Args:
@@ -184,9 +211,14 @@ class LoadBalancerSlsStub:
                 raise ValueError("Response marked success but result is None")
 
             try:
-                return cloudpickle.loads(base64.b64decode(result_b64))
+                result = cloudpickle.loads(base64.b64decode(result_b64))
+                log.debug(
+                    f"Successfully deserialized response result (type={type(result).__name__})"
+                )
+                return result
             except Exception as e:
                 raise ValueError(f"Failed to deserialize result: {e}") from e
         else:
             error = response.get("error", "Unknown error")
+            log.warning(f"Remote execution failed: {error}")
             raise Exception(f"Remote execution failed: {error}")

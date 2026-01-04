@@ -265,6 +265,9 @@ class RemoteDecoratorScanner:
             Tuple of (method, path) or (None, None) if not found.
             method: GET, POST, PUT, DELETE, PATCH
             path: /api/endpoint routes
+
+        Raises:
+            ValueError: If method is not a valid HTTP verb
         """
         if not isinstance(decorator, ast.Call):
             return None, None
@@ -280,5 +283,12 @@ class RemoteDecoratorScanner:
             elif keyword.arg == "path":
                 if isinstance(keyword.value, ast.Constant):
                     http_path = keyword.value.value
+
+        # Validate HTTP method if provided
+        valid_methods = {"GET", "POST", "PUT", "DELETE", "PATCH"}
+        if http_method is not None and http_method.upper() not in valid_methods:
+            raise ValueError(
+                f"Invalid HTTP method '{http_method}'. Must be one of: {', '.join(valid_methods)}"
+            )
 
         return http_method, http_path

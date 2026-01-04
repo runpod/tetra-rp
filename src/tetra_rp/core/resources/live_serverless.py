@@ -67,7 +67,42 @@ class CpuLiveServerless(LiveServerlessMixin, CpuServerlessEndpoint):
 
 
 class LiveLoadBalancer(LiveServerlessMixin, LoadBalancerSlsResource):
-    """Live load-balanced endpoint for local development and testing."""
+    """Live load-balanced endpoint for local development and testing.
+
+    Similar to LiveServerless but for HTTP-based load-balanced endpoints.
+    Enables local testing of @remote decorated functions with LB endpoints
+    before deploying to production.
+
+    Features:
+    - Locks to Tetra LB image (tetra-rp-lb)
+    - Direct HTTP execution (not queue-based)
+    - Local development with flash run
+    - Same @remote decorator pattern as LoadBalancerSlsResource
+
+    Usage:
+        from tetra_rp import LiveLoadBalancer, remote
+
+        api = LiveLoadBalancer(name="api-service")
+
+        @remote(api, method="POST", path="/api/process")
+        async def process_data(x: int, y: int):
+            return {"result": x + y}
+
+        # Test locally
+        result = await process_data(5, 3)
+
+    Local Development Flow:
+        1. Create LiveLoadBalancer with routing
+        2. Decorate functions with @remote(lb_resource, method=..., path=...)
+        3. Run with `flash run` to start local endpoint
+        4. Call functions directly in tests or scripts
+        5. Deploy to production with `flash build` and `flash deploy`
+
+    Note:
+        The endpoint_url is configured by the Flash runtime when the
+        endpoint is deployed locally. For true local testing without
+        deployment, use the functions directly or mock the HTTP layer.
+    """
 
     @property
     def _live_image(self) -> str:

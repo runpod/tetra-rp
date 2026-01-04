@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import cloudpickle
 
-from tetra_rp import remote, LoadBalancerSlsResource
+from tetra_rp import LoadBalancerSlsResource
 from tetra_rp.stubs.load_balancer_sls import LoadBalancerSlsStub
 
 
@@ -64,7 +64,9 @@ class TestLoadBalancerSlsStubPrepareRequest:
         def greet(name, greeting="Hello"):
             return f"{greeting}, {name}!"
 
-        request = stub._prepare_request(greet, None, None, True, name="Alice", greeting="Hi")
+        request = stub._prepare_request(
+            greet, None, None, True, name="Alice", greeting="Hi"
+        )
 
         assert "kwargs" in request
         assert len(request["kwargs"]) == 2
@@ -87,9 +89,7 @@ class TestLoadBalancerSlsStubPrepareRequest:
         dependencies = ["requests", "numpy"]
         system_deps = ["git"]
 
-        request = stub._prepare_request(
-            test_func, dependencies, system_deps, True
-        )
+        request = stub._prepare_request(test_func, dependencies, system_deps, True)
 
         assert request["dependencies"] == dependencies
         assert request["system_dependencies"] == system_deps
@@ -133,7 +133,9 @@ class TestLoadBalancerSlsStubHandleResponse:
 
         response = {"success": True, "result": None}
 
-        with pytest.raises(ValueError, match="Response marked success but result is None"):
+        with pytest.raises(
+            ValueError, match="Response marked success but result is None"
+        ):
             stub._handle_response(response)
 
     def test_handle_response_invalid_base64(self):
@@ -156,7 +158,10 @@ class TestLoadBalancerSlsStubExecuteFunction:
         mock_resource.endpoint_url = None
         stub = LoadBalancerSlsStub(mock_resource)
 
-        request = {"function_name": "test_func", "function_code": "def test_func(): pass"}
+        request = {
+            "function_name": "test_func",
+            "function_code": "def test_func(): pass",
+        }
 
         with pytest.raises(ValueError, match="Endpoint URL not available"):
             await stub._execute_function(request)
@@ -168,7 +173,10 @@ class TestLoadBalancerSlsStubExecuteFunction:
         mock_resource.endpoint_url = "http://localhost:8000"
         stub = LoadBalancerSlsStub(mock_resource)
 
-        request = {"function_name": "test_func", "function_code": "def test_func(): pass"}
+        request = {
+            "function_name": "test_func",
+            "function_code": "def test_func(): pass",
+        }
 
         import httpx
 
@@ -188,7 +196,10 @@ class TestLoadBalancerSlsStubExecuteFunction:
         mock_resource.name = "test-lb"
         stub = LoadBalancerSlsStub(mock_resource)
 
-        request = {"function_name": "test_func", "function_code": "def test_func(): pass"}
+        request = {
+            "function_name": "test_func",
+            "function_code": "def test_func(): pass",
+        }
 
         import httpx
 
@@ -197,7 +208,9 @@ class TestLoadBalancerSlsStubExecuteFunction:
         mock_response.text = "Internal server error"
 
         with patch("tetra_rp.stubs.load_balancer_sls.httpx.AsyncClient") as mock_client:
-            error = httpx.HTTPStatusError("Error", request=MagicMock(), response=mock_response)
+            error = httpx.HTTPStatusError(
+                "Error", request=MagicMock(), response=mock_response
+            )
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                 side_effect=error
             )
