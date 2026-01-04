@@ -3,8 +3,14 @@ Unit tests for LiveLoadBalancer class and template serialization.
 """
 
 import os
+
 import pytest
-from tetra_rp.core.resources.live_serverless import LiveLoadBalancer
+
+from tetra_rp.core.resources.cpu import CpuInstanceType
+from tetra_rp.core.resources.live_serverless import (
+    CpuLiveLoadBalancer,
+    LiveLoadBalancer,
+)
 from tetra_rp.core.resources.load_balancer_sls_resource import LoadBalancerSlsResource
 
 
@@ -169,3 +175,89 @@ class TestTemplateSerializationRoundtrip:
         var_keys = {kv["key"] for kv in template_env}
         assert "VAR1" in var_keys
         assert "VAR2" in var_keys
+
+
+class TestCpuLiveLoadBalancer:
+    """Test CpuLiveLoadBalancer class behavior."""
+
+    def test_cpu_live_load_balancer_creation_with_local_tag(self, monkeypatch):
+        """Test CpuLiveLoadBalancer creates with local image tag."""
+        monkeypatch.setenv("TETRA_IMAGE_TAG", "local")
+        # Need to reload the module to pick up new env var
+        import importlib
+
+        import tetra_rp.core.resources.live_serverless as ls_module
+
+        importlib.reload(ls_module)
+
+        lb = ls_module.CpuLiveLoadBalancer(name="test-lb")
+        assert lb.imageName == "runpod/tetra-rp-lb-cpu:local"
+        assert lb.template is not None
+        assert lb.template.imageName == "runpod/tetra-rp-lb-cpu:local"
+
+    def test_cpu_live_load_balancer_default_image_tag(self):
+        """Test CpuLiveLoadBalancer uses default CPU LB image tag."""
+        # Clear any custom tag
+        os.environ.pop("TETRA_IMAGE_TAG", None)
+
+        lb = CpuLiveLoadBalancer(name="test-lb")
+
+        assert "runpod/tetra-rp-lb-cpu:" in lb.imageName
+        assert lb.template is not None
+        assert lb.template.imageName == lb.imageName
+
+    def test_cpu_live_load_balancer_defaults_to_cpu_any(self):
+        """Test CpuLiveLoadBalancer defaults to CPU_ANY instances."""
+        lb = CpuLiveLoadBalancer(name="test-lb")
+
+        assert lb.instanceIds == [CpuInstanceType.ANY]
+
+    def test_cpu_live_load_balancer_with_specific_cpu_instances(self):
+        """Test CpuLiveLoadBalancer with explicit CPU instances."""
+        lb = CpuLiveLoadBalancer(
+            name="test-lb",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        assert lb.instanceIds == [CpuInstanceType.CPU3G_1_4]
+
+    def test_cpu_live_load_balancer_type_is_lb(self):
+        """Test CpuLiveLoadBalancer has type=LB."""
+        lb = CpuLiveLoadBalancer(name="test-lb")
+
+        assert lb.type.value == "LB"
+        assert str(lb.type) == "ServerlessType.LB"
+
+    def test_cpu_live_load_balancer_scaler_is_request_count(self):
+        """Test CpuLiveLoadBalancer uses REQUEST_COUNT scaler."""
+        lb = CpuLiveLoadBalancer(name="test-lb")
+
+        assert lb.scalerType.value == "REQUEST_COUNT"
+
+    def test_cpu_live_load_balancer_payload_serialization(self):
+        """Test CpuLiveLoadBalancer serializes correctly for GraphQL deployment."""
+        lb = CpuLiveLoadBalancer(name="data_processor")
+
+        # Generate payload as would be sent to RunPod
+        payload = lb.model_dump(exclude=lb._input_only, exclude_none=True, mode="json")
+
+        # Template must be in payload (not imageName since that's in _input_only)
+        assert "template" in payload
+        assert "imageName" not in payload
+
+        # Template must have all required fields
+        template = payload["template"]
+        assert "imageName" in template
+        assert "name" in template
+        assert template["imageName"] == lb.imageName
+
+    def test_cpu_live_load_balancer_excludes_gpu_fields(self):
+        """Test CpuLiveLoadBalancer excludes GPU fields from payload."""
+        lb = CpuLiveLoadBalancer(name="test-lb")
+
+        payload = lb.model_dump(exclude=lb._input_only, exclude_none=True, mode="json")
+
+        # GPU-specific fields should not be in payload
+        assert "gpus" not in payload
+        assert "gpuIds" not in payload
+        assert "cudaVersions" not in payload

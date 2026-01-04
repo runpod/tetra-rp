@@ -15,12 +15,14 @@ Key differences from standard serverless (QB):
 
 import asyncio
 import logging
-from typing import Optional
+from typing import List, Optional
 
 import httpx
 from pydantic import model_validator
 
+from .cpu import CpuInstanceType
 from .serverless import ServerlessResource, ServerlessType, ServerlessScalerType
+from .serverless_cpu import CpuEndpointMixin
 
 log = logging.getLogger(__name__)
 
@@ -83,6 +85,23 @@ class LoadBalancerSlsResource(ServerlessResource):
             self._configure_existing_template()
 
         return self
+
+    @property
+    def endpoint_url(self) -> str:
+        """Get the endpoint URL for load-balanced endpoints.
+
+        Load-balanced endpoints use a different URL format than standard
+        serverless endpoints. They use: https://{endpoint_id}.api.runpod.ai
+
+        Returns:
+            The endpoint URL for health checks and direct HTTP requests
+
+        Raises:
+            ValueError: If endpoint ID not set
+        """
+        if not self.id:
+            raise ValueError("Endpoint ID not set. Cannot determine endpoint URL.")
+        return f"https://{self.id}.api.runpod.ai"
 
     def _validate_lb_configuration(self) -> None:
         """
@@ -284,3 +303,40 @@ class LoadBalancerSlsResource(ServerlessResource):
         except Exception as e:
             log.debug(f"RunPod health check failed for {self.name}: {e}")
             return False
+
+
+class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
+    """CPU-only load-balanced endpoint with automatic disk sizing.
+
+    Similar to LoadBalancerSlsResource but configured for CPU instances
+    instead of GPUs. Inherits CPU-specific functionality from CpuEndpointMixin
+    for automatic disk sizing and validation.
+
+    Defaults to CPU_ANY instance type if not specified.
+
+    Configuration example:
+        mothership = CpuLoadBalancerSlsResource(
+            name="mothership",
+            imageName="my-mothership:latest",
+            env={"FLASH_APP": "my_app"},
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+            workersMin=1,
+            workersMax=3,
+        )
+        await mothership.deploy()
+    """
+
+    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
+
+    # CPU endpoints exclude GPU-specific fields from API payload
+    # This prevents the RunPod GraphQL API from rejecting CPU endpoints with GPU-specific fields
+    _input_only = {
+        "id",
+        "cudaVersions",
+        "datacenter",
+        "env",
+        "gpus",
+        "gpuIds",
+        "imageName",
+        "networkVolume",
+    }

@@ -94,6 +94,28 @@ class TestLoadBalancerSlsResourceCreation:
         assert resource.workersMax == 5
         assert resource.scalerValue == 10
 
+    def test_endpoint_url_format_for_load_balanced_endpoints(self):
+        """Test that endpoint_url uses load-balanced format, not v2 API format."""
+        resource = LoadBalancerSlsResource(
+            name="test",
+            imageName="image",
+            id="6g2hfns3ar5pti",
+        )
+
+        # Load-balanced endpoints use: https://{id}.api.runpod.ai
+        # NOT: https://api.runpod.ai/v2/{id}
+        assert resource.endpoint_url == "https://6g2hfns3ar5pti.api.runpod.ai"
+
+    def test_endpoint_url_raises_without_id(self):
+        """Test that endpoint_url raises error when endpoint ID not set."""
+        resource = LoadBalancerSlsResource(
+            name="test",
+            imageName="image",
+        )
+
+        with pytest.raises(ValueError, match="Endpoint ID not set"):
+            _ = resource.endpoint_url
+
 
 class TestLoadBalancerSlsResourceHealthCheck:
     """Test health check functionality."""
