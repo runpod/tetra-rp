@@ -342,6 +342,7 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
         "cudaVersions",
         "datacenter",
         "env",
+        "flashboot",
         "gpus",
         "gpuIds",
         "imageName",
