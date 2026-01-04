@@ -17,6 +17,8 @@ class ManifestFunction:
     module: str
     is_async: bool
     is_class: bool
+    http_method: str = None  # HTTP method for LB endpoints (GET, POST, etc.)
+    http_path: str = None    # HTTP path for LB endpoints (/api/process)
 
 
 @dataclass
@@ -50,9 +52,43 @@ class ManifestBuilder:
         # Build manifest structure
         resources_dict: Dict[str, Dict[str, Any]] = {}
         function_registry: Dict[str, str] = {}
+        routes_dict: Dict[str, Dict[str, str]] = {}  # resource_name -> {route_key -> function_name}
 
         for resource_name, functions in sorted(resources.items()):
             handler_file = f"handler_{resource_name}.py"
+
+            # Use actual resource type from first function in group
+            resource_type = (
+                functions[0].resource_type if functions else "LiveServerless"
+            )
+
+            # Validate and collect routing for LB endpoints
+            resource_routes = {}
+            if resource_type == "LoadBalancerSlsResource":
+                for f in functions:
+                    if not f.http_method or not f.http_path:
+                        raise ValueError(
+                            f"LoadBalancerSlsResource endpoint '{resource_name}' requires "
+                            f"method and path for function '{f.function_name}'. "
+                            f"Got method={f.http_method}, path={f.http_path}"
+                        )
+
+                    # Check for route conflicts (same method + path)
+                    route_key = f"{f.http_method} {f.http_path}"
+                    if route_key in resource_routes:
+                        raise ValueError(
+                            f"Duplicate route '{route_key}' in resource '{resource_name}': "
+                            f"both '{resource_routes[route_key]}' and '{f.function_name}' "
+                            f"are mapped to the same route"
+                        )
+                    resource_routes[route_key] = f.function_name
+
+                    # Check for reserved paths
+                    if f.http_path in ["/execute", "/ping"]:
+                        raise ValueError(
+                            f"Function '{f.function_name}' cannot use reserved path '{f.http_path}'. "
+                            f"Reserved paths: /execute, /ping"
+                        )
 
             functions_list = [
                 {
@@ -60,20 +96,20 @@ class ManifestBuilder:
                     "module": f.module_path,
                     "is_async": f.is_async,
                     "is_class": f.is_class,
+                    **({"http_method": f.http_method, "http_path": f.http_path} if resource_type == "LoadBalancerSlsResource" else {}),
                 }
                 for f in functions
             ]
-
-            # Use actual resource type from first function in group
-            resource_type = (
-                functions[0].resource_type if functions else "LiveServerless"
-            )
 
             resources_dict[resource_name] = {
                 "resource_type": resource_type,
                 "handler_file": handler_file,
                 "functions": functions_list,
             }
+
+            # Store routes for LB endpoints
+            if resource_routes:
+                routes_dict[resource_name] = resource_routes
 
             # Build function registry for quick lookup
             for f in functions:
@@ -84,13 +120,19 @@ class ManifestBuilder:
                     )
                 function_registry[f.function_name] = resource_name
 
-        return {
+        manifest = {
             "version": "1.0",
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "project_name": self.project_name,
             "resources": resources_dict,
             "function_registry": function_registry,
         }
+
+        # Add routes section if there are LB endpoints with routing
+        if routes_dict:
+            manifest["routes"] = routes_dict
+
+        return manifest
 
     def write_to_file(self, output_path: Path) -> Path:
         """Write manifest to file."""
