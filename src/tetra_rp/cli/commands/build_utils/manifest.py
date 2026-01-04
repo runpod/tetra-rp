@@ -2,9 +2,9 @@
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .scanner import RemoteFunctionMetadata
 
@@ -17,8 +17,8 @@ class ManifestFunction:
     module: str
     is_async: bool
     is_class: bool
-    http_method: str = None  # HTTP method for LB endpoints (GET, POST, etc.)
-    http_path: str = None  # HTTP path for LB endpoints (/api/process)
+    http_method: Optional[str] = None  # HTTP method for LB endpoints (GET, POST, etc.)
+    http_path: Optional[str] = None  # HTTP path for LB endpoints (/api/process)
 
 
 @dataclass
@@ -132,7 +132,7 @@ class ManifestBuilder:
 
         manifest = {
             "version": "1.0",
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "project_name": self.project_name,
             "resources": resources_dict,
             "function_registry": function_registry,

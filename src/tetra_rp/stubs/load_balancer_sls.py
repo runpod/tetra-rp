@@ -42,13 +42,17 @@ class LoadBalancerSlsStub:
         result = await stub(my_func, deps, sys_deps, accel, arg1, arg2)
     """
 
-    def __init__(self, server: Any) -> None:
+    DEFAULT_TIMEOUT = 30.0  # Default timeout in seconds
+
+    def __init__(self, server: Any, timeout: float = None) -> None:
         """Initialize stub with LoadBalancerSlsResource server.
 
         Args:
             server: LoadBalancerSlsResource instance with endpoint_url configured
+            timeout: Request timeout in seconds (default: 30.0)
         """
         self.server = server
+        self.timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
 
     def _should_use_execute_endpoint(self, func: Callable[..., Any]) -> bool:
         """Determine if /execute endpoint should be used for this function.
@@ -223,7 +227,7 @@ class LoadBalancerSlsStub:
         execute_url = f"{self.server.endpoint_url}/execute"
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(execute_url, json=request)
                 response.raise_for_status()
                 return response.json()
@@ -295,7 +299,7 @@ class LoadBalancerSlsStub:
         log.debug(f"Executing via user route: {method} {url}")
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.request(method, url, json=body)
                 response.raise_for_status()
                 result = response.json()

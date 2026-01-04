@@ -163,14 +163,14 @@ class TestRemoteWithLoadBalancerIntegration:
         from tetra_rp.cli.commands.build_utils.lb_handler_generator import (
             LBHandlerGenerator,
         )
-        from datetime import datetime
+        from datetime import datetime, timezone
         from pathlib import Path
         import tempfile
 
         # Create a manifest for LiveLoadBalancer
         manifest = {
             "version": "1.0",
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "project_name": "test-project",
             "resources": {
                 "test-api": {
@@ -211,14 +211,14 @@ class TestRemoteWithLoadBalancerIntegration:
         from tetra_rp.cli.commands.build_utils.lb_handler_generator import (
             LBHandlerGenerator,
         )
-        from datetime import datetime
+        from datetime import datetime, timezone
         from pathlib import Path
         import tempfile
 
         # Create a manifest for deployed LoadBalancerSlsResource
         manifest = {
             "version": "1.0",
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "project_name": "test-project",
             "resources": {
                 "api-service": {
