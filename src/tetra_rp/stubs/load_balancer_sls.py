@@ -5,6 +5,7 @@ via direct HTTP calls instead of queue-based job submission.
 """
 
 import base64
+import inspect
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
@@ -49,6 +50,47 @@ class LoadBalancerSlsStub:
         """
         self.server = server
 
+    def _should_use_execute_endpoint(self, func: Callable[..., Any]) -> bool:
+        """Determine if /execute endpoint should be used for this function.
+
+        The /execute endpoint (which accepts arbitrary function code) is only used for:
+        - LiveLoadBalancer (local development)
+        - Functions without routing metadata (backward compatibility)
+
+        For deployed LoadBalancerSlsResource endpoints with routing metadata,
+        the stub translates @remote calls into HTTP requests to user-defined routes.
+
+        Args:
+            func: Function being called
+
+        Returns:
+            True if /execute should be used, False if user route should be used
+        """
+        from ..core.resources.live_serverless import LiveLoadBalancer
+
+        # Always use /execute for LiveLoadBalancer (local development)
+        if isinstance(self.server, LiveLoadBalancer):
+            log.debug(f"Using /execute endpoint for LiveLoadBalancer: {func.__name__}")
+            return True
+
+        # Check if function has routing metadata
+        routing_config = getattr(func, "__remote_config__", None)
+        if not routing_config:
+            log.debug(f"No routing config for {func.__name__}, using /execute fallback")
+            return True
+
+        # Check if routing metadata is complete
+        if not routing_config.get("method") or not routing_config.get("path"):
+            log.debug(f"Incomplete routing config for {func.__name__}, using /execute fallback")
+            return True
+
+        # Use user-defined route for deployed endpoints with complete routing metadata
+        log.debug(
+            f"Using user route for deployed endpoint: {func.__name__} "
+            f"{routing_config['method']} {routing_config['path']}"
+        )
+        return False
+
     async def __call__(
         self,
         func: Callable[..., Any],
@@ -60,6 +102,10 @@ class LoadBalancerSlsStub:
     ) -> Any:
         """Execute function on load-balanced endpoint.
 
+        Behavior depends on endpoint type:
+        - LiveLoadBalancer: Uses /execute endpoint (local development)
+        - Deployed LoadBalancerSlsResource: Uses user-defined route via HTTP
+
         Args:
             func: Function to execute
             dependencies: Pip dependencies required
@@ -69,26 +115,34 @@ class LoadBalancerSlsStub:
             **kwargs: Function keyword arguments
 
         Returns:
-            Function result (deserialized from cloudpickle)
+            Function result
 
         Raises:
             Exception: If endpoint returns error or HTTP call fails
         """
-        # 1. Prepare request (serialize function + args)
-        request = self._prepare_request(
-            func,
-            dependencies,
-            system_dependencies,
-            accelerate_downloads,
-            *args,
-            **kwargs,
-        )
-
-        # 2. Execute via HTTP POST to endpoint
-        response = await self._execute_function(request)
-
-        # 3. Deserialize and return result
-        return self._handle_response(response)
+        # Determine execution path based on resource type and routing metadata
+        if self._should_use_execute_endpoint(func):
+            # Local development or backward compatibility: use /execute endpoint
+            request = self._prepare_request(
+                func,
+                dependencies,
+                system_dependencies,
+                accelerate_downloads,
+                *args,
+                **kwargs,
+            )
+            response = await self._execute_function(request)
+            return self._handle_response(response)
+        else:
+            # Deployed endpoint: use user-defined route
+            routing_config = func.__remote_config__
+            return await self._execute_via_user_route(
+                func,
+                routing_config["method"],
+                routing_config["path"],
+                *args,
+                **kwargs,
+            )
 
     def _prepare_request(
         self,
@@ -187,6 +241,80 @@ class LoadBalancerSlsStub:
         except httpx.RequestError as e:
             raise ConnectionError(
                 f"Failed to connect to endpoint {self.server.name} ({execute_url}): {e}"
+            ) from e
+
+    async def _execute_via_user_route(
+        self,
+        func: Callable[..., Any],
+        method: str,
+        path: str,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Execute function by calling user-defined HTTP route.
+
+        Maps function arguments to JSON request body and makes HTTP request
+        to the user-defined route. The response is parsed as JSON and returned directly.
+
+        Args:
+            func: Function being called (used for signature inspection)
+            method: HTTP method (GET, POST, PUT, DELETE, PATCH)
+            path: URL path (e.g., /api/process)
+            *args: Function positional arguments
+            **kwargs: Function keyword arguments
+
+        Returns:
+            Function result (parsed from JSON response)
+
+        Raises:
+            ValueError: If endpoint_url not available
+            TimeoutError: If request times out
+            RuntimeError: If HTTP error occurs
+            ConnectionError: If connection fails
+        """
+        if not self.server.endpoint_url:
+            raise ValueError(
+                "Endpoint URL not available - endpoint may not be deployed"
+            )
+
+        # Get function signature to map args to parameter names
+        sig = inspect.signature(func)
+        params = list(sig.parameters.keys())
+
+        # Map positional args to parameter names
+        body = {}
+        for i, arg in enumerate(args):
+            if i < len(params):
+                body[params[i]] = arg
+        body.update(kwargs)
+
+        # Construct full URL
+        url = f"{self.server.endpoint_url}{path}"
+        log.debug(f"Executing via user route: {method} {url}")
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.request(method, url, json=body)
+                response.raise_for_status()
+                result = response.json()
+                log.debug(f"User route execution successful (type={type(result).__name__})")
+                return result
+        except httpx.TimeoutException as e:
+            raise TimeoutError(
+                f"Execution timeout on {self.server.name} after 30s: {e}"
+            ) from e
+        except httpx.HTTPStatusError as e:
+            # Truncate response body to prevent huge error messages
+            response_text = e.response.text
+            if len(response_text) > 500:
+                response_text = response_text[:500] + "... (truncated)"
+            raise RuntimeError(
+                f"HTTP error from endpoint {self.server.name}: "
+                f"{e.response.status_code} - {response_text}"
+            ) from e
+        except httpx.RequestError as e:
+            raise ConnectionError(
+                f"Failed to connect to endpoint {self.server.name} ({url}): {e}"
             ) from e
 
     def _handle_response(self, response: Dict[str, Any]) -> Any:

@@ -207,11 +207,35 @@ result = await process_data(5, 3)
 # 8. Returns {"result": 8} to caller
 ```
 
-## Dual Endpoint Model
+## Deployment Execution Model
 
-Load-balanced endpoints handle two different types of requests:
+### Local Development (LiveLoadBalancer)
 
-### 1. User-Defined Routes (Direct HTTP)
+When using `LiveLoadBalancer` for local testing, endpoints expose two types of routes:
+
+1. **User-Defined Routes** (e.g., `/api/health`, `/api/users`)
+   - Called via direct HTTP requests
+   - Called via `@remote` decorator (uses /execute internally)
+
+2. **Framework Endpoints**
+   - `/execute` - Accepts serialized function code for @remote execution
+   - `/ping` - Health check endpoint
+
+### Deployed Endpoints (LoadBalancerSlsResource)
+
+When deployed to production, endpoints **only expose user-defined routes** for security:
+
+1. **User-Defined Routes** (e.g., `/api/health`, `/api/users`)
+   - Called via direct HTTP requests from clients
+   - Called via `@remote` decorator (stub translates to HTTP requests to user routes)
+   - `/execute` endpoint NOT exposed (removed for security)
+
+2. **Framework Endpoints**
+   - `/ping` - Health check endpoint only
+
+### Request Handling by Execution Type
+
+#### Direct HTTP Requests (Always Works)
 
 ```
 GET  /health
@@ -239,34 +263,34 @@ GET https://my-endpoint.runpod.ai/health
 # Response: 200 OK {"status": "ok"}
 ```
 
-### 2. Framework Endpoint (/execute)
+#### @remote Function Calls (Different Local vs Deployed)
 
-```
-POST /execute - Framework-only endpoint
-POST /ping   - Health check endpoint
-```
-
-**Characteristics:**
-- Called ONLY by @remote stub (LoadBalancerSlsStub)
-- Accepts serialized function code and arguments
-- Deserializes both before execution
-- Creates isolated execution namespace
-- Serializes result for return
-- Security: Only trusted clients should access
-
-**Example:**
+**Local (LiveLoadBalancer):**
 ```python
 @remote(api, method="POST", path="/api/process")
 async def process_data(x: int, y: int):
     return {"result": x + y}
 
 # Called via @remote:
-result = await process_data(5, 3)  # Uses /execute internally
+result = await process_data(5, 3)  # Uses /execute internally (local only)
+```
 
-# Direct HTTP access would fail:
-GET https://my-endpoint.runpod.ai/process?x=5&y=3  # Not registered
+**Deployed (LoadBalancerSlsResource):**
+```python
+@remote(api, method="POST", path="/api/process")
+async def process_data(x: int, y: int):
+    return {"result": x + y}
 
-# Must use @remote for this function
+# Called via @remote:
+result = await process_data(5, 3)
+# Stub automatically translates to: POST /api/process {"x": 5, "y": 3}
+# No /execute endpoint involved (security)
+```
+
+**Key Differences:**
+- Local: Serializes function code, POSTs to /execute
+- Deployed: Maps arguments to JSON, POSTs to user-defined route
+- No code changes needed - stub handles both automatically
 ```
 
 ## Execution Flow Diagram

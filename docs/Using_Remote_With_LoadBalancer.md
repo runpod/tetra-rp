@@ -114,12 +114,16 @@ When deployed:
 
 ### Reserved Paths
 
-The following paths are reserved by Flash and cannot be used:
+The following paths are reserved by Flash and cannot be used as user-defined routes:
 
-- `/execute` - Framework endpoint for @remote stub execution
-- `/ping` - Health check endpoint (returns 200 OK)
+- `/ping` - Health check endpoint (required, returns 200 OK)
 
-Attempting to use these paths will raise a validation error at build time.
+Additionally, note that:
+- `/execute` - Framework endpoint for @remote stub execution (**only available with LiveLoadBalancer for local development**)
+  - Deployed `LoadBalancerSlsResource` endpoints do NOT expose `/execute` for security
+  - When using deployed endpoints, @remote calls are translated to HTTP requests to your user-defined routes
+
+Attempting to use these reserved paths for user-defined routes will raise a validation error at build time.
 
 ## Local Development
 
@@ -180,6 +184,34 @@ async def test_calculate_invalid():
     with pytest.raises(ValueError):
         await calculate("unknown", 5, 3)
 ```
+
+## Local vs Deployed Execution
+
+The behavior of `@remote` decorated functions differs between local development and deployed endpoints:
+
+### Local Development (LiveLoadBalancer)
+
+When using `LiveLoadBalancer` for local testing:
+- Functions decorated with `@remote` serialize their code and POST to `/execute` endpoint
+- The `/execute` endpoint accepts and executes the serialized function code
+- Useful for development and CI/CD testing before deployment
+
+### Deployed Endpoints (LoadBalancerSlsResource)
+
+When deployed to production:
+- Generated handlers do NOT expose `/execute` endpoint (security)
+- Functions decorated with `@remote` are called via HTTP requests to their user-defined routes
+- The stub automatically translates `@remote` calls into HTTP requests with mapped parameters
+- Example: `await process_data(5, 3)` becomes `POST /api/process {"x": 5, "y": 3}`
+
+### Migration from Local to Deployed
+
+When migrating code from local testing to production:
+- **No code changes needed** - `@remote` decorated functions work the same way
+- The stub automatically detects whether it's `LiveLoadBalancer` (local) or `LoadBalancerSlsResource` (deployed)
+- User-defined routes must be compatible with JSON serialization for parameters
+
+**Important:** Only simple, JSON-serializable types are supported for parameters when using deployed endpoints. Complex types (custom classes, Request objects, etc.) are not supported via HTTP parameter mapping.
 
 ## Building and Deploying
 
@@ -411,6 +443,13 @@ async def test_delete_user():
 **"Execution timeout on user-service after 30s"**
 - Problem: Function took longer than 30 seconds to complete
 - Solution: Optimize function, consider increasing timeout in LoadBalancerSlsStub
+
+**"JSON serialization error" or "unexpected keyword argument" on deployed endpoint**
+- Problem: Deployed endpoint receiving malformed parameters from @remote call
+- Solution: This should not happen automatically (stub handles parameter mapping). Check:
+  - Function parameters are JSON-serializable (not custom classes or Request objects)
+  - Function signature matches expected parameter names
+  - For complex types, make direct HTTP calls instead of using @remote
 
 ### Build Errors
 

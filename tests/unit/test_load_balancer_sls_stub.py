@@ -262,3 +262,173 @@ class TestLoadBalancerSlsStubCall:
             call_args = mock_execute.call_args
             request = call_args[0][0]
             assert request["dependencies"] == deps
+
+
+class TestLoadBalancerSlsStubRouting:
+    """Test suite for routing detection between /execute and user routes."""
+
+    def test_should_use_execute_for_live_load_balancer(self):
+        """Test that LiveLoadBalancer always uses /execute endpoint."""
+        from tetra_rp import LiveLoadBalancer
+        from tetra_rp import remote
+
+        lb = LiveLoadBalancer(name="test-live")
+        stub = LoadBalancerSlsStub(lb)
+
+        @remote(lb, method="POST", path="/api/test")
+        def test_func():
+            pass
+
+        assert stub._should_use_execute_endpoint(test_func) is True
+
+    def test_should_use_user_route_for_deployed_lb(self):
+        """Test that deployed LoadBalancerSlsResource uses user-defined route."""
+        from tetra_rp import remote
+
+        lb = LoadBalancerSlsResource(name="test-deployed", imageName="test:latest")
+        stub = LoadBalancerSlsStub(lb)
+
+        @remote(lb, method="POST", path="/api/test")
+        def test_func():
+            pass
+
+        assert stub._should_use_execute_endpoint(test_func) is False
+
+    def test_should_fallback_to_execute_without_routing_metadata(self):
+        """Test fallback to /execute when routing metadata is missing."""
+        lb = LoadBalancerSlsResource(name="test", imageName="test:latest")
+        stub = LoadBalancerSlsStub(lb)
+
+        def func_without_metadata():
+            pass
+
+        assert stub._should_use_execute_endpoint(func_without_metadata) is True
+
+    def test_should_fallback_to_execute_with_incomplete_metadata(self):
+        """Test fallback to /execute when routing metadata is incomplete."""
+        lb = LoadBalancerSlsResource(name="test", imageName="test:latest")
+        stub = LoadBalancerSlsStub(lb)
+
+        def func_with_incomplete_metadata():
+            pass
+
+        # Attach incomplete metadata
+        func_with_incomplete_metadata.__remote_config__ = {"method": "POST"}
+
+        assert stub._should_use_execute_endpoint(func_with_incomplete_metadata) is True
+
+    @pytest.mark.asyncio
+    async def test_execute_via_user_route_success(self):
+        """Test successful execution via user-defined route."""
+        mock_resource = MagicMock()
+        mock_resource.endpoint_url = "http://localhost:8000"
+        mock_resource.name = "test-lb"
+        stub = LoadBalancerSlsStub(mock_resource)
+
+        def add(x, y):
+            return x + y
+
+        import httpx
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"result": 8}
+
+        with patch("tetra_rp.stubs.load_balancer_sls.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.request = AsyncMock(
+                return_value=mock_response
+            )
+
+            result = await stub._execute_via_user_route(add, "POST", "/api/add", 5, 3)
+
+            assert result == {"result": 8}
+            # Verify correct HTTP method and URL
+            mock_client.return_value.__aenter__.return_value.request.assert_called_once()
+            call_args = mock_client.return_value.__aenter__.return_value.request.call_args
+            assert call_args[0][0] == "POST"
+            assert call_args[0][1] == "http://localhost:8000/api/add"
+            # Verify correct JSON body with mapped parameters
+            assert call_args[1]["json"] == {"x": 5, "y": 3}
+
+    @pytest.mark.asyncio
+    async def test_execute_via_user_route_with_kwargs(self):
+        """Test user route execution with keyword arguments."""
+        mock_resource = MagicMock()
+        mock_resource.endpoint_url = "http://localhost:8000"
+        mock_resource.name = "test-lb"
+        stub = LoadBalancerSlsStub(mock_resource)
+
+        def greet(name, greeting="Hello"):
+            return f"{greeting}, {name}!"
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = "Hi, Alice!"
+
+        with patch("tetra_rp.stubs.load_balancer_sls.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.request = AsyncMock(
+                return_value=mock_response
+            )
+
+            result = await stub._execute_via_user_route(
+                greet, "POST", "/api/greet", "Alice", greeting="Hi"
+            )
+
+            assert result == "Hi, Alice!"
+            # Verify JSON body has both positional arg and kwargs
+            call_args = mock_client.return_value.__aenter__.return_value.request.call_args
+            assert call_args[1]["json"] == {"name": "Alice", "greeting": "Hi"}
+
+    @pytest.mark.asyncio
+    async def test_call_routes_to_user_path_for_deployed_endpoint(self):
+        """Test that __call__ routes to user path for deployed endpoints."""
+        mock_resource = MagicMock()
+        mock_resource.endpoint_url = "http://localhost:8000"
+        mock_resource.name = "test-lb"
+        stub = LoadBalancerSlsStub(mock_resource)
+
+        @patch.object(stub, "_should_use_execute_endpoint")
+        @patch.object(stub, "_execute_via_user_route")
+        async def run_test(mock_user_route, mock_detect):
+            mock_detect.return_value = False
+            mock_user_route.return_value = {"result": 42}
+
+            def test_func(x):
+                return x
+
+            test_func.__remote_config__ = {
+                "method": "POST",
+                "path": "/api/test",
+                "resource_config": mock_resource,
+            }
+
+            result = await stub(test_func, None, None, True, 42)
+
+            # Should route to _execute_via_user_route, not _execute_function
+            mock_user_route.assert_called_once()
+            assert result == {"result": 42}
+
+        await run_test()
+
+    @pytest.mark.asyncio
+    async def test_call_routes_to_execute_for_live_endpoint(self):
+        """Test that __call__ routes to /execute for LiveLoadBalancer."""
+        mock_resource = MagicMock()
+        stub = LoadBalancerSlsStub(mock_resource)
+
+        @patch.object(stub, "_should_use_execute_endpoint")
+        @patch.object(stub, "_execute_function")
+        @patch.object(stub, "_handle_response")
+        async def run_test(mock_handle, mock_execute, mock_detect):
+            mock_detect.return_value = True
+            mock_execute.return_value = {"success": True, "result": "test"}
+            mock_handle.return_value = "handled"
+
+            def test_func():
+                pass
+
+            result = await stub(test_func, None, None, True)
+
+            # Should route to _execute_function, not _execute_via_user_route
+            mock_execute.assert_called_once()
+            assert result == "handled"
+
+        await run_test()

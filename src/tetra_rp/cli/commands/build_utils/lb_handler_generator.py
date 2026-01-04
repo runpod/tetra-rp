@@ -31,7 +31,9 @@ ROUTE_REGISTRY = {{
 }}
 
 # Create FastAPI app with routes
-app = create_lb_handler(ROUTE_REGISTRY)
+# Note: include_execute=False for deployed endpoints (security)
+# Only LiveLoadBalancer (local development) includes /execute
+app = create_lb_handler(ROUTE_REGISTRY, include_execute=False)
 
 
 # Health check endpoint (required for RunPod load-balancer endpoints)
