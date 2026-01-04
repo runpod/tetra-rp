@@ -347,6 +347,35 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
         "flashboot",
         "gpus",
         "gpuIds",
+        "gpuCount",
+        "allowedCudaVersions",
         "imageName",
         "networkVolume",
     }
+
+    def _setup_cpu_template(self) -> None:
+        """Setup template, validating and creating/configuring as needed."""
+        if not any([self.imageName, self.template, self.templateId]):
+            raise ValueError(
+                "Either imageName, template, or templateId must be provided"
+            )
+
+        if not self.templateId and not self.template:
+            self.template = self._create_new_template()
+        elif self.template:
+            self._configure_existing_template()
+
+    @model_validator(mode="after")
+    def set_serverless_template(self):
+        """Create template from imageName if not provided.
+
+        Overrides parent to call _sync_cpu_fields first to ensure GPU defaults
+        are overridden for CPU endpoints.
+        """
+        # Sync CPU-specific fields first (override GPU defaults)
+        self._sync_cpu_fields()
+
+        # Setup template with validation and creation
+        self._setup_cpu_template()
+
+        return self
