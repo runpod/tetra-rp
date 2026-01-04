@@ -82,7 +82,9 @@ class RemoteDecoratorScanner:
                         config_type = self._get_call_type(node.value)
 
                         # Include both Serverless and LoadBalancer resources
-                        if config_type and ("Serverless" in config_type or "LoadBalancer" in config_type):
+                        if config_type and (
+                            "Serverless" in config_type or "LoadBalancer" in config_type
+                        ):
                             # Store mapping of variable name to name and type separately
                             key = f"{module_path}:{config_name}"
                             self.resource_configs[key] = config_name

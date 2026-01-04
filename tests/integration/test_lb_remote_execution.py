@@ -261,7 +261,7 @@ class TestRemoteWithLoadBalancerIntegration:
         import tempfile
 
         # Create temporary Python file with LoadBalancer resource
-        code = '''
+        code = """
 from tetra_rp import LiveLoadBalancer, LoadBalancerSlsResource, remote
 
 # Test LiveLoadBalancer discovery
@@ -277,7 +277,7 @@ deployed = LoadBalancerSlsResource(name="deployed-api", imageName="test:latest")
 @remote(deployed, method="GET", path="/api/status")
 def get_status():
     return {"status": "ok"}
-'''
+"""
 
         with tempfile.TemporaryDirectory() as tmpdir:
             project_dir = Path(tmpdir)

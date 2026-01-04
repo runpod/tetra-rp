@@ -328,8 +328,6 @@ class TestLoadBalancerSlsStubRouting:
         def add(x, y):
             return x + y
 
-        import httpx
-
         mock_response = MagicMock()
         mock_response.json.return_value = {"result": 8}
 
@@ -343,7 +341,9 @@ class TestLoadBalancerSlsStubRouting:
             assert result == {"result": 8}
             # Verify correct HTTP method and URL
             mock_client.return_value.__aenter__.return_value.request.assert_called_once()
-            call_args = mock_client.return_value.__aenter__.return_value.request.call_args
+            call_args = (
+                mock_client.return_value.__aenter__.return_value.request.call_args
+            )
             assert call_args[0][0] == "POST"
             assert call_args[0][1] == "http://localhost:8000/api/add"
             # Verify correct JSON body with mapped parameters
@@ -374,7 +374,9 @@ class TestLoadBalancerSlsStubRouting:
 
             assert result == "Hi, Alice!"
             # Verify JSON body has both positional arg and kwargs
-            call_args = mock_client.return_value.__aenter__.return_value.request.call_args
+            call_args = (
+                mock_client.return_value.__aenter__.return_value.request.call_args
+            )
             assert call_args[1]["json"] == {"name": "Alice", "greeting": "Hi"}
 
     @pytest.mark.asyncio

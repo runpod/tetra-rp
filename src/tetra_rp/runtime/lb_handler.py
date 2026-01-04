@@ -160,7 +160,9 @@ def create_lb_handler(
 
                 # Serialize result
                 try:
-                    result_b64 = base64.b64encode(cloudpickle.dumps(result)).decode("utf-8")
+                    result_b64 = base64.b64encode(cloudpickle.dumps(result)).decode(
+                        "utf-8"
+                    )
                     return {"success": True, "result": result_b64}
                 except Exception as e:
                     logger.error(f"Failed to serialize result: {e}")

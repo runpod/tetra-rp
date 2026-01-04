@@ -81,7 +81,9 @@ class LoadBalancerSlsStub:
 
         # Check if routing metadata is complete
         if not routing_config.get("method") or not routing_config.get("path"):
-            log.debug(f"Incomplete routing config for {func.__name__}, using /execute fallback")
+            log.debug(
+                f"Incomplete routing config for {func.__name__}, using /execute fallback"
+            )
             return True
 
         # Use user-defined route for deployed endpoints with complete routing metadata
@@ -297,7 +299,9 @@ class LoadBalancerSlsStub:
                 response = await client.request(method, url, json=body)
                 response.raise_for_status()
                 result = response.json()
-                log.debug(f"User route execution successful (type={type(result).__name__})")
+                log.debug(
+                    f"User route execution successful (type={type(result).__name__})"
+                )
                 return result
         except httpx.TimeoutException as e:
             raise TimeoutError(

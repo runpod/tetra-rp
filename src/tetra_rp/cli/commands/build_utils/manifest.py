@@ -66,7 +66,10 @@ class ManifestBuilder:
 
             # Validate and collect routing for LB endpoints
             resource_routes = {}
-            is_load_balanced = resource_type in ["LoadBalancerSlsResource", "LiveLoadBalancer"]
+            is_load_balanced = resource_type in [
+                "LoadBalancerSlsResource",
+                "LiveLoadBalancer",
+            ]
             if is_load_balanced:
                 for f in functions:
                     if not f.http_method or not f.http_path:
