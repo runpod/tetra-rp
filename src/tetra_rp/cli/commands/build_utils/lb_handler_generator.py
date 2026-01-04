@@ -31,9 +31,10 @@ ROUTE_REGISTRY = {{
 }}
 
 # Create FastAPI app with routes
-# Note: include_execute=False for deployed endpoints (security)
-# Only LiveLoadBalancer (local development) includes /execute
-app = create_lb_handler(ROUTE_REGISTRY, include_execute=False)
+# Note: include_execute={include_execute} for this endpoint type
+# - LiveLoadBalancer (local): include_execute=True for /execute endpoint
+# - LoadBalancerSlsResource (deployed): include_execute=False (security)
+app = create_lb_handler(ROUTE_REGISTRY, include_execute={include_execute})
 
 
 # Health check endpoint (required for RunPod load-balancer endpoints)
@@ -66,8 +67,9 @@ class LBHandlerGenerator:
         handler_paths = []
 
         for resource_name, resource_data in self.manifest.get("resources", {}).items():
-            # Only generate for LoadBalancerSlsResource
-            if resource_data.get("resource_type") != "LoadBalancerSlsResource":
+            # Generate for both LiveLoadBalancer (local dev) and LoadBalancerSlsResource (deployed)
+            resource_type = resource_data.get("resource_type")
+            if resource_type not in ["LoadBalancerSlsResource", "LiveLoadBalancer"]:
                 continue
 
             handler_path = self._generate_handler(resource_name, resource_data)
@@ -85,6 +87,11 @@ class LBHandlerGenerator:
         # Get timestamp from manifest
         timestamp = self.manifest.get("generated_at", "")
 
+        # Determine if /execute endpoint should be included
+        # LiveLoadBalancer (local dev) includes /execute, deployed LoadBalancerSlsResource does not
+        resource_type = resource_data.get("resource_type", "LoadBalancerSlsResource")
+        include_execute = resource_type == "LiveLoadBalancer"
+
         # Generate imports section
         imports = self._generate_imports(resource_data.get("functions", []))
 
@@ -97,6 +104,7 @@ class LBHandlerGenerator:
             timestamp=timestamp,
             imports=imports,
             registry=registry,
+            include_execute=str(include_execute),
         )
 
         handler_path.write_text(handler_code)

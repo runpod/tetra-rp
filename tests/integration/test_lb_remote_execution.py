@@ -157,3 +157,89 @@ class TestRemoteWithLoadBalancerIntegration:
         # QB should have None values for routing (not LB-specific)
         assert qb_func.__remote_config__["method"] is None
         assert qb_func.__remote_config__["path"] is None
+
+    def test_live_load_balancer_handler_includes_execute_endpoint(self):
+        """Test that generated handler for LiveLoadBalancer includes /execute endpoint."""
+        from tetra_rp.cli.commands.build_utils.lb_handler_generator import LBHandlerGenerator
+        from datetime import datetime
+        from pathlib import Path
+        import tempfile
+
+        # Create a manifest for LiveLoadBalancer
+        manifest = {
+            "version": "1.0",
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "project_name": "test-project",
+            "resources": {
+                "test-api": {
+                    "resource_type": "LiveLoadBalancer",
+                    "handler_file": "handler_test_api.py",
+                    "functions": [
+                        {
+                            "name": "process_data",
+                            "module": "api.endpoints",
+                            "is_async": True,
+                            "is_class": False,
+                            "http_method": "POST",
+                            "http_path": "/api/process",
+                        }
+                    ],
+                }
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            build_dir = Path(tmpdir)
+            generator = LBHandlerGenerator(manifest, build_dir)
+            handlers = generator.generate_handlers()
+
+            assert len(handlers) == 1
+            handler_path = handlers[0]
+            handler_code = handler_path.read_text()
+
+            # Verify the handler includes include_execute=True for LiveLoadBalancer
+            assert "include_execute=True" in handler_code
+            assert "create_lb_handler(ROUTE_REGISTRY, include_execute=True)" in handler_code
+
+    def test_deployed_load_balancer_handler_excludes_execute_endpoint(self):
+        """Test that generated handler for deployed LoadBalancerSlsResource excludes /execute endpoint."""
+        from tetra_rp.cli.commands.build_utils.lb_handler_generator import LBHandlerGenerator
+        from datetime import datetime
+        from pathlib import Path
+        import tempfile
+
+        # Create a manifest for deployed LoadBalancerSlsResource
+        manifest = {
+            "version": "1.0",
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "project_name": "test-project",
+            "resources": {
+                "api-service": {
+                    "resource_type": "LoadBalancerSlsResource",
+                    "handler_file": "handler_api_service.py",
+                    "functions": [
+                        {
+                            "name": "process_data",
+                            "module": "api.endpoints",
+                            "is_async": True,
+                            "is_class": False,
+                            "http_method": "POST",
+                            "http_path": "/api/process",
+                        }
+                    ],
+                }
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            build_dir = Path(tmpdir)
+            generator = LBHandlerGenerator(manifest, build_dir)
+            handlers = generator.generate_handlers()
+
+            assert len(handlers) == 1
+            handler_path = handlers[0]
+            handler_code = handler_path.read_text()
+
+            # Verify the handler includes include_execute=False for deployed endpoints
+            assert "include_execute=False" in handler_code
+            assert "create_lb_handler(ROUTE_REGISTRY, include_execute=False)" in handler_code

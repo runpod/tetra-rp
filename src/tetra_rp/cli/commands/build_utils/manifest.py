@@ -66,11 +66,12 @@ class ManifestBuilder:
 
             # Validate and collect routing for LB endpoints
             resource_routes = {}
-            if resource_type == "LoadBalancerSlsResource":
+            is_load_balanced = resource_type in ["LoadBalancerSlsResource", "LiveLoadBalancer"]
+            if is_load_balanced:
                 for f in functions:
                     if not f.http_method or not f.http_path:
                         raise ValueError(
-                            f"LoadBalancerSlsResource endpoint '{resource_name}' requires "
+                            f"{resource_type} endpoint '{resource_name}' requires "
                             f"method and path for function '{f.function_name}'. "
                             f"Got method={f.http_method}, path={f.http_path}"
                         )
@@ -100,7 +101,7 @@ class ManifestBuilder:
                     "is_class": f.is_class,
                     **(
                         {"http_method": f.http_method, "http_path": f.http_path}
-                        if resource_type == "LoadBalancerSlsResource"
+                        if is_load_balanced
                         else {}
                     ),
                 }
