@@ -26,7 +26,9 @@ class CpuEndpointMixin:
 
     @field_validator("instanceIds")
     @classmethod
-    def validate_instance_ids(cls, value: List[CpuInstanceType]) -> List[CpuInstanceType]:
+    def validate_instance_ids(
+        cls, value: List[CpuInstanceType]
+    ) -> List[CpuInstanceType]:
         """Expand ANY to all available CPU instance types."""
         if value == [CpuInstanceType.ANY]:
             return CpuInstanceType.all()
