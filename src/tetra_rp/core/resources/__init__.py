@@ -2,7 +2,7 @@ from .base import BaseResource, DeployableResource
 from .cpu import CpuInstanceType
 from .gpu import GpuGroup, GpuType, GpuTypeDetail
 from .resource_manager import ResourceManager
-from .live_serverless import LiveServerless, CpuLiveServerless
+from .live_serverless import LiveServerless, CpuLiveServerless, LiveLoadBalancer
 from .serverless import (
     ServerlessResource,
     ServerlessEndpoint,
@@ -29,6 +29,7 @@ __all__ = [
     "GpuType",
     "GpuTypeDetail",
     "JobOutput",
+    "LiveLoadBalancer",
     "LiveServerless",
     "LoadBalancerSlsResource",
     "ResourceManager",

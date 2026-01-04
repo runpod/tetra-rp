@@ -1,6 +1,7 @@
 # Ship serverless code as you write it. No builds, no deploys — just run.
 import os
 from pydantic import model_validator
+from .load_balancer_sls_resource import LoadBalancerSlsResource
 from .serverless import ServerlessEndpoint
 from .serverless_cpu import CpuServerlessEndpoint
 
@@ -10,6 +11,9 @@ TETRA_GPU_IMAGE = os.environ.get(
 )
 TETRA_CPU_IMAGE = os.environ.get(
     "TETRA_CPU_IMAGE", f"runpod/tetra-rp-cpu:{TETRA_IMAGE_TAG}"
+)
+TETRA_LB_IMAGE = os.environ.get(
+    "TETRA_LB_IMAGE", f"runpod/tetra-rp-lb:{TETRA_IMAGE_TAG}"
 )
 
 
@@ -59,4 +63,19 @@ class CpuLiveServerless(LiveServerlessMixin, CpuServerlessEndpoint):
     def set_live_serverless_template(cls, data: dict):
         """Set default CPU image for Live Serverless."""
         data["imageName"] = TETRA_CPU_IMAGE
+        return data
+
+
+class LiveLoadBalancer(LiveServerlessMixin, LoadBalancerSlsResource):
+    """Live load-balanced endpoint for local development and testing."""
+
+    @property
+    def _live_image(self) -> str:
+        return TETRA_LB_IMAGE
+
+    @model_validator(mode="before")
+    @classmethod
+    def set_live_lb_template(cls, data: dict):
+        """Set default image for Live Load-Balanced endpoint."""
+        data["imageName"] = TETRA_LB_IMAGE
         return data
