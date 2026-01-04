@@ -12,6 +12,7 @@ from tetra_rp.core.resources import (
     ServerlessType,
     ServerlessScalerType,
 )
+from tetra_rp.core.resources.serverless import ServerlessResource
 
 # Set a dummy API key for tests that create ResourceManager instances
 os.environ.setdefault("RUNPOD_API_KEY", "test-key-for-unit-tests")
@@ -377,28 +378,24 @@ class TestLoadBalancerSlsResourceDeployment:
             id="new-endpoint-id",
         )
 
-        async def mock_parent_impl(self):
-            return mock_deployed
-
         with (
-            patch.object(LoadBalancerSlsResource, "is_deployed") as mock_is_deployed,
             patch.object(
-                resource, "_wait_for_health", new_callable=AsyncMock
+                LoadBalancerSlsResource, "is_deployed", MagicMock(return_value=False)
+            ),
+            patch.object(
+                resource, "_wait_for_health", new_callable=AsyncMock, return_value=True
             ) as mock_wait,
-        ):
-            mock_is_deployed.return_value = False
-            mock_wait.return_value = True
-
-            # Patch parent _do_deploy to return mock_deployed
-            with patch(
-                "tetra_rp.core.resources.serverless.ServerlessResource._do_deploy",
+            patch.object(
+                ServerlessResource,
+                "_do_deploy",
                 new_callable=AsyncMock,
                 return_value=mock_deployed,
-            ):
-                result = await resource._do_deploy()
+            ),
+        ):
+            result = await resource._do_deploy()
 
-                assert result == mock_deployed
-                mock_wait.assert_called_once()
+            assert result == mock_deployed
+            mock_wait.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_do_deploy_health_check_timeout(self):
@@ -415,22 +412,21 @@ class TestLoadBalancerSlsResourceDeployment:
         )
 
         with (
-            patch.object(LoadBalancerSlsResource, "is_deployed") as mock_is_deployed,
             patch.object(
-                resource, "_wait_for_health", new_callable=AsyncMock
-            ) as mock_wait,
-        ):
-            mock_is_deployed.return_value = False
-            mock_wait.return_value = False  # Health check failed
-
-            # Patch parent _do_deploy to return mock_deployed
-            with patch(
-                "tetra_rp.core.resources.serverless.ServerlessResource._do_deploy",
+                LoadBalancerSlsResource, "is_deployed", MagicMock(return_value=False)
+            ),
+            patch.object(
+                resource, "_wait_for_health", new_callable=AsyncMock, return_value=False
+            ),
+            patch.object(
+                ServerlessResource,
+                "_do_deploy",
                 new_callable=AsyncMock,
                 return_value=mock_deployed,
-            ):
-                with pytest.raises(TimeoutError, match="failed to become healthy"):
-                    await resource._do_deploy()
+            ),
+        ):
+            with pytest.raises(TimeoutError, match="failed to become healthy"):
+                await resource._do_deploy()
 
     @pytest.mark.asyncio
     async def test_do_deploy_parent_deploy_failure(self):
@@ -440,17 +436,19 @@ class TestLoadBalancerSlsResourceDeployment:
             imageName="image",
         )
 
-        with patch.object(LoadBalancerSlsResource, "is_deployed") as mock_is_deployed:
-            mock_is_deployed.return_value = False
-
-            # Patch parent _do_deploy to raise an error
-            with patch(
-                "tetra_rp.core.resources.serverless.ServerlessResource._do_deploy",
+        with (
+            patch.object(
+                LoadBalancerSlsResource, "is_deployed", MagicMock(return_value=False)
+            ),
+            patch.object(
+                ServerlessResource,
+                "_do_deploy",
                 new_callable=AsyncMock,
                 side_effect=ValueError("RunPod API error"),
-            ):
-                with pytest.raises(ValueError, match="RunPod API error"):
-                    await resource._do_deploy()
+            ),
+        ):
+            with pytest.raises(ValueError, match="RunPod API error"):
+                await resource._do_deploy()
 
 
 class TestLoadBalancerSlsResourceIntegration:
