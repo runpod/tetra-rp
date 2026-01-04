@@ -379,3 +379,45 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
         self._setup_cpu_template()
 
         return self
+
+    @property
+    def config_hash(self) -> str:
+        """Get hash excluding GPU fields, env, and runtime fields.
+
+        CPU load-balanced endpoints only hash CPU-relevant fields:
+        - Instance types (instanceIds)
+        - Scaling parameters (workers, scaler)
+        - Deployment type (type, locations)
+
+        Excludes:
+        - GPU fields (to avoid false drift)
+        - Runtime fields (template, templateId, aiKey, etc.)
+        - Dynamic fields (env)
+        """
+        import hashlib
+        import json
+
+        # CPU-relevant fields for drift detection
+        cpu_fields = {
+            "datacenter",
+            "flashboot",
+            "imageName",
+            "networkVolume",
+            "instanceIds",  # CPU-specific
+            "workersMin",  # Scaling
+            "workersMax",
+            "scalerType",
+            "scalerValue",
+            "type",  # LB vs QB
+            "idleTimeout",
+            "executionTimeoutMs",
+            "locations",
+        }
+
+        config_dict = self.model_dump(
+            exclude_none=True, include=cpu_fields, mode="json"
+        )
+
+        config_str = json.dumps(config_dict, sort_keys=True)
+        hash_obj = hashlib.md5(f"{self.__class__.__name__}:{config_str}".encode())
+        return hash_obj.hexdigest()

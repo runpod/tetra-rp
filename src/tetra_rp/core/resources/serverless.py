@@ -172,12 +172,16 @@ class ServerlessResource(DeployableResource):
         self, value: Optional[ServerlessScalerType]
     ) -> Optional[str]:
         """Convert ServerlessScalerType enum to string."""
-        return value.value if value is not None else None
+        if value is None:
+            return None
+        return value.value if isinstance(value, ServerlessScalerType) else value
 
     @field_serializer("type")
     def serialize_type(self, value: Optional[ServerlessType]) -> Optional[str]:
         """Convert ServerlessType enum to string."""
-        return value.value if value is not None else None
+        if value is None:
+            return None
+        return value.value if isinstance(value, ServerlessType) else value
 
     @field_validator("gpus")
     @classmethod
@@ -189,29 +193,37 @@ class ServerlessResource(DeployableResource):
 
     @property
     def config_hash(self) -> str:
-        """Get config hash excluding env to prevent false drift detection.
+        """Get config hash excluding env and runtime-assigned fields.
 
-        Environment variables are dynamically computed at initialization time from the .env file.
-        Including them in the config hash causes false drift detection when the same resource
-        is deployed in different Python processes that might have different .env files or
-        environment state. This override computes the hash using only structural fields.
+        Prevents false drift from:
+        - Dynamic env vars computed at runtime
+        - Runtime-assigned fields (template, templateId, aiKey, userId, etc.)
+
+        Only hashes user-specified configuration, not server-assigned state.
         """
         import hashlib
         import json
 
         resource_type = self.__class__.__name__
 
-        # Use _input_only fields but exclude 'env' to avoid dynamic drift
-        if hasattr(self, "_input_only"):
-            include_fields = self._input_only - {"id", "env"}  # Exclude id and env
-            config_dict = self.model_dump(
-                exclude_none=True, include=include_fields, mode="json"
-            )
-        else:
-            # Fallback
-            config_dict = self.model_dump(
-                exclude_none=True, exclude={"id", "env"}, mode="json"
-            )
+        # Runtime fields assigned by API that shouldn't affect drift detection
+        runtime_fields = {
+            "template",
+            "templateId",
+            "aiKey",
+            "userId",
+            "createdAt",
+            "activeBuildid",
+            "computeType",
+            "hubRelease",
+            "repo",
+        }
+
+        # Exclude runtime fields, env, and id from hash
+        exclude_fields = runtime_fields | {"id", "env"}
+        config_dict = self.model_dump(
+            exclude_none=True, exclude=exclude_fields, mode="json"
+        )
 
         # Convert to JSON string for hashing
         config_str = json.dumps(config_dict, sort_keys=True)
@@ -415,11 +427,21 @@ class ServerlessResource(DeployableResource):
             raise
 
     def _has_structural_changes(self, new_config: "ServerlessResource") -> bool:
-        """
-        Check if config changes require redeploy vs update.
+        """Check if config changes require redeploy vs update.
 
-        Structural changes (GPU type, image, flashboot) require full redeploy.
-        Scaling parameters can be updated in-place.
+        Runtime fields (template, templateId) are ignored to prevent false
+        structural change detection when the same resource is redeployed.
+
+        Structural changes (require redeploy):
+        - Image changes
+        - GPU configuration changes
+        - Flashboot toggle
+        - Instance type changes
+
+        Non-structural changes (can update in-place):
+        - Worker scaling parameters
+        - Timeout values
+        - Environment variables
 
         Args:
             new_config: New configuration to compare against
@@ -430,8 +452,6 @@ class ServerlessResource(DeployableResource):
         structural_fields = [
             "gpus",
             "gpuIds",
-            "template",
-            "templateId",
             "imageName",
             "flashboot",
             "allowedCudaVersions",
