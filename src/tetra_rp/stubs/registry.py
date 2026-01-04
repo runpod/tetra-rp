@@ -5,9 +5,11 @@ from ..core.resources import (
     CpuLiveServerless,
     CpuServerlessEndpoint,
     LiveServerless,
+    LoadBalancerSlsResource,
     ServerlessEndpoint,
 )
 from .live_serverless import LiveServerlessStub
+from .load_balancer_sls import LoadBalancerSlsStub
 from .serverless import ServerlessEndpointStub
 
 log = logging.getLogger(__name__)
@@ -113,5 +115,25 @@ def _(resource, **extra):
         payload = stub.prepare_payload(func, *args, **kwargs)
         response = await stub.execute(payload, sync=extra.get("sync", False))
         return stub.handle_response(response)
+
+    return stubbed_resource
+
+
+@stub_resource.register(LoadBalancerSlsResource)
+def _(resource, **extra):
+    """Create stub for LoadBalancerSlsResource (HTTP-based execution)."""
+    stub = LoadBalancerSlsStub(resource)
+
+    async def stubbed_resource(
+        func,
+        dependencies,
+        system_dependencies,
+        accelerate_downloads,
+        *args,
+        **kwargs,
+    ) -> dict:
+        return await stub(
+            func, dependencies, system_dependencies, accelerate_downloads, *args, **kwargs
+        )
 
     return stubbed_resource
