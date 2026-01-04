@@ -21,6 +21,8 @@ class RemoteFunctionMetadata:
     is_async: bool
     is_class: bool
     file_path: Path
+    http_method: Optional[str] = None  # HTTP method for LB endpoints: GET, POST, etc.
+    http_path: Optional[str] = None    # HTTP path for LB endpoints: /api/process
 
 
 class RemoteDecoratorScanner:
@@ -114,6 +116,9 @@ class RemoteDecoratorScanner:
                         # Get resource type for this config
                         resource_type = self._get_resource_type(resource_config_name)
 
+                        # Extract HTTP routing metadata (for LB endpoints)
+                        http_method, http_path = self._extract_http_routing(remote_decorator)
+
                         metadata = RemoteFunctionMetadata(
                             function_name=node.name,
                             module_path=module_path,
@@ -122,6 +127,8 @@ class RemoteDecoratorScanner:
                             is_async=is_async,
                             is_class=is_class,
                             file_path=py_file,
+                            http_method=http_method,
+                            http_path=http_path,
                         )
                         functions.append(metadata)
 
@@ -246,3 +253,30 @@ class RemoteDecoratorScanner:
         except ValueError:
             # If relative_to fails, just use filename
             return py_file.stem
+
+    def _extract_http_routing(
+        self, decorator: ast.expr
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Extract HTTP method and path from @remote decorator.
+
+        Returns:
+            Tuple of (method, path) or (None, None) if not found.
+            method: GET, POST, PUT, DELETE, PATCH
+            path: /api/endpoint routes
+        """
+        if not isinstance(decorator, ast.Call):
+            return None, None
+
+        http_method = None
+        http_path = None
+
+        # Extract keyword arguments: method="POST", path="/api/process"
+        for keyword in decorator.keywords:
+            if keyword.arg == "method":
+                if isinstance(keyword.value, ast.Constant):
+                    http_method = keyword.value.value
+            elif keyword.arg == "path":
+                if isinstance(keyword.value, ast.Constant):
+                    http_path = keyword.value.value
+
+        return http_method, http_path
