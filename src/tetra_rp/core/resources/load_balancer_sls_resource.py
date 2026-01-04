@@ -19,7 +19,7 @@ import os
 from typing import List, Optional
 
 import httpx
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 
 from .cpu import CpuInstanceType
 from .serverless import ServerlessResource, ServerlessType, ServerlessScalerType
@@ -334,6 +334,14 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
     """
 
     instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
+
+    @field_validator("instanceIds")
+    @classmethod
+    def validate_instance_ids(cls, value: List[CpuInstanceType]) -> List[CpuInstanceType]:
+        """Expand ANY to all available CPU instance types."""
+        if value == [CpuInstanceType.ANY]:
+            return CpuInstanceType.all()
+        return value
 
     # CPU endpoints exclude GPU-specific fields from API payload
     # This prevents the RunPod GraphQL API from rejecting CPU endpoints with GPU-specific fields
