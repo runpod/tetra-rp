@@ -121,6 +121,28 @@ sequenceDiagram
     end
 ```
 
+## Using @remote with LoadBalancer Endpoints
+
+This document focuses on the `LoadBalancerSlsResource` class implementation and architecture.
+
+**Related documentation:**
+- [Using @remote with Load-Balanced Endpoints](Using_Remote_With_LoadBalancer.md) - User guide for writing and testing load-balanced endpoints
+- [LoadBalancer Runtime Architecture](LoadBalancer_Runtime_Architecture.md) - Technical details on what happens when deployed on RunPod, request flows, and execution patterns
+
+**In the user guide, you'll learn:**
+- Quick start with `LiveLoadBalancer` for local development
+- HTTP routing with `method` and `path` parameters
+- Building and deploying load-balanced endpoints
+- Complete working examples
+- Troubleshooting common issues
+
+**In the runtime architecture guide, you'll learn:**
+- Deployment architecture and container setup
+- Request flow for both direct HTTP and @remote calls
+- Dual endpoint model (/execute vs user routes)
+- Security considerations
+- Performance characteristics and monitoring
+
 ## Usage
 
 ### Basic Provisioning
