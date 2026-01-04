@@ -15,6 +15,7 @@ Key differences from standard serverless (QB):
 
 import asyncio
 import logging
+import os
 from typing import List, Optional
 
 import httpx
@@ -165,10 +166,16 @@ class LoadBalancerSlsResource(ServerlessResource):
 
             ping_url = f"{self.endpoint_url}/ping"
 
+            # Add authentication header if API key is available
+            headers = {}
+            api_key = os.environ.get("RUNPOD_API_KEY")
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+
             async with httpx.AsyncClient(
                 timeout=DEFAULT_PING_REQUEST_TIMEOUT
             ) as client:
-                response = await client.get(ping_url)
+                response = await client.get(ping_url, headers=headers)
                 return response.status_code in HEALTHY_STATUS_CODES
         except Exception as e:
             log.debug(f"Ping check failed for {self.name}: {e}")
