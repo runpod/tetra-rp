@@ -160,7 +160,9 @@ class TestRemoteWithLoadBalancerIntegration:
 
     def test_live_load_balancer_handler_includes_execute_endpoint(self):
         """Test that generated handler for LiveLoadBalancer includes /execute endpoint."""
-        from tetra_rp.cli.commands.build_utils.lb_handler_generator import LBHandlerGenerator
+        from tetra_rp.cli.commands.build_utils.lb_handler_generator import (
+            LBHandlerGenerator,
+        )
         from datetime import datetime
         from pathlib import Path
         import tempfile
@@ -199,11 +201,16 @@ class TestRemoteWithLoadBalancerIntegration:
 
             # Verify the handler includes include_execute=True for LiveLoadBalancer
             assert "include_execute=True" in handler_code
-            assert "create_lb_handler(ROUTE_REGISTRY, include_execute=True)" in handler_code
+            assert (
+                "create_lb_handler(ROUTE_REGISTRY, include_execute=True)"
+                in handler_code
+            )
 
     def test_deployed_load_balancer_handler_excludes_execute_endpoint(self):
         """Test that generated handler for deployed LoadBalancerSlsResource excludes /execute endpoint."""
-        from tetra_rp.cli.commands.build_utils.lb_handler_generator import LBHandlerGenerator
+        from tetra_rp.cli.commands.build_utils.lb_handler_generator import (
+            LBHandlerGenerator,
+        )
         from datetime import datetime
         from pathlib import Path
         import tempfile
@@ -242,4 +249,54 @@ class TestRemoteWithLoadBalancerIntegration:
 
             # Verify the handler includes include_execute=False for deployed endpoints
             assert "include_execute=False" in handler_code
-            assert "create_lb_handler(ROUTE_REGISTRY, include_execute=False)" in handler_code
+            assert (
+                "create_lb_handler(ROUTE_REGISTRY, include_execute=False)"
+                in handler_code
+            )
+
+    def test_scanner_discovers_load_balancer_resources(self):
+        """Test that scanner can discover LiveLoadBalancer and LoadBalancerSlsResource."""
+        from tetra_rp.cli.commands.build_utils.scanner import RemoteDecoratorScanner
+        from pathlib import Path
+        import tempfile
+
+        # Create temporary Python file with LoadBalancer resource
+        code = '''
+from tetra_rp import LiveLoadBalancer, LoadBalancerSlsResource, remote
+
+# Test LiveLoadBalancer discovery
+api = LiveLoadBalancer(name="test-api")
+
+@remote(api, method="POST", path="/api/process")
+async def process_data(x: int):
+    return {"result": x}
+
+# Test LoadBalancerSlsResource discovery
+deployed = LoadBalancerSlsResource(name="deployed-api", imageName="test:latest")
+
+@remote(deployed, method="GET", path="/api/status")
+def get_status():
+    return {"status": "ok"}
+'''
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = Path(tmpdir)
+            py_file = project_dir / "test_api.py"
+            py_file.write_text(code)
+
+            scanner = RemoteDecoratorScanner(project_dir)
+            functions = scanner.discover_remote_functions()
+
+            # Verify both resources were discovered
+            assert len(functions) == 2
+
+            # Verify resource types are correctly identified
+            resource_types = {f.resource_type for f in functions}
+            assert "LiveLoadBalancer" in resource_types
+            assert "LoadBalancerSlsResource" in resource_types
+
+            # Verify resource configs were extracted
+            assert "api" in scanner.resource_types
+            assert scanner.resource_types["api"] == "LiveLoadBalancer"
+            assert "deployed" in scanner.resource_types
+            assert scanner.resource_types["deployed"] == "LoadBalancerSlsResource"
