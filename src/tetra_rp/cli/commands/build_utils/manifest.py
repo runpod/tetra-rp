@@ -132,7 +132,9 @@ class ManifestBuilder:
 
         manifest = {
             "version": "1.0",
-            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "generated_at": datetime.now(timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
             "project_name": self.project_name,
             "resources": resources_dict,
             "function_registry": function_registry,
