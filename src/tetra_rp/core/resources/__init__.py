@@ -9,10 +9,12 @@ from .serverless import (
     JobOutput,
     CudaVersion,
     ServerlessType,
+    ServerlessScalerType,
 )
 from .serverless_cpu import CpuServerlessEndpoint
 from .template import PodTemplate
 from .network_volume import NetworkVolume, DataCenter
+from .load_balancer_sls_resource import LoadBalancerSlsResource
 
 
 __all__ = [
@@ -28,9 +30,11 @@ __all__ = [
     "GpuTypeDetail",
     "JobOutput",
     "LiveServerless",
+    "LoadBalancerSlsResource",
     "ResourceManager",
     "ServerlessResource",
     "ServerlessEndpoint",
+    "ServerlessScalerType",
     "ServerlessType",
     "PodTemplate",
     "NetworkVolume",

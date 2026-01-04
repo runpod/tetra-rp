@@ -460,6 +460,8 @@ After `flash build` completes:
 
 For more details on the handler architecture, see [docs/Runtime_Generic_Handler.md](docs/Runtime_Generic_Handler.md).
 
+For information on load-balanced endpoints (required for Mothership and HTTP services), see [docs/Load_Balancer_Endpoints.md](docs/Load_Balancer_Endpoints.md).
+
 #### Troubleshooting Build Issues
 
 **No @remote functions found:**
