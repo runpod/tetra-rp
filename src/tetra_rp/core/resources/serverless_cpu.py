@@ -24,6 +24,14 @@ class CpuEndpointMixin:
 
     instanceIds: Optional[List[CpuInstanceType]]
 
+    @field_validator("instanceIds")
+    @classmethod
+    def validate_instance_ids(cls, value: List[CpuInstanceType]) -> List[CpuInstanceType]:
+        """Expand ANY to all available CPU instance types."""
+        if value == [CpuInstanceType.ANY]:
+            return CpuInstanceType.all()
+        return value
+
     def _is_cpu_endpoint(self) -> bool:
         """Check if this is a CPU endpoint (has instanceIds)."""
         return (
@@ -177,14 +185,6 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
 
         # Apply CPU-specific disk sizing
         self._apply_cpu_disk_sizing(self.template)
-
-    @field_validator("instanceIds")
-    @classmethod
-    def validate_cpus(cls, value: List[CpuInstanceType]) -> List[CpuInstanceType]:
-        """Expand ANY to all GPU groups"""
-        if value == [CpuInstanceType.ANY]:
-            return CpuInstanceType.all()
-        return value
 
     @model_validator(mode="after")
     def set_serverless_template(self):
