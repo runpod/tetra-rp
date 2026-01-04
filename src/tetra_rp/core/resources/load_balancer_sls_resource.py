@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 
 import httpx
+from pydantic import model_validator
 
 from .serverless import ServerlessResource, ServerlessType, ServerlessScalerType
 
@@ -64,6 +65,24 @@ class LoadBalancerSlsResource(ServerlessResource):
             data["scalerType"] = ServerlessScalerType.REQUEST_COUNT
 
         super().__init__(**data)
+
+    @model_validator(mode="after")
+    def set_serverless_template(self):
+        """Create template from imageName if not provided.
+
+        Must run after sync_input_fields to ensure all input fields are synced.
+        """
+        if not any([self.imageName, self.template, self.templateId]):
+            raise ValueError(
+                "Either imageName, template, or templateId must be provided"
+            )
+
+        if not self.templateId and not self.template:
+            self.template = self._create_new_template()
+        elif self.template:
+            self._configure_existing_template()
+
+        return self
 
     def _validate_lb_configuration(self) -> None:
         """
