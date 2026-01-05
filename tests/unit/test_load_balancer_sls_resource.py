@@ -195,6 +195,7 @@ class TestLoadBalancerSlsResourceHealthCheck:
             id="test-endpoint-id",
         )
 
+        mock_client = self._create_mock_client(503)
         with (
             patch.object(
                 LoadBalancerSlsResource,
@@ -202,8 +203,8 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.resources.load_balancer_sls_resource.get_authenticated_httpx_client",
-                side_effect=lambda **kwargs: self._create_mock_client(503),
+                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                return_value=mock_client,
             ),
         ):
             result = await resource._check_ping_endpoint()
@@ -219,6 +220,9 @@ class TestLoadBalancerSlsResourceHealthCheck:
             id="test-endpoint-id",
         )
 
+        mock_client = self._create_mock_client(
+            error=ConnectionError("Connection refused")
+        )
         with (
             patch.object(
                 LoadBalancerSlsResource,
@@ -226,10 +230,8 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.resources.load_balancer_sls_resource.get_authenticated_httpx_client",
-                side_effect=lambda **kwargs: self._create_mock_client(
-                    error=ConnectionError("Connection refused")
-                ),
+                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                return_value=mock_client,
             ),
         ):
             result = await resource._check_ping_endpoint()
