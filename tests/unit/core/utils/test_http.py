@@ -1,6 +1,10 @@
 """Tests for HTTP utilities for RunPod API communication."""
 
-from tetra_rp.core.utils.http import get_authenticated_httpx_client
+import requests
+from tetra_rp.core.utils.http import (
+    get_authenticated_httpx_client,
+    get_authenticated_requests_session,
+)
 
 
 class TestGetAuthenticatedHttpxClient:
@@ -72,3 +76,50 @@ class TestGetAuthenticatedHttpxClient:
 
         assert client is not None
         assert client.timeout.read == 0.0
+
+
+class TestGetAuthenticatedRequestsSession:
+    """Test the get_authenticated_requests_session utility function."""
+
+    def test_get_authenticated_requests_session_with_api_key(self, monkeypatch):
+        """Test session includes auth header when API key is set."""
+        monkeypatch.setenv("RUNPOD_API_KEY", "test-api-key-123")
+
+        session = get_authenticated_requests_session()
+
+        assert session is not None
+        assert "Authorization" in session.headers
+        assert session.headers["Authorization"] == "Bearer test-api-key-123"
+        session.close()
+
+    def test_get_authenticated_requests_session_without_api_key(self, monkeypatch):
+        """Test session works without API key (no auth header)."""
+        monkeypatch.delenv("RUNPOD_API_KEY", raising=False)
+
+        session = get_authenticated_requests_session()
+
+        assert session is not None
+        assert "Authorization" not in session.headers
+        session.close()
+
+    def test_get_authenticated_requests_session_empty_api_key_no_header(
+        self, monkeypatch
+    ):
+        """Test that empty API key doesn't add Authorization header."""
+        monkeypatch.setenv("RUNPOD_API_KEY", "")
+
+        session = get_authenticated_requests_session()
+
+        assert session is not None
+        # Empty string is falsy, so no auth header should be added
+        assert "Authorization" not in session.headers
+        session.close()
+
+    def test_get_authenticated_requests_session_is_valid_session(self, monkeypatch):
+        """Test returned object is a valid requests.Session."""
+        monkeypatch.setenv("RUNPOD_API_KEY", "test-key")
+
+        session = get_authenticated_requests_session()
+
+        assert isinstance(session, requests.Session)
+        session.close()

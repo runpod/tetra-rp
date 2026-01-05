@@ -4,6 +4,7 @@ import os
 from typing import Optional
 
 import httpx
+import requests
 
 
 def get_authenticated_httpx_client(
@@ -36,3 +37,31 @@ def get_authenticated_httpx_client(
 
     timeout_config = timeout if timeout is not None else 30.0
     return httpx.AsyncClient(timeout=timeout_config, headers=headers)
+
+
+def get_authenticated_requests_session() -> requests.Session:
+    """Create requests Session with RunPod authentication.
+
+    Automatically includes Authorization header if RUNPOD_API_KEY is set.
+    Provides a centralized place to manage authentication headers for
+    synchronous RunPod HTTP requests.
+
+    Returns:
+        Configured requests.Session with Authorization header
+
+    Example:
+        session = get_authenticated_requests_session()
+        response = session.post(url, json=data, timeout=30.0)
+        # Remember to close: session.close()
+
+        # Or use as context manager
+        import contextlib
+        with contextlib.closing(get_authenticated_requests_session()) as session:
+            response = session.post(url, json=data)
+    """
+    session = requests.Session()
+    api_key = os.environ.get("RUNPOD_API_KEY")
+    if api_key:
+        session.headers["Authorization"] = f"Bearer {api_key}"
+
+    return session

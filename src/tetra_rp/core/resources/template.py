@@ -1,6 +1,6 @@
-import requests
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, model_validator
+from tetra_rp.core.utils.http import get_authenticated_requests_session
 from .base import BaseResource
 
 
@@ -38,7 +38,7 @@ class PodTemplate(BaseResource):
 
 
 def update_system_dependencies(
-    template_id, token, system_dependencies, base_entry_cmd=None
+    template_id, system_dependencies, base_entry_cmd=None, token=None
 ):
     """
     Updates Runpod template with system dependencies installed via apt-get,
@@ -83,12 +83,16 @@ def update_system_dependencies(
         "volumeMountPath": "/workspace",
     }
 
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-
     url = f"https://rest.runpod.io/v1/templates/{template_id}/update"
-    response = requests.post(url, json=payload, headers=headers)
 
+    # Use centralized auth utility instead of manual header setup
+    # Note: token parameter is deprecated; uses RUNPOD_API_KEY environment variable
+    session = get_authenticated_requests_session()
     try:
+        response = session.post(url, json=payload)
+        response.raise_for_status()
         return response.json()
-    except Exception:
-        return {"error": "Invalid JSON response", "text": response.text}
+    except Exception as e:
+        return {"error": "Failed to update template", "details": str(e)}
+    finally:
+        session.close()
