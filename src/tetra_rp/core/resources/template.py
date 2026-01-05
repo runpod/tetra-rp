@@ -1,6 +1,7 @@
-import requests
+import warnings
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, model_validator
+from tetra_rp.core.utils.http import get_authenticated_requests_session
 from .base import BaseResource
 
 
@@ -38,7 +39,7 @@ class PodTemplate(BaseResource):
 
 
 def update_system_dependencies(
-    template_id, token, system_dependencies, base_entry_cmd=None
+    template_id, token=None, system_dependencies=None, base_entry_cmd=None
 ):
     """
     Updates Runpod template with system dependencies installed via apt-get,
@@ -46,12 +47,20 @@ def update_system_dependencies(
 
     Args:
         template_id (str): Runpod template ID.
-        token (str): Runpod API token.
+        token (str): [DEPRECATED] Runpod API token. Ignored; uses RUNPOD_API_KEY env var instead.
         system_dependencies (List[str]): List of apt packages to install.
         base_entry_cmd (List[str]): The default command to run the app, e.g. ["uv", "run", "handler.py"]
     Returns:
         dict: API response JSON or error info.
     """
+    # Warn if deprecated token parameter is used
+    if token is not None:
+        warnings.warn(
+            "The 'token' parameter is deprecated and ignored. "
+            "Authentication now uses RUNPOD_API_KEY environment variable.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     # Compose apt-get install command if any packages specified
     apt_cmd = ""
@@ -83,12 +92,16 @@ def update_system_dependencies(
         "volumeMountPath": "/workspace",
     }
 
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-
     url = f"https://rest.runpod.io/v1/templates/{template_id}/update"
-    response = requests.post(url, json=payload, headers=headers)
 
+    # Use centralized auth utility instead of manual header setup
+    # Note: token parameter is deprecated; uses RUNPOD_API_KEY environment variable
+    session = get_authenticated_requests_session()
     try:
+        response = session.post(url, json=payload)
+        response.raise_for_status()
         return response.json()
-    except Exception:
-        return {"error": "Invalid JSON response", "text": response.text}
+    except Exception as e:
+        return {"error": "Failed to update template", "details": str(e)}
+    finally:
+        session.close()

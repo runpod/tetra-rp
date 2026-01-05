@@ -120,6 +120,22 @@ class TestLoadBalancerSlsResourceCreation:
 class TestLoadBalancerSlsResourceHealthCheck:
     """Test health check functionality."""
 
+    @staticmethod
+    def _create_mock_client(
+        status_code: int = 200, error: Exception = None
+    ) -> MagicMock:
+        """Create properly configured async context manager mock client."""
+        mock_response = AsyncMock()
+        mock_response.status_code = status_code
+        mock_client = MagicMock()
+        if error:
+            mock_client.get = AsyncMock(side_effect=error)
+        else:
+            mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        return mock_client
+
     @pytest.mark.asyncio
     async def test_check_ping_endpoint_success(self):
         """Test successful ping endpoint check with ID set."""
@@ -129,6 +145,7 @@ class TestLoadBalancerSlsResourceHealthCheck:
             id="test-endpoint-id",
         )
 
+        mock_client = self._create_mock_client(200)
         with (
             patch.object(
                 LoadBalancerSlsResource,
@@ -136,15 +153,10 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.resources.load_balancer_sls_resource.httpx.AsyncClient"
-            ) as mock_client,
+                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
         ):
-            mock_response = AsyncMock()
-            mock_response.status_code = 200
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
-
             result = await resource._check_ping_endpoint()
 
             assert result is True
@@ -158,6 +170,7 @@ class TestLoadBalancerSlsResourceHealthCheck:
             id="test-endpoint-id",
         )
 
+        mock_client = self._create_mock_client(204)
         with (
             patch.object(
                 LoadBalancerSlsResource,
@@ -165,15 +178,10 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.resources.load_balancer_sls_resource.httpx.AsyncClient"
-            ) as mock_client,
+                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
         ):
-            mock_response = AsyncMock()
-            mock_response.status_code = 204
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
-
             result = await resource._check_ping_endpoint()
 
             assert result is True
@@ -187,6 +195,7 @@ class TestLoadBalancerSlsResourceHealthCheck:
             id="test-endpoint-id",
         )
 
+        mock_client = self._create_mock_client(503)
         with (
             patch.object(
                 LoadBalancerSlsResource,
@@ -194,15 +203,10 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.resources.load_balancer_sls_resource.httpx.AsyncClient"
-            ) as mock_client,
+                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
         ):
-            mock_response = AsyncMock()
-            mock_response.status_code = 503  # Service unavailable
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
-
             result = await resource._check_ping_endpoint()
 
             assert result is False
@@ -216,6 +220,9 @@ class TestLoadBalancerSlsResourceHealthCheck:
             id="test-endpoint-id",
         )
 
+        mock_client = self._create_mock_client(
+            error=ConnectionError("Connection refused")
+        )
         with (
             patch.object(
                 LoadBalancerSlsResource,
@@ -223,13 +230,10 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.resources.load_balancer_sls_resource.httpx.AsyncClient"
-            ) as mock_client,
+                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
         ):
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                side_effect=ConnectionError("Connection refused")
-            )
-
             result = await resource._check_ping_endpoint()
 
             assert result is False

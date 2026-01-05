@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 import httpx
 import cloudpickle
 
+from tetra_rp.core.utils.http import get_authenticated_httpx_client
 from .live_serverless import get_function_source
 
 log = logging.getLogger(__name__)
@@ -227,7 +228,7 @@ class LoadBalancerSlsStub:
         execute_url = f"{self.server.endpoint_url}/execute"
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with get_authenticated_httpx_client(timeout=self.timeout) as client:
                 response = await client.post(execute_url, json=request)
                 response.raise_for_status()
                 return response.json()
@@ -299,7 +300,7 @@ class LoadBalancerSlsStub:
         log.debug(f"Executing via user route: {method} {url}")
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with get_authenticated_httpx_client(timeout=self.timeout) as client:
                 response = await client.request(method, url, json=body)
                 response.raise_for_status()
                 result = response.json()
