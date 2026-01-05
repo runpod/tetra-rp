@@ -15,12 +15,11 @@ Key differences from standard serverless (QB):
 
 import asyncio
 import logging
-import os
 from typing import List, Optional
 
-import httpx
 from pydantic import model_validator
 
+from tetra_rp.core.utils.http import get_authenticated_httpx_client
 from .cpu import CpuInstanceType
 from .serverless import ServerlessResource, ServerlessType, ServerlessScalerType
 from .serverless_cpu import CpuEndpointMixin
@@ -168,16 +167,10 @@ class LoadBalancerSlsResource(ServerlessResource):
 
             ping_url = f"{self.endpoint_url}/ping"
 
-            # Add authentication header if API key is available
-            headers = {}
-            api_key = os.environ.get("RUNPOD_API_KEY")
-            if api_key:
-                headers["Authorization"] = f"Bearer {api_key}"
-
-            async with httpx.AsyncClient(
+            async with get_authenticated_httpx_client(
                 timeout=DEFAULT_PING_REQUEST_TIMEOUT
             ) as client:
-                response = await client.get(ping_url, headers=headers)
+                response = await client.get(ping_url)
                 return response.status_code in HEALTHY_STATUS_CODES
         except Exception as e:
             log.debug(f"Ping check failed for {self.name}: {e}")
