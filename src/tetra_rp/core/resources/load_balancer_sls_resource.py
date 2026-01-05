@@ -316,6 +316,17 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
 
     Defaults to CPU_ANY instance type if not specified.
 
+    Implementation Note - Field List Coupling:
+    This class overrides config_hash() with a CPU-specific field list instead of
+    inheriting the base ServerlessResource implementation. This is intentional to
+    exclude GPU fields while maintaining drift detection for CPU-specific fields.
+
+    When adding new fields to ServerlessResource:
+    1. Evaluate if the field applies to CPU endpoints
+    2. If yes, add it to the cpu_fields set in config_hash()
+    3. If it's API-assigned, verify it's in ServerlessResource.RUNTIME_FIELDS
+    4. Test drift detection with new field changes
+
     Configuration example:
         mothership = CpuLoadBalancerSlsResource(
             name="mothership",

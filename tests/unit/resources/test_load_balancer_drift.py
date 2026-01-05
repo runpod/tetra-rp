@@ -402,3 +402,76 @@ class TestDriftDetectionRealWorldScenario:
         hash2 = lb2.config_hash
 
         assert hash1 != hash2, "Image update should be detected as drift"
+
+
+class TestSerializerDefensiveBehavior:
+    """Test that serializers handle pre-stringified enum values gracefully.
+
+    The field serializers include isinstance checks to handle cases where
+    enum values may already be stringified during nested model serialization
+    or when deserializing from external sources.
+    """
+
+    def test_scaler_type_serializer_with_enum(self):
+        """Serializer correctly handles ServerlessScalerType enum."""
+        from tetra_rp.core.resources.serverless import ServerlessScalerType
+
+        lb = LoadBalancerSlsResource(
+            name="test-lb",
+            imageName="test/image:latest",
+            scalerType=ServerlessScalerType.REQUEST_COUNT,
+        )
+
+        # Serialize to dict (triggers field_serializer)
+        serialized = lb.model_dump(mode="json")
+        assert serialized["scalerType"] == "REQUEST_COUNT"
+
+    def test_scaler_type_serializer_with_string(self):
+        """Serializer handles already-stringified scalerType values.
+
+        This can occur during nested model serialization or when deserializing
+        from external API responses that may have already stringified values.
+        """
+        lb = LoadBalancerSlsResource(
+            name="test-lb",
+            imageName="test/image:latest",
+        )
+
+        # Manually set to string (simulates pre-stringified value)
+        lb.scalerType = "REQUEST_COUNT"  # type: ignore
+
+        # Should not raise, should pass through the string
+        serialized = lb.model_dump(mode="json")
+        assert serialized["scalerType"] == "REQUEST_COUNT"
+
+    def test_type_serializer_with_enum(self):
+        """Serializer correctly handles ServerlessType enum."""
+        from tetra_rp.core.resources.serverless import ServerlessType
+
+        lb = LoadBalancerSlsResource(
+            name="test-lb",
+            imageName="test/image:latest",
+            type=ServerlessType.LB,
+        )
+
+        # Serialize to dict (triggers field_serializer)
+        serialized = lb.model_dump(mode="json")
+        assert serialized["type"] == "LB"
+
+    def test_type_serializer_with_string(self):
+        """Serializer handles already-stringified type values.
+
+        This can occur during nested model serialization or when deserializing
+        from external API responses that may have already stringified values.
+        """
+        lb = LoadBalancerSlsResource(
+            name="test-lb",
+            imageName="test/image:latest",
+        )
+
+        # Manually set to string (simulates pre-stringified value)
+        lb.type = "LB"  # type: ignore
+
+        # Should not raise, should pass through the string
+        serialized = lb.model_dump(mode="json")
+        assert serialized["type"] == "LB"

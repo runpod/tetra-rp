@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
 from pydantic import (
     BaseModel,
@@ -108,6 +108,25 @@ class ServerlessResource(DeployableResource):
         "type",
     }
 
+    # Fields assigned by API that shouldn't affect drift detection
+    # When adding new fields to ServerlessResource, evaluate if they are:
+    # 1. User-specified (include in hash)
+    # 2. API-assigned/runtime (add to RUNTIME_FIELDS)
+    # 3. Dynamically computed (already excluded via "id", "env")
+    RUNTIME_FIELDS: ClassVar[Set[str]] = {
+        "template",
+        "templateId",
+        "aiKey",
+        "userId",
+        "createdAt",
+        "activeBuildid",
+        "computeType",
+        "hubRelease",
+        "repo",
+    }
+
+    EXCLUDED_HASH_FIELDS: ClassVar[Set[str]] = {"id", "env"}
+
     # === Input-only Fields ===
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
@@ -171,14 +190,22 @@ class ServerlessResource(DeployableResource):
     def serialize_scaler_type(
         self, value: Optional[ServerlessScalerType]
     ) -> Optional[str]:
-        """Convert ServerlessScalerType enum to string."""
+        """Convert ServerlessScalerType enum to string.
+
+        Handles both enum instances and pre-stringified values that may occur
+        during nested model serialization or when values are already deserialized.
+        """
         if value is None:
             return None
         return value.value if isinstance(value, ServerlessScalerType) else value
 
     @field_serializer("type")
     def serialize_type(self, value: Optional[ServerlessType]) -> Optional[str]:
-        """Convert ServerlessType enum to string."""
+        """Convert ServerlessType enum to string.
+
+        Handles both enum instances and pre-stringified values that may occur
+        during nested model serialization or when values are already deserialized.
+        """
         if value is None:
             return None
         return value.value if isinstance(value, ServerlessType) else value
@@ -206,21 +233,10 @@ class ServerlessResource(DeployableResource):
 
         resource_type = self.__class__.__name__
 
-        # Runtime fields assigned by API that shouldn't affect drift detection
-        runtime_fields = {
-            "template",
-            "templateId",
-            "aiKey",
-            "userId",
-            "createdAt",
-            "activeBuildid",
-            "computeType",
-            "hubRelease",
-            "repo",
-        }
-
         # Exclude runtime fields, env, and id from hash
-        exclude_fields = runtime_fields | {"id", "env"}
+        exclude_fields = (
+            self.__class__.RUNTIME_FIELDS | self.__class__.EXCLUDED_HASH_FIELDS
+        )
         config_dict = self.model_dump(
             exclude_none=True, exclude=exclude_fields, mode="json"
         )
