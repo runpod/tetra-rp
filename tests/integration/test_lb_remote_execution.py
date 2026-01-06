@@ -300,7 +300,7 @@ def get_status():
             assert "LoadBalancerSlsResource" in resource_types
 
             # Verify resource configs were extracted
-            assert "api" in scanner.resource_types
-            assert scanner.resource_types["api"] == "LiveLoadBalancer"
-            assert "deployed" in scanner.resource_types
-            assert scanner.resource_types["deployed"] == "LoadBalancerSlsResource"
+            assert "test-api" in scanner.resource_types
+            assert scanner.resource_types["test-api"] == "LiveLoadBalancer"
+            assert "deployed-api" in scanner.resource_types
+            assert scanner.resource_types["deployed-api"] == "LoadBalancerSlsResource"
