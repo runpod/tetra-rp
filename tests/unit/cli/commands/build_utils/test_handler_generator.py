@@ -75,8 +75,14 @@ def test_handler_file_contains_imports():
         handler_paths = generator.generate_handlers()
 
         handler_content = handler_paths[0].read_text()
-        assert "from workers.gpu import gpu_task" in handler_content
-        assert "from workers.utils import process_data" in handler_content
+        assert (
+            "gpu_task = importlib.import_module('workers.gpu').gpu_task"
+            in handler_content
+        )
+        assert (
+            "process_data = importlib.import_module('workers.utils').process_data"
+            in handler_content
+        )
 
 
 def test_handler_file_contains_registry():
