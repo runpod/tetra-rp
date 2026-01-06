@@ -31,7 +31,7 @@ async def my_function(data):
 
         assert len(functions) == 1
         assert functions[0].function_name == "my_function"
-        assert functions[0].resource_config_name == "gpu_config"
+        assert functions[0].resource_config_name == "test_gpu"
         assert functions[0].is_async is True
         assert functions[0].is_class is False
 
@@ -92,7 +92,7 @@ async def analyze_data(data):
         functions = scanner.discover_remote_functions()
 
         assert len(functions) == 2
-        assert all(f.resource_config_name == "gpu_config" for f in functions)
+        assert all(f.resource_config_name == "gpu_worker" for f in functions)
         assert functions[0].function_name in ["process_data", "analyze_data"]
 
 
@@ -124,7 +124,7 @@ async def cpu_task(data):
 
         assert len(functions) == 2
         resource_configs = {f.resource_config_name for f in functions}
-        assert resource_configs == {"gpu_config", "cpu_config"}
+        assert resource_configs == {"gpu_worker", "cpu_worker"}
 
 
 def test_discover_nested_module():
@@ -225,3 +225,215 @@ def sync_function(data):
 
         assert len(functions) == 1
         assert functions[0].is_async is False
+
+
+def test_exclude_venv_directory():
+    """Test that .venv directory is excluded from scanning."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+
+        # Create .venv directory with Python files
+        venv_dir = project_dir / ".venv" / "lib" / "python3.11"
+        venv_dir.mkdir(parents=True)
+        venv_file = venv_dir / "test_module.py"
+        venv_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+config = LiveServerless(name="venv_config")
+
+@remote(config)
+async def venv_function(data):
+    return data
+"""
+        )
+
+        # Create legitimate project file
+        project_file = project_dir / "main.py"
+        project_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+config = LiveServerless(name="project_config")
+
+@remote(config)
+async def project_function(data):
+    return data
+"""
+        )
+
+        scanner = RemoteDecoratorScanner(project_dir)
+        functions = scanner.discover_remote_functions()
+
+        # Should only find the project function, not the venv one
+        assert len(functions) == 1
+        assert functions[0].resource_config_name == "project_config"
+
+
+def test_exclude_flash_directory():
+    """Test that .flash directory is excluded from scanning."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+
+        # Create .flash directory with Python files
+        flash_dir = project_dir / ".flash" / "build"
+        flash_dir.mkdir(parents=True)
+        flash_file = flash_dir / "generated.py"
+        flash_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+config = LiveServerless(name="flash_config")
+
+@remote(config)
+async def flash_function(data):
+    return data
+"""
+        )
+
+        # Create legitimate project file
+        project_file = project_dir / "main.py"
+        project_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+config = LiveServerless(name="project_config")
+
+@remote(config)
+async def project_function(data):
+    return data
+"""
+        )
+
+        scanner = RemoteDecoratorScanner(project_dir)
+        functions = scanner.discover_remote_functions()
+
+        # Should only find the project function, not the flash one
+        assert len(functions) == 1
+        assert functions[0].resource_config_name == "project_config"
+
+
+def test_exclude_runpod_directory():
+    """Test that .runpod directory is excluded from scanning."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+
+        # Create .runpod directory with Python files
+        runpod_dir = project_dir / ".runpod" / "cache"
+        runpod_dir.mkdir(parents=True)
+        runpod_file = runpod_dir / "cached.py"
+        runpod_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+config = LiveServerless(name="runpod_config")
+
+@remote(config)
+async def runpod_function(data):
+    return data
+"""
+        )
+
+        # Create legitimate project file
+        project_file = project_dir / "main.py"
+        project_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+config = LiveServerless(name="project_config")
+
+@remote(config)
+async def project_function(data):
+    return data
+"""
+        )
+
+        scanner = RemoteDecoratorScanner(project_dir)
+        functions = scanner.discover_remote_functions()
+
+        # Should only find the project function, not the runpod one
+        assert len(functions) == 1
+        assert functions[0].resource_config_name == "project_config"
+
+
+def test_fallback_to_variable_name_when_name_parameter_missing():
+    """Test that variable name is used when resource config has no name= parameter."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+
+        test_file = project_dir / "test_module.py"
+        test_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+gpu_config = LiveServerless()
+
+@remote(gpu_config)
+async def my_function(data):
+    return data
+"""
+        )
+
+        scanner = RemoteDecoratorScanner(project_dir)
+        functions = scanner.discover_remote_functions()
+
+        assert len(functions) == 1
+        # Should fall back to variable name when name parameter is missing
+        assert functions[0].resource_config_name == "gpu_config"
+
+
+def test_ignore_non_serverless_classes_with_serverless_in_name():
+    """Test that helper classes with 'Serverless' in name are ignored."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+
+        test_file = project_dir / "test_module.py"
+        test_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+class MyServerlessHelper:
+    def __init__(self):
+        pass
+
+helper = MyServerlessHelper()
+config = LiveServerless(name="real_config")
+
+@remote(config)
+async def my_function(data):
+    return data
+"""
+        )
+
+        scanner = RemoteDecoratorScanner(project_dir)
+        functions = scanner.discover_remote_functions()
+
+        # Should find function with real config but ignore helper class
+        assert len(functions) == 1
+        assert functions[0].resource_config_name == "real_config"
+
+
+def test_extract_resource_name_with_special_characters():
+    """Test that resource names with special characters are extracted correctly."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+
+        test_file = project_dir / "test_module.py"
+        test_file.write_text(
+            """
+from tetra_rp import LiveServerless, remote
+
+config = LiveServerless(name="01_gpu-worker.v1")
+
+@remote(config)
+async def my_function(data):
+    return data
+"""
+        )
+
+        scanner = RemoteDecoratorScanner(project_dir)
+        functions = scanner.discover_remote_functions()
+
+        assert len(functions) == 1
+        # Should preserve special characters in resource name
+        assert functions[0].resource_config_name == "01_gpu-worker.v1"
