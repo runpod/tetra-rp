@@ -11,6 +11,7 @@ from .commands import (
     build,
     # resource,
     deploy,
+    apps,
     undeploy,
 )
 
@@ -39,31 +40,32 @@ app.command("run")(run.run_command)
 app.command("build")(build.build_command)
 # app.command("report")(resource.report_command)
 
-
-# command: flash deploy
 deploy_app = typer.Typer(
-    name="deploy",
-    help="Deployment environment management commands",
-    no_args_is_help=True,
-)
+        name="deploy",
+        help="Deployment environment management commands",
+        no_args_is_help=True,
+        )
 
 deploy_app.command("list")(deploy.list_command)
 deploy_app.command("new")(deploy.new_command)
-# deploy_app.command("send")(deploy.send_command)
+deploy_app.command("send")(deploy.send_command)
 # deploy_app.command("report")(deploy.report_command)
 # deploy_app.command("rollback")(deploy.rollback_command)
 # deploy_app.command("remove")(deploy.remove_command)
 
 
+
 # command: flash deploy *
 app.add_typer(deploy_app, name="deploy")
 
+# command: flash deploy
 
 # command: flash undeploy
 # Note: Using a simple command instead of sub-app to allow both "undeploy list" and "undeploy <name>"
 # The undeploy_command internally handles the "list" case
 app.command("undeploy")(undeploy.undeploy_command)
 
+app.add_typer(apps.apps_app)
 
 @app.callback(invoke_without_command=True)
 def main(

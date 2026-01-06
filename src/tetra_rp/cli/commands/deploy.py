@@ -4,7 +4,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from pathlib import Path
 import questionary
+import asyncio
 
 from ..utils.deployment import (
     get_deployment_environments,
@@ -14,12 +16,21 @@ from ..utils.deployment import (
     rollback_deployment,
     get_environment_info,
 )
+from ..utils.app import discover_flash_project
+
+from tetra_rp.core.resources.app import FlashApp
 
 console = Console()
 
 
-def list_command():
+def list_command(
+        app_name: str | None = typer.Option(None, "--app-name", "-a", help="flash app name to inspect")
+        ):
     """Show available deployment environments."""
+    if not app_name:
+        _, app_name = discover_flash_project()
+    asyncio.run(list_flash_environments(app_name))
+    return
 
     console.print(
         Panel(
@@ -87,13 +98,50 @@ def list_command():
 
     console.print(f"\n{summary}")
 
+async def new_flash_deployment_environment(app_name: str, env_name: str):
+    app = await FlashApp.from_name(app_name)
+    await app.create_environment(env_name)
+    console.print(f"environment created: {env_name}")
+    await app.list_environments()
+
+async def list_flash_environments(app_name: str):
+    app = await FlashApp.from_name(app_name)
+    envs = await app.list_environments()
+
+    if not envs:
+        console.print(f"No environments found for '{app_name}'.")
+        return
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Name", style="bold")
+    table.add_column("ID", overflow="fold")
+    table.add_column("Active Build", overflow="fold")
+    table.add_column("Created At", overflow="fold")
+
+    for env in envs:
+        table.add_row(
+            env.get("name"),
+            env.get("id"),
+            env.get("activeBuildId", "-"),
+            env.get("createdAt"),
+        )
+
+    console.print(table)
+
 
 def new_command(
+    app_name: str | None = typer.Option(None, "--app-name", "-a", help="Flash app name to create a new environment in"),
     name: str = typer.Argument(
         ..., help="Name of the deployment environment to create"
     ),
 ):
     """Create a new deployment environment."""
+    if not app_name:
+        _, app_name = discover_flash_project()
+    assert app_name is not None
+    asyncio.run(new_flash_deployment_environment(app_name, name))
+    return
+
 
     console.print(
         Panel(
@@ -150,28 +198,27 @@ def new_command(
 
 
 def send_command(
-    name: str = typer.Argument(..., help="Name of the deployment environment"),
-):
+    env_name: str = typer.Argument(..., help="Name of the deployment environment"),
+    app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name to delete")
+    ):
     """Deploy project to deployment environment."""
 
-    environments = get_deployment_environments()
+    if not app_name:
+        _, app_name = discover_flash_project()
 
-    if name not in environments:
-        console.print(f"Environment '{name}' not found")
-        console.print("Available environments:")
-        for env_name in environments.keys():
-            console.print(f"  • {env_name}")
+    build_path = Path(".tetra/archive.tar.gz")
+    if not build_path.exists():
+        console.print("no build path found in current directory. Build your project with flash build first")
         raise typer.Exit(1)
 
-    # Deploy with mock progress
-    console.print(f"🚀 Deploying to '[bold]{name}[/bold]'...")
+    console.print(f"🚀 Deploying to '[bold]{env_name}[/bold]'...")
 
     try:
-        result = deploy_to_environment(name)
+        result = asyncio.run(deploy_to_environment(app_name, env_name, build_path))
 
-        panel_content = f"Deployed to '[bold]{name}[/bold]' successfully\n\n"
-        panel_content += f"Version: {result['version']}\n"
-        panel_content += f"URL: {result['url']}\n"
+        panel_content = f"Deployed to '[bold]{env_name}[/bold]' successfully\n\n"
+        # panel_content += f"Version: {result['version']}\n"
+        # panel_content += f"URL: {result['url']}\n"
         panel_content += "Status: 🟢 Active"
 
         console.print(

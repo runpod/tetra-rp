@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Optional
+import asyncio
 
 import typer
 from rich.console import Console
@@ -9,9 +10,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ..utils.skeleton import create_project_skeleton, detect_file_conflicts
+from tetra_rp.core.resources.app import FlashApp
 
 console = Console()
-
 
 def init_command(
     project_name: Optional[str] = typer.Argument(
@@ -69,6 +70,7 @@ def init_command(
         else f"Creating Flash project '{project_name}'..."
     )
     with console.status(status_msg):
+        asyncio.run(init_app(actual_project_name))
         create_project_skeleton(project_dir, should_overwrite)
 
     # Success output
@@ -117,3 +119,17 @@ def init_command(
     console.print("  https://docs.runpod.io/get-started/api-keys")
     console.print("\nVisit http://localhost:8888/docs after running")
     console.print("\nCheck out the README.md for more")
+
+async def init_app(app_name: str):
+      try:
+          app = await FlashApp.create(app_name)
+          await app.create_environment("dev")
+          return app
+      except Exception as exc:
+          msg = str(exc)
+          if "Flash app with name" in msg and "already exists" in msg:
+              raise typer.BadParameter(f"Flash app with name {app_name} already exists in your account. Choose a different name or delete the existing app to continue.")
+          if "Flash env with name" in msg and "already exists" in msg:
+              raise typer.BadParameter(f"Flash app with name {app_name} already exists in your account. Choose a different name or delete the existing app to continue.")
+          raise  
+

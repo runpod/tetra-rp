@@ -23,6 +23,7 @@ from .core.resources import (  # noqa: E402
     ServerlessEndpoint,
     ServerlessType,
     NetworkVolume,
+    FlashApp,
 )
 
 
@@ -40,4 +41,5 @@ __all__ = [
     "ServerlessEndpoint",
     "ServerlessType",
     "NetworkVolume",
+    "FlashApp",
 ]

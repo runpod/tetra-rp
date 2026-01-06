@@ -14,6 +14,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from ..utils.ignore import get_file_tree, load_ignore_patterns
+from ..utils.app import discover_flash_project
 
 console = Console()
 
@@ -44,15 +45,15 @@ def build_command(
       flash build --keep-build     # Keep temporary build directory
       flash build -o my-app.tar.gz # Custom archive name
     """
-    console.print(
-        Panel(
-            "[yellow]The build command is coming soon.[/yellow]\n\n"
-            "This feature is under development and will be available in a future release.",
-            title="Coming Soon",
-            expand=False,
-        )
-    )
-    return
+    # console.print(
+    #     Panel(
+    #         "[yellow]The build command is coming soon.[/yellow]\n\n"
+    #         "This feature is under development and will be available in a future release.",
+    #         title="Coming Soon",
+    #         expand=False,
+    #     )
+    # )
+    # return
 
     try:
         # Validate project structure
@@ -170,22 +171,6 @@ def build_command(
 
         console.print(traceback.format_exc())
         raise typer.Exit(1)
-
-
-def discover_flash_project() -> tuple[Path, str]:
-    """
-    Discover Flash project directory and app name.
-
-    Returns:
-        Tuple of (project_dir, app_name)
-
-    Raises:
-        typer.Exit: If not in a Flash project directory
-    """
-    project_dir = Path.cwd()
-    app_name = project_dir.name
-
-    return project_dir, app_name
 
 
 def validate_project_structure(project_dir: Path) -> bool:
