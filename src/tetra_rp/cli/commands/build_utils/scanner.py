@@ -1,6 +1,7 @@
 """AST scanner for discovering @remote decorated functions and classes."""
 
 import ast
+import importlib
 import logging
 import re
 from dataclasses import dataclass
@@ -38,8 +39,20 @@ class RemoteDecoratorScanner:
         """Discover all @remote decorated functions and classes."""
         functions = []
 
-        # Find all Python files
-        self.py_files = list(self.project_dir.rglob("*.py"))
+        # Find all Python files, excluding root-level directories that shouldn't be scanned
+        all_py_files = self.project_dir.rglob("*.py")
+        # Only exclude these directories if they're direct children of project_dir
+        excluded_root_dirs = {".venv", ".flash", ".runpod"}
+        self.py_files = []
+        for f in all_py_files:
+            try:
+                rel_path = f.relative_to(self.project_dir)
+                # Check if first part of path is in excluded_root_dirs
+                if rel_path.parts and rel_path.parts[0] not in excluded_root_dirs:
+                    self.py_files.append(f)
+            except (ValueError, IndexError):
+                # Include files that can't be made relative
+                self.py_files.append(f)
 
         # First pass: extract all resource configs from all files
         for py_file in self.py_files:
@@ -78,28 +91,25 @@ class RemoteDecoratorScanner:
                 # Look for assignments like: gpu_config = LiveServerless(...) or api = LiveLoadBalancer(...)
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        config_name = target.id
+                        variable_name = target.id
                         config_type = self._get_call_type(node.value)
 
-                        # Match only specific, known resource types to avoid false positives
-                        # with classes like 'MyServerlessHelper' or 'LoadBalancerUtils'
-                        allowed_resource_types = {
-                            "LiveServerless",
-                            "CpuLiveServerless",
-                            "ServerlessEndpoint",
-                            "CpuServerlessEndpoint",
-                            "LiveLoadBalancer",
-                            "LoadBalancerSlsResource",
-                        }
-                        if config_type and config_type in allowed_resource_types:
-                            # Store mapping of variable name to name and type separately
-                            key = f"{module_path}:{config_name}"
-                            self.resource_configs[key] = config_name
-                            self.resource_types[key] = config_type
+                        # Accept any class that looks like a resource config (ServerlessResource)
+                        if config_type and self._is_resource_config_type(config_type):
+                            # Extract the resource's name parameter (the actual identifier)
+                            # If extraction fails, fall back to variable name
+                            resource_name = self._extract_resource_name(node.value)
+                            if not resource_name:
+                                resource_name = variable_name
 
-                            # Also store just the name for local lookups
-                            self.resource_configs[config_name] = config_name
-                            self.resource_types[config_name] = config_type
+                            # Store mapping using the resource's name (or variable name as fallback)
+                            self.resource_configs[resource_name] = resource_name
+                            self.resource_types[resource_name] = config_type
+
+                            # Also store variable name mapping for local lookups in same module
+                            var_key = f"{module_path}:{variable_name}"
+                            self.resource_configs[var_key] = resource_name
+                            self.resource_types[var_key] = config_type
 
     def _extract_remote_functions(
         self, tree: ast.AST, py_file: Path
@@ -187,32 +197,52 @@ class RemoteDecoratorScanner:
     def _extract_name_from_expr(
         self, expr: ast.expr, module_path: str
     ) -> Optional[str]:
-        """Extract config name from an expression (Name or Call)."""
+        """Extract config name from an expression (Name or Call).
+
+        Returns the resource's name (from the name= parameter), not the variable name.
+        """
         if isinstance(expr, ast.Name):
             # Variable reference: @remote(gpu_config)
-            config_name = expr.id
+            variable_name = expr.id
 
-            # Try to resolve from our resource configs map
-            if config_name in self.resource_configs:
-                return self.resource_configs[config_name]
+            # Try module-scoped lookup first (current module)
+            var_key = f"{module_path}:{variable_name}"
+            if var_key in self.resource_configs:
+                # Return the actual resource name (mapped from variable)
+                return self.resource_configs[var_key]
 
-            # Try module-scoped lookup
-            full_key = f"{module_path}:{config_name}"
-            if full_key in self.resource_configs:
-                return self.resource_configs[full_key]
+            # Try simple name lookup
+            if variable_name in self.resource_configs:
+                return self.resource_configs[variable_name]
 
-            # Fall back to the variable name itself
-            return config_name
+            # Fall back to the variable name itself (unresolved reference)
+            return variable_name
 
         elif isinstance(expr, ast.Call):
             # Direct instantiation: @remote(LiveServerless(name="gpu_config"))
-            # Try to extract the name= argument
-            for keyword in expr.keywords:
-                if keyword.arg == "name":
-                    if isinstance(keyword.value, ast.Constant):
-                        return keyword.value.value
+            # Extract the name= parameter
+            resource_name = self._extract_resource_name(expr)
+            if resource_name:
+                return resource_name
 
         return None
+
+    def _is_resource_config_type(self, type_name: str) -> bool:
+        """Check if a type represents a ServerlessResource subclass.
+
+        Returns True only if the class can be imported and is a ServerlessResource.
+        """
+        from tetra_rp.core.resources.serverless import ServerlessResource
+
+        try:
+            module = importlib.import_module("tetra_rp")
+            if hasattr(module, type_name):
+                cls = getattr(module, type_name)
+                return isinstance(cls, type) and issubclass(cls, ServerlessResource)
+        except (ImportError, AttributeError, TypeError):
+            pass
+
+        return False
 
     def _get_call_type(self, expr: ast.expr) -> Optional[str]:
         """Get the type name of a call expression."""
@@ -222,6 +252,19 @@ class RemoteDecoratorScanner:
             elif isinstance(expr.func, ast.Attribute):
                 return expr.func.attr
 
+        return None
+
+    def _extract_resource_name(self, expr: ast.expr) -> Optional[str]:
+        """Extract the 'name' parameter from a resource config instantiation.
+
+        For example, from LiveServerless(name="01_01_gpu_worker", ...)
+        returns "01_01_gpu_worker".
+        """
+        if isinstance(expr, ast.Call):
+            for keyword in expr.keywords:
+                if keyword.arg == "name":
+                    if isinstance(keyword.value, ast.Constant):
+                        return keyword.value.value
         return None
 
     def _get_resource_type(self, resource_config_name: str) -> str:

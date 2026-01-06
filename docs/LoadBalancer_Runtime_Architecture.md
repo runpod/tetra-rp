@@ -68,7 +68,8 @@ if __name__ == "__main__":
 - Entrypoint: Runs `python handler_service.py`
 - Port: 8000 (internal)
 - RunPod exposes this via HTTPS endpoint URL
-- Health check: Polls `/ping` endpoint every 30 seconds
+- Health check: Polls `/ping` endpoint every 30 seconds with 15 second timeout per check
+- All HTTP requests to the endpoint include authentication via `RUNPOD_API_KEY` environment variable (if set)
 
 ### Deployment Lifecycle
 
@@ -291,7 +292,40 @@ result = await process_data(5, 3)
 - Local: Serializes function code, POSTs to /execute
 - Deployed: Maps arguments to JSON, POSTs to user-defined route
 - No code changes needed - stub handles both automatically
+
+**Important Implementation Detail: Stub Decision Logic**
+
+The stub determines which execution path to use by checking:
+1. Is this a `LiveLoadBalancer`? → Always use `/execute` for local development
+2. Does the function have `method` and `path` metadata from `@remote` decorator? → If yes, use user-defined route
+3. If routing metadata is incomplete or missing → Falls back to `/execute` (will fail on deployed endpoints)
+
+This means if you decorate a function for `LoadBalancerSlsResource` without specifying both `method` and `path`, the stub will attempt to use `/execute`, which doesn't exist in production. Always provide complete routing metadata for deployed endpoints.
+
+**Important Implementation Detail: Parameter Mapping**
+
+When using user-defined routes (deployed endpoints), the stub inspects the function signature and maps positional and keyword arguments to the HTTP request JSON body:
+
+```python
+@remote(api, method="POST", path="/api/process")
+async def process_data(x: int, y: int):
+    return {"result": x + y}
+
+# Local call:
+result = await process_data(5, 3)
+
+# Gets translated to:
+POST /api/process
+{
+  "x": 5,
+  "y": 3
+}
 ```
+
+The stub uses Python's `inspect.signature()` to map positional args to parameter names. This requires that:
+- Function parameters are JSON-serializable types (int, str, bool, list, dict, None)
+- Function signature is available (defined at module level, not dynamically created)
+- No complex types (custom classes, Request objects, etc.) are used as parameters
 
 ## Execution Flow Diagram
 
@@ -350,34 +384,64 @@ graph TD
 The `/execute` endpoint is an internal framework endpoint that:
 
 1. **Accepts arbitrary Python code** (serialized as string)
-2. **Executes it** in an isolated namespace
+2. **Executes it** in an isolated namespace using Python's `exec()`
 3. **Returns results** back to caller
 
-**Why This Is Secure:**
+**Critical Security Model:**
 
-- Code originates from `@remote` decorator (trusted)
-- User controls which function code is sent
-- Mirrored from LiveServerlessStub (same pattern)
-- In production, API authentication must protect this endpoint
+The `/execute` endpoint is **only exposed on `LiveLoadBalancer` for local development**. It is **explicitly removed from deployed `LoadBalancerSlsResource` endpoints** for security reasons.
 
-**Why This Is a Risk if Exposed:**
+**Why This Design Is Necessary:**
+
+The `/execute` endpoint accepts and executes arbitrary Python code sent in HTTP requests. An unauthorized user with access to this endpoint could:
+- Execute system commands (e.g., `os.system()`)
+- Access file system data (e.g., read environment variables, credentials)
+- Modify application state or data
+- Use your infrastructure for malicious purposes
+
+**Why This Is Secure When Used Correctly:**
+
+- In `LiveLoadBalancer` (local development): Code originates from your own `@remote` decorator
+- You control what function code is serialized and sent
+- Only accessible during local testing, never exposed publicly
+- Same trusted-client model as queue-based serverless endpoints
+
+**What Happens When Deployed:**
+
+```
+LiveLoadBalancer (local):
+- /execute endpoint: INCLUDED (for @remote function execution)
+- User routes: Included
+- Safe because: Only you can run your code locally
+
+LoadBalancerSlsResource (deployed):
+- /execute endpoint: REMOVED for security
+- User routes: Included
+- Safe because: No arbitrary code execution possible
+```
+
+**If /execute Was Exposed (Don't Do This):**
 
 ```python
-# Malicious request to /execute
+# Attacker's request
 POST https://my-endpoint.runpod.ai/execute
 {
   "function_name": "malicious",
-  "function_code": "import os; os.system('rm -rf /')",  # Dangerous!
+  "function_code": "import os; os.system('rm -rf /')",
   "args": [],
   "kwargs": {}
 }
+
+# This would execute arbitrary system commands on your infrastructure
 ```
 
-**Protection:**
-- Never expose `/execute` to untrusted clients
-- Use API authentication/authorization
-- Restrict network access if needed
-- Monitor /execute endpoint usage
+**Best Practices:**
+
+- Never manually add `/execute` to deployed endpoints
+- Use the default `create_lb_handler()` behavior (removes `/execute`)
+- Always use `LoadBalancerSlsResource` for production (not `LiveLoadBalancer`)
+- Test locally with `LiveLoadBalancer` first
+- For debugging deployed endpoints, use container logs, not code injection
 
 ## Concurrency and Scaling
 

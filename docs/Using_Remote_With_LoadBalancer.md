@@ -118,12 +118,14 @@ The following paths are reserved by Flash and cannot be used as user-defined rou
 
 - `/ping` - Health check endpoint (required, returns 200 OK)
 
-Additionally, note that:
+**Important Security Note:**
 - `/execute` - Framework endpoint for @remote stub execution (**only available with LiveLoadBalancer for local development**)
-  - Deployed `LoadBalancerSlsResource` endpoints do NOT expose `/execute` for security
-  - When using deployed endpoints, @remote calls are translated to HTTP requests to your user-defined routes
+  - Deployed `LoadBalancerSlsResource` endpoints **deliberately do NOT expose `/execute`** for security reasons
+  - The `/execute` endpoint accepts and executes arbitrary Python code - exposing it would allow remote code execution
+  - When using deployed endpoints, @remote calls are safely translated to HTTP requests to your user-defined routes
+  - Never manually add `/execute` to deployed endpoints
 
-Attempting to use these reserved paths for user-defined routes will raise a validation error at build time.
+Attempting to use `/ping` or `/execute` as user-defined routes will raise a validation error at build time.
 
 ## Local Development
 
@@ -211,7 +213,40 @@ When migrating code from local testing to production:
 - The stub automatically detects whether it's `LiveLoadBalancer` (local) or `LoadBalancerSlsResource` (deployed)
 - User-defined routes must be compatible with JSON serialization for parameters
 
-**Important:** Only simple, JSON-serializable types are supported for parameters when using deployed endpoints. Complex types (custom classes, Request objects, etc.) are not supported via HTTP parameter mapping.
+**Parameter Type Constraints on Deployed Endpoints:**
+
+When using deployed `LoadBalancerSlsResource` endpoints, function parameters are serialized to JSON in the HTTP request body. This means:
+
+**Supported types:**
+- Primitive types: `int`, `str`, `bool`, `float`
+- Collections: `list`, `dict`, `tuple`, `set`
+- Nested structures: `list[dict[str, int]]`, etc.
+- Optional types: `Optional[str]`, `Optional[int]`
+- Special: `None`
+
+**Unsupported types:**
+- Custom classes and dataclasses
+- Request objects (FastAPI Request, Starlette Request)
+- File/binary objects
+- Complex Python objects that can't serialize to JSON
+- Datetime objects (without custom serialization)
+
+**Example of parameter mapping:**
+
+```python
+# Local call:
+result = await process_data(5, "hello", [1, 2, 3])
+
+# Gets translated to deployed endpoint call:
+POST /api/process
+{
+  "x": 5,
+  "name": "hello",
+  "items": [1, 2, 3]
+}
+```
+
+If you need to use complex types (e.g., File uploads, custom objects), use direct HTTP calls instead of the `@remote` decorator for deployed endpoints. For local development with `LiveLoadBalancer`, complex types work because the entire function is serialized and executed.
 
 ## Building and Deploying
 
@@ -443,6 +478,11 @@ async def test_delete_user():
 **"Execution timeout on user-service after 30s"**
 - Problem: Function took longer than 30 seconds to complete
 - Solution: Optimize function, consider increasing timeout in LoadBalancerSlsStub
+
+**"404 Not Found" or "404 error" when calling @remote on deployed endpoint**
+- Problem: Function decorated with @remote but missing `method` and/or `path` parameters
+- Solution: Always provide complete routing metadata: `@remote(api, method="POST", path="/api/endpoint")`
+- Note: On `LoadBalancerSlsResource`, the stub will try to use the non-existent `/execute` endpoint if routing metadata is missing
 
 **"JSON serialization error" or "unexpected keyword argument" on deployed endpoint**
 - Problem: Deployed endpoint receiving malformed parameters from @remote call
