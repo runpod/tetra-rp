@@ -62,11 +62,13 @@ flash build [OPTIONS]
 - `--no-deps`: Skip transitive dependencies during pip install
 - `--keep-build`: Keep `.flash/.build` directory after creating archive
 - `--output, -o`: Custom archive name (default: archive.tar.gz)
+- `--exclude`: Comma-separated packages to exclude (e.g., 'torch,torchvision')
 
 **Example:**
 ```bash
 flash build
 flash build --keep-build --output deploy.tar.gz
+flash build --exclude torch,torchvision,torchaudio  # Exclude large packages
 ```
 
 [Full documentation](./flash-build.md)
