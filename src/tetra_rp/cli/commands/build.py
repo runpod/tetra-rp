@@ -3,6 +3,7 @@
 import ast
 import json
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -25,8 +26,15 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 # Constants
-PIP_INSTALL_TIMEOUT_SECONDS = 600  # 10 minute timeout for pip install
-RUNPOD_MAX_ARCHIVE_SIZE_MB = 500  # RunPod serverless deployment limit
+# Timeout for pip install operations (large packages like torch can take 5-10 minutes)
+PIP_INSTALL_TIMEOUT_SECONDS = 600
+# Timeout for ensurepip (lightweight operation, typically completes in <10 seconds)
+ENSUREPIP_TIMEOUT_SECONDS = 30
+# Timeout for version checks (should be instant)
+VERSION_CHECK_TIMEOUT_SECONDS = 5
+
+# RunPod serverless deployment limit (hard limit enforced by platform)
+RUNPOD_MAX_ARCHIVE_SIZE_MB = 500
 
 # RunPod Serverless platform specifications
 # RunPod serverless runs on x86_64 Linux, regardless of build platform
@@ -37,6 +45,10 @@ RUNPOD_PLATFORMS = [
     "manylinux2014_x86_64",  # glibc 2.17 (legacy compatibility)
 ]
 RUNPOD_PYTHON_IMPL = "cp"  # CPython implementation
+
+# Pip command identifiers
+UV_COMMAND = "uv"
+PIP_MODULE = "pip"
 
 
 def build_command(
@@ -192,16 +204,37 @@ def build_command(
             # Filter out excluded packages
             if excluded_packages:
                 original_count = len(requirements)
-                requirements = [
-                    req
-                    for req in requirements
-                    if not any(req.lower().startswith(exc) for exc in excluded_packages)
-                ]
+                matched_exclusions = set()
+                filtered_requirements = []
+
+                for req in requirements:
+                    excluded = False
+                    for exc in excluded_packages:
+                        if should_exclude_package(req, excluded_packages):
+                            # Extract which exclusion matched
+                            pkg_name = extract_package_name(req)
+                            if pkg_name in excluded_packages:
+                                matched_exclusions.add(pkg_name)
+                            excluded = True
+                            break
+                    if not excluded:
+                        filtered_requirements.append(req)
+
+                requirements = filtered_requirements
                 excluded_count = original_count - len(requirements)
+
                 if excluded_count > 0:
                     console.print(
                         f"[yellow]Excluded {excluded_count} package(s) "
                         f"(assumed in base image)[/yellow]"
+                    )
+
+                # Warn about exclusions that didn't match any packages
+                unmatched = set(excluded_packages) - matched_exclusions
+                if unmatched:
+                    console.print(
+                        f"[yellow]Warning: No packages matched exclusions: "
+                        f"{', '.join(sorted(unmatched))}[/yellow]"
                     )
 
             if not requirements:
@@ -423,6 +456,55 @@ def collect_requirements(project_dir: Path, build_dir: Path) -> list[str]:
     return unique_requirements
 
 
+def extract_package_name(requirement: str) -> str:
+    """
+    Extract the package name from a requirement specification.
+
+    Handles version specifiers, extras, and other pip requirement syntax.
+
+    Args:
+        requirement: Requirement string (e.g., "torch>=2.0.0", "numpy[extra]")
+
+    Returns:
+        Package name in lowercase (e.g., "torch", "numpy")
+
+    Examples:
+        >>> extract_package_name("torch>=2.0.0")
+        "torch"
+        >>> extract_package_name("numpy[extra]")
+        "numpy"
+        >>> extract_package_name("my-package==1.0.0")
+        "my-package"
+    """
+    # Split on version specifiers, extras, and environment markers
+    # This regex matches: < > = ! [ ; (common pip requirement delimiters)
+    package_name = re.split(r"[<>=!\[;]", requirement)[0].strip().lower()
+    return package_name
+
+
+def should_exclude_package(requirement: str, exclusions: list[str]) -> bool:
+    """
+    Check if a requirement should be excluded based on package name matching.
+
+    Uses exact package name matching (after normalization) to avoid false positives.
+
+    Args:
+        requirement: Requirement string (e.g., "torch>=2.0.0")
+        exclusions: List of package names to exclude (lowercase)
+
+    Returns:
+        True if package should be excluded, False otherwise
+
+    Examples:
+        >>> should_exclude_package("torch>=2.0.0", ["torch", "numpy"])
+        True
+        >>> should_exclude_package("torch-vision==0.15.0", ["torch"])
+        False  # torch-vision is different from torch
+    """
+    package_name = extract_package_name(requirement)
+    return package_name in exclusions
+
+
 def extract_remote_dependencies(workers_dir: Path) -> list[str]:
     """
     Extract dependencies from @remote decorators in worker files.
@@ -478,6 +560,12 @@ def install_dependencies(
     Installs packages for Linux x86_64 platform to ensure compatibility with
     RunPod serverless, regardless of the build platform (macOS, Windows, Linux).
 
+    Auto-installation behavior:
+    - If standard pip is not available, it will be automatically installed via ensurepip
+    - This modifies the current virtual environment (persists after build completes)
+    - Standard pip is strongly preferred for cross-platform builds due to better
+      manylinux compatibility (uv pip has known issues with manylinux_2_27+)
+
     Args:
         build_dir: Build directory (pip --target)
         requirements: List of requirements to install
@@ -492,7 +580,7 @@ def install_dependencies(
     # Prefer standard pip over uv pip for cross-platform builds
     # Standard pip's --platform flag works correctly with manylinux tags
     # uv pip has known issues with manylinux_2_27/2_28 detection (uv issue #5106)
-    pip_cmd = [sys.executable, "-m", "pip"]
+    pip_cmd = [sys.executable, "-m", PIP_MODULE]
     pip_available = False
 
     try:
@@ -500,7 +588,7 @@ def install_dependencies(
             pip_cmd + ["--version"],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=VERSION_CHECK_TIMEOUT_SECONDS,
         )
         if result.returncode == 0:
             pip_available = True
@@ -508,6 +596,7 @@ def install_dependencies(
         pass
 
     # If pip not available, install it using ensurepip
+    # This modifies the current virtual environment
     if not pip_available:
         console.print(
             "[yellow]Standard pip not found. Installing pip for reliable cross-platform builds...[/yellow]"
@@ -517,7 +606,7 @@ def install_dependencies(
                 [sys.executable, "-m", "ensurepip", "--upgrade"],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=ENSUREPIP_TIMEOUT_SECONDS,
             )
             if result.returncode == 0:
                 # Verify pip is now available
@@ -525,7 +614,7 @@ def install_dependencies(
                     pip_cmd + ["--version"],
                     capture_output=True,
                     text=True,
-                    timeout=5,
+                    timeout=VERSION_CHECK_TIMEOUT_SECONDS,
                 )
                 if result.returncode == 0:
                     pip_available = True
@@ -539,17 +628,17 @@ def install_dependencies(
     if not pip_available:
         try:
             result = subprocess.run(
-                ["uv", "pip", "--version"],
+                [UV_COMMAND, PIP_MODULE, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=VERSION_CHECK_TIMEOUT_SECONDS,
             )
             if result.returncode == 0:
-                pip_cmd = ["uv", "pip"]
+                pip_cmd = [UV_COMMAND, PIP_MODULE]
                 pip_available = True
                 console.print(
-                    "[yellow]Warning:[/yellow] Using 'uv pip' which has known issues "
-                    "with newer manylinux tags (manylinux_2_27+)"
+                    f"[yellow]Warning:[/yellow] Using '{UV_COMMAND} {PIP_MODULE}' which has known issues "
+                    f"with newer manylinux tags (manylinux_2_27+)"
                 )
                 console.print(
                     "[yellow]This may fail for Python 3.13+ with newer packages (e.g., numpy 2.4+)[/yellow]"
@@ -559,17 +648,19 @@ def install_dependencies(
 
     # If neither available, error out
     if not pip_available:
-        console.print("[red]Error:[/red] Neither pip nor uv pip found")
-        console.print("\n[yellow]Install pip with one of:[/yellow]")
+        console.print(
+            f"[red]Error:[/red] Neither {PIP_MODULE} nor {UV_COMMAND} {PIP_MODULE} found"
+        )
+        console.print(f"\n[yellow]Install {PIP_MODULE} with one of:[/yellow]")
         console.print("  • python -m ensurepip --upgrade")
-        console.print("  • uv pip install pip")
+        console.print(f"  • {UV_COMMAND} {PIP_MODULE} install {PIP_MODULE}")
         return False
 
     # Get current Python version for compatibility
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
 
     # Determine if using uv pip or standard pip (different flag formats)
-    is_uv_pip = pip_cmd[0] == "uv"
+    is_uv_pip = pip_cmd[0] == UV_COMMAND
 
     # Build pip command with platform-specific flags for RunPod serverless
     cmd = pip_cmd + [

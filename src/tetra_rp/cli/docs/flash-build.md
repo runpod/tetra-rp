@@ -222,26 +222,29 @@ flash build --exclude numpy,scipy,pillow
 
 ### Base Image Package Reference (worker-tetra)
 
-From the [worker-tetra](https://github.com/runpod-workers/worker-tetra) repository:
+Check the [worker-tetra repository](https://github.com/runpod-workers/worker-tetra) for current base images and pre-installed packages.
 
-| Dockerfile | Base Image | Pre-installed ML Frameworks | Common Exclusions |
-|------------|------------|----------------------------|-------------------|
-| `Dockerfile` (GPU) | `pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
-| `Dockerfile-cpu` (CPU) | `python:3.12-slim` | **None** | Do not exclude ML packages |
-| `Dockerfile-lb` (GPU LoadBalanced) | `pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
-| `Dockerfile-lb-cpu` (CPU LoadBalanced) | `python:3.12-slim` | **None** | Do not exclude ML packages |
+**Base image patterns** (check repository for current versions):
 
-**All images include:**
-- cloudpickle 3.1.1
-- pydantic 2.12.0
-- requests 2.32.5
-- runpod 1.7.13
-- huggingface-hub 0.35.3
-- fastapi 0.118.3 / uvicorn 0.37.0
+| Dockerfile | Base Image Pattern | Pre-installed ML Frameworks | Common Exclusions |
+|------------|-------------------|----------------------------|-------------------|
+| `Dockerfile` (GPU) | `pytorch/pytorch:*-cuda*-cudnn*-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
+| `Dockerfile-cpu` (CPU) | `python:*-slim` | **None** | Do not exclude ML packages |
+| `Dockerfile-lb` (GPU LoadBalanced) | `pytorch/pytorch:*-cuda*-cudnn*-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
+| `Dockerfile-lb-cpu` (CPU LoadBalanced) | `python:*-slim` | **None** | Do not exclude ML packages |
+
+**Common pre-installed packages** (versions change - verify in [worker-tetra Dockerfiles](https://github.com/runpod-workers/worker-tetra)):
+- cloudpickle
+- pydantic
+- requests
+- runpod
+- huggingface-hub
+- fastapi / uvicorn
 
 **Important:**
 - Only exclude packages you're certain exist in your base image
 - Check your resource config's base image before excluding
+- Verify current versions in the [worker-tetra repository](https://github.com/runpod-workers/worker-tetra)
 - CPU deployments: Do NOT exclude torch (not pre-installed)
 - GPU deployments: Safe to exclude torch/torchvision/torchaudio
 
@@ -249,6 +252,7 @@ From the [worker-tetra](https://github.com/runpod-workers/worker-tetra) reposito
 1. Check your `@remote` decorator's `resource_config`
 2. GPU configs use PyTorch base → exclude torch packages
 3. CPU configs use Python slim → bundle all ML packages
+4. When in doubt, check the [worker-tetra Dockerfiles](https://github.com/runpod-workers/worker-tetra)
 
 ## Next Steps
 
