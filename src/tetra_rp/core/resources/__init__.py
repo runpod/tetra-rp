@@ -2,23 +2,35 @@ from .base import BaseResource, DeployableResource
 from .cpu import CpuInstanceType
 from .gpu import GpuGroup, GpuType, GpuTypeDetail
 from .resource_manager import ResourceManager
-from .live_serverless import LiveServerless, CpuLiveServerless
+from .live_serverless import (
+    CpuLiveLoadBalancer,
+    CpuLiveServerless,
+    LiveLoadBalancer,
+    LiveServerless,
+)
 from .serverless import (
     ServerlessResource,
     ServerlessEndpoint,
     JobOutput,
     CudaVersion,
     ServerlessType,
+    ServerlessScalerType,
 )
 from .serverless_cpu import CpuServerlessEndpoint
 from .template import PodTemplate
 from .network_volume import NetworkVolume, DataCenter
+from .load_balancer_sls_resource import (
+    CpuLoadBalancerSlsResource,
+    LoadBalancerSlsResource,
+)
 
 
 __all__ = [
     "BaseResource",
     "CpuInstanceType",
+    "CpuLiveLoadBalancer",
     "CpuLiveServerless",
+    "CpuLoadBalancerSlsResource",
     "CpuServerlessEndpoint",
     "CudaVersion",
     "DataCenter",
@@ -27,11 +39,14 @@ __all__ = [
     "GpuType",
     "GpuTypeDetail",
     "JobOutput",
+    "LiveLoadBalancer",
     "LiveServerless",
-    "ResourceManager",
-    "ServerlessResource",
-    "ServerlessEndpoint",
-    "ServerlessType",
-    "PodTemplate",
+    "LoadBalancerSlsResource",
     "NetworkVolume",
+    "PodTemplate",
+    "ResourceManager",
+    "ServerlessEndpoint",
+    "ServerlessResource",
+    "ServerlessScalerType",
+    "ServerlessType",
 ]
