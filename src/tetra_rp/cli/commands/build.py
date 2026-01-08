@@ -1,6 +1,8 @@
 """Flash build command - Package Flash applications for deployment."""
 
 import ast
+import json
+import logging
 import shutil
 import subprocess
 import sys
@@ -14,6 +16,11 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from ..utils.ignore import get_file_tree, load_ignore_patterns
+from .build_utils.handler_generator import HandlerGenerator
+from .build_utils.manifest import ManifestBuilder
+from .build_utils.scanner import RemoteDecoratorScanner
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 
@@ -44,16 +51,6 @@ def build_command(
       flash build --keep-build     # Keep temporary build directory
       flash build -o my-app.tar.gz # Custom archive name
     """
-    console.print(
-        Panel(
-            "[yellow]The build command is coming soon.[/yellow]\n\n"
-            "This feature is under development and will be available in a future release.",
-            title="Coming Soon",
-            expand=False,
-        )
-    )
-    return
-
     try:
         # Validate project structure
         project_dir, app_name = discover_flash_project()
@@ -92,17 +89,77 @@ def build_command(
             build_dir = create_build_directory(project_dir, app_name)
             progress.update(
                 build_task,
-                description=f"[green]✓ Created .tetra/.build/{app_name}/",
+                description="[green]✓ Created .flash/.build/",
             )
             progress.stop_task(build_task)
 
-            # Copy files
-            copy_task = progress.add_task("Copying project files...")
-            copy_project_files(files, project_dir, build_dir)
-            progress.update(
-                copy_task, description=f"[green]✓ Copied {len(files)} files"
-            )
-            progress.stop_task(copy_task)
+            try:
+                # Copy files
+                copy_task = progress.add_task("Copying project files...")
+                copy_project_files(files, project_dir, build_dir)
+                progress.update(
+                    copy_task, description=f"[green]✓ Copied {len(files)} files"
+                )
+                progress.stop_task(copy_task)
+
+                # Generate handlers and manifest
+                manifest_task = progress.add_task("Generating service manifest...")
+                try:
+                    scanner = RemoteDecoratorScanner(build_dir)
+                    remote_functions = scanner.discover_remote_functions()
+
+                    if remote_functions:
+                        # Build and write manifest
+                        manifest_builder = ManifestBuilder(app_name, remote_functions)
+                        manifest = manifest_builder.build()
+                        manifest_path = build_dir / "flash_manifest.json"
+                        manifest_path.write_text(json.dumps(manifest, indent=2))
+
+                        # Generate handler files
+                        handler_gen = HandlerGenerator(manifest, build_dir)
+                        handler_paths = handler_gen.generate_handlers()
+
+                        progress.update(
+                            manifest_task,
+                            description=f"[green]✓ Generated {len(handler_paths)} handlers and manifest",
+                        )
+                    else:
+                        progress.update(
+                            manifest_task,
+                            description="[yellow]⚠ No @remote functions found",
+                        )
+
+                except (ImportError, SyntaxError) as e:
+                    progress.stop_task(manifest_task)
+                    console.print(f"[red]Error:[/red] Code analysis failed: {e}")
+                    logger.exception("Code analysis failed")
+                    raise typer.Exit(1)
+                except ValueError as e:
+                    progress.stop_task(manifest_task)
+                    console.print(f"[red]Error:[/red] {e}")
+                    logger.exception("Handler generation validation failed")
+                    raise typer.Exit(1)
+                except Exception as e:
+                    progress.stop_task(manifest_task)
+                    logger.exception("Handler generation failed")
+                    console.print(
+                        f"[yellow]Warning:[/yellow] Handler generation failed: {e}"
+                    )
+
+                progress.stop_task(manifest_task)
+
+            except typer.Exit:
+                # Clean up on fatal errors (ImportError, SyntaxError, ValueError)
+                if build_dir.exists():
+                    shutil.rmtree(build_dir)
+                raise
+            except Exception as e:
+                # Clean up on unexpected errors
+                if build_dir.exists():
+                    shutil.rmtree(build_dir)
+                console.print(f"[red]Error:[/red] Build failed: {e}")
+                logger.exception("Build failed")
+                raise typer.Exit(1)
 
             # Install dependencies
             deps_task = progress.add_task("Installing dependencies...")
@@ -136,7 +193,7 @@ def build_command(
             # Create archive
             archive_task = progress.add_task("Creating archive...")
             archive_name = output_name or "archive.tar.gz"
-            archive_path = project_dir / ".tetra" / archive_name
+            archive_path = project_dir / ".flash" / archive_name
 
             create_tarball(build_dir, archive_path, app_name)
 
@@ -152,7 +209,7 @@ def build_command(
             # Cleanup
             if not keep_build:
                 cleanup_task = progress.add_task("Cleaning up...")
-                cleanup_build_directory(build_dir.parent)
+                cleanup_build_directory(build_dir)
                 progress.update(
                     cleanup_task, description="[green]✓ Removed .build directory"
                 )
@@ -219,20 +276,19 @@ def validate_project_structure(project_dir: Path) -> bool:
 
 def create_build_directory(project_dir: Path, app_name: str) -> Path:
     """
-    Create .tetra/.build/{app_name}/ directory.
+    Create .flash/.build/ directory.
 
     Args:
         project_dir: Flash project directory
-        app_name: Application name
+        app_name: Application name (used for archive naming, not directory structure)
 
     Returns:
         Path to build directory
     """
-    tetra_dir = project_dir / ".tetra"
-    tetra_dir.mkdir(exist_ok=True)
+    flash_dir = project_dir / ".flash"
+    flash_dir.mkdir(exist_ok=True)
 
-    build_base = tetra_dir / ".build"
-    build_dir = build_base / app_name
+    build_dir = flash_dir / ".build"
 
     # Remove existing build directory
     if build_dir.exists():
@@ -459,15 +515,15 @@ def create_tarball(build_dir: Path, output_path: Path, app_name: str) -> None:
     Args:
         build_dir: Build directory to archive
         output_path: Output archive path
-        app_name: Application name (used as archive root)
+        app_name: Application name (unused, for compatibility)
     """
     # Remove existing archive
     if output_path.exists():
         output_path.unlink()
 
-    # Create tarball with app_name as root directory
+    # Create tarball with build directory contents at root level
     with tarfile.open(output_path, "w:gz") as tar:
-        tar.add(build_dir, arcname=app_name)
+        tar.add(build_dir, arcname=".")
 
 
 def cleanup_build_directory(build_base: Path) -> None:
@@ -495,7 +551,7 @@ def _display_build_config(
         Panel(
             f"[bold]Project:[/bold] {app_name}\n"
             f"[bold]Directory:[/bold] {project_dir}\n"
-            f"[bold]Archive:[/bold] .tetra/{archive_name}\n"
+            f"[bold]Archive:[/bold] .flash/{archive_name}\n"
             f"[bold]Skip transitive deps:[/bold] {no_deps}\n"
             f"[bold]Keep build dir:[/bold] {keep_build}",
             title="Flash Build Configuration",
@@ -523,10 +579,17 @@ def _display_build_summary(
     console.print("\n")
     console.print(summary)
 
+    archive_rel = archive_path.relative_to(Path.cwd())
+
+    next_steps = (
+        f"[bold]{app_name}[/bold] built successfully!\n\n"
+        f"[bold]Archive:[/bold] {archive_rel}\n\n"
+        f"Next: Use [cyan]flash deploy[/cyan] to deploy to RunPod."
+    )
+
     console.print(
         Panel(
-            f"[bold]{app_name}[/bold] built successfully!\n\n"
-            f"Archive ready for deployment.",
+            next_steps,
             title="✓ Build Complete",
             expand=False,
             border_style="green",

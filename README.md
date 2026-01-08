@@ -397,6 +397,87 @@ config = LiveServerless(
 
 Environment variables are excluded from configuration hashing, which means changing environment values won't trigger endpoint recreation. This allows different processes to load environment variables from `.env` files without causing false drift detection. Only structural changes (like GPU type, image, or template modifications) trigger endpoint updates.
 
+### Build Process and Handler Generation
+
+Flash uses a sophisticated build process to package your application for deployment. Understanding how handlers are generated helps you debug issues and optimize your deployments.
+
+#### How Flash Builds Your Application
+
+When you run `flash build`, the following happens:
+
+1. **Discovery**: Flash scans your code for `@remote` decorated functions
+2. **Grouping**: Functions are grouped by their `resource_config`
+3. **Handler Generation**: For each resource config, Flash generates a lightweight handler file
+4. **Manifest Creation**: A `flash_manifest.json` file maps functions to their endpoints
+5. **Packaging**: Everything is bundled into `archive.tar.gz` for deployment
+
+#### Handler Architecture
+
+Flash uses a factory pattern for handlers to eliminate code duplication:
+
+```python
+# Generated handler (handler_gpu_config.py)
+from tetra_rp.runtime.generic_handler import create_handler
+from workers.gpu import process_data
+
+FUNCTION_REGISTRY = {
+    "process_data": process_data,
+}
+
+handler = create_handler(FUNCTION_REGISTRY)
+```
+
+This approach provides:
+- **Single source of truth**: All handler logic in one place
+- **Easier maintenance**: Bug fixes don't require rebuilding projects
+
+#### Cross-Endpoint Function Calls
+
+Flash enables functions on different endpoints to call each other. The runtime automatically discovers endpoints using the manifest and routes calls appropriately:
+
+```python
+# CPU endpoint function
+@remote(resource_config=cpu_config)
+def preprocess(data):
+    return clean_data
+
+# GPU endpoint function
+@remote(resource_config=gpu_config)
+async def inference(data):
+    # Can call CPU endpoint function
+    clean = preprocess(data)
+    return result
+```
+
+The runtime wrapper handles service discovery and routing automatically.
+
+#### Build Artifacts
+
+After `flash build` completes:
+- `.flash/.build/`: Temporary build directory (removed unless `--keep-build`)
+- `.flash/archive.tar.gz`: Deployment package
+- `.flash/flash_manifest.json`: Service discovery configuration
+
+For more details on the handler architecture, see [docs/Runtime_Generic_Handler.md](docs/Runtime_Generic_Handler.md).
+
+#### Troubleshooting Build Issues
+
+**No @remote functions found:**
+- Ensure your functions are decorated with `@remote(resource_config)`
+- Check that Python files are not excluded by `.gitignore` or `.flashignore`
+- Verify function decorators have valid syntax
+
+**Handler generation failed:**
+- Check for syntax errors in your Python files (these will be logged)
+- Verify all imports in your worker modules are available
+- Ensure resource config variables (e.g., `gpu_config`) are defined before functions reference them
+- Use `--keep-build` to inspect generated handler files in `.flash/.build/`
+
+**Build succeeded but deployment failed:**
+- Verify all function imports work in the deployment environment
+- Check that environment variables required by your functions are available
+- Review the generated `flash_manifest.json` for correct function mappings
+
 ## Configuration
 
 ### GPU configuration parameters
