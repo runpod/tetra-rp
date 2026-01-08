@@ -26,6 +26,7 @@ console = Console()
 
 # Constants
 PIP_INSTALL_TIMEOUT_SECONDS = 600  # 10 minute timeout for pip install
+RUNPOD_MAX_ARCHIVE_SIZE_MB = 500  # RunPod serverless deployment limit
 
 # RunPod Serverless platform specifications
 # RunPod serverless runs on x86_64 Linux, regardless of build platform
@@ -48,6 +49,11 @@ def build_command(
     output_name: str | None = typer.Option(
         None, "--output", "-o", help="Custom archive name (default: archive.tar.gz)"
     ),
+    exclude: str | None = typer.Option(
+        None,
+        "--exclude",
+        help="Comma-separated packages to exclude (e.g., 'torch,torchvision')",
+    ),
 ):
     """
     Build Flash application for deployment.
@@ -56,10 +62,11 @@ def build_command(
     similar to AWS Lambda packaging. All pip packages are installed as local modules.
 
     Examples:
-      flash build                  # Build with all dependencies
-      flash build --no-deps        # Skip transitive dependencies
-      flash build --keep-build     # Keep temporary build directory
-      flash build -o my-app.tar.gz # Custom archive name
+      flash build                              # Build with all dependencies
+      flash build --no-deps                    # Skip transitive dependencies
+      flash build --keep-build                 # Keep temporary build directory
+      flash build -o my-app.tar.gz             # Custom archive name
+      flash build --exclude torch,torchvision  # Exclude large packages (assume in base image)
     """
     try:
         # Validate project structure
@@ -70,8 +77,15 @@ def build_command(
             console.print("Run [bold]flash init[/bold] to create a Flash project")
             raise typer.Exit(1)
 
+        # Parse exclusions
+        excluded_packages = []
+        if exclude:
+            excluded_packages = [pkg.strip().lower() for pkg in exclude.split(",")]
+
         # Display configuration
-        _display_build_config(project_dir, app_name, no_deps, keep_build, output_name)
+        _display_build_config(
+            project_dir, app_name, no_deps, keep_build, output_name, excluded_packages
+        )
 
         # Execute build
         with Progress(
@@ -175,6 +189,21 @@ def build_command(
             deps_task = progress.add_task("Installing dependencies...")
             requirements = collect_requirements(project_dir, build_dir)
 
+            # Filter out excluded packages
+            if excluded_packages:
+                original_count = len(requirements)
+                requirements = [
+                    req
+                    for req in requirements
+                    if not any(req.lower().startswith(exc) for exc in excluded_packages)
+                ]
+                excluded_count = original_count - len(requirements)
+                if excluded_count > 0:
+                    console.print(
+                        f"[yellow]Excluded {excluded_count} package(s) "
+                        f"(assumed in base image)[/yellow]"
+                    )
+
             if not requirements:
                 progress.update(
                     deps_task,
@@ -215,6 +244,23 @@ def build_command(
                 description=f"[green]✓ Created {archive_name} ({size_mb:.1f} MB)",
             )
             progress.stop_task(archive_task)
+
+            # Warning for size limit
+            if size_mb > RUNPOD_MAX_ARCHIVE_SIZE_MB:
+                console.print()
+                console.print(
+                    Panel(
+                        f"[yellow bold]⚠ WARNING: Archive exceeds RunPod limit[/yellow bold]\n\n"
+                        f"[yellow]Archive size:[/yellow] {size_mb:.1f} MB\n"
+                        f"[yellow]RunPod limit:[/yellow] {RUNPOD_MAX_ARCHIVE_SIZE_MB} MB\n"
+                        f"[yellow]Over by:[/yellow] {size_mb - RUNPOD_MAX_ARCHIVE_SIZE_MB:.1f} MB\n\n"
+                        f"[dim]Use --exclude to skip packages in base image:\n"
+                        f"  flash build --exclude torch,torchvision,torchaudio[/dim]",
+                        title="Deployment Size Warning",
+                        border_style="yellow",
+                    )
+                )
+                console.print()
 
             # Cleanup
             if not keep_build:
@@ -602,17 +648,27 @@ def _display_build_config(
     no_deps: bool,
     keep_build: bool,
     output_name: str | None,
+    excluded_packages: list[str],
 ):
     """Display build configuration."""
     archive_name = output_name or "archive.tar.gz"
 
+    config_text = (
+        f"[bold]Project:[/bold] {app_name}\n"
+        f"[bold]Directory:[/bold] {project_dir}\n"
+        f"[bold]Archive:[/bold] .flash/{archive_name}\n"
+        f"[bold]Skip transitive deps:[/bold] {no_deps}\n"
+        f"[bold]Keep build dir:[/bold] {keep_build}"
+    )
+
+    if excluded_packages:
+        config_text += (
+            f"\n[bold]Excluded packages:[/bold] {', '.join(excluded_packages)}"
+        )
+
     console.print(
         Panel(
-            f"[bold]Project:[/bold] {app_name}\n"
-            f"[bold]Directory:[/bold] {project_dir}\n"
-            f"[bold]Archive:[/bold] .flash/{archive_name}\n"
-            f"[bold]Skip transitive deps:[/bold] {no_deps}\n"
-            f"[bold]Keep build dir:[/bold] {keep_build}",
+            config_text,
             title="Flash Build Configuration",
             expand=False,
         )

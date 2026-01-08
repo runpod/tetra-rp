@@ -202,6 +202,54 @@ If a package doesn't have pre-built Linux x86_64 wheels:
 4. **uv pip limitations**: uv pip has known issues with manylinux_2_27+ detection - use standard pip when possible
 5. **Pure-Python packages**: These should work regardless, as they don't require platform-specific builds
 
+## Managing Deployment Size
+
+### Size Limits
+
+RunPod serverless enforces a **500MB limit** on deployment archives. Exceeding this will cause deployment failures.
+
+### Excluding Base Image Packages
+
+Use `--exclude` to skip packages already in your Docker base image:
+
+```bash
+# Exclude PyTorch packages (common in GPU images)
+flash build --exclude torch,torchvision,torchaudio
+
+# Multiple packages, comma-separated
+flash build --exclude numpy,scipy,pillow
+```
+
+### Base Image Package Reference (worker-tetra)
+
+From the [worker-tetra](https://github.com/runpod-workers/worker-tetra) repository:
+
+| Dockerfile | Base Image | Pre-installed ML Frameworks | Common Exclusions |
+|------------|------------|----------------------------|-------------------|
+| `Dockerfile` (GPU) | `pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
+| `Dockerfile-cpu` (CPU) | `python:3.12-slim` | **None** | Do not exclude ML packages |
+| `Dockerfile-lb` (GPU LoadBalanced) | `pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
+| `Dockerfile-lb-cpu` (CPU LoadBalanced) | `python:3.12-slim` | **None** | Do not exclude ML packages |
+
+**All images include:**
+- cloudpickle 3.1.1
+- pydantic 2.12.0
+- requests 2.32.5
+- runpod 1.7.13
+- huggingface-hub 0.35.3
+- fastapi 0.118.3 / uvicorn 0.37.0
+
+**Important:**
+- Only exclude packages you're certain exist in your base image
+- Check your resource config's base image before excluding
+- CPU deployments: Do NOT exclude torch (not pre-installed)
+- GPU deployments: Safe to exclude torch/torchvision/torchaudio
+
+**How to determine your base image:**
+1. Check your `@remote` decorator's `resource_config`
+2. GPU configs use PyTorch base → exclude torch packages
+3. CPU configs use Python slim → bundle all ML packages
+
 ## Next Steps
 
 After building:

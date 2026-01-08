@@ -496,6 +496,26 @@ For more details on the handler architecture, see [docs/Runtime_Generic_Handler.
 - uv pip has known issues with newer manylinux tags - standard pip is recommended
 - Check PyPI to verify the package supports your Python version on Linux
 
+#### Managing Bundle Size
+
+RunPod serverless has a **500MB deployment limit**. Exceeding this limit will cause deployment failures.
+
+Use `--exclude` to skip packages already in your worker-tetra Docker image:
+
+```bash
+# For GPU deployments (PyTorch pre-installed)
+flash build --exclude torch,torchvision,torchaudio
+
+# Check your resource config to determine which base image you're using
+```
+
+**Which packages to exclude depends on your resource config:**
+- **GPU resources** → PyTorch images have torch/torchvision/torchaudio pre-installed
+- **CPU resources** → Python slim images have NO ML frameworks pre-installed
+- **Load-balanced** → Same as above, depends on GPU vs CPU variant
+
+See [worker-tetra](https://github.com/runpod-workers/worker-tetra) for base image details.
+
 ## Configuration
 
 ### GPU configuration parameters
