@@ -1,1 +1,1 @@
-"""Runtime components for cross-endpoint function execution."""
+"""Flash runtime utilities for production execution."""
