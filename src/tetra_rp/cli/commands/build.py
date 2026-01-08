@@ -507,7 +507,35 @@ def install_dependencies(
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
 
-    # If pip not available, try uv pip (less reliable for cross-platform)
+    # If pip not available, install it using ensurepip
+    if not pip_available:
+        console.print(
+            "[yellow]Standard pip not found. Installing pip for reliable cross-platform builds...[/yellow]"
+        )
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "ensurepip", "--upgrade"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                # Verify pip is now available
+                result = subprocess.run(
+                    pip_cmd + ["--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if result.returncode == 0:
+                    pip_available = True
+                    console.print(
+                        "[green]✓[/green] Standard pip installed successfully"
+                    )
+        except (subprocess.SubprocessError, FileNotFoundError) as e:
+            console.print(f"[yellow]Warning:[/yellow] Failed to install pip: {e}")
+
+    # If pip still not available, try uv pip (less reliable for cross-platform)
     if not pip_available:
         try:
             result = subprocess.run(
@@ -524,7 +552,7 @@ def install_dependencies(
                     "with newer manylinux tags (manylinux_2_27+)"
                 )
                 console.print(
-                    "[yellow]Consider installing pip:[/yellow] python -m ensurepip --upgrade"
+                    "[yellow]This may fail for Python 3.13+ with newer packages (e.g., numpy 2.4+)[/yellow]"
                 )
         except (subprocess.SubprocessError, FileNotFoundError):
             pass
