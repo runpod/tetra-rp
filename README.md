@@ -340,6 +340,39 @@ results = await asyncio.gather(
 )
 ```
 
+### Load-Balanced Endpoints with HTTP Routing
+
+For API endpoints requiring low-latency HTTP access with direct routing, use load-balanced endpoints:
+
+```python
+from tetra_rp import LiveLoadBalancer, remote
+
+api = LiveLoadBalancer(name="api-service")
+
+@remote(api, method="POST", path="/api/process")
+async def process_data(x: int, y: int):
+    return {"result": x + y}
+
+@remote(api, method="GET", path="/api/health")
+def health_check():
+    return {"status": "ok"}
+
+# Call functions directly
+result = await process_data(5, 3)  # → {"result": 8}
+```
+
+**Key differences from queue-based endpoints:**
+- **Direct HTTP routing** - Requests routed directly to workers, no queue
+- **Lower latency** - No queuing overhead
+- **Custom HTTP methods** - GET, POST, PUT, DELETE, PATCH support
+- **No automatic retries** - Users handle errors directly
+
+Load-balanced endpoints are ideal for REST APIs, webhooks, and real-time services. Queue-based endpoints are better for batch processing and fault-tolerant workflows.
+
+For detailed information:
+- **User guide:** [Using @remote with Load-Balanced Endpoints](docs/Using_Remote_With_LoadBalancer.md)
+- **Runtime architecture:** [LoadBalancer Runtime Architecture](docs/LoadBalancer_Runtime_Architecture.md) - details on deployment, request flows, and execution
+
 ## How it works
 
 Flash orchestrates workflow execution through a sophisticated multi-step process:
@@ -459,6 +492,8 @@ After `flash build` completes:
 - `.flash/flash_manifest.json`: Service discovery configuration
 
 For more details on the handler architecture, see [docs/Runtime_Generic_Handler.md](docs/Runtime_Generic_Handler.md).
+
+For information on load-balanced endpoints (required for Mothership and HTTP services), see [docs/Load_Balancer_Endpoints.md](docs/Load_Balancer_Endpoints.md).
 
 #### Troubleshooting Build Issues
 

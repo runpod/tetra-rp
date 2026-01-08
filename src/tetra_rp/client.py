@@ -4,7 +4,7 @@ import logging
 from functools import wraps
 from typing import List, Optional
 
-from .core.resources import ResourceManager, ServerlessResource
+from .core.resources import LoadBalancerSlsResource, ResourceManager, ServerlessResource
 from .execute_class import create_remote_class
 from .stubs import stub_resource
 
@@ -17,6 +17,8 @@ def remote(
     system_dependencies: Optional[List[str]] = None,
     accelerate_downloads: bool = True,
     local: bool = False,
+    method: Optional[str] = None,
+    path: Optional[str] = None,
     **extra,
 ):
     """
@@ -44,6 +46,12 @@ def remote(
         local (bool, optional): Execute function/class locally instead of provisioning remote servers.
             Returns the unwrapped function/class for direct local execution. Users must ensure all required
             dependencies are already installed in their local environment. Defaults to False.
+        method (str, optional): HTTP method for load-balanced endpoints (LoadBalancerSlsResource).
+            Required for LoadBalancerSlsResource: "GET", "POST", "PUT", "DELETE", "PATCH".
+            Ignored for queue-based endpoints. Defaults to None.
+        path (str, optional): HTTP path for load-balanced endpoints (LoadBalancerSlsResource).
+            Required for LoadBalancerSlsResource. Must start with "/". Example: "/api/process".
+            Ignored for queue-based endpoints. Defaults to None.
         extra (dict, optional): Additional parameters for the execution of the resource. Defaults to an empty dict.
 
     Returns:
@@ -52,9 +60,9 @@ def remote(
 
     Example:
     ```python
-        # Async function (recommended style)
+        # Queue-based endpoint (recommended for reliability)
         @remote(
-            resource_config=my_resource_config,
+            resource_config=LiveServerless(name="gpu_worker"),
             dependencies=["torch>=2.0.0"],
         )
         async def gpu_task(data: dict) -> dict:
@@ -62,20 +70,19 @@ def remote(
             # GPU processing here
             return {"result": "processed"}
 
-        # Sync function (also supported)
+        # Load-balanced endpoint (for low-latency APIs)
         @remote(
-            resource_config=my_resource_config,
-            dependencies=["pandas>=2.0.0"],
+            resource_config=LoadBalancerSlsResource(name="api-service"),
+            method="POST",
+            path="/api/process",
         )
-        def cpu_task(data: dict) -> dict:
-            import pandas as pd
-            # CPU processing here
-            return {"result": "processed"}
+        async def api_endpoint(x: int, y: int) -> dict:
+            return {"result": x + y}
 
         # Local execution (testing/development)
         @remote(
             resource_config=my_resource_config,
-            dependencies=["numpy", "pandas"],  # Only used for remote execution
+            dependencies=["numpy", "pandas"],
             local=True,
         )
         async def my_test_function(data):
@@ -85,18 +92,53 @@ def remote(
     """
 
     def decorator(func_or_class):
+        # Validate HTTP routing parameters for LoadBalancerSlsResource
+        is_lb_resource = isinstance(resource_config, LoadBalancerSlsResource)
+
+        if is_lb_resource:
+            if not method or not path:
+                raise ValueError(
+                    f"LoadBalancerSlsResource requires both 'method' and 'path' parameters. "
+                    f"Got method={method}, path={path}. "
+                    f"Example: @remote(resource_config, method='POST', path='/api/process')"
+                )
+            if not path.startswith("/"):
+                raise ValueError(f"path must start with '/'. Got: {path}")
+            valid_methods = {"GET", "POST", "PUT", "DELETE", "PATCH"}
+            if method not in valid_methods:
+                raise ValueError(
+                    f"method must be one of {valid_methods}. Got: {method}"
+                )
+        elif method or path:
+            log.warning(
+                f"HTTP routing parameters (method={method}, path={path}) are only used "
+                f"with LoadBalancerSlsResource, but resource_config is {type(resource_config).__name__}. "
+                f"They will be ignored."
+            )
+
+        # Store routing metadata for scanner and build system
+        routing_config = {
+            "resource_config": resource_config,
+            "method": method,
+            "path": path,
+            "dependencies": dependencies,
+            "system_dependencies": system_dependencies,
+        }
+
         if os.getenv("RUNPOD_POD_ID") or os.getenv("RUNPOD_ENDPOINT_ID"):
             # Worker mode when running on RunPod platform
+            func_or_class.__remote_config__ = routing_config
             return func_or_class
 
         # Local execution mode - execute without provisioning remote servers
         if local:
+            func_or_class.__remote_config__ = routing_config
             return func_or_class
 
         # Remote execution mode
         if inspect.isclass(func_or_class):
             # Handle class decoration
-            return create_remote_class(
+            wrapped_class = create_remote_class(
                 func_or_class,
                 resource_config,
                 dependencies,
@@ -104,6 +146,8 @@ def remote(
                 accelerate_downloads,
                 extra,
             )
+            wrapped_class.__remote_config__ = routing_config
+            return wrapped_class
         else:
             # Handle function decoration
             @wraps(func_or_class)
@@ -123,6 +167,8 @@ def remote(
                     **kwargs,
                 )
 
+            # Store routing metadata on wrapper for scanner
+            wrapper.__remote_config__ = routing_config
             return wrapper
 
     return decorator
