@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 
 from .scanner import RemoteFunctionMetadata
 
+RESERVED_PATHS = ["/execute", "/ping"]
+
 
 @dataclass
 class ManifestFunction:
@@ -90,10 +92,10 @@ class ManifestBuilder:
                     resource_routes[route_key] = f.function_name
 
                     # Check for reserved paths
-                    if f.http_path in ["/execute", "/ping"]:
+                    if f.http_path in RESERVED_PATHS:
                         raise ValueError(
                             f"Function '{f.function_name}' cannot use reserved path '{f.http_path}'. "
-                            f"Reserved paths: /execute, /ping"
+                            f"Reserved paths: {', '.join(RESERVED_PATHS)}"
                         )
 
             functions_list = [

@@ -45,7 +45,7 @@ class LoadBalancerSlsStub:
 
     DEFAULT_TIMEOUT = 30.0  # Default timeout in seconds
 
-    def __init__(self, server: Any, timeout: float = None) -> None:
+    def __init__(self, server: Any, timeout: Optional[float] = None) -> None:
         """Initialize stub with LoadBalancerSlsResource server.
 
         Args:
@@ -234,7 +234,7 @@ class LoadBalancerSlsStub:
                 return response.json()
         except httpx.TimeoutException as e:
             raise TimeoutError(
-                f"Execution timeout on {self.server.name} after 30s: {e}"
+                f"Execution timeout on {self.server.name} after {self.timeout}s: {e}"
             ) from e
         except httpx.HTTPStatusError as e:
             # Truncate response body to prevent huge error messages
@@ -310,7 +310,7 @@ class LoadBalancerSlsStub:
                 return result
         except httpx.TimeoutException as e:
             raise TimeoutError(
-                f"Execution timeout on {self.server.name} after 30s: {e}"
+                f"Execution timeout on {self.server.name} after {self.timeout}s: {e}"
             ) from e
         except httpx.HTTPStatusError as e:
             # Truncate response body to prevent huge error messages
