@@ -262,6 +262,9 @@ def build_command(
 
             progress.stop_task(deps_task)
 
+            # Clean up Python bytecode before archiving
+            cleanup_python_bytecode(build_dir)
+
             # Create archive
             archive_task = progress.add_task("Creating archive...")
             archive_name = output_name or "archive.tar.gz"
@@ -409,6 +412,29 @@ def copy_project_files(files: list[Path], source_dir: Path, dest_dir: Path) -> N
 
         # Copy file
         shutil.copy2(file_path, dest_path)
+
+
+def cleanup_python_bytecode(build_dir: Path) -> None:
+    """
+    Remove Python bytecode files and __pycache__ directories from build directory.
+
+    These files are generated during the build process when Python imports modules
+    for validation. They are platform-specific and will be regenerated on the
+    deployment platform, so including them is unnecessary.
+
+    Args:
+        build_dir: Build directory to clean up
+    """
+    # Remove all __pycache__ directories
+    for pycache_dir in build_dir.rglob("__pycache__"):
+        if pycache_dir.is_dir():
+            shutil.rmtree(pycache_dir)
+
+    # Remove any stray .pyc, .pyo, .pyd files
+    for bytecode_pattern in ["*.pyc", "*.pyo", "*.pyd"]:
+        for bytecode_file in build_dir.rglob(bytecode_pattern):
+            if bytecode_file.is_file():
+                bytecode_file.unlink()
 
 
 def collect_requirements(project_dir: Path, build_dir: Path) -> list[str]:
