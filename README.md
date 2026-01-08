@@ -409,7 +409,18 @@ When you run `flash build`, the following happens:
 2. **Grouping**: Functions are grouped by their `resource_config`
 3. **Handler Generation**: For each resource config, Flash generates a lightweight handler file
 4. **Manifest Creation**: A `flash_manifest.json` file maps functions to their endpoints
-5. **Packaging**: Everything is bundled into `archive.tar.gz` for deployment
+5. **Dependency Installation**: Python packages are installed with Linux x86_64 compatibility
+6. **Packaging**: Everything is bundled into `archive.tar.gz` for deployment
+
+#### Cross-Platform Builds
+
+Flash automatically handles cross-platform builds, ensuring your deployments work correctly regardless of your development platform:
+
+- **Automatic Platform Targeting**: Dependencies are installed for Linux x86_64 (RunPod's serverless platform), even when building on macOS or Windows
+- **Python Version Matching**: The build uses your current Python version to ensure package compatibility
+- **Binary Wheel Enforcement**: Only pre-built binary wheels are used, preventing platform-specific compilation issues
+
+This means you can build on macOS ARM64, Windows, or any other platform, and the resulting package will run correctly on RunPod serverless.
 
 #### Handler Architecture
 
@@ -477,6 +488,13 @@ For more details on the handler architecture, see [docs/Runtime_Generic_Handler.
 - Verify all function imports work in the deployment environment
 - Check that environment variables required by your functions are available
 - Review the generated `flash_manifest.json` for correct function mappings
+
+**Dependency installation failed:**
+- If a package doesn't have pre-built Linux x86_64 wheels, the build will fail with an error
+- For newer Python versions (3.13+), some packages may require manylinux_2_27 or higher
+- Ensure you have standard pip installed (`python -m ensurepip --upgrade`) for best compatibility
+- uv pip has known issues with newer manylinux tags - standard pip is recommended
+- Check PyPI to verify the package supports your Python version on Linux
 
 ## Configuration
 

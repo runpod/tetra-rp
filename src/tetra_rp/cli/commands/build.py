@@ -27,6 +27,16 @@ console = Console()
 # Constants
 PIP_INSTALL_TIMEOUT_SECONDS = 600  # 10 minute timeout for pip install
 
+# RunPod Serverless platform specifications
+# RunPod serverless runs on x86_64 Linux, regardless of build platform
+# Support multiple manylinux versions (newer versions are backward compatible)
+RUNPOD_PLATFORMS = [
+    "manylinux_2_28_x86_64",  # glibc 2.28+ (newest, for Python 3.13+)
+    "manylinux_2_17_x86_64",  # glibc 2.17+ (covers most modern packages)
+    "manylinux2014_x86_64",  # glibc 2.17 (legacy compatibility)
+]
+RUNPOD_PYTHON_IMPL = "cp"  # CPython implementation
+
 
 def build_command(
     no_deps: bool = typer.Option(
@@ -419,6 +429,9 @@ def install_dependencies(
     """
     Install dependencies to build directory using pip or uv pip.
 
+    Installs packages for Linux x86_64 platform to ensure compatibility with
+    RunPod serverless, regardless of the build platform (macOS, Windows, Linux).
+
     Args:
         build_dir: Build directory (pip --target)
         requirements: List of requirements to install
@@ -430,7 +443,9 @@ def install_dependencies(
     if not requirements:
         return True
 
-    # Try python -m pip first
+    # Prefer standard pip over uv pip for cross-platform builds
+    # Standard pip's --platform flag works correctly with manylinux tags
+    # uv pip has known issues with manylinux_2_27/2_28 detection (uv issue #5106)
     pip_cmd = [sys.executable, "-m", "pip"]
     pip_available = False
 
@@ -446,7 +461,7 @@ def install_dependencies(
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
 
-    # If pip not available, try uv pip
+    # If pip not available, try uv pip (less reliable for cross-platform)
     if not pip_available:
         try:
             result = subprocess.run(
@@ -459,7 +474,11 @@ def install_dependencies(
                 pip_cmd = ["uv", "pip"]
                 pip_available = True
                 console.print(
-                    "[yellow]Note:[/yellow] Using 'uv pip' (pip not found in venv)"
+                    "[yellow]Warning:[/yellow] Using 'uv pip' which has known issues "
+                    "with newer manylinux tags (manylinux_2_27+)"
+                )
+                console.print(
+                    "[yellow]Consider installing pip:[/yellow] python -m ensurepip --upgrade"
                 )
         except (subprocess.SubprocessError, FileNotFoundError):
             pass
@@ -472,17 +491,57 @@ def install_dependencies(
         console.print("  • uv pip install pip")
         return False
 
+    # Get current Python version for compatibility
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+
+    # Determine if using uv pip or standard pip (different flag formats)
+    is_uv_pip = pip_cmd[0] == "uv"
+
+    # Build pip command with platform-specific flags for RunPod serverless
     cmd = pip_cmd + [
         "install",
         "--target",
         str(build_dir),
+        "--python-version",
+        python_version,
         "--upgrade",
     ]
+
+    # Add platform-specific flags based on pip variant
+    if is_uv_pip:
+        # uv pip uses --python-platform with simpler values
+        # Note: uv has known issues with manylinux_2_27+ detection (issue #5106)
+        cmd.extend(
+            [
+                "--python-platform",
+                "x86_64-unknown-linux-gnu",
+                "--no-build",  # Don't build from source, use binary wheels only
+            ]
+        )
+    else:
+        # Standard pip uses --platform with manylinux tags
+        # Specify multiple platforms for broader compatibility
+        for platform in RUNPOD_PLATFORMS:
+            cmd.extend(["--platform", platform])
+        cmd.extend(
+            [
+                "--implementation",
+                RUNPOD_PYTHON_IMPL,
+                "--only-binary=:all:",
+            ]
+        )
 
     if no_deps:
         cmd.append("--no-deps")
 
     cmd.extend(requirements)
+
+    # Log platform targeting info
+    if is_uv_pip:
+        platform_str = "x86_64-unknown-linux-gnu"
+    else:
+        platform_str = f"{len(RUNPOD_PLATFORMS)} manylinux variants"
+    console.print(f"[dim]Installing for: {platform_str}, Python {python_version}[/dim]")
 
     try:
         result = subprocess.run(

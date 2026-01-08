@@ -62,6 +62,16 @@ For details on how handler generation works and the factory pattern design, see 
 
 ## Dependency Management
 
+### Cross-Platform Builds
+
+Flash automatically handles cross-platform builds, ensuring compatibility with RunPod's Linux x86_64 serverless infrastructure:
+
+- **Automatic Platform Targeting**: Dependencies are always installed for Linux x86_64, regardless of your build platform (macOS, Windows, or Linux)
+- **Python Version Matching**: Uses your current Python version to ensure package compatibility
+- **Binary Wheel Enforcement**: Only pre-built binary wheels are used, preventing platform-specific compilation issues
+
+This means you can safely build on macOS ARM64, Windows, or any platform, and the deployment will work correctly on RunPod.
+
 ### Default Behavior
 
 ```bash
@@ -69,8 +79,8 @@ flash build
 ```
 
 Installs all dependencies specified in your project (including transitive dependencies):
-- Creates isolated Python environment
-- Installs exact versions from `requirements.txt` or `pyproject.toml`
+- Installs Linux x86_64 compatible packages
+- Includes exact versions from `requirements.txt` or `pyproject.toml`
 - All packages become local modules in the deployment
 
 ### Skip Transitive Dependencies
@@ -181,6 +191,16 @@ Use `--keep-build` to preserve handler files and manifest:
 flash build --keep-build
 ls .flash/.build/my-project/
 ```
+
+### Dependency installation fails
+
+If a package doesn't have pre-built Linux x86_64 wheels:
+
+1. **Install standard pip**: `python -m ensurepip --upgrade` - standard pip has better manylinux compatibility than uv pip
+2. **Check package availability**: Visit PyPI and verify the package has Linux wheels for your Python version
+3. **Newer Python versions**: Python 3.13+ packages often require manylinux_2_27 or higher - standard pip handles these correctly
+4. **uv pip limitations**: uv pip has known issues with manylinux_2_27+ detection - use standard pip when possible
+5. **Pure-Python packages**: These should work regardless, as they don't require platform-specific builds
 
 ## Next Steps
 
