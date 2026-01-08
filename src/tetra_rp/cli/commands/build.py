@@ -208,16 +208,12 @@ def build_command(
                 filtered_requirements = []
 
                 for req in requirements:
-                    excluded = False
-                    for exc in excluded_packages:
-                        if should_exclude_package(req, excluded_packages):
-                            # Extract which exclusion matched
-                            pkg_name = extract_package_name(req)
-                            if pkg_name in excluded_packages:
-                                matched_exclusions.add(pkg_name)
-                            excluded = True
-                            break
-                    if not excluded:
+                    if should_exclude_package(req, excluded_packages):
+                        # Extract which exclusion matched
+                        pkg_name = extract_package_name(req)
+                        if pkg_name in excluded_packages:
+                            matched_exclusions.add(pkg_name)
+                    else:
                         filtered_requirements.append(req)
 
                 requirements = filtered_requirements
