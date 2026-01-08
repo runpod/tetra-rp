@@ -251,6 +251,26 @@ class ServerlessResource(DeployableResource):
 
         return self
 
+    def _create_new_template(self) -> PodTemplate:
+        """Create a new PodTemplate with standard configuration."""
+        return PodTemplate(
+            name=self.resource_id,
+            imageName=self.imageName,
+            env=KeyValuePair.from_dict(self.env or get_env_vars()),
+        )
+
+    def _configure_existing_template(self) -> None:
+        """Configure an existing template with necessary overrides."""
+        if self.template is None:
+            return
+
+        self.template.name = f"{self.resource_id}__{self.template.resource_id}"
+
+        if self.imageName:
+            self.template.imageName = self.imageName
+        if self.env:
+            self.template.env = KeyValuePair.from_dict(self.env)
+
     async def _sync_graphql_object_with_inputs(
         self, returned_endpoint: "ServerlessResource"
     ):
@@ -587,28 +607,12 @@ class ServerlessEndpoint(ServerlessResource):
     Inherits from ServerlessResource.
     """
 
-    def _create_new_template(self) -> PodTemplate:
-        """Create a new PodTemplate with standard configuration."""
-        return PodTemplate(
-            name=self.resource_id,
-            imageName=self.imageName,
-            env=KeyValuePair.from_dict(self.env or get_env_vars()),
-        )
-
-    def _configure_existing_template(self) -> None:
-        """Configure an existing template with necessary overrides."""
-        if self.template is None:
-            return
-
-        self.template.name = f"{self.resource_id}__{self.template.resource_id}"
-
-        if self.imageName:
-            self.template.imageName = self.imageName
-        if self.env:
-            self.template.env = KeyValuePair.from_dict(self.env)
-
     @model_validator(mode="after")
     def set_serverless_template(self):
+        """Create template from imageName if not provided.
+
+        Must run after sync_input_fields to ensure all input fields are synced.
+        """
         if not any([self.imageName, self.template, self.templateId]):
             raise ValueError(
                 "Either imageName, template, or templateId must be provided"

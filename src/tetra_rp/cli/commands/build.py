@@ -18,6 +18,7 @@ from rich.table import Table
 
 from ..utils.ignore import get_file_tree, load_ignore_patterns
 from .build_utils.handler_generator import HandlerGenerator
+from .build_utils.lb_handler_generator import LBHandlerGenerator
 from .build_utils.manifest import ManifestBuilder
 from .build_utils.scanner import RemoteDecoratorScanner
 
@@ -151,9 +152,30 @@ def build_command(
                         manifest_path = build_dir / "flash_manifest.json"
                         manifest_path.write_text(json.dumps(manifest, indent=2))
 
-                        # Generate handler files
-                        handler_gen = HandlerGenerator(manifest, build_dir)
-                        handler_paths = handler_gen.generate_handlers()
+                        # Generate handler files based on resource type
+                        handler_paths = []
+
+                        # Separate resources by type
+                        lb_resources = {
+                            name: data
+                            for name, data in manifest.get("resources", {}).items()
+                            if data.get("resource_type") == "LoadBalancerSlsResource"
+                        }
+                        qb_resources = {
+                            name: data
+                            for name, data in manifest.get("resources", {}).items()
+                            if data.get("resource_type") != "LoadBalancerSlsResource"
+                        }
+
+                        # Generate LB handlers
+                        if lb_resources:
+                            lb_gen = LBHandlerGenerator(manifest, build_dir)
+                            handler_paths.extend(lb_gen.generate_handlers())
+
+                        # Generate QB handlers
+                        if qb_resources:
+                            qb_gen = HandlerGenerator(manifest, build_dir)
+                            handler_paths.extend(qb_gen.generate_handlers())
 
                         progress.update(
                             manifest_task,
