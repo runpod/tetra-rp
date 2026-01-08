@@ -62,6 +62,16 @@ For details on how handler generation works and the factory pattern design, see 
 
 ## Dependency Management
 
+### Cross-Platform Builds
+
+Flash automatically handles cross-platform builds, ensuring compatibility with RunPod's Linux x86_64 serverless infrastructure:
+
+- **Automatic Platform Targeting**: Dependencies are always installed for Linux x86_64, regardless of your build platform (macOS, Windows, or Linux)
+- **Python Version Matching**: Uses your current Python version to ensure package compatibility
+- **Binary Wheel Enforcement**: Only pre-built binary wheels are used, preventing platform-specific compilation issues
+
+This means you can safely build on macOS ARM64, Windows, or any platform, and the deployment will work correctly on RunPod.
+
 ### Default Behavior
 
 ```bash
@@ -69,8 +79,8 @@ flash build
 ```
 
 Installs all dependencies specified in your project (including transitive dependencies):
-- Creates isolated Python environment
-- Installs exact versions from `requirements.txt` or `pyproject.toml`
+- Installs Linux x86_64 compatible packages
+- Includes exact versions from `requirements.txt` or `pyproject.toml`
 - All packages become local modules in the deployment
 
 ### Skip Transitive Dependencies
@@ -181,6 +191,68 @@ Use `--keep-build` to preserve handler files and manifest:
 flash build --keep-build
 ls .flash/.build/my-project/
 ```
+
+### Dependency installation fails
+
+If a package doesn't have pre-built Linux x86_64 wheels:
+
+1. **Install standard pip**: `python -m ensurepip --upgrade` - standard pip has better manylinux compatibility than uv pip
+2. **Check package availability**: Visit PyPI and verify the package has Linux wheels for your Python version
+3. **Newer Python versions**: Python 3.13+ packages often require manylinux_2_27 or higher - standard pip handles these correctly
+4. **uv pip limitations**: uv pip has known issues with manylinux_2_27+ detection - use standard pip when possible
+5. **Pure-Python packages**: These should work regardless, as they don't require platform-specific builds
+
+## Managing Deployment Size
+
+### Size Limits
+
+RunPod serverless enforces a **500MB limit** on deployment archives. Exceeding this will cause deployment failures.
+
+### Excluding Base Image Packages
+
+Use `--exclude` to skip packages already in your Docker base image:
+
+```bash
+# Exclude PyTorch packages (common in GPU images)
+flash build --exclude torch,torchvision,torchaudio
+
+# Multiple packages, comma-separated
+flash build --exclude numpy,scipy,pillow
+```
+
+### Base Image Package Reference (worker-tetra)
+
+Check the [worker-tetra repository](https://github.com/runpod-workers/worker-tetra) for current base images and pre-installed packages.
+
+**Base image patterns** (check repository for current versions):
+
+| Dockerfile | Base Image Pattern | Pre-installed ML Frameworks | Common Exclusions |
+|------------|-------------------|----------------------------|-------------------|
+| `Dockerfile` (GPU) | `pytorch/pytorch:*-cuda*-cudnn*-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
+| `Dockerfile-cpu` (CPU) | `python:*-slim` | **None** | Do not exclude ML packages |
+| `Dockerfile-lb` (GPU LoadBalanced) | `pytorch/pytorch:*-cuda*-cudnn*-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
+| `Dockerfile-lb-cpu` (CPU LoadBalanced) | `python:*-slim` | **None** | Do not exclude ML packages |
+
+**Common pre-installed packages** (versions change - verify in [worker-tetra Dockerfiles](https://github.com/runpod-workers/worker-tetra)):
+- cloudpickle
+- pydantic
+- requests
+- runpod
+- huggingface-hub
+- fastapi / uvicorn
+
+**Important:**
+- Only exclude packages you're certain exist in your base image
+- Check your resource config's base image before excluding
+- Verify current versions in the [worker-tetra repository](https://github.com/runpod-workers/worker-tetra)
+- CPU deployments: Do NOT exclude torch (not pre-installed)
+- GPU deployments: Safe to exclude torch/torchvision/torchaudio
+
+**How to determine your base image:**
+1. Check your `@remote` decorator's `resource_config`
+2. GPU configs use PyTorch base → exclude torch packages
+3. CPU configs use Python slim → bundle all ML packages
+4. When in doubt, check the [worker-tetra Dockerfiles](https://github.com/runpod-workers/worker-tetra)
 
 ## Next Steps
 

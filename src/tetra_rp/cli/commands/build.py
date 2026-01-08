@@ -3,6 +3,7 @@
 import ast
 import json
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -22,11 +23,39 @@ from .build_utils.manifest import ManifestBuilder
 from .build_utils.scanner import RemoteDecoratorScanner
 
 logger = logging.getLogger(__name__)
+from .build_utils.handler_generator import HandlerGenerator
+from .build_utils.lb_handler_generator import LBHandlerGenerator
+from .build_utils.manifest import ManifestBuilder
+from .build_utils.scanner import RemoteDecoratorScanner
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 
 # Constants
-PIP_INSTALL_TIMEOUT_SECONDS = 600  # 10 minute timeout for pip install
+# Timeout for pip install operations (large packages like torch can take 5-10 minutes)
+PIP_INSTALL_TIMEOUT_SECONDS = 600
+# Timeout for ensurepip (lightweight operation, typically completes in <10 seconds)
+ENSUREPIP_TIMEOUT_SECONDS = 30
+# Timeout for version checks (should be instant)
+VERSION_CHECK_TIMEOUT_SECONDS = 5
+
+# RunPod serverless deployment limit (hard limit enforced by platform)
+RUNPOD_MAX_ARCHIVE_SIZE_MB = 500
+
+# RunPod Serverless platform specifications
+# RunPod serverless runs on x86_64 Linux, regardless of build platform
+# Support multiple manylinux versions (newer versions are backward compatible)
+RUNPOD_PLATFORMS = [
+    "manylinux_2_28_x86_64",  # glibc 2.28+ (newest, for Python 3.13+)
+    "manylinux_2_17_x86_64",  # glibc 2.17+ (covers most modern packages)
+    "manylinux2014_x86_64",  # glibc 2.17 (legacy compatibility)
+]
+RUNPOD_PYTHON_IMPL = "cp"  # CPython implementation
+
+# Pip command identifiers
+UV_COMMAND = "uv"
+PIP_MODULE = "pip"
 
 
 def build_command(
@@ -39,6 +68,11 @@ def build_command(
     output_name: str | None = typer.Option(
         None, "--output", "-o", help="Custom archive name (default: archive.tar.gz)"
     ),
+    exclude: str | None = typer.Option(
+        None,
+        "--exclude",
+        help="Comma-separated packages to exclude (e.g., 'torch,torchvision')",
+    ),
 ):
     """
     Build Flash application for deployment.
@@ -47,10 +81,11 @@ def build_command(
     similar to AWS Lambda packaging. All pip packages are installed as local modules.
 
     Examples:
-      flash build                  # Build with all dependencies
-      flash build --no-deps        # Skip transitive dependencies
-      flash build --keep-build     # Keep temporary build directory
-      flash build -o my-app.tar.gz # Custom archive name
+      flash build                              # Build with all dependencies
+      flash build --no-deps                    # Skip transitive dependencies
+      flash build --keep-build                 # Keep temporary build directory
+      flash build -o my-app.tar.gz             # Custom archive name
+      flash build --exclude torch,torchvision  # Exclude large packages (assume in base image)
     """
     try:
         # Validate project structure
@@ -61,8 +96,15 @@ def build_command(
             console.print("Run [bold]flash init[/bold] to create a Flash project")
             raise typer.Exit(1)
 
+        # Parse exclusions
+        excluded_packages = []
+        if exclude:
+            excluded_packages = [pkg.strip().lower() for pkg in exclude.split(",")]
+
         # Display configuration
-        _display_build_config(project_dir, app_name, no_deps, keep_build, output_name)
+        _display_build_config(
+            project_dir, app_name, no_deps, keep_build, output_name, excluded_packages
+        )
 
         # Execute build
         with Progress(
@@ -187,6 +229,38 @@ def build_command(
             deps_task = progress.add_task("Installing dependencies...")
             requirements = collect_requirements(project_dir, build_dir)
 
+            # Filter out excluded packages
+            if excluded_packages:
+                original_count = len(requirements)
+                matched_exclusions = set()
+                filtered_requirements = []
+
+                for req in requirements:
+                    if should_exclude_package(req, excluded_packages):
+                        # Extract which exclusion matched
+                        pkg_name = extract_package_name(req)
+                        if pkg_name in excluded_packages:
+                            matched_exclusions.add(pkg_name)
+                    else:
+                        filtered_requirements.append(req)
+
+                requirements = filtered_requirements
+                excluded_count = original_count - len(requirements)
+
+                if excluded_count > 0:
+                    console.print(
+                        f"[yellow]Excluded {excluded_count} package(s) "
+                        f"(assumed in base image)[/yellow]"
+                    )
+
+                # Warn about exclusions that didn't match any packages
+                unmatched = set(excluded_packages) - matched_exclusions
+                if unmatched:
+                    console.print(
+                        f"[yellow]Warning: No packages matched exclusions: "
+                        f"{', '.join(sorted(unmatched))}[/yellow]"
+                    )
+
             if not requirements:
                 progress.update(
                     deps_task,
@@ -212,6 +286,9 @@ def build_command(
 
             progress.stop_task(deps_task)
 
+            # Clean up Python bytecode before archiving
+            cleanup_python_bytecode(build_dir)
+
             # Create archive
             archive_task = progress.add_task("Creating archive...")
             archive_name = output_name or "archive.tar.gz"
@@ -227,6 +304,23 @@ def build_command(
                 description=f"[green]✓ Created {archive_name} ({size_mb:.1f} MB)",
             )
             progress.stop_task(archive_task)
+
+            # Warning for size limit
+            if size_mb > RUNPOD_MAX_ARCHIVE_SIZE_MB:
+                console.print()
+                console.print(
+                    Panel(
+                        f"[yellow bold]⚠ WARNING: Archive exceeds RunPod limit[/yellow bold]\n\n"
+                        f"[yellow]Archive size:[/yellow] {size_mb:.1f} MB\n"
+                        f"[yellow]RunPod limit:[/yellow] {RUNPOD_MAX_ARCHIVE_SIZE_MB} MB\n"
+                        f"[yellow]Over by:[/yellow] {size_mb - RUNPOD_MAX_ARCHIVE_SIZE_MB:.1f} MB\n\n"
+                        f"[dim]Use --exclude to skip packages in base image:\n"
+                        f"  flash build --exclude torch,torchvision,torchaudio[/dim]",
+                        title="Deployment Size Warning",
+                        border_style="yellow",
+                    )
+                )
+                console.print()
 
             # Cleanup
             if not keep_build:
@@ -344,6 +438,29 @@ def copy_project_files(files: list[Path], source_dir: Path, dest_dir: Path) -> N
         shutil.copy2(file_path, dest_path)
 
 
+def cleanup_python_bytecode(build_dir: Path) -> None:
+    """
+    Remove Python bytecode files and __pycache__ directories from build directory.
+
+    These files are generated during the build process when Python imports modules
+    for validation. They are platform-specific and will be regenerated on the
+    deployment platform, so including them is unnecessary.
+
+    Args:
+        build_dir: Build directory to clean up
+    """
+    # Remove all __pycache__ directories
+    for pycache_dir in build_dir.rglob("__pycache__"):
+        if pycache_dir.is_dir():
+            shutil.rmtree(pycache_dir)
+
+    # Remove any stray .pyc, .pyo, .pyd files
+    for bytecode_pattern in ["*.pyc", "*.pyo", "*.pyd"]:
+        for bytecode_file in build_dir.rglob(bytecode_pattern):
+            if bytecode_file.is_file():
+                bytecode_file.unlink()
+
+
 def collect_requirements(project_dir: Path, build_dir: Path) -> list[str]:
     """
     Collect all requirements from requirements.txt and @remote decorators.
@@ -387,6 +504,55 @@ def collect_requirements(project_dir: Path, build_dir: Path) -> list[str]:
             unique_requirements.append(req)
 
     return unique_requirements
+
+
+def extract_package_name(requirement: str) -> str:
+    """
+    Extract the package name from a requirement specification.
+
+    Handles version specifiers, extras, and other pip requirement syntax.
+
+    Args:
+        requirement: Requirement string (e.g., "torch>=2.0.0", "numpy[extra]")
+
+    Returns:
+        Package name in lowercase (e.g., "torch", "numpy")
+
+    Examples:
+        >>> extract_package_name("torch>=2.0.0")
+        "torch"
+        >>> extract_package_name("numpy[extra]")
+        "numpy"
+        >>> extract_package_name("my-package==1.0.0")
+        "my-package"
+    """
+    # Split on version specifiers, extras, and environment markers
+    # This regex matches: < > = ! [ ; (common pip requirement delimiters)
+    package_name = re.split(r"[<>=!\[;]", requirement)[0].strip().lower()
+    return package_name
+
+
+def should_exclude_package(requirement: str, exclusions: list[str]) -> bool:
+    """
+    Check if a requirement should be excluded based on package name matching.
+
+    Uses exact package name matching (after normalization) to avoid false positives.
+
+    Args:
+        requirement: Requirement string (e.g., "torch>=2.0.0")
+        exclusions: List of package names to exclude (lowercase)
+
+    Returns:
+        True if package should be excluded, False otherwise
+
+    Examples:
+        >>> should_exclude_package("torch>=2.0.0", ["torch", "numpy"])
+        True
+        >>> should_exclude_package("torch-vision==0.15.0", ["torch"])
+        False  # torch-vision is different from torch
+    """
+    package_name = extract_package_name(requirement)
+    return package_name in exclusions
 
 
 def extract_remote_dependencies(workers_dir: Path) -> list[str]:
@@ -441,6 +607,15 @@ def install_dependencies(
     """
     Install dependencies to build directory using pip or uv pip.
 
+    Installs packages for Linux x86_64 platform to ensure compatibility with
+    RunPod serverless, regardless of the build platform (macOS, Windows, Linux).
+
+    Auto-installation behavior:
+    - If standard pip is not available, it will be automatically installed via ensurepip
+    - This modifies the current virtual environment (persists after build completes)
+    - Standard pip is strongly preferred for cross-platform builds due to better
+      manylinux compatibility (uv pip has known issues with manylinux_2_27+)
+
     Args:
         build_dir: Build directory (pip --target)
         requirements: List of requirements to install
@@ -452,8 +627,10 @@ def install_dependencies(
     if not requirements:
         return True
 
-    # Try python -m pip first
-    pip_cmd = [sys.executable, "-m", "pip"]
+    # Prefer standard pip over uv pip for cross-platform builds
+    # Standard pip's --platform flag works correctly with manylinux tags
+    # uv pip has known issues with manylinux_2_27/2_28 detection (uv issue #5106)
+    pip_cmd = [sys.executable, "-m", PIP_MODULE]
     pip_available = False
 
     try:
@@ -461,50 +638,125 @@ def install_dependencies(
             pip_cmd + ["--version"],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=VERSION_CHECK_TIMEOUT_SECONDS,
         )
         if result.returncode == 0:
             pip_available = True
     except (subprocess.SubprocessError, FileNotFoundError):
         pass
 
-    # If pip not available, try uv pip
+    # If pip not available, install it using ensurepip
+    # This modifies the current virtual environment
+    if not pip_available:
+        console.print(
+            "[yellow]Standard pip not found. Installing pip for reliable cross-platform builds...[/yellow]"
+        )
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "ensurepip", "--upgrade"],
+                capture_output=True,
+                text=True,
+                timeout=ENSUREPIP_TIMEOUT_SECONDS,
+            )
+            if result.returncode == 0:
+                # Verify pip is now available
+                result = subprocess.run(
+                    pip_cmd + ["--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=VERSION_CHECK_TIMEOUT_SECONDS,
+                )
+                if result.returncode == 0:
+                    pip_available = True
+                    console.print(
+                        "[green]✓[/green] Standard pip installed successfully"
+                    )
+        except (subprocess.SubprocessError, FileNotFoundError) as e:
+            console.print(f"[yellow]Warning:[/yellow] Failed to install pip: {e}")
+
+    # If pip still not available, try uv pip (less reliable for cross-platform)
     if not pip_available:
         try:
             result = subprocess.run(
-                ["uv", "pip", "--version"],
+                [UV_COMMAND, PIP_MODULE, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=VERSION_CHECK_TIMEOUT_SECONDS,
             )
             if result.returncode == 0:
-                pip_cmd = ["uv", "pip"]
+                pip_cmd = [UV_COMMAND, PIP_MODULE]
                 pip_available = True
                 console.print(
-                    "[yellow]Note:[/yellow] Using 'uv pip' (pip not found in venv)"
+                    f"[yellow]Warning:[/yellow] Using '{UV_COMMAND} {PIP_MODULE}' which has known issues "
+                    f"with newer manylinux tags (manylinux_2_27+)"
+                )
+                console.print(
+                    "[yellow]This may fail for Python 3.13+ with newer packages (e.g., numpy 2.4+)[/yellow]"
                 )
         except (subprocess.SubprocessError, FileNotFoundError):
             pass
 
     # If neither available, error out
     if not pip_available:
-        console.print("[red]Error:[/red] Neither pip nor uv pip found")
-        console.print("\n[yellow]Install pip with one of:[/yellow]")
+        console.print(
+            f"[red]Error:[/red] Neither {PIP_MODULE} nor {UV_COMMAND} {PIP_MODULE} found"
+        )
+        console.print(f"\n[yellow]Install {PIP_MODULE} with one of:[/yellow]")
         console.print("  • python -m ensurepip --upgrade")
-        console.print("  • uv pip install pip")
+        console.print(f"  • {UV_COMMAND} {PIP_MODULE} install {PIP_MODULE}")
         return False
 
+    # Get current Python version for compatibility
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+
+    # Determine if using uv pip or standard pip (different flag formats)
+    is_uv_pip = pip_cmd[0] == UV_COMMAND
+
+    # Build pip command with platform-specific flags for RunPod serverless
     cmd = pip_cmd + [
         "install",
         "--target",
         str(build_dir),
+        "--python-version",
+        python_version,
         "--upgrade",
     ]
+
+    # Add platform-specific flags based on pip variant
+    if is_uv_pip:
+        # uv pip uses --python-platform with simpler values
+        # Note: uv has known issues with manylinux_2_27+ detection (issue #5106)
+        cmd.extend(
+            [
+                "--python-platform",
+                "x86_64-unknown-linux-gnu",
+                "--no-build",  # Don't build from source, use binary wheels only
+            ]
+        )
+    else:
+        # Standard pip uses --platform with manylinux tags
+        # Specify multiple platforms for broader compatibility
+        for platform in RUNPOD_PLATFORMS:
+            cmd.extend(["--platform", platform])
+        cmd.extend(
+            [
+                "--implementation",
+                RUNPOD_PYTHON_IMPL,
+                "--only-binary=:all:",
+            ]
+        )
 
     if no_deps:
         cmd.append("--no-deps")
 
     cmd.extend(requirements)
+
+    # Log platform targeting info
+    if is_uv_pip:
+        platform_str = "x86_64-unknown-linux-gnu"
+    else:
+        platform_str = f"{len(RUNPOD_PLATFORMS)} manylinux variants"
+    console.print(f"[dim]Installing for: {platform_str}, Python {python_version}[/dim]")
 
     try:
         result = subprocess.run(
@@ -565,17 +817,27 @@ def _display_build_config(
     no_deps: bool,
     keep_build: bool,
     output_name: str | None,
+    excluded_packages: list[str],
 ):
     """Display build configuration."""
     archive_name = output_name or "archive.tar.gz"
 
+    config_text = (
+        f"[bold]Project:[/bold] {app_name}\n"
+        f"[bold]Directory:[/bold] {project_dir}\n"
+        f"[bold]Archive:[/bold] .flash/{archive_name}\n"
+        f"[bold]Skip transitive deps:[/bold] {no_deps}\n"
+        f"[bold]Keep build dir:[/bold] {keep_build}"
+    )
+
+    if excluded_packages:
+        config_text += (
+            f"\n[bold]Excluded packages:[/bold] {', '.join(excluded_packages)}"
+        )
+
     console.print(
         Panel(
-            f"[bold]Project:[/bold] {app_name}\n"
-            f"[bold]Directory:[/bold] {project_dir}\n"
-            f"[bold]Archive:[/bold] .flash/{archive_name}\n"
-            f"[bold]Skip transitive deps:[/bold] {no_deps}\n"
-            f"[bold]Keep build dir:[/bold] {keep_build}",
+            config_text,
             title="Flash Build Configuration",
             expand=False,
         )
