@@ -1,4 +1,4 @@
-"""HTTP client for mothership directory API."""
+"""HTTP client for mothership manifest directory API."""
 
 import asyncio
 import logging
@@ -11,13 +11,17 @@ except ImportError:
     httpx = None
 
 from .config import DEFAULT_MAX_RETRIES, DEFAULT_REQUEST_TIMEOUT
-from .exceptions import DirectoryUnavailableError
+from .exceptions import ManifestServiceUnavailableError
 
 logger = logging.getLogger(__name__)
 
 
-class DirectoryClient:
-    """HTTP client for querying mothership directory.
+class ManifestClient:
+    """HTTP client for querying mothership manifest directory service.
+
+    Fetches the endpoint registry that maps resource_config names to their
+    deployment URLs. This is the "manifest directory service" - an endpoint
+    registry showing where resources are deployed.
 
     The directory maps resource_config names to their endpoint URLs.
     Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
@@ -29,7 +33,7 @@ class DirectoryClient:
         timeout: int = DEFAULT_REQUEST_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ):
-        """Initialize directory client.
+        """Initialize manifest client.
 
         Args:
             mothership_url: Base URL of mothership endpoint. Defaults to
@@ -59,11 +63,11 @@ class DirectoryClient:
             Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
 
         Raises:
-            DirectoryUnavailableError: If directory service unavailable after retries.
+            ManifestServiceUnavailableError: If manifest directory service unavailable after retries.
         """
         if httpx is None:
             raise ImportError(
-                "httpx required for DirectoryClient. Install with: pip install httpx"
+                "httpx required for ManifestClient. Install with: pip install httpx"
             )
 
         last_exception: Optional[Exception] = None
@@ -77,14 +81,14 @@ class DirectoryClient:
                 )
 
                 if response.status_code >= 400:
-                    raise DirectoryUnavailableError(
+                    raise ManifestServiceUnavailableError(
                         f"Directory API returned {response.status_code}: "
                         f"{response.text[:200]}"
                     )
 
                 data = response.json()
                 if "directory" not in data:
-                    raise DirectoryUnavailableError(
+                    raise ManifestServiceUnavailableError(
                         "Invalid directory response: missing 'directory' key"
                     )
 
@@ -92,19 +96,23 @@ class DirectoryClient:
                 logger.debug(f"Directory loaded: {len(directory)} endpoints")
                 return directory
 
-            except (asyncio.TimeoutError, DirectoryUnavailableError, Exception) as e:
+            except (
+                asyncio.TimeoutError,
+                ManifestServiceUnavailableError,
+                Exception,
+            ) as e:
                 last_exception = e
                 if attempt < self.max_retries - 1:
                     backoff = 2**attempt
                     logger.warning(
-                        f"Directory request failed (attempt {attempt + 1}): {e}, "
+                        f"Manifest service request failed (attempt {attempt + 1}): {e}, "
                         f"retrying in {backoff}s..."
                     )
                     await asyncio.sleep(backoff)
                     continue
 
-        raise DirectoryUnavailableError(
-            f"Failed to fetch directory after {self.max_retries} attempts: {last_exception}"
+        raise ManifestServiceUnavailableError(
+            f"Failed to fetch manifest directory after {self.max_retries} attempts: {last_exception}"
         )
 
     async def _get_client(self) -> httpx.AsyncClient:

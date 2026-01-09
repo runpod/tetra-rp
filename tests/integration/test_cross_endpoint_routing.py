@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tetra_rp.runtime.directory_client import DirectoryClient
+from tetra_rp.runtime.manifest_client import ManifestClient
 from tetra_rp.runtime.production_wrapper import (
     ProductionWrapper,
     create_production_wrapper,
@@ -88,7 +88,7 @@ class TestCrossEndpointRoutingIntegration:
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
 
-                mock_dir_client = AsyncMock(spec=DirectoryClient)
+                mock_dir_client = AsyncMock(spec=ManifestClient)
                 mock_dir_client.get_directory.return_value = directory
 
                 registry._directory_client = mock_dir_client
@@ -141,7 +141,7 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_dir_client = AsyncMock(spec=DirectoryClient)
+                mock_dir_client = AsyncMock(spec=ManifestClient)
                 mock_dir_client.get_directory.return_value = directory
                 registry._directory_client = mock_dir_client
                 registry._directory = directory
@@ -205,7 +205,7 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_dir_client = AsyncMock(spec=DirectoryClient)
+                mock_dir_client = AsyncMock(spec=ManifestClient)
                 mock_dir_client.get_directory.return_value = directory
                 registry._directory_client = mock_dir_client
 
@@ -259,7 +259,7 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_dir_client = AsyncMock(spec=DirectoryClient)
+                mock_dir_client = AsyncMock(spec=ManifestClient)
                 mock_dir_client.get_directory.return_value = directory
                 registry._directory_client = mock_dir_client
                 registry._directory = directory

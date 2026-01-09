@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 from tetra_rp.core.resources.serverless import ServerlessResource
 
 from .config import DEFAULT_CACHE_TTL
-from .directory_client import DirectoryClient, DirectoryUnavailableError
+from .manifest_client import ManifestClient, ManifestServiceUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class ServiceRegistry:
     def __init__(
         self,
         manifest_path: Optional[Path] = None,
-        directory_client: Optional[DirectoryClient] = None,
+        directory_client: Optional[ManifestClient] = None,
         cache_ttl: int = DEFAULT_CACHE_TTL,
     ):
         """Initialize service registry.
@@ -36,7 +36,7 @@ class ServiceRegistry:
         Args:
             manifest_path: Path to flash_manifest.json. Defaults to
                 FLASH_MANIFEST_PATH env var or auto-detection.
-            directory_client: Client for mothership API. If None, creates one
+            directory_client: Manifest service client for mothership API. If None, creates one
                 from FLASH_MOTHERSHIP_URL env var.
             cache_ttl: Directory cache lifetime in seconds (default: 300).
 
@@ -53,11 +53,11 @@ class ServiceRegistry:
         # Load manifest
         self._load_manifest(manifest_path)
 
-        # Initialize directory client
+        # Initialize manifest client
         if directory_client is None:
             mothership_url = os.getenv("FLASH_MOTHERSHIP_URL")
             if mothership_url:
-                directory_client = DirectoryClient(mothership_url=mothership_url)
+                directory_client = ManifestClient(mothership_url=mothership_url)
             else:
                 logger.warning("FLASH_MOTHERSHIP_URL not set, directory unavailable")
                 directory_client = None
@@ -131,9 +131,9 @@ class ServiceRegistry:
                         f"Directory loaded: {len(self._directory)} endpoints, "
                         f"cache TTL {self.cache_ttl}s"
                     )
-                except DirectoryUnavailableError as e:
+                except ManifestServiceUnavailableError as e:
                     logger.warning(
-                        f"Failed to load directory: {e}. "
+                        f"Failed to load manifest directory: {e}. "
                         f"Cross-endpoint routing unavailable."
                     )
                     self._directory = {}

@@ -25,7 +25,7 @@ class ManifestError(FlashRuntimeError):
     pass
 
 
-class DirectoryUnavailableError(FlashRuntimeError):
-    """Raised when directory service is unavailable."""
+class ManifestServiceUnavailableError(FlashRuntimeError):
+    """Raised when manifest directory service is unavailable."""
 
     pass
