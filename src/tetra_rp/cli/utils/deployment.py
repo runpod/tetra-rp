@@ -3,8 +3,15 @@
 import json
 from typing import Dict, Any
 from datetime import datetime
+from pathlib import Path
 
 from tetra_rp.config import get_paths
+from tetra_rp.core.resources.app import FlashApp
+
+
+async def upload_build(app_name: str, build_path: str | Path):
+    app = await FlashApp.from_name(app_name)
+    await app.upload_build(build_path)
 
 
 def get_deployment_environments() -> Dict[str, Dict[str, Any]]:
@@ -61,45 +68,23 @@ def remove_deployment_environment(name: str):
         save_deployment_environments(environments)
 
 
-def deploy_to_environment(name: str) -> Dict[str, Any]:
-    """Deploy current project to environment (mock implementation)."""
-    environments = get_deployment_environments()
+async def deploy_to_environment(
+    app_name: str, env_name: str, build_path: Path
+) -> Dict[str, Any]:
+    """Deploy current project to environment."""
+    app = await FlashApp.from_name(app_name)
+    try:
+        await app.get_environment_by_name(env_name)
+    except Exception as exc:
+        text = str(exc)
+        if "flash environment" in text.lower() and "not found" in text.lower():
+            raise
 
-    if name not in environments:
-        raise ValueError(f"Environment {name} not found")
+    build = await app.upload_build(build_path)
+    build_id = build["id"]
 
-    # Mock deployment
-    version = f"v1.{len(environments[name]['version_history'])}.0"
-    url = f"https://{name.lower()}.example.com"
-
-    # Update environment
-    environments[name].update(
-        {
-            "status": "active",
-            "current_version": version,
-            "last_deployed": datetime.now().isoformat(),
-            "url": url,
-            "uptime": "99.9%",
-        }
-    )
-
-    # Add to version history
-    version_entry = {
-        "version": version,
-        "deployed_at": datetime.now().isoformat(),
-        "description": "Deployment via CLI",
-        "is_current": True,
-    }
-
-    # Mark previous versions as not current
-    for v in environments[name]["version_history"]:
-        v["is_current"] = False
-
-    environments[name]["version_history"].insert(0, version_entry)
-
-    save_deployment_environments(environments)
-
-    return {"version": version, "url": url, "status": "active"}
+    result = await app.deploy_build_to_environment(build_id, environment_name=env_name)
+    return result
 
 
 def rollback_deployment(name: str, target_version: str):

@@ -4,7 +4,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from pathlib import Path
 import questionary
+import asyncio
 
 from ..utils.deployment import (
     get_deployment_environments,
@@ -15,11 +17,23 @@ from ..utils.deployment import (
     get_environment_info,
 )
 
+from ..utils.app import discover_flash_project
+
+from tetra_rp.core.resources.app import FlashApp
+
 console = Console()
 
 
-def list_command():
+def list_command(
+    app_name: str | None = typer.Option(
+        None, "--app-name", "-a", help="flash app name to inspect"
+    ),
+):
     """Show available deployment environments."""
+    if not app_name:
+        _, app_name = discover_flash_project()
+    asyncio.run(list_flash_environments(app_name))
+    return
 
     console.print(
         Panel(
@@ -88,21 +102,119 @@ def list_command():
     console.print(f"\n{summary}")
 
 
+async def new_flash_deployment_environment(app_name: str, env_name: str):
+    """
+    Create a new flash deployment environment. Creates a flash app if it doesn't already exist.
+    """
+    app, env = await FlashApp.create_environment_and_app(app_name, env_name)
+
+    panel_content = (
+        f"Environment '[bold]{env_name}[/bold]' created successfully\n\n"
+        f"App: {app_name}\n"
+        f"Environment ID: {env.get('id')}\n"
+        f"Status: {env.get('state', 'PENDING')}"
+    )
+    console.print(Panel(panel_content, title="✅ Environment Created", expand=False))
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Name", style="bold")
+    table.add_column("ID", overflow="fold")
+    table.add_column("Status", overflow="fold")
+    table.add_column("Created At", overflow="fold")
+
+    table.add_row(
+        env.get("name"),
+        env.get("id"),
+        env.get("state", "PENDING"),
+        env.get("createdAt", "Just now"),
+    )
+    console.print(table)
+
+    console.print(f"\nNext: [bold]flash deploy send {env_name}[/bold]")
+
+
+async def info_flash_environment(app_name: str, env_name: str):
+    """
+    Get detailed information about a flash deployment environment.
+    """
+    app = await FlashApp.from_name(app_name)
+    env = await app.get_environment_by_name(env_name)
+
+    main_info = f"Environment: {env.get('name')}\n"
+    main_info += f"ID: {env.get('id')}\n"
+    main_info += f"State: {env.get('state', 'UNKNOWN')}\n"
+    main_info += f"Active Build: {env.get('activeBuildId', 'None')}\n"
+
+    if env.get("createdAt"):
+        main_info += f"Created: {env.get('createdAt')}\n"
+
+    console.print(Panel(main_info, title=f"📊 Environment: {env_name}", expand=False))
+
+    endpoints = env.get("endpoints") or []
+    if endpoints:
+        endpoint_table = Table(title="Associated Endpoints")
+        endpoint_table.add_column("Name", style="cyan")
+        endpoint_table.add_column("ID", overflow="fold")
+
+        for endpoint in endpoints:
+            endpoint_table.add_row(
+                endpoint.get("name", "—"),
+                endpoint.get("id", "—"),
+            )
+        console.print(endpoint_table)
+
+    network_volumes = env.get("networkVolumes") or []
+    if network_volumes:
+        nv_table = Table(title="Associated Network Volumes")
+        nv_table.add_column("Name", style="cyan")
+        nv_table.add_column("ID", overflow="fold")
+
+        for nv in network_volumes:
+            nv_table.add_row(
+                nv.get("name", "—"),
+                nv.get("id", "—"),
+            )
+        console.print(nv_table)
+
+
+async def list_flash_environments(app_name: str):
+    app = await FlashApp.from_name(app_name)
+    envs = await app.list_environments()
+
+    if not envs:
+        console.print(f"No environments found for '{app_name}'.")
+        return
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Name", style="bold")
+    table.add_column("ID", overflow="fold")
+    table.add_column("Active Build", overflow="fold")
+    table.add_column("Created At", overflow="fold")
+
+    for env in envs:
+        table.add_row(
+            env.get("name"),
+            env.get("id"),
+            env.get("activeBuildId", "-"),
+            env.get("createdAt"),
+        )
+
+    console.print(table)
+
+
 def new_command(
+    app_name: str | None = typer.Option(
+        None, "--app-name", "-a", help="Flash app name to create a new environment in"
+    ),
     name: str = typer.Argument(
         ..., help="Name of the deployment environment to create"
     ),
 ):
     """Create a new deployment environment."""
-
-    console.print(
-        Panel(
-            "[yellow]The deploy command is coming soon.[/yellow]\n\n"
-            "This feature is under development and will be available in a future release.",
-            title="Coming Soon",
-            expand=False,
-        )
-    )
+    if not app_name:
+        _, app_name = discover_flash_project()
+    assert app_name is not None
+    asyncio.run(new_flash_deployment_environment(app_name, name))
     return
 
     environments = get_deployment_environments()
@@ -150,37 +262,91 @@ def new_command(
 
 
 def send_command(
-    name: str = typer.Argument(..., help="Name of the deployment environment"),
+    env_name: str = typer.Argument(..., help="Name of the deployment environment"),
+    app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name"),
 ):
     """Deploy project to deployment environment."""
 
-    environments = get_deployment_environments()
+    if not app_name:
+        _, app_name = discover_flash_project()
 
-    if name not in environments:
-        console.print(f"Environment '{name}' not found")
-        console.print("Available environments:")
-        for env_name in environments.keys():
-            console.print(f"  • {env_name}")
+    build_path = Path(".flash/archive.tar.gz")
+    if not build_path.exists():
+        console.print(
+            "no build path found in current directory. Build your project with flash build first"
+        )
         raise typer.Exit(1)
 
-    # Deploy with mock progress
-    console.print(f"🚀 Deploying to '[bold]{name}[/bold]'...")
+    console.print(f"🚀 Deploying to '[bold]{env_name}[/bold]'...")
 
     try:
-        result = deploy_to_environment(name)
+        asyncio.run(deploy_to_environment(app_name, env_name, build_path))
 
-        panel_content = f"Deployed to '[bold]{name}[/bold]' successfully\n\n"
-        panel_content += f"Version: {result['version']}\n"
-        panel_content += f"URL: {result['url']}\n"
-        panel_content += "Status: 🟢 Active"
+        panel_content = f"Deployed to '[bold]{env_name}[/bold]' successfully\n\n"
 
-        console.print(
-            Panel(panel_content, title="🚀 Deployment Complete", expand=False)
-        )
+        console.print(Panel(panel_content, title="Deployment Complete", expand=False))
 
     except Exception as e:
         console.print(f"Deployment failed: {e}")
         raise typer.Exit(1)
+
+
+def info_command(
+    env_name: str = typer.Argument(..., help="Name of the deployment environment"),
+    app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name"),
+):
+    """Show detailed information about a deployment environment."""
+    if not app_name:
+        _, app_name = discover_flash_project()
+    asyncio.run(info_flash_environment(app_name, env_name))
+
+
+async def delete_flash_environment(app_name: str, env_name: str):
+    """Delete a flash deployment environment."""
+    app = await FlashApp.from_name(app_name)
+
+    env = await app.get_environment_by_name(env_name)
+
+    panel_content = (
+        f"Environment '[bold]{env_name}[/bold]' will be deleted\n\n"
+        f"Environment ID: {env.get('id')}\n"
+        f"App: {app_name}\n"
+        f"Active Build: {env.get('activeBuildId', 'None')}"
+    )
+    console.print(Panel(panel_content, title="⚠️  Delete Confirmation", expand=False))
+
+    try:
+        confirmed = questionary.confirm(
+            f"Are you sure you want to delete environment '{env_name}'?"
+        ).ask()
+
+        if not confirmed:
+            console.print("Deletion cancelled")
+            raise typer.Exit(0)
+    except KeyboardInterrupt:
+        console.print("\nDeletion cancelled")
+        raise typer.Exit(0)
+
+    with console.status(f"Deleting environment '{env_name}'..."):
+        success = await app.delete_environment(env_name)
+
+    if success:
+        console.print(f"✅ Environment '{env_name}' deleted successfully")
+    else:
+        console.print(f"❌ Failed to delete environment '{env_name}'")
+        raise typer.Exit(1)
+
+
+def delete_command(
+    env_name: str = typer.Argument(
+        ..., help="Name of the deployment environment to delete"
+    ),
+    app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name"),
+):
+    """Delete a deployment environment."""
+    if not app_name:
+        _, app_name = discover_flash_project()
+    asyncio.run(delete_flash_environment(app_name, env_name))
 
 
 def report_command(

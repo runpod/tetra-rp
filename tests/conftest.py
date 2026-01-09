@@ -22,6 +22,22 @@ from tetra_rp.core.utils.singleton import SingletonMixin
 
 
 @pytest.fixture
+def mock_asyncio_run_coro():
+    """Create a mock asyncio.run that executes coroutines."""
+
+    def run_coro(coro):
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    return run_coro
+
+
+@pytest.fixture
 def sample_gpu_config() -> Dict[str, Any]:
     """Provide standard GPU configuration for tests.
 
