@@ -1,4 +1,4 @@
-"""HTTP client for mothership manifest directory API."""
+"""HTTP client for mothership /manifest endpoint API."""
 
 import asyncio
 import logging
@@ -17,14 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class ManifestClient:
-    """HTTP client for querying mothership manifest directory service.
+    """HTTP client for querying mothership /manifest endpoint.
 
-    Fetches the endpoint registry that maps resource_config names to their
-    deployment URLs. This is the "manifest directory service" - an endpoint
-    registry showing where resources are deployed.
+    Fetches the endpoint registry from the mothership's /manifest endpoint,
+    which maps resource_config names to their deployment URLs.
 
-    The directory maps resource_config names to their endpoint URLs.
-    Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
+    The manifest maps resource_config names to their endpoint URLs.
+    Example: {"gpu_config": "https://gpu-worker.api.runpod.ai"}
     """
 
     def __init__(
@@ -56,14 +55,14 @@ class ManifestClient:
         self._client: Optional[httpx.AsyncClient] = None
 
     async def get_directory(self) -> Dict[str, str]:
-        """Fetch endpoint directory from mothership.
+        """Fetch manifest from mothership /manifest endpoint.
 
         Returns:
             Dictionary mapping resource_config_name → endpoint_url.
-            Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
+            Example: {"gpu_config": "https://gpu-worker.api.runpod.ai"}
 
         Raises:
-            ManifestServiceUnavailableError: If manifest directory service unavailable after retries.
+            ManifestServiceUnavailableError: If /manifest endpoint unavailable after retries.
         """
         if httpx is None:
             raise ImportError(
@@ -76,7 +75,7 @@ class ManifestClient:
             try:
                 client = await self._get_client()
                 response = await client.get(
-                    f"{self.mothership_url}/directory",
+                    f"{self.mothership_url}/manifest",
                     timeout=self.timeout,
                 )
 

@@ -581,8 +581,8 @@ class ManifestError(FlashRuntimeError):
     """Raised when manifest is invalid, missing, or has unexpected structure."""
     pass
 
-class DirectoryUnavailableError(FlashRuntimeError):
-    """Raised when directory service is unavailable."""
+class ManifestServiceUnavailableError(FlashRuntimeError):
+    """Raised when manifest service (mothership /manifest endpoint) is unavailable."""
     pass
 ```
 
@@ -596,8 +596,8 @@ except SerializationError as e:
     logger.error(f"Serialization failed: {e}")
 except ManifestError as e:
     logger.error(f"Manifest configuration error: {e}")
-except DirectoryUnavailableError as e:
-    logger.warning(f"Directory unavailable, using fallback")
+except ManifestServiceUnavailableError as e:
+    logger.warning(f"Manifest service unavailable, using fallback")
 ```
 
 ### Integration Points
