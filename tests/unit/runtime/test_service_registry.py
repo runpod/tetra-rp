@@ -68,20 +68,20 @@ class TestServiceRegistry:
     def test_init_with_manifest_path(self, manifest_file):
         """Test initialization with explicit manifest path."""
         registry = ServiceRegistry(manifest_path=manifest_file)
-        assert registry.get_manifest()["project_name"] == "test_app"
+        assert registry.get_manifest().project_name == "test_app"
 
     def test_init_from_env_manifest_path(self, manifest_file):
         """Test initialization from FLASH_MANIFEST_PATH env var."""
         with patch.dict(os.environ, {"FLASH_MANIFEST_PATH": str(manifest_file)}):
             registry = ServiceRegistry()
-            assert registry.get_manifest()["project_name"] == "test_app"
+            assert registry.get_manifest().project_name == "test_app"
 
     def test_init_manifest_not_found(self):
         """Test initialization with missing manifest."""
         with patch.dict(os.environ, {}, clear=True):
             registry = ServiceRegistry(manifest_path=Path("/nonexistent/manifest.json"))
             # Should not fail, returns empty manifest
-            assert registry.get_manifest()["function_registry"] == {}
+            assert registry.get_manifest().function_registry == {}
 
     def test_get_current_endpoint_id(self):
         """Test retrieval of current endpoint ID from env."""
@@ -258,7 +258,7 @@ class TestServiceRegistry:
         """Test getting manifest."""
         registry = ServiceRegistry(manifest_path=manifest_file)
         manifest = registry.get_manifest()
-        assert manifest["project_name"] == "test_app"
+        assert manifest.project_name == "test_app"
 
     def test_get_all_resources(self, manifest_file):
         """Test getting all resources."""

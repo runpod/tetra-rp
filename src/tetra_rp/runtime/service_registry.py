@@ -13,6 +13,7 @@ from tetra_rp.core.resources.serverless import ServerlessResource
 
 from .config import DEFAULT_CACHE_TTL
 from .manifest_client import ManifestClient, ManifestServiceUnavailableError
+from .models import Manifest
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,13 @@ class ServiceRegistry:
         self.cache_ttl = cache_ttl
         self._directory: Dict[str, str] = {}
         self._directory_loaded_at = 0.0
-        self._manifest: Dict = {}
+        self._manifest: Manifest = Manifest(
+            version="1.0",
+            generated_at="",
+            project_name="",
+            function_registry={},
+            resources={},
+        )
         self._directory_lock = asyncio.Lock()
 
         # Load manifest
@@ -99,7 +106,8 @@ class ServiceRegistry:
             if path and path.exists():
                 try:
                     with open(path) as f:
-                        self._manifest = json.load(f)
+                        manifest_dict = json.load(f)
+                    self._manifest = Manifest.from_dict(manifest_dict)
                     logger.debug(f"Manifest loaded from {path}")
                     return
                 except Exception as e:
@@ -111,7 +119,13 @@ class ServiceRegistry:
             "flash_manifest.json not found. Cross-endpoint routing disabled. "
             "Manifest is required for routing functions between endpoints."
         )
-        self._manifest = {"resources": {}, "function_registry": {}}
+        self._manifest = Manifest(
+            version="1.0",
+            generated_at="",
+            project_name="",
+            function_registry={},
+            resources={},
+        )
 
     async def _ensure_directory_loaded(self) -> None:
         """Load directory from mothership if cache expired or not loaded."""
@@ -153,7 +167,7 @@ class ServiceRegistry:
         Raises:
             ValueError: If function not in manifest.
         """
-        function_registry = self._manifest.get("function_registry", {})
+        function_registry = self._manifest.function_registry
 
         if function_name not in function_registry:
             raise ValueError(
@@ -250,11 +264,11 @@ class ServiceRegistry:
         """Force refresh directory from mothership on next access."""
         self._directory_loaded_at = 0
 
-    def get_manifest(self) -> Dict:
+    def get_manifest(self) -> Manifest:
         """Get loaded manifest.
 
         Returns:
-            Manifest dictionary with 'resources' and 'function_registry'.
+            Loaded Manifest object.
         """
         return self._manifest
 
@@ -262,9 +276,13 @@ class ServiceRegistry:
         """Get all resource configs from manifest.
 
         Returns:
-            Dictionary of resource configs.
+            Dictionary of resource configs as dictionaries.
         """
-        return self._manifest.get("resources", {})
+        from dataclasses import asdict
+
+        return {
+            name: asdict(config) for name, config in self._manifest.resources.items()
+        }
 
     def get_resource_functions(self, resource_name: str) -> list:
         """Get list of functions for a resource.
@@ -275,5 +293,9 @@ class ServiceRegistry:
         Returns:
             List of function metadata dictionaries.
         """
-        resource = self._manifest.get("resources", {}).get(resource_name, {})
-        return resource.get("functions", [])
+        resource = self._manifest.resources.get(resource_name)
+        if not resource:
+            return []
+        from dataclasses import asdict
+
+        return [asdict(func) for func in resource.functions]
