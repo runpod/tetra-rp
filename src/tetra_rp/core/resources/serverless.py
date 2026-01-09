@@ -440,27 +440,33 @@ class ServerlessResource(DeployableResource):
             raise
 
     def _has_structural_changes(self, new_config: "ServerlessResource") -> bool:
-        """Check if config changes require redeploy vs update.
+        """Check if config changes are version-triggering.
 
-        Runtime fields (template, templateId) are ignored to prevent false
-        structural change detection when the same resource is redeployed.
-
-        Structural changes (require redeploy):
-        - Image changes
-        - GPU configuration changes
+        Version-triggering changes cause server-side version increment and
+        worker recreation:
+        - Image changes (imageName via templateId)
+        - GPU configuration (gpus, gpuIds, allowedCudaVersions, gpuCount)
+        - Hardware allocation (instanceIds, locations)
+        - Storage changes (networkVolumeId)
         - Flashboot toggle
-        - Instance type changes
 
-        Non-structural changes (can update in-place):
-        - Worker scaling parameters
-        - Timeout values
-        - Environment variables
+        Rolling changes (no version increment):
+        - Worker scaling (workersMin, workersMax)
+        - Scaler configuration (scalerType, scalerValue)
+        - Timeout values (idleTimeout, executionTimeoutMs)
+        - Environment variables (env)
+
+        Note: This method is now informational for logging. The actual
+        version-triggering logic runs server-side when saveEndpoint is called.
+
+        Runtime fields (template, templateId, aiKey, userId) are excluded
+        to prevent false positives when comparing deployed vs new config.
 
         Args:
             new_config: New configuration to compare against
 
         Returns:
-            True if structural changes detected (requires redeploy)
+            True if version-triggering changes detected (workers will be recreated)
         """
         structural_fields = [
             "gpus",
