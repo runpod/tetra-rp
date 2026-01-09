@@ -342,8 +342,8 @@ graph TD
     A["Function Call"] -->|"intercepts stub layer"| B["ProductionWrapper"]
 
     B -->|"load service configuration"| C["ServiceRegistry"]
-    C -->|"if not cached"| D["DirectoryClient"]
-    D -->|"query mothership API"| E["Directory<br/>Endpoint URLs"]
+    C -->|"if not cached"| D["Manifest Endpoint<br/>/manifest"]
+    D -->|"query mothership"| E["Endpoint URLs<br/>From Deployed<br/>Resources"]
     E -->|"cache result<br/>TTL 300s"| C
 
     C -->|"lookup in manifest<br/>flash_manifest.json"| F{"Routing<br/>Decision"}
@@ -358,7 +358,7 @@ graph TD
     K --> L["Return Response<br/>base64 → cloudpickle"]
     L --> M["Deserialized Result"]
 
-    N["Error Handling:<br/>- RemoteExecutionError<br/>- SerializationError<br/>- DirectoryUnavailableError"] -.-> H
+    N["Error Handling:<br/>- RemoteExecutionError<br/>- SerializationError<br/>- ManifestServiceUnavailableError"] -.-> H
     N -.-> I
     N -.-> J
 
@@ -450,11 +450,11 @@ class ServiceRegistry:
     """Service discovery and routing for cross-endpoint function calls."""
 
     def __init__(self, manifest_path: Optional[Path] = None):
-        """Initialize with manifest and optional directory client."""
+        """Initialize with manifest and directory caching."""
         self._load_manifest(manifest_path)
-        self._directory_client = DirectoryClient(...)
-        self._directory = {}  # Cached endpoint URLs
+        self._directory = {}  # Cached endpoint URLs from /manifest
         self._directory_lock = asyncio.Lock()
+        self._directory_loaded_at = 0
 
     def get_resource_for_function(self, func_name: str) -> Optional[ServerlessResource]:
         """Get resource config for function from manifest."""
@@ -463,16 +463,25 @@ class ServiceRegistry:
         # - Explicitly set to null in manifest
 
         # Returns ServerlessResource if mapped in manifest
-        config = self._manifest["functions"].get(func_name)
+        config = self._manifest["function_registry"].get(func_name)
         return self._resolve_resource(config)
 
     async def _ensure_directory_loaded(self) -> None:
-        """Load directory from mothership with caching (TTL 300s)."""
+        """Load manifest directory from mothership with caching (TTL 300s).
+
+        Queries the /manifest endpoint on FLASH_MOTHERSHIP_URL.
+        """
         if self._is_directory_fresh():
             return
 
         async with self._directory_lock:
-            self._directory = await self._directory_client.get_directory()
+            # Query mothership /manifest endpoint
+            mothership_url = os.getenv("FLASH_MOTHERSHIP_URL")
+            if not mothership_url:
+                return  # Directory unavailable, graceful fallback
+
+            response = await self._http_client.get(f"{mothership_url}/manifest")
+            self._directory = response.json().get("manifest", {})
             self._directory_loaded_at = time.time()
 ```
 
@@ -504,35 +513,46 @@ class ServiceRegistry:
 - Thread-safe with `asyncio.Lock()`
 - Graceful fallback if directory unavailable
 
-#### 3. DirectoryClient
+#### 3. StateManagerClient
 
-**Location**: `src/tetra_rp/runtime/directory_client.py`
+**Location**: `src/tetra_rp/runtime/state_manager_client.py`
 
-HTTP client for mothership directory service:
+HTTP client for State Manager API (used by mothership auto-provisioning):
 
 ```python
-class DirectoryClient:
-    """HTTP client for querying mothership directory.
+class StateManagerClient:
+    """HTTP client for State Manager API.
 
-    The directory maps resource_config names to their endpoint URLs.
-    Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
+    The State Manager persists manifest state and provides reconciliation
+    for detecting new, changed, and removed resources.
     """
 
-    async def get_directory(self) -> Dict[str, str]:
-        """Fetch endpoint directory from mothership.
+    async def get_persisted_manifest(
+        self, mothership_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch persisted manifest from State Manager.
 
         Returns:
-            Dictionary mapping resource_config_name → endpoint_url.
-            Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
+            Manifest dict or None if not found (first boot).
 
         Raises:
-            DirectoryUnavailableError: If directory service unavailable after retries.
+            ManifestServiceUnavailableError: If State Manager unavailable.
         """
-        # Queries {mothership_url}/directory endpoint with retry logic
+        # Queries {base_url}/api/v1/flash/manifests/{mothership_id}
+
+    async def update_resource_state(
+        self,
+        mothership_id: str,
+        resource_name: str,
+        resource_data: Dict[str, Any],
+    ) -> None:
+        """Update resource entry in State Manager after deployment."""
+        # Queries {base_url}/api/v1/flash/manifests/{mothership_id}/resources/{resource_name}
 ```
 
 **Configuration**:
-- Mothership URL from `FLASH_MOTHERSHIP_URL` env var
+- Base URL: `https://api.runpod.io` (default, configurable)
+- Authentication: Bearer token using RUNPOD_API_KEY env var
 - HTTP timeout: 10 seconds (via `DEFAULT_REQUEST_TIMEOUT`)
 - Retry logic: Exponential backoff with `DEFAULT_MAX_RETRIES` attempts (default: 3)
 - Uses `httpx` library for async HTTP requests
@@ -667,7 +687,7 @@ Manifest Lookup (resource found)
     ↓
 Ensure Directory Loaded
     ↓
-DirectoryClient.get_endpoints()
+Query /manifest Endpoint (from mothership)
     ↓
 Get Remote Endpoint URL
     ↓
@@ -755,28 +775,34 @@ class JsonSerializer:
 2. Update ProductionWrapper to select serializer based on config
 3. Add tests for new format
 
-#### Adding New Directory Backends
+#### Customizing Directory Loading
 
-To support directories other than mothership:
+To support alternate directory backends instead of the mothership /manifest endpoint:
 
-1. Create client class with `get_directory()` method:
+1. Subclass ServiceRegistry and override `_ensure_directory_loaded()`:
 ```python
-class CustomDirectoryClient:
-    async def get_directory(self) -> Dict[str, str]:
-        """Fetch directory mapping resource_config_name → endpoint_url."""
+class CustomDirectoryRegistry(ServiceRegistry):
+    async def _ensure_directory_loaded(self) -> None:
+        """Load directory from custom backend instead of /manifest."""
+        if self._is_directory_fresh():
+            return
+
+        async with self._directory_lock:
+            # Custom directory loading logic
+            self._directory = await self._load_custom_directory()
+            self._directory_loaded_at = time.time()
+
+    async def _load_custom_directory(self) -> Dict[str, str]:
+        """Load directory from custom backend."""
         # Implementation specific to backend
         return {"resource_name": "https://endpoint.url"}
 ```
 
-2. Update ServiceRegistry to accept and use client in constructor:
+2. Use custom registry in ProductionWrapper:
 ```python
-registry = ServiceRegistry(
-    manifest_path=Path("manifest.json"),
-    directory_client=CustomDirectoryClient(...)
-)
+registry = CustomDirectoryRegistry(manifest_path=Path("manifest.json"))
+wrapper = ProductionWrapper(registry)
 ```
-
-3. Update environment variable handling if needed (CustomDirectoryClient can read from env vars)
 
 #### Adding Routing Policies
 
@@ -806,16 +832,22 @@ class RoutingPolicy:
 **ServiceRegistry Tests** (`tests/unit/runtime/test_service_registry.py`):
 - Manifest loading
 - Resource lookup
-- Directory caching
+- Directory caching from /manifest
 - TTL expiry
 - Lock behavior under concurrency
 
-**DirectoryClient Tests** (`tests/unit/runtime/test_directory_client.py`):
-- Successful HTTP requests
+**StateManagerClient Tests** (`tests/unit/runtime/test_state_manager_client.py`):
+- Successful manifest fetch
+- Manifest updates and deletions
 - Error handling
-- Retry logic
-- Timeout handling
-- URL validation
+- Retry logic with exponential backoff
+- HTTP timeout handling
+
+**MothershipProvisioner Tests** (`tests/unit/runtime/test_mothership_provisioner.py`):
+- Manifest reconciliation
+- Drift detection via config hashing
+- Resource creation from manifest
+- Directory mapping extraction
 
 **ProductionWrapper Tests** (`tests/unit/runtime/test_production_wrapper.py`):
 - Local execution routing
@@ -878,9 +910,9 @@ Enable debug logging to trace routing decisions:
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-# ProductionWrapper logs
-# ServiceRegistry logs
-# DirectoryClient logs
+# ProductionWrapper logs routing decisions
+# ServiceRegistry logs manifest and directory queries
+# StateManagerClient logs State Manager API requests
 ```
 
 #### Common Debug Scenarios
@@ -890,7 +922,7 @@ logging.basicConfig(level=logging.DEBUG)
 # Check manifest
 print(registry._manifest)
 
-# Check directory
+# Check directory (from /manifest endpoint)
 print(registry._directory)
 
 # Check resource lookup
@@ -908,16 +940,18 @@ except Exception as e:
     print(f"Not serializable: {e}")
 ```
 
-**Directory unavailable**:
+**/manifest endpoint unavailable**:
 ```python
 # Check environment variables
 import os
 print(f"FLASH_MOTHERSHIP_URL: {os.getenv('FLASH_MOTHERSHIP_URL')}")
 print(f"RUNPOD_ENDPOINT_ID: {os.getenv('RUNPOD_ENDPOINT_ID')}")
 
-# Check directory client directly
-client = DirectoryClient(mothership_url=...)
-endpoints = await client.get_endpoints()
+# Check /manifest endpoint directly
+import httpx
+async with httpx.AsyncClient() as client:
+    response = await client.get(f"{mothership_url}/manifest")
+    print(response.json())
 ```
 
 ## Key Implementation Highlights
