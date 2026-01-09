@@ -389,11 +389,11 @@ class ServerlessResource(DeployableResource):
             raise
 
     async def update(self, new_config: "ServerlessResource") -> "ServerlessResource":
-        """
-        Update existing endpoint with new configuration.
+        """Update existing endpoint with new configuration.
 
-        Uses saveEndpoint mutation which handles both create and update.
-        When 'id' is included in the payload, it updates the existing endpoint.
+        Uses saveEndpoint mutation which handles both version-triggering and
+        rolling changes. Version-triggering changes (GPU, template, volumes)
+        automatically increment version and trigger worker recreation server-side.
 
         Args:
             new_config: New configuration to apply
@@ -402,23 +402,20 @@ class ServerlessResource(DeployableResource):
             Updated ServerlessResource instance
 
         Raises:
-            ValueError: If endpoint not deployed or structural changes detected
+            ValueError: If endpoint not deployed or update fails
         """
         if not self.id:
             raise ValueError("Cannot update: endpoint not deployed")
 
-        # Check for structural changes that require redeploy
-        if self._has_structural_changes(new_config):
-            log.warning(
-                f"{self.name}: Structural changes detected. "
-                "Redeploying with new configuration."
-            )
-            # Undeploy current, deploy new
-            await self.undeploy()
-            return await new_config.deploy()
-
         try:
-            log.info(f"Updating endpoint '{self.name}' (ID: {self.id})")
+            # Log if version-triggering changes detected (informational only)
+            if self._has_structural_changes(new_config):
+                log.info(
+                    f"{self.name}: Version-triggering changes detected. "
+                    "Server will increment version and recreate workers."
+                )
+            else:
+                log.info(f"Updating endpoint '{self.name}' (ID: {self.id})")
 
             # Ensure network volume is deployed if specified
             await new_config._ensure_network_volume_deployed()
