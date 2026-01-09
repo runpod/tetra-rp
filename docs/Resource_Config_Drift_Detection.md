@@ -37,7 +37,7 @@ RUNTIME_FIELDS: ClassVar[Set[str]] = {
     "repo",               # Computed by API
 }
 
-EXCLUDED_HASH_FIELDS: ClassVar[Set[str]] = {"id", "env"}
+EXCLUDED_HASH_FIELDS: ClassVar[Set[str]] = {"id"}
 ```
 
 The `config_hash` property:
