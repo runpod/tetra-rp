@@ -66,8 +66,8 @@ class TestLoadBalancerConfigHashStability:
 
         assert hash1 == hash2, "TemplateId assignment should not affect hash"
 
-    def test_lb_config_hash_excludes_env_variables(self):
-        """Environment variable changes don't trigger hash change."""
+    def test_lb_config_hash_detects_env_changes(self):
+        """Environment variable changes trigger hash change (drift detection)."""
         lb1 = LoadBalancerSlsResource(
             name="test-lb",
             imageName="test/image:latest",
@@ -82,7 +82,9 @@ class TestLoadBalancerConfigHashStability:
         )
         hash2 = lb2.config_hash
 
-        assert hash1 == hash2, "Env variable changes should not affect hash"
+        assert hash1 != hash2, (
+            "Env variable changes should affect hash and trigger drift"
+        )
 
     def test_lb_config_hash_excludes_api_assigned_fields(self):
         """Runtime fields (aiKey, userId, etc.) don't affect hash."""
@@ -339,8 +341,8 @@ class TestDriftDetectionRealWorldScenario:
 
         assert hash1 == hash2, "Same config redeployed should have same hash"
 
-    def test_env_var_changes_no_drift(self):
-        """Environment variable changes don't trigger drift."""
+    def test_env_var_changes_trigger_drift(self):
+        """Environment variable changes trigger drift detection."""
         # First deployment with minimal env
         lb1 = LoadBalancerSlsResource(
             name="api",
@@ -361,7 +363,7 @@ class TestDriftDetectionRealWorldScenario:
         )
         hash2 = lb2.config_hash
 
-        assert hash1 == hash2, "Env changes should not affect hash"
+        assert hash1 != hash2, "Env changes should affect hash and trigger drift"
 
     def test_api_response_fields_no_drift(self):
         """API response fields don't trigger drift."""
