@@ -640,11 +640,15 @@ class TestErrorHandlingInRemoteClassExecution:
             ):
                 # The error should occur during method call when trying to serialize
                 # Mock cloudpickle.dumps to raise an error
+                from tetra_rp.runtime.exceptions import SerializationError
+
                 with patch(
-                    "tetra_rp.execute_class.cloudpickle.dumps",
+                    "tetra_rp.runtime.serialization.cloudpickle.dumps",
                     side_effect=TypeError("Can't pickle file objects"),
                 ):
-                    with pytest.raises(TypeError, match="Can't pickle file objects"):
+                    with pytest.raises(
+                        SerializationError, match="Can't pickle file objects"
+                    ):
                         await instance.process_file()
 
     @pytest.mark.asyncio

@@ -1,4 +1,5 @@
 import logging
+import os
 from functools import singledispatch
 
 from ..core.resources import (
@@ -55,6 +56,46 @@ def _create_live_serverless_stub(resource, **extra):
     async def execute_class_method(request):
         response = await stub.ExecuteFunction(request)
         return stub.handle_response(response)
+
+    # Inject ProductionWrapper if in production mode
+    if os.getenv("RUNPOD_ENDPOINT_ID"):
+        try:
+            from ..runtime.production_wrapper import create_production_wrapper
+
+            wrapper = create_production_wrapper()
+            original_stubbed = stubbed_resource
+            original_class_method = execute_class_method
+
+            async def wrapped_stubbed(
+                func,
+                dependencies,
+                system_dependencies,
+                accelerate_downloads,
+                *args,
+                **kwargs,
+            ):
+                return await wrapper.wrap_function_execution(
+                    original_stubbed,
+                    func,
+                    dependencies,
+                    system_dependencies,
+                    accelerate_downloads,
+                    *args,
+                    **kwargs,
+                )
+
+            async def wrapped_class_method(request):
+                return await wrapper.wrap_class_method_execution(
+                    original_class_method, request
+                )
+
+            stubbed_resource = wrapped_stubbed
+            execute_class_method = wrapped_class_method
+
+        except ImportError:
+            log.warning(
+                "ProductionWrapper not available, cross-endpoint routing disabled"
+            )
 
     # Attach the method to the function
     stubbed_resource.execute_class_method = execute_class_method
