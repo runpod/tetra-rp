@@ -3,7 +3,9 @@
 import importlib.util
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
+
+from tetra_rp.runtime.models import Manifest
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,7 @@ if __name__ == "__main__":
 class LBHandlerGenerator:
     """Generates FastAPI handlers for LoadBalancerSlsResource endpoints."""
 
-    def __init__(self, manifest: Dict[str, Any], build_dir: Path):
+    def __init__(self, manifest: Union[Dict[str, Any], Manifest], build_dir: Path):
         self.manifest = manifest
         self.build_dir = build_dir
 
@@ -66,9 +68,20 @@ class LBHandlerGenerator:
         """Generate all LB handler files."""
         handler_paths = []
 
-        for resource_name, resource_data in self.manifest.get("resources", {}).items():
+        # Handle both dict and Manifest types
+        resources = (
+            self.manifest.resources
+            if isinstance(self.manifest, Manifest)
+            else self.manifest.get("resources", {})
+        )
+
+        for resource_name, resource_data in resources.items():
             # Generate for both LiveLoadBalancer (local dev) and LoadBalancerSlsResource (deployed)
-            resource_type = resource_data.get("resource_type")
+            resource_type = (
+                resource_data.resource_type
+                if hasattr(resource_data, "resource_type")
+                else resource_data.get("resource_type")
+            )
             if resource_type not in ["LoadBalancerSlsResource", "LiveLoadBalancer"]:
                 continue
 
@@ -77,26 +90,39 @@ class LBHandlerGenerator:
 
         return handler_paths
 
-    def _generate_handler(
-        self, resource_name: str, resource_data: Dict[str, Any]
-    ) -> Path:
+    def _generate_handler(self, resource_name: str, resource_data: Any) -> Path:
         """Generate a single FastAPI handler file."""
         handler_filename = f"handler_{resource_name}.py"
         handler_path = self.build_dir / handler_filename
 
         # Get timestamp from manifest
-        timestamp = self.manifest.get("generated_at", "")
+        timestamp = (
+            self.manifest.generated_at
+            if isinstance(self.manifest, Manifest)
+            else self.manifest.get("generated_at", "")
+        )
 
         # Determine if /execute endpoint should be included
         # LiveLoadBalancer (local dev) includes /execute, deployed LoadBalancerSlsResource does not
-        resource_type = resource_data.get("resource_type", "LoadBalancerSlsResource")
+        resource_type = (
+            resource_data.resource_type
+            if hasattr(resource_data, "resource_type")
+            else resource_data.get("resource_type", "LoadBalancerSlsResource")
+        )
         include_execute = resource_type == "LiveLoadBalancer"
 
+        # Get functions from resource (handle both dict and ResourceConfig)
+        functions = (
+            resource_data.functions
+            if hasattr(resource_data, "functions")
+            else resource_data.get("functions", [])
+        )
+
         # Generate imports section
-        imports = self._generate_imports(resource_data.get("functions", []))
+        imports = self._generate_imports(functions)
 
         # Generate route registry
-        registry = self._generate_route_registry(resource_data.get("functions", []))
+        registry = self._generate_route_registry(functions)
 
         # Format template
         handler_code = LB_HANDLER_TEMPLATE.format(
@@ -114,11 +140,11 @@ class LBHandlerGenerator:
 
         return handler_path
 
-    def _generate_imports(self, functions: List[Dict[str, Any]]) -> str:
+    def _generate_imports(self, functions: List[Any]) -> str:
         """Generate import statements for functions.
 
         Args:
-            functions: List of function metadata dicts
+            functions: List of function metadata (dicts or FunctionMetadata objects)
 
         Returns:
             Import statements as string
@@ -126,15 +152,16 @@ class LBHandlerGenerator:
         imports = []
 
         for func in functions:
-            module = func.get("module")
-            name = func.get("name")
+            # Handle both dict and FunctionMetadata
+            module = func.module if hasattr(func, "module") else func.get("module")
+            name = func.name if hasattr(func, "name") else func.get("name")
 
             if module and name:
                 imports.append(f"from {module} import {name}")
 
         return "\n".join(imports) if imports else "# No functions to import"
 
-    def _generate_route_registry(self, functions: List[Dict[str, Any]]) -> str:
+    def _generate_route_registry(self, functions: List[Any]) -> str:
         """Generate route registry for FastAPI app.
 
         Creates mapping of (method, path) tuples to function names.
@@ -151,9 +178,16 @@ class LBHandlerGenerator:
         registry_lines = []
 
         for func in functions:
-            name = func.get("name")
-            method = func.get("http_method")
-            path = func.get("http_path")
+            # Handle both dict and FunctionMetadata
+            name = func.name if hasattr(func, "name") else func.get("name")
+            method = (
+                func.http_method
+                if hasattr(func, "http_method")
+                else func.get("http_method")
+            )
+            path = (
+                func.http_path if hasattr(func, "http_path") else func.get("http_path")
+            )
 
             if name and method and path:
                 # Create tuple key: ("GET", "/api/process")

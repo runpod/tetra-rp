@@ -1,13 +1,12 @@
 """Generic RunPod serverless handler factory for Flash."""
 
-import base64
 import json
 import logging
 import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict
 
-import cloudpickle
+from .serialization import deserialize_args, deserialize_kwargs, serialize_arg
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +63,8 @@ def deserialize_arguments(job_input: Dict[str, Any]) -> tuple[list, dict]:
     Returns:
         Tuple of (args list, kwargs dict) deserialized from cloudpickle
     """
-    args = [
-        cloudpickle.loads(base64.b64decode(arg)) for arg in job_input.get("args", [])
-    ]
-    kwargs = {
-        k: cloudpickle.loads(base64.b64decode(v))
-        for k, v in job_input.get("kwargs", {}).items()
-    }
+    args = deserialize_args(job_input.get("args", []))
+    kwargs = deserialize_kwargs(job_input.get("kwargs", {}))
     return args, kwargs
 
 
@@ -83,7 +77,7 @@ def serialize_result(result: Any) -> str:
     Returns:
         Base64-encoded cloudpickle of result
     """
-    return base64.b64encode(cloudpickle.dumps(result)).decode("utf-8")
+    return serialize_arg(result)
 
 
 def execute_function(

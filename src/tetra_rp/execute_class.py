@@ -6,7 +6,6 @@ with automatic caching of class serialization data to improve performance and
 prevent memory leaks through LRU eviction.
 """
 
-import base64
 import hashlib
 import inspect
 import logging
@@ -20,6 +19,8 @@ from .core.resources import ResourceManager, ServerlessResource
 from .core.utils.constants import HASH_TRUNCATE_LENGTH, UUID_FALLBACK_LENGTH
 from .core.utils.lru_cache import LRUCache
 from .protos.remote_execution import FunctionRequest
+from .runtime.exceptions import SerializationError
+from .runtime.serialization import serialize_args, serialize_kwargs
 from .stubs import stub_resource
 
 log = logging.getLogger(__name__)
@@ -30,14 +31,7 @@ _SERIALIZED_CLASS_CACHE = LRUCache(max_size=1000)
 
 def serialize_constructor_args(args, kwargs):
     """Serialize constructor arguments for caching."""
-    serialized_args = [
-        base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-    ]
-    serialized_kwargs = {
-        k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-        for k, v in kwargs.items()
-    }
-    return serialized_args, serialized_kwargs
+    return serialize_args(args), serialize_kwargs(kwargs)
 
 
 def get_or_cache_class_data(
@@ -65,7 +59,7 @@ def get_or_cache_class_data(
 
             log.debug(f"Cached class data for {cls.__name__} with key: {cache_key}")
 
-        except (TypeError, AttributeError, OSError) as e:
+        except (TypeError, AttributeError, OSError, SerializationError) as e:
             log.warning(
                 f"Could not serialize constructor arguments for {cls.__name__}: {e}"
             )
@@ -267,14 +261,8 @@ def create_remote_class(
                 cached_data = _SERIALIZED_CLASS_CACHE.get(self._cache_key)
 
                 # Serialize method arguments (these change per call, so no caching)
-                method_args = [
-                    base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8")
-                    for arg in args
-                ]
-                method_kwargs = {
-                    k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-                    for k, v in kwargs.items()
-                }
+                method_args = serialize_args(args)
+                method_kwargs = serialize_kwargs(kwargs)
 
                 # Handle constructor args - use cached if available, else serialize fresh
                 if cached_data["constructor_args"] is not None:
@@ -284,14 +272,8 @@ def create_remote_class(
                 else:
                     # Constructor args couldn't be cached due to serialization issues
                     # Serialize them fresh for each method call (fallback behavior)
-                    constructor_args = [
-                        base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8")
-                        for arg in self._constructor_args
-                    ]
-                    constructor_kwargs = {
-                        k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-                        for k, v in self._constructor_kwargs.items()
-                    }
+                    constructor_args = serialize_args(self._constructor_args)
+                    constructor_kwargs = serialize_kwargs(self._constructor_kwargs)
 
                 request = FunctionRequest(
                     execution_type="class",

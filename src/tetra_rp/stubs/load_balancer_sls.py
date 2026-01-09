@@ -4,15 +4,18 @@ Enables @remote decorator to work with LoadBalancerSlsResource endpoints
 via direct HTTP calls instead of queue-based job submission.
 """
 
-import base64
 import inspect
 import logging
 from typing import Any, Callable, Dict, List, Optional
 
 import httpx
-import cloudpickle
 
 from tetra_rp.core.utils.http import get_authenticated_httpx_client
+from tetra_rp.runtime.serialization import (
+    deserialize_arg,
+    serialize_args,
+    serialize_kwargs,
+)
 from .live_serverless import get_function_source
 
 log = logging.getLogger(__name__)
@@ -188,18 +191,11 @@ class LoadBalancerSlsStub:
 
         # Serialize arguments using cloudpickle + base64
         if args:
-            serialized_args = [
-                base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-            ]
-            request["args"] = serialized_args
+            request["args"] = serialize_args(args)
             log.debug(f"Serialized {len(args)} positional args for {func.__name__}")
 
         if kwargs:
-            serialized_kwargs = {
-                k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-                for k, v in kwargs.items()
-            }
-            request["kwargs"] = serialized_kwargs
+            request["kwargs"] = serialize_kwargs(kwargs)
             log.debug(f"Serialized {len(kwargs)} keyword args for {func.__name__}")
 
         return request
@@ -348,7 +344,7 @@ class LoadBalancerSlsStub:
                 raise ValueError("Response marked success but result is None")
 
             try:
-                result = cloudpickle.loads(base64.b64decode(result_b64))
+                result = deserialize_arg(result_b64)
                 log.debug(
                     f"Successfully deserialized response result (type={type(result).__name__})"
                 )
