@@ -21,8 +21,15 @@ Load-balanced endpoints expose HTTP servers directly to clients, enabling:
 - Real-time communication patterns
 """
 
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from tetra_rp.runtime.lb_handler import create_lb_handler
+
+logger = logging.getLogger(__name__)
 
 # Import all functions/classes that belong to this resource
 {imports}
@@ -32,11 +39,56 @@ ROUTE_REGISTRY = {{
 {registry}
 }}
 
-# Create FastAPI app with routes
+
+# Lifespan context manager for startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown."""
+    # Startup
+    logger.info("Starting {resource_name} endpoint")
+
+    # Check if this is the mothership and initiate provisioning
+    try:
+        from tetra_rp.runtime.mothership_provisioner import (
+            is_mothership,
+            provision_children,
+            get_mothership_url,
+        )
+        from tetra_rp.runtime.state_manager_client import StateManagerClient
+
+        if is_mothership():
+            logger.info("Mothership detected, initiating auto-provisioning")
+            try:
+                mothership_url = get_mothership_url()
+                logger.info(f"Mothership URL: {{mothership_url}}")
+
+                # Initialize State Manager client
+                state_client = StateManagerClient()
+
+                # Spawn background provisioning task (non-blocking)
+                manifest_path = Path(__file__).parent / "flash_manifest.json"
+                asyncio.create_task(
+                    provision_children(manifest_path, mothership_url, state_client)
+                )
+
+            except Exception as e:
+                logger.error(f"Failed to start mothership provisioning: {{e}}")
+                # Don't fail startup - continue serving traffic
+
+    except ImportError:
+        logger.debug("Mothership provisioning modules not available")
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down {resource_name} endpoint")
+
+
+# Create FastAPI app with routes and lifespan
 # Note: include_execute={include_execute} for this endpoint type
 # - LiveLoadBalancer (local): include_execute=True for /execute endpoint
 # - LoadBalancerSlsResource (deployed): include_execute=False (security)
-app = create_lb_handler(ROUTE_REGISTRY, include_execute={include_execute})
+app = create_lb_handler(ROUTE_REGISTRY, include_execute={include_execute}, lifespan=lifespan)
 
 
 # Health check endpoint (required for RunPod load-balancer endpoints)
@@ -48,6 +100,27 @@ def ping():
         dict: Status response
     """
     return {{"status": "healthy"}}
+
+
+# Manifest endpoint for service discovery
+@app.get("/manifest")
+async def manifest():
+    """Return manifest directory for service discovery.
+
+    Maps resource_config_name -> endpoint_url for all deployed children.
+    Used by child endpoints to discover peers via FLASH_MOTHERSHIP_URL.
+
+    Returns:
+        dict: {{"manifest": {{resource_name: endpoint_url, ...}}}}
+    """
+    try:
+        from tetra_rp.runtime.mothership_provisioner import get_manifest_directory
+
+        manifest_directory = await get_manifest_directory()
+        return {{"manifest": manifest_directory}}
+    except Exception as e:
+        logger.error(f"Failed to get manifest directory: {{e}}")
+        return {{"manifest": {{}}, "error": str(e)}}
 
 
 if __name__ == "__main__":

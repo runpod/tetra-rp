@@ -204,7 +204,7 @@ class TestRemoteWithLoadBalancerIntegration:
             # Verify the handler includes include_execute=True for LiveLoadBalancer
             assert "include_execute=True" in handler_code
             assert (
-                "create_lb_handler(ROUTE_REGISTRY, include_execute=True)"
+                "create_lb_handler(ROUTE_REGISTRY, include_execute=True, lifespan=lifespan)"
                 in handler_code
             )
 
@@ -254,7 +254,7 @@ class TestRemoteWithLoadBalancerIntegration:
             # Verify the handler includes include_execute=False for deployed endpoints
             assert "include_execute=False" in handler_code
             assert (
-                "create_lb_handler(ROUTE_REGISTRY, include_execute=False)"
+                "create_lb_handler(ROUTE_REGISTRY, include_execute=False, lifespan=lifespan)"
                 in handler_code
             )
 

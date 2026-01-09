@@ -930,6 +930,232 @@ endpoints = await client.get_endpoints()
 4. **Thread-Safe Async**: Proper `asyncio.Lock()` usage for concurrent operations
 5. **Clear Error Hierarchy**: Custom exceptions provide actionable error context
 
+## Mothership Auto-Provisioning
+
+### Overview
+
+Mothership auto-provisioning automates the deployment of child endpoints when the mothership boots. Instead of manually deploying child resources, the mothership reads its `flash_manifest.json`, compares against the persisted manifest in State Manager, and automatically deploys, updates, or removes child resources as needed.
+
+### How It Works
+
+#### 1. Mothership Identification
+
+When a LoadBalancerSlsResource is deployed as the mothership, the system automatically sets:
+```python
+env["FLASH_IS_MOTHERSHIP"] = "true"
+```
+
+This environment variable signals to the mothership that it should auto-provision child resources on boot.
+
+#### 2. Boot Sequence
+
+When the mothership starts:
+
+1. **Lifespan Startup Hook**: The FastAPI lifespan context manager starts
+2. **Mothership Check**: System checks if `FLASH_IS_MOTHERSHIP=true`
+3. **Background Task**: Spawns non-blocking provisioning task via `asyncio.create_task()`
+4. **FastAPI Server**: Starts serving requests immediately (not blocked by provisioning)
+5. **Directory Available**: `/manifest` endpoint returns partial results during provisioning
+
+#### 3. Manifest Reconciliation
+
+The mothership compares local manifest with State Manager's persisted manifest:
+
+**New Resources** (in local, not in State Manager):
+- Created with `ResourceManager.get_or_deploy_resource()`
+- `FLASH_MOTHERSHIP_URL` env var set on child
+- State Manager updated with resource entry (hash, endpoint_url, status)
+
+**Changed Resources** (different config hash):
+- Updated with `ResourceManager.get_or_deploy_resource()`
+- Config hash recomputed and State Manager updated
+
+**Removed Resources** (in State Manager, not in local):
+- Undeployed with `ResourceManager.undeploy_resource()`
+- Removed from State Manager
+
+**Unchanged Resources** (same config hash):
+- Skipped (idempotent behavior - no unnecessary deployments)
+
+**LoadBalancer Resources** (LoadBalancerSlsResource, LiveLoadBalancer):
+- Automatically skipped (don't deploy the mothership as a child)
+
+### Configuration
+
+#### Environment Variables
+
+The mothership uses:
+- `RUNPOD_ENDPOINT_ID`: Mothership's endpoint ID (required for URL construction)
+- `FLASH_IS_MOTHERSHIP`: Set to `"true"` to trigger auto-provisioning
+- `RUNPOD_API_KEY`: Used for State Manager API authentication
+
+#### State Manager API
+
+The mothership persists manifest state via HTTP API:
+
+**Endpoints**:
+- `GET /api/v1/flash/manifests/{mothership_id}` - Fetch persisted manifest
+- `PUT /api/v1/flash/manifests/{mothership_id}/resources/{resource_name}` - Update resource
+- `DELETE /api/v1/flash/manifests/{mothership_id}/resources/{resource_name}` - Remove resource
+
+**Base URL**: `https://api.runpod.io` (default, configurable)
+
+**Authentication**: Bearer token using RUNPOD_API_KEY
+
+### /manifest Endpoint
+
+The mothership serves a `/manifest` endpoint for service discovery:
+
+**Endpoint**: `GET /manifest`
+
+**Response**:
+```json
+{
+  "manifest": {
+    "gpu_worker": "https://gpu-worker.api.runpod.ai",
+    "cpu_worker": "https://cpu-worker.api.runpod.ai"
+  }
+}
+```
+
+**Behavior**:
+- Queries ResourceManager for all deployed resources
+- Returns partial results during provisioning (gradual population)
+- Returns empty manifest if no resources deployed yet
+- Graceful error handling - returns manifest and error field on failure
+
+### Idempotency
+
+Auto-provisioning is idempotent - running the mothership multiple times:
+
+**First Boot**:
+- All resources in local manifest are NEW
+- All deployed to State Manager
+- Directory populated
+
+**Second Boot (unchanged manifest)**:
+- All resources have matching config hashes
+- All UNCHANGED - none deployed again
+- Directory reused
+
+**Third Boot (with changes)**:
+- Changed resources updated
+- New resources deployed
+- Removed resources undeployed
+- Unchanged resources skipped
+- Efficient - only changes applied
+
+This ensures:
+- No duplicate resource deployments
+- Automatic cleanup of removed resources
+- Zero downtime provisioning
+- Efficient use of cloud resources
+
+### Example Workflow
+
+```python
+# main.py - Mothership application
+from tetra_rp import LoadBalancerSlsResource, remote
+from fastapi import FastAPI
+
+# Create mothership
+mothership = LoadBalancerSlsResource(
+    name="mothership",
+    imageName="my-mothership:latest"
+)
+
+# Deploy mothership (auto-provisioning triggered)
+# await mothership.deploy()
+
+# FastAPI app
+app = FastAPI()
+
+@app.get("/ping")
+def ping():
+    return {"status": "healthy"}
+
+@app.get("/manifest")
+async def get_manifest():
+    """Auto-generated endpoint via lifespan hook"""
+    # Returns directory of deployed children
+    return {"manifest": {...}}
+```
+
+### Monitoring Provisioning
+
+Check mothership logs for provisioning activity:
+
+```
+Mothership detected, initiating auto-provisioning
+Mothership URL: https://mothership-123.api.runpod.ai
+Reconciliation complete: 2 new, 1 changed, 1 removed, 3 unchanged
+Deployed new resource: gpu_worker
+Updated resource: cpu_worker
+Deleted removed resource: old_worker
+Provisioning complete
+```
+
+### Error Handling
+
+Provisioning errors don't block mothership startup:
+
+```
+Failed to deploy gpu_worker: RuntimeError: GPU allocation failed
+(State Manager updated with status: failed)
+
+Failed to update cpu_worker: ConnectionError: State Manager unavailable
+(Continues provisioning other resources)
+```
+
+The mothership continues serving traffic even if some child deployments fail.
+
+### Architecture
+
+```mermaid
+graph TD
+    A["Mothership Boot"] --> B["Lifespan Hook"]
+    B --> C["Check FLASH_IS_MOTHERSHIP"]
+    C -->|"true"| D["Spawn Background Task"]
+    C -->|"false"| Z["Skip provisioning"]
+
+    D --> E["Load Local Manifest"]
+    E --> F["Query State Manager"]
+    F --> G["Reconcile Manifests"]
+
+    G --> H["New Resources"]
+    G --> I["Changed Resources"]
+    G --> J["Removed Resources"]
+    G --> K["Unchanged Resources"]
+
+    H --> L["ResourceManager.deploy()"]
+    I --> L
+    J --> M["ResourceManager.undeploy()"]
+    K --> N["Skip (idempotent)"]
+
+    L --> O["Update State Manager"]
+    M --> P["Remove from State Manager"]
+
+    O --> Q["Directory Updated"]
+    P --> Q
+    N --> Q
+
+    Q --> R["/manifest Endpoint Returns<br/>Updated Directory"]
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#0d7f1f,stroke:#0d4f1f,stroke-width:3px,color:#fff
+    style D fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style G fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style Q fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style R fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+```
+
+### Implementation Files
+
+- **StateManagerClient**: `src/tetra_rp/runtime/state_manager_client.py`
+- **MothershipProvisioner**: `src/tetra_rp/runtime/mothership_provisioner.py`
+- **LB Handler Generator**: `src/tetra_rp/cli/commands/build_utils/lb_handler_generator.py`
+- **LoadBalancerSlsResource**: `src/tetra_rp/core/resources/load_balancer_sls_resource.py`
+
 ## Conclusion
 
 Cross-endpoint routing provides:
@@ -939,5 +1165,6 @@ Cross-endpoint routing provides:
 - **Resilience**: Graceful fallback to local execution if directory unavailable
 - **Simplicity**: No changes to function code or signatures
 - **Debuggability**: Clear error messages and logging for troubleshooting
+- **Automation**: Mothership auto-provisioning eliminates manual resource deployment
 
-The architecture prioritizes clarity and maintainability while enabling distributed serverless applications.
+The architecture prioritizes clarity and maintainability while enabling distributed serverless applications with automated deployment orchestration.
