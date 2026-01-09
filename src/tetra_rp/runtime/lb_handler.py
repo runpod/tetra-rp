@@ -15,13 +15,17 @@ Security Model:
     Users should NOT expose the /execute endpoint to untrusted clients.
 """
 
-import base64
 import inspect
 import logging
 from typing import Any, Callable, Dict
 
-import cloudpickle
 from fastapi import FastAPI, Request
+
+from .serialization import (
+    deserialize_args,
+    deserialize_kwargs,
+    serialize_arg,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,29 +98,15 @@ def create_lb_handler(
                     }
 
                 # Deserialize arguments
-                args = []
-                for arg_b64 in body.get("args", []):
-                    try:
-                        arg = cloudpickle.loads(base64.b64decode(arg_b64))
-                        args.append(arg)
-                    except Exception as e:
-                        logger.error(f"Failed to deserialize argument: {e}")
-                        return {
-                            "success": False,
-                            "error": f"Failed to deserialize argument: {e}",
-                        }
-
-                kwargs = {}
-                for key, val_b64 in body.get("kwargs", {}).items():
-                    try:
-                        val = cloudpickle.loads(base64.b64decode(val_b64))
-                        kwargs[key] = val
-                    except Exception as e:
-                        logger.error(f"Failed to deserialize kwarg '{key}': {e}")
-                        return {
-                            "success": False,
-                            "error": f"Failed to deserialize kwarg '{key}': {e}",
-                        }
+                try:
+                    args = deserialize_args(body.get("args", []))
+                    kwargs = deserialize_kwargs(body.get("kwargs", {}))
+                except Exception as e:
+                    logger.error(f"Failed to deserialize arguments: {e}")
+                    return {
+                        "success": False,
+                        "error": f"Failed to deserialize arguments: {e}",
+                    }
 
                 # Execute function in isolated namespace
                 namespace: Dict[str, Any] = {}
@@ -160,9 +150,7 @@ def create_lb_handler(
 
                 # Serialize result
                 try:
-                    result_b64 = base64.b64encode(cloudpickle.dumps(result)).decode(
-                        "utf-8"
-                    )
+                    result_b64 = serialize_arg(result)
                     return {"success": True, "result": result_b64}
                 except Exception as e:
                     logger.error(f"Failed to serialize result: {e}")

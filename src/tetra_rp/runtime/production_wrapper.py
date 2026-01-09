@@ -1,14 +1,12 @@
 """Production wrapper for cross-endpoint function routing."""
 
-import base64
 import logging
 from typing import Any, Callable, Dict, Optional
 
-import cloudpickle
-
 from tetra_rp.core.resources.serverless import ServerlessResource
 
-from .exceptions import RemoteExecutionError, SerializationError
+from .exceptions import RemoteExecutionError
+from .serialization import serialize_args, serialize_kwargs
 from .service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -174,22 +172,11 @@ class ProductionWrapper:
             Execution result.
 
         Raises:
-            SerializationError: If serialization fails.
             RemoteExecutionError: If remote execution fails.
         """
         # Serialize arguments
-        try:
-            serialized_args = [
-                base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-            ]
-            serialized_kwargs = {
-                k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-                for k, v in kwargs.items()
-            }
-        except Exception as e:
-            raise SerializationError(
-                f"Failed to serialize arguments for {function_name}: {e}"
-            ) from e
+        serialized_args = serialize_args(args)
+        serialized_kwargs = serialize_kwargs(kwargs)
 
         # Build payload matching RunPod format
         payload = {

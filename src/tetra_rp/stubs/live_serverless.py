@@ -13,6 +13,7 @@ from ..protos.remote_execution import (
     FunctionResponse,
     RemoteExecutorStub,
 )
+from ..runtime.serialization import serialize_args, serialize_kwargs
 
 log = logging.getLogger(__name__)
 
@@ -100,14 +101,9 @@ class LiveServerlessStub(RemoteExecutorStub):
 
         # Serialize arguments using cloudpickle
         if args:
-            request["args"] = [
-                base64.b64encode(cloudpickle.dumps(arg)).decode("utf-8") for arg in args
-            ]
+            request["args"] = serialize_args(args)
         if kwargs:
-            request["kwargs"] = {
-                k: base64.b64encode(cloudpickle.dumps(v)).decode("utf-8")
-                for k, v in kwargs.items()
-            }
+            request["kwargs"] = serialize_kwargs(kwargs)
 
         return FunctionRequest(**request)
 

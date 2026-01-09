@@ -209,7 +209,7 @@ class TestProductionWrapper:
         mock_resource.run_sync = AsyncMock()
         mock_resource.run_sync.return_value = MagicMock(error="", output=None)
 
-        with patch("tetra_rp.runtime.production_wrapper.cloudpickle") as mock_pickle:
+        with patch("tetra_rp.runtime.serialization.cloudpickle") as mock_pickle:
             mock_pickle.dumps.return_value = b"pickled"
 
             await wrapper._execute_remote(
