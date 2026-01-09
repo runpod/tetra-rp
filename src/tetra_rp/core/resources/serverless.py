@@ -112,7 +112,7 @@ class ServerlessResource(DeployableResource):
     # When adding new fields to ServerlessResource, evaluate if they are:
     # 1. User-specified (include in hash)
     # 2. API-assigned/runtime (add to RUNTIME_FIELDS)
-    # 3. Dynamically computed (already excluded via "id", "env")
+    # 3. Dynamic identifiers (already excluded via "id")
     RUNTIME_FIELDS: ClassVar[Set[str]] = {
         "template",
         "templateId",
@@ -125,7 +125,7 @@ class ServerlessResource(DeployableResource):
         "repo",
     }
 
-    EXCLUDED_HASH_FIELDS: ClassVar[Set[str]] = {"id", "env"}
+    EXCLUDED_HASH_FIELDS: ClassVar[Set[str]] = {"id"}
 
     # === Input-only Fields ===
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
