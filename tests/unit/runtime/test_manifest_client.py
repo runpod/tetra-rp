@@ -21,11 +21,14 @@ class TestManifestClient:
         response = MagicMock()
         response.status_code = 200
         response.json.return_value = {
-            "manifest": {
-                "gpu_config": "https://api.runpod.io/v2/gpu123",
-                "cpu_config": "https://api.runpod.io/v2/cpu456",
+            "version": "1.0",
+            "generated_at": "2025-01-03T12:00:00Z",
+            "project_name": "test-app",
+            "resources": {
+                "gpu_config": {"endpoint_url": "https://api.runpod.io/v2/gpu123"},
+                "cpu_config": {"endpoint_url": "https://api.runpod.io/v2/cpu456"},
             },
-            "updated_at": "2025-01-03T12:00:00Z",
+            "function_registry": {},
         }
         return response
 
@@ -66,8 +69,18 @@ class TestManifestClient:
                 manifest = await client.get_manifest()
 
                 assert manifest == {
-                    "gpu_config": "https://api.runpod.io/v2/gpu123",
-                    "cpu_config": "https://api.runpod.io/v2/cpu456",
+                    "version": "1.0",
+                    "generated_at": "2025-01-03T12:00:00Z",
+                    "project_name": "test-app",
+                    "resources": {
+                        "gpu_config": {
+                            "endpoint_url": "https://api.runpod.io/v2/gpu123"
+                        },
+                        "cpu_config": {
+                            "endpoint_url": "https://api.runpod.io/v2/cpu456"
+                        },
+                    },
+                    "function_registry": {},
                 }
 
     @pytest.mark.asyncio
@@ -115,7 +128,11 @@ class TestManifestClient:
 
         response = MagicMock()
         response.status_code = 200
-        response.json.return_value = {"manifest": {"gpu": "https://gpu.example.com"}}
+        response.json.return_value = {
+            "version": "1.0",
+            "resources": {"gpu": {"endpoint_url": "https://gpu.example.com"}},
+            "function_registry": {},
+        }
 
         with patch.object(client, "_get_client") as mock_get_client:
             mock_http_client = AsyncMock()
@@ -134,7 +151,11 @@ class TestManifestClient:
                 new_callable=AsyncMock,
             ):
                 manifest = await client.get_manifest()
-                assert manifest == {"gpu": "https://gpu.example.com"}
+                assert manifest == {
+                    "version": "1.0",
+                    "resources": {"gpu": {"endpoint_url": "https://gpu.example.com"}},
+                    "function_registry": {},
+                }
                 assert mock_http_client.get.call_count == 3
 
     @pytest.mark.asyncio
