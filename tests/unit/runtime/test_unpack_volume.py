@@ -19,13 +19,12 @@ def _write_tar_gz(path: Path, files: dict[str, bytes]) -> None:
             tf.addfile(info, io.BytesIO(data))
 
 
-def test_finds_archive_in_shadow_dir(tmp_path: Path):
+def test_finds_archive_via_env_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     app_dir = tmp_path / "app"
     shadow_dir = tmp_path / "shadow"
     shadow_dir.mkdir()
 
     artifact = shadow_dir / "archive.tar.gz"
-    artifact.parent.mkdir(parents=True)
     _write_tar_gz(
         artifact,
         {
@@ -34,10 +33,8 @@ def test_finds_archive_in_shadow_dir(tmp_path: Path):
         },
     )
 
-    monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setenv("FLASH_BUILD_ARTIFACT_PATH", str(artifact))
     ok = unpack_app_from_volume(app_dir=app_dir)
-    monkeypatch.undo()
     assert ok is True
     assert (app_dir / "ok.txt").read_text() == "ok\n"
 
