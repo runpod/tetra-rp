@@ -328,11 +328,11 @@ class TestConfigHashStability:
         # Hashes should be identical despite being different instances
         assert config1.config_hash == config2.config_hash
 
-    def test_config_hash_excludes_env_from_drift(self):
-        """Test that env field changes don't trigger drift detection.
+    def test_config_hash_detects_env_from_drift(self):
+        """Test that env field changes trigger drift detection.
 
-        This test verifies the fix for: auto-provisioned endpoints being
-        recreated instead of reused when env vars change between processes.
+        Environment variable changes now trigger drift detection so that
+        endpoints can be updated with new environment configurations.
         """
         config1 = ServerlessResource(
             name="test-gpu",
@@ -352,8 +352,8 @@ class TestConfigHashStability:
             env={"CUSTOM_VAR": "custom_value"},  # Different env
         )
 
-        # Config hashes should still be the same (env excluded from hash)
-        assert config1.config_hash == config2.config_hash
+        # Config hashes should be different (env included in hash)
+        assert config1.config_hash != config2.config_hash
 
     def test_config_hash_includes_structural_changes(self):
         """Test that config_hash detects actual structural changes.
