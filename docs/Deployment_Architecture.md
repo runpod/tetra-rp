@@ -38,7 +38,7 @@ graph TD
 
     R --> S["🚀 Reconciliation<br/>Complete"]
 
-    F -.->|"Parallel:<br/>Serve anytime"| T["GET /manifest<br/>Returns directory"]
+    F -.->|"Parallel:<br/>Serve anytime"| T["GET /manifest<br/>Returns manifest"]
 
     style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
     style F fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
@@ -123,7 +123,7 @@ graph LR
 - **Transparent Execution**: Functions can call other functions without knowing deployment topology; manifest handles routing
 - **State Synchronization**: Mothership maintains single source of truth, synced with GQL State Manager
 - **Reconciliation**: On each boot, Mothership reconciles local manifest with persisted state to deploy/update/undeploy resources
-- **Parallel Serving**: GET /manifest endpoint serves directory independently of reconciliation process
+- **Parallel Serving**: GET /manifest endpoint serves manifest independently of reconciliation process
 
 ## Actual Manifest Structure
 
@@ -232,13 +232,42 @@ Stored in State Manager with deployment metadata:
 
 ### GET /manifest Response
 
-Served by Mothership at `/manifest` endpoint:
+Served by Mothership at `/manifest` endpoint. Returns the complete authoritative manifest fetched from State Manager, allowing Child Endpoints to synchronize their configuration:
 
 ```json
 {
-  "directory": {
-    "endpoint_1": "https://ep1-abc123.api.runpod.ai",
-    "endpoint_2": "https://ep2-def456.api.runpod.ai"
+  "version": "1.0",
+  "generated_at": "2026-01-12T10:30:00Z",
+  "project_name": "my-flash-app",
+  "function_registry": {
+    "funcA": "endpoint_1",
+    "funcB": "endpoint_1",
+    "funcC": "endpoint_2",
+    "funcD": "endpoint_2"
+  },
+  "resources": {
+    "endpoint_1": {
+      "resource_type": "ServerlessResource",
+      "handler_file": "handler_endpoint_1.py",
+      "functions": [...],
+      "config_hash": "a1b2c3d4e5f6",
+      "endpoint_url": "https://ep1-abc123.api.runpod.ai",
+      "status": "deployed"
+    },
+    "endpoint_2": {
+      "resource_type": "LoadBalancerSlsResource",
+      "handler_file": "handler_endpoint_2.py",
+      "functions": [...],
+      "config_hash": "f6e5d4c3b2a1",
+      "endpoint_url": "https://ep2-def456.api.runpod.ai",
+      "status": "deployed"
+    }
+  },
+  "routes": {
+    "endpoint_2": {
+      "POST /api/process": "funcC",
+      "GET /api/status": "funcD"
+    }
   }
 }
 ```
