@@ -23,12 +23,12 @@ Security Model:
 import inspect
 import logging
 import os
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from .generic_handler import load_manifest
+from .manifest_fetcher import ManifestFetcher
 from .serialization import (
     deserialize_args,
     deserialize_kwargs,
@@ -36,6 +36,17 @@ from .serialization import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Module-level manifest fetcher (singleton, reused across requests)
+_manifest_fetcher: Optional[ManifestFetcher] = None
+
+
+def _get_manifest_fetcher() -> ManifestFetcher:
+    """Get or create the manifest fetcher singleton."""
+    global _manifest_fetcher
+    if _manifest_fetcher is None:
+        _manifest_fetcher = ManifestFetcher()
+    return _manifest_fetcher
 
 
 def create_lb_handler(
@@ -178,20 +189,27 @@ def create_lb_handler(
         async def get_manifest() -> JSONResponse:
             """Mothership discovery endpoint.
 
-            Returns the flash_manifest.json content for service discovery.
+            Fetches manifest from RunPod GraphQL API (source of truth), caches it
+            locally, and serves to child endpoints. Falls back to local file if
+            RunPod API is unavailable.
+
             Only available when FLASH_IS_MOTHERSHIP=true environment variable is set.
 
             Returns:
                 JSONResponse with manifest content or 404 if not found
             """
-            manifest_dict = load_manifest()
+            fetcher = _get_manifest_fetcher()
+            mothership_id = os.getenv("RUNPOD_ENDPOINT_ID")
+
+            # Fetch manifest (from cache, RunPod GQL, or local file)
+            manifest_dict = await fetcher.get_manifest(mothership_id)
 
             if not manifest_dict or not manifest_dict.get("resources"):
                 return JSONResponse(
                     status_code=404,
                     content={
                         "error": "Manifest not found",
-                        "detail": "flash_manifest.json could not be loaded",
+                        "detail": "Could not load manifest from RunPod or local file",
                     },
                 )
 
