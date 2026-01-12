@@ -85,14 +85,15 @@ class ManifestClient:
                         f"{response.text[:200]}"
                     )
 
-                data = response.json()
-                if "manifest" not in data:
+                manifest = response.json()
+                if not isinstance(manifest, dict) or "resources" not in manifest:
                     raise ManifestServiceUnavailableError(
-                        "Invalid manifest response: missing 'manifest' key"
+                        "Invalid manifest response: missing 'resources'"
                     )
 
-                manifest = data["manifest"]
-                logger.debug(f"Manifest loaded: {len(manifest)} endpoints")
+                logger.debug(
+                    f"Manifest loaded: {len(manifest.get('resources', {}))} resources"
+                )
                 return manifest
 
             except (

@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from tetra_rp.runtime.lb_handler import create_lb_handler
+from tetra_rp.runtime.lb_handler import create_lb_handler, _get_manifest_fetcher
 
 
 class TestManifestEndpoint:
@@ -13,12 +13,10 @@ class TestManifestEndpoint:
 
     @pytest.fixture(autouse=True)
     def reset_manifest_fetcher(self):
-        """Reset the global manifest fetcher before each test."""
-        import tetra_rp.runtime.lb_handler as lb_handler_module
-
-        lb_handler_module._manifest_fetcher = None
+        """Reset the manifest fetcher cache before each test."""
+        _get_manifest_fetcher.cache_clear()
         yield
-        lb_handler_module._manifest_fetcher = None
+        _get_manifest_fetcher.cache_clear()
 
     @pytest.fixture
     def sample_manifest(self):
@@ -172,14 +170,14 @@ class TestManifestEndpoint:
             client = TestClient(app)
 
             response = client.get("/manifest")
-            data = response.json()
+            manifest = response.json()
 
-            # Verify structure
-            assert "version" in data
-            assert "generated_at" in data
-            assert "project_name" in data
-            assert "resources" in data
-            assert "function_registry" in data
+            # Verify manifest structure
+            assert "version" in manifest
+            assert "generated_at" in manifest
+            assert "project_name" in manifest
+            assert "resources" in manifest
+            assert "function_registry" in manifest
 
     def test_manifest_endpoint_with_empty_resources(self, monkeypatch):
         """Test endpoint behavior when manifest has no resources."""
@@ -339,10 +337,10 @@ class TestManifestEndpoint:
             response = client.get("/manifest")
 
             assert response.status_code == 200
-            data = response.json()
-            assert len(data["resources"]) == 2
-            assert "gpu_config" in data["resources"]
-            assert "cpu_config" in data["resources"]
+            manifest = response.json()
+            assert len(manifest["resources"]) == 2
+            assert "gpu_config" in manifest["resources"]
+            assert "cpu_config" in manifest["resources"]
 
     def test_manifest_endpoint_uses_fetcher_with_caching(
         self, sample_manifest, monkeypatch

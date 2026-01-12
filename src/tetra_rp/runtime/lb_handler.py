@@ -23,7 +23,8 @@ Security Model:
 import inspect
 import logging
 import os
-from typing import Any, Callable, Dict, Optional
+from functools import lru_cache
+from typing import Any, Callable, Dict
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -37,16 +38,14 @@ from .serialization import (
 
 logger = logging.getLogger(__name__)
 
-# Module-level manifest fetcher (singleton, reused across requests)
-_manifest_fetcher: Optional[ManifestFetcher] = None
 
-
+@lru_cache(maxsize=1)
 def _get_manifest_fetcher() -> ManifestFetcher:
-    """Get or create the manifest fetcher singleton."""
-    global _manifest_fetcher
-    if _manifest_fetcher is None:
-        _manifest_fetcher = ManifestFetcher()
-    return _manifest_fetcher
+    """Get or create the manifest fetcher singleton.
+
+    Uses @lru_cache for thread-safe lazy initialization.
+    """
+    return ManifestFetcher()
 
 
 def create_lb_handler(
