@@ -316,6 +316,17 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
 
     Defaults to CPU_ANY instance type if not specified.
 
+    Implementation Note - Field List Coupling:
+    This class overrides config_hash() with a CPU-specific field list instead of
+    inheriting the base ServerlessResource implementation. This is intentional to
+    exclude GPU fields while maintaining drift detection for CPU-specific fields.
+
+    When adding new fields to ServerlessResource:
+    1. Evaluate if the field applies to CPU endpoints
+    2. If yes, add it to the cpu_fields set in config_hash()
+    3. If it's API-assigned, verify it's in ServerlessResource.RUNTIME_FIELDS
+    4. Test drift detection with new field changes
+
     Configuration example:
         mothership = CpuLoadBalancerSlsResource(
             name="mothership",
@@ -372,3 +383,46 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
         self._setup_cpu_template()
 
         return self
+
+    @property
+    def config_hash(self) -> str:
+        """Get hash excluding GPU fields and runtime fields.
+
+        CPU load-balanced endpoints only hash CPU-relevant fields:
+        - Instance types (instanceIds)
+        - Scaling parameters (workers, scaler)
+        - Deployment type (type, locations)
+        - Environment variables (env)
+
+        Excludes:
+        - GPU fields (to avoid false drift)
+        - Runtime fields (template, templateId, aiKey, etc.)
+        """
+        import hashlib
+        import json
+
+        # CPU-relevant fields for drift detection
+        cpu_fields = {
+            "datacenter",
+            "env",
+            "flashboot",
+            "imageName",
+            "networkVolume",
+            "instanceIds",  # CPU-specific
+            "workersMin",  # Scaling
+            "workersMax",
+            "scalerType",
+            "scalerValue",
+            "type",  # LB vs QB
+            "idleTimeout",
+            "executionTimeoutMs",
+            "locations",
+        }
+
+        config_dict = self.model_dump(
+            exclude_none=True, include=cpu_fields, mode="json"
+        )
+
+        config_str = json.dumps(config_dict, sort_keys=True)
+        hash_obj = hashlib.md5(f"{self.__class__.__name__}:{config_str}".encode())
+        return hash_obj.hexdigest()

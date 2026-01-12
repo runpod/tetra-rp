@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
 from pydantic import (
     BaseModel,
@@ -108,6 +108,25 @@ class ServerlessResource(DeployableResource):
         "type",
     }
 
+    # Fields assigned by API that shouldn't affect drift detection
+    # When adding new fields to ServerlessResource, evaluate if they are:
+    # 1. User-specified (include in hash)
+    # 2. API-assigned/runtime (add to RUNTIME_FIELDS)
+    # 3. Dynamic identifiers (already excluded via "id")
+    RUNTIME_FIELDS: ClassVar[Set[str]] = {
+        "template",
+        "templateId",
+        "aiKey",
+        "userId",
+        "createdAt",
+        "activeBuildid",
+        "computeType",
+        "hubRelease",
+        "repo",
+    }
+
+    EXCLUDED_HASH_FIELDS: ClassVar[Set[str]] = {"id"}
+
     # === Input-only Fields ===
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
@@ -171,13 +190,25 @@ class ServerlessResource(DeployableResource):
     def serialize_scaler_type(
         self, value: Optional[ServerlessScalerType]
     ) -> Optional[str]:
-        """Convert ServerlessScalerType enum to string."""
-        return value.value if value is not None else None
+        """Convert ServerlessScalerType enum to string.
+
+        Handles both enum instances and pre-stringified values that may occur
+        during nested model serialization or when values are already deserialized.
+        """
+        if value is None:
+            return None
+        return value.value if isinstance(value, ServerlessScalerType) else value
 
     @field_serializer("type")
     def serialize_type(self, value: Optional[ServerlessType]) -> Optional[str]:
-        """Convert ServerlessType enum to string."""
-        return value.value if value is not None else None
+        """Convert ServerlessType enum to string.
+
+        Handles both enum instances and pre-stringified values that may occur
+        during nested model serialization or when values are already deserialized.
+        """
+        if value is None:
+            return None
+        return value.value if isinstance(value, ServerlessType) else value
 
     @field_validator("gpus")
     @classmethod
@@ -189,29 +220,26 @@ class ServerlessResource(DeployableResource):
 
     @property
     def config_hash(self) -> str:
-        """Get config hash excluding env to prevent false drift detection.
+        """Get config hash excluding env and runtime-assigned fields.
 
-        Environment variables are dynamically computed at initialization time from the .env file.
-        Including them in the config hash causes false drift detection when the same resource
-        is deployed in different Python processes that might have different .env files or
-        environment state. This override computes the hash using only structural fields.
+        Prevents false drift from:
+        - Dynamic env vars computed at runtime
+        - Runtime-assigned fields (template, templateId, aiKey, userId, etc.)
+
+        Only hashes user-specified configuration, not server-assigned state.
         """
         import hashlib
         import json
 
         resource_type = self.__class__.__name__
 
-        # Use _input_only fields but exclude 'env' to avoid dynamic drift
-        if hasattr(self, "_input_only"):
-            include_fields = self._input_only - {"id", "env"}  # Exclude id and env
-            config_dict = self.model_dump(
-                exclude_none=True, include=include_fields, mode="json"
-            )
-        else:
-            # Fallback
-            config_dict = self.model_dump(
-                exclude_none=True, exclude={"id", "env"}, mode="json"
-            )
+        # Exclude runtime fields, env, and id from hash
+        exclude_fields = (
+            self.__class__.RUNTIME_FIELDS | self.__class__.EXCLUDED_HASH_FIELDS
+        )
+        config_dict = self.model_dump(
+            exclude_none=True, exclude=exclude_fields, mode="json"
+        )
 
         # Convert to JSON string for hashing
         config_str = json.dumps(config_dict, sort_keys=True)
@@ -361,11 +389,11 @@ class ServerlessResource(DeployableResource):
             raise
 
     async def update(self, new_config: "ServerlessResource") -> "ServerlessResource":
-        """
-        Update existing endpoint with new configuration.
+        """Update existing endpoint with new configuration.
 
-        Uses saveEndpoint mutation which handles both create and update.
-        When 'id' is included in the payload, it updates the existing endpoint.
+        Uses saveEndpoint mutation which handles both version-triggering and
+        rolling changes. Version-triggering changes (GPU, template, volumes)
+        automatically increment version and trigger worker recreation server-side.
 
         Args:
             new_config: New configuration to apply
@@ -374,23 +402,20 @@ class ServerlessResource(DeployableResource):
             Updated ServerlessResource instance
 
         Raises:
-            ValueError: If endpoint not deployed or structural changes detected
+            ValueError: If endpoint not deployed or update fails
         """
         if not self.id:
             raise ValueError("Cannot update: endpoint not deployed")
 
-        # Check for structural changes that require redeploy
-        if self._has_structural_changes(new_config):
-            log.warning(
-                f"{self.name}: Structural changes detected. "
-                "Redeploying with new configuration."
-            )
-            # Undeploy current, deploy new
-            await self.undeploy()
-            return await new_config.deploy()
-
         try:
-            log.info(f"Updating endpoint '{self.name}' (ID: {self.id})")
+            # Log if version-triggering changes detected (informational only)
+            if self._has_structural_changes(new_config):
+                log.info(
+                    f"{self.name}: Version-triggering changes detected. "
+                    "Server will increment version and recreate workers."
+                )
+            else:
+                log.info(f"Updating endpoint '{self.name}' (ID: {self.id})")
 
             # Ensure network volume is deployed if specified
             await new_config._ensure_network_volume_deployed()
@@ -415,23 +440,37 @@ class ServerlessResource(DeployableResource):
             raise
 
     def _has_structural_changes(self, new_config: "ServerlessResource") -> bool:
-        """
-        Check if config changes require redeploy vs update.
+        """Check if config changes are version-triggering.
 
-        Structural changes (GPU type, image, flashboot) require full redeploy.
-        Scaling parameters can be updated in-place.
+        Version-triggering changes cause server-side version increment and
+        worker recreation:
+        - Image changes (imageName via templateId)
+        - GPU configuration (gpus, gpuIds, allowedCudaVersions, gpuCount)
+        - Hardware allocation (instanceIds, locations)
+        - Storage changes (networkVolumeId)
+        - Flashboot toggle
+
+        Rolling changes (no version increment):
+        - Worker scaling (workersMin, workersMax)
+        - Scaler configuration (scalerType, scalerValue)
+        - Timeout values (idleTimeout, executionTimeoutMs)
+        - Environment variables (env)
+
+        Note: This method is now informational for logging. The actual
+        version-triggering logic runs server-side when saveEndpoint is called.
+
+        Runtime fields (template, templateId, aiKey, userId) are excluded
+        to prevent false positives when comparing deployed vs new config.
 
         Args:
             new_config: New configuration to compare against
 
         Returns:
-            True if structural changes detected (requires redeploy)
+            True if version-triggering changes detected (workers will be recreated)
         """
         structural_fields = [
             "gpus",
             "gpuIds",
-            "template",
-            "templateId",
             "imageName",
             "flashboot",
             "allowedCudaVersions",
