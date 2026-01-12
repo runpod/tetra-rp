@@ -6,11 +6,24 @@ The `generic_handler` module provides a factory function that creates RunPod ser
 
 When Flash builds your application, it generates lightweight handler files that delegate to the `create_handler()` factory rather than duplicating handler logic in every handler file.
 
+## Endpoint bootstrapping (artifact install)
+
+deployed endpoints are expected to start with an empty `/app` and a build artifact (the `flash build` tarball, typically `archive.tar.gz`) staged on a mounted project volume.
+
+at runtime startup, flash will:
+
+- **find the build artifact**: it prefers `FLASH_BUILD_ARTIFACT_PATH`/`FLASH_BUILD_ARTIFACT` if set, otherwise it uses the canonical flash project path: `/root/.runpod/archive.tar.gz` (configurable via `FLASH_PROJECT_VOLUME_MOUNT`).
+- **extract into `/app`**: it safely extracts the tarball into `/app` (with tar path traversal protection).
+- **make `/app` importable**: it prepends `/app` to `sys.path` so the extracted local modules + deps can be imported.
+
+this bootstrap runs automatically when `tetra_rp.runtime` is imported on runpod (guarded by `RUNPOD_POD_ID`/`RUNPOD_ENDPOINT_ID`). you can disable it with `FLASH_DISABLE_UNPACK=1`.
+
 ## Design Context
 
 ### Build System Requirement
 
 Flash needs to generate serverless handlers for deployment to RunPod. Each `resource_config` group requires a separate handler file that:
+
 1. Imports functions assigned to that resource
 2. Registers them in a function registry
 3. Provides a RunPod-compatible handler function
@@ -234,6 +247,7 @@ def load_manifest(manifest_path: Path | None = None) -> Dict[str, Any]:
 **Decision**: Use factory function instead of base class inheritance
 
 **Rationale**:
+
 - Functions are simpler than classes for this use case
 - Reduces coupling between handler and factory
 - Easier to test: factory tested independently, then verified in integration
@@ -244,6 +258,7 @@ def load_manifest(manifest_path: Path | None = None) -> Dict[str, Any]:
 **Decision**: Use cloudpickle for serialization and base64 for encoding
 
 **Rationale**:
+
 - CloudPickle handles arbitrary Python objects (functions, classes, lambdas)
 - Base64 encoding ensures safe transmission over JSON (no binary data)
 - Consistent with RunPod's serverless API expectations
@@ -254,6 +269,7 @@ def load_manifest(manifest_path: Path | None = None) -> Dict[str, Any]:
 **Decision**: Keep manifest loading in generic handler, not in generated handler
 
 **Rationale**:
+
 - Manifest is runtime requirement for service discovery
 - Generated handlers don't need manifest (it's not embedded)
 - Generic handler can load manifest if available for cross-endpoint calls
@@ -264,6 +280,7 @@ def load_manifest(manifest_path: Path | None = None) -> Dict[str, Any]:
 **Decision**: Return structured error responses with traceback
 
 **Rationale**:
+
 - RunPod serverless expects (success: bool, result/error) response format
 - Including full traceback aids debugging in production
 - Errors are values, not exceptions (functional approach)
@@ -274,6 +291,7 @@ def load_manifest(manifest_path: Path | None = None) -> Dict[str, Any]:
 **Decision**: Handle both function and class execution in single handler
 
 **Rationale**:
+
 - Some use cases require stateful classes (e.g., model loaders)
 - Class methods can be registered same as functions
 - Single handler supports both patterns without duplication
@@ -423,6 +441,7 @@ if __name__ == "__main__":
 ```
 
 **Design Benefits**:
+
 - Single source of truth: All handler logic in `generic_handler.py`
 - Zero duplication: One implementation serves all resource configs
 - Easy to maintain: Bug fixes update one module, benefit all handlers
@@ -485,10 +504,10 @@ handler = create_handler(FUNCTION_REGISTRY)
 ```
 
 **Minimal Runtime Overhead**: The factory approach has minimal performance impact because:
+
 - Factory called once at startup (not per-request)
 - Returned handler function is lightweight and direct
 - No additional indirection in the request execution path
-
 
 ## Future Enhancements (Not Yet Implemented)
 

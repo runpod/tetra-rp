@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict
@@ -35,8 +36,10 @@ def load_manifest(manifest_path: Path | None = None) -> Dict[str, Any]:
             return {"resources": {}, "function_registry": {}}
 
     # Search multiple locations
+    app_dir = Path(os.getenv("FLASH_APP_DIR", "/app"))
     search_paths = [
         Path.cwd() / "flash_manifest.json",
+        app_dir / "flash_manifest.json",
         Path(__file__).parent / "flash_manifest.json",
         Path(__file__).parent.parent.parent / "flash_manifest.json",
     ]
