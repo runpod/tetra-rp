@@ -640,46 +640,70 @@ Add new configuration by:
 
 #### Local Execution Flow
 
-```
-Function Call
-    ↓
-ProductionWrapper.wrap_function_execution()
-    ↓
-ServiceRegistry.get_resource_for_function()
-    ↓
-Manifest Lookup (resource = None)
-    ↓
-Local Execution (original_stub_func)
-    ↓
-Result
+```mermaid
+flowchart TD
+    A["Function Call"]
+    B["ProductionWrapper.wrap_function_execution()"]
+    C["ServiceRegistry.get_resource_for_function()"]
+    D["Manifest Lookup<br/>resource = None"]
+    E["Local Execution<br/>original_stub_func"]
+    F["Result"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style C fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style D fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style E fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style F fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
 ```
 
 #### Remote Execution Flow
 
-```
-Function Call
-    ↓
-ProductionWrapper.wrap_function_execution()
-    ↓
-ServiceRegistry.get_resource_for_function()
-    ↓
-Manifest Lookup (resource found)
-    ↓
-Ensure Directory Loaded
-    ↓
-DirectoryClient.get_endpoints()
-    ↓
-Get Remote Endpoint URL
-    ↓
-Serialize Arguments (cloudpickle → base64)
-    ↓
-HTTP POST to Remote Endpoint
-    ↓
-Remote Function Execution
-    ↓
-Deserialize Result (base64 → cloudpickle)
-    ↓
-Result
+```mermaid
+flowchart TD
+    A["Function Call"]
+    B["ProductionWrapper.wrap_function_execution()"]
+    C["ServiceRegistry.get_resource_for_function()"]
+    D["Manifest Lookup<br/>resource found"]
+    E["Ensure Directory Loaded"]
+    F["DirectoryClient.get_endpoints()"]
+    G["Get Remote Endpoint URL"]
+    H["Serialize Arguments<br/>cloudpickle → base64"]
+    I["HTTP POST to Remote Endpoint"]
+    J["Remote Function Execution"]
+    K["Deserialize Result<br/>base64 → cloudpickle"]
+    L["Result"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    I --> J
+    J --> K
+    K --> L
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style C fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style D fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style E fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style F fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style G fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style H fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style I fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style J fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style K fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style L fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
 ```
 
 ### Design Decisions
@@ -919,6 +943,101 @@ print(f"RUNPOD_ENDPOINT_ID: {os.getenv('RUNPOD_ENDPOINT_ID')}")
 client = DirectoryClient(mothership_url=...)
 endpoints = await client.get_endpoints()
 ```
+
+## Manifest Synchronization with RunPod GraphQL API
+
+### Overview
+
+The Mothership's GET /manifest endpoint pulls configuration from RunPod's GraphQL API,
+which serves as the single source of truth for manifest data. This enables centralized
+configuration management and ensures all child endpoints receive consistent routing
+information.
+
+### Architecture
+
+```mermaid
+flowchart TD
+    A["Child Endpoint<br/>GET /manifest"]
+    B["Mothership"]
+    C["ManifestFetcher"]
+    D{Cache Valid?}
+    E["Serve Cached<br/>Manifest"]
+    F["Fetch from RunPod<br/>GraphQL API"]
+    G["Update<br/>flash_manifest.json"]
+    H["Cache Result<br/>TTL: 300s"]
+    I["Serve Manifest"]
+    J["Fallback:<br/>Load Local File"]
+
+    A -->|Request| B
+    B --> C
+    C --> D
+    D -->|Yes| E
+    D -->|No| F
+    E --> I
+    F --> G
+    G --> H
+    H --> I
+    F -->|Fails| J
+    J --> I
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style C fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style D fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style E fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style F fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style G fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style H fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style I fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style J fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+```
+
+### How It Works
+
+1. **Source of Truth**: RunPod GraphQL API holds the authoritative manifest configuration
+2. **Caching Proxy**: Mothership fetches from RunPod GQL, caches locally (5 min TTL)
+3. **Local Persistence**: Fetched manifest written to `flash_manifest.json`
+4. **Graceful Fallback**: If RunPod GQL unavailable, serves local file
+5. **Cache Invalidation**: Automatic expiry after TTL, manual invalidation supported
+
+### Implementation Status
+
+**Current (Placeholder)**:
+- `ManifestFetcher` class with caching infrastructure
+- Uses existing `RunpodGraphQLClient` for API communication
+- Falls back to local `flash_manifest.json` (GQL fetch raises `NotImplementedError`)
+- Cache TTL: 300 seconds (configurable)
+
+**Future (Full Implementation)**:
+- Implement `getManifest` query in `ManifestFetcher._fetch_from_gql()`
+- Add `saveManifest` mutation for updating manifest in RunPod
+- Real-time cache invalidation via webhooks
+- Health checks and retry logic
+
+### Configuration
+
+```bash
+# Enable Mothership mode (required for /manifest endpoint)
+export FLASH_IS_MOTHERSHIP=true
+
+# Optional: Identify this mothership instance
+export RUNPOD_ENDPOINT_ID=mothership-prod-1
+
+# Required for RunPod GraphQL API access
+export RUNPOD_API_KEY=your-api-key-here
+```
+
+### Cache Behavior
+
+- **Default TTL**: 300 seconds (5 minutes)
+- **Cache Key**: Per-mothership instance (no cross-instance cache)
+- **Thread-Safe**: Uses `asyncio.Lock` for concurrent request handling
+- **Manual Invalidation**: `fetcher.invalidate_cache()` for testing
+
+### Historical Context
+
+A previous `StateManagerClient` (commit b19bf7c) used REST API. Current placeholder
+prepares for GQL-based architecture with improved caching and error handling.
 
 ## Key Implementation Highlights
 
