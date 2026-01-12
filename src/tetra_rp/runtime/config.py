@@ -5,7 +5,7 @@ DEFAULT_REQUEST_TIMEOUT = 10  # seconds
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_BACKOFF_BASE = 2
 
-# Directory cache configuration
+# Manifest cache configuration
 DEFAULT_CACHE_TTL = 300  # seconds
 
 # Serialization limits
