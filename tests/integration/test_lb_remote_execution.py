@@ -309,9 +309,18 @@ def get_status():
 class TestManifestEndpointIntegration:
     """Integration tests for GET /manifest endpoint."""
 
+    @pytest.fixture(autouse=True)
+    def reset_manifest_fetcher(self):
+        """Reset the global manifest fetcher before each test."""
+        import tetra_rp.runtime.lb_handler as lb_handler_module
+
+        lb_handler_module._manifest_fetcher = None
+        yield
+        lb_handler_module._manifest_fetcher = None
+
     def test_manifest_endpoint_in_live_load_balancer(self, monkeypatch):
         """Test manifest endpoint in LiveLoadBalancer with FLASH_IS_MOTHERSHIP=true."""
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
         from fastapi.testclient import TestClient
 
         monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
@@ -349,10 +358,12 @@ class TestManifestEndpointIntegration:
             "routes": {"test-mothership": {"GET /api/hello": "hello"}},
         }
 
-        # Mock load_manifest to return test manifest
-        with patch(
-            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
-        ):
+        # Mock ManifestFetcher to return test manifest
+        with patch("tetra_rp.runtime.lb_handler.ManifestFetcher") as MockFetcher:
+            mock_fetcher = AsyncMock()
+            mock_fetcher.get_manifest = AsyncMock(return_value=test_manifest)
+            MockFetcher.return_value = mock_fetcher
+
             from tetra_rp.runtime.lb_handler import create_lb_handler
 
             # Create handler with manifest endpoint enabled
@@ -380,7 +391,7 @@ class TestManifestEndpointIntegration:
 
     def test_manifest_endpoint_with_deployed_lb_resource(self, monkeypatch):
         """Test manifest endpoint with LoadBalancerSlsResource."""
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
         from fastapi.testclient import TestClient
 
         monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
@@ -409,9 +420,11 @@ class TestManifestEndpointIntegration:
             "function_registry": {"process_image": "gpu-worker"},
         }
 
-        with patch(
-            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
-        ):
+        with patch("tetra_rp.runtime.lb_handler.ManifestFetcher") as MockFetcher:
+            mock_fetcher = AsyncMock()
+            mock_fetcher.get_manifest = AsyncMock(return_value=test_manifest)
+            MockFetcher.return_value = mock_fetcher
+
             from tetra_rp.runtime.lb_handler import create_lb_handler
 
             # Create deployed handler (not LiveLoadBalancer)
@@ -425,7 +438,7 @@ class TestManifestEndpointIntegration:
 
     def test_manifest_endpoint_coexists_with_ping(self, monkeypatch):
         """Test that /manifest endpoint coexists with /ping health check."""
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
         from fastapi.testclient import TestClient
 
         monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
@@ -436,9 +449,11 @@ class TestManifestEndpointIntegration:
             "function_registry": {},
         }
 
-        with patch(
-            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
-        ):
+        with patch("tetra_rp.runtime.lb_handler.ManifestFetcher") as MockFetcher:
+            mock_fetcher = AsyncMock()
+            mock_fetcher.get_manifest = AsyncMock(return_value=test_manifest)
+            MockFetcher.return_value = mock_fetcher
+
             from tetra_rp.runtime.lb_handler import create_lb_handler
 
             app = create_lb_handler({}, include_execute=False)
