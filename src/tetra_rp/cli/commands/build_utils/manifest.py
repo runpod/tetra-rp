@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from .scanner import RemoteFunctionMetadata
 
-RESERVED_PATHS = ["/execute", "/ping"]
+RESERVED_PATHS = ["/execute", "/ping", "/manifest"]
 
 
 @dataclass

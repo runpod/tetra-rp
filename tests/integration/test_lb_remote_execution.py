@@ -304,3 +304,149 @@ def get_status():
             assert scanner.resource_types["test-api"] == "LiveLoadBalancer"
             assert "deployed-api" in scanner.resource_types
             assert scanner.resource_types["deployed-api"] == "LoadBalancerSlsResource"
+
+
+class TestManifestEndpointIntegration:
+    """Integration tests for GET /manifest endpoint."""
+
+    def test_manifest_endpoint_in_live_load_balancer(self, monkeypatch):
+        """Test manifest endpoint in LiveLoadBalancer with FLASH_IS_MOTHERSHIP=true."""
+        from unittest.mock import patch
+        from fastapi.testclient import TestClient
+
+        monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
+
+        # Create a LiveLoadBalancer
+        lb = LiveLoadBalancer(name="test-mothership")
+
+        # Define a simple function on the mothership
+        @remote(lb, method="GET", path="/api/hello")
+        async def hello():
+            return {"message": "hello"}
+
+        # Create manifest data
+        test_manifest = {
+            "version": "1.0",
+            "generated_at": "2024-01-15T10:30:00Z",
+            "project_name": "test-app",
+            "resources": {
+                "test-mothership": {
+                    "resource_type": "LiveLoadBalancer",
+                    "handler_file": "handler_test_mothership.py",
+                    "functions": [
+                        {
+                            "name": "hello",
+                            "module": "test_module",
+                            "is_async": True,
+                            "is_class": False,
+                            "http_method": "GET",
+                            "http_path": "/api/hello",
+                        }
+                    ],
+                }
+            },
+            "function_registry": {"hello": "test-mothership"},
+            "routes": {"test-mothership": {"GET /api/hello": "hello"}},
+        }
+
+        # Mock load_manifest to return test manifest
+        with patch(
+            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
+        ):
+            from tetra_rp.runtime.lb_handler import create_lb_handler
+
+            # Create handler with manifest endpoint enabled
+            route_registry = {("GET", "/api/hello"): hello}
+            app = create_lb_handler(route_registry, include_execute=True)
+            client = TestClient(app)
+
+            # Verify /manifest endpoint returns manifest
+            response = client.get("/manifest")
+            assert response.status_code == 200
+            assert response.json() == test_manifest
+
+    def test_manifest_endpoint_excluded_when_env_not_set(self):
+        """Test manifest endpoint is not available when FLASH_IS_MOTHERSHIP not set."""
+        from fastapi.testclient import TestClient
+        from tetra_rp.runtime.lb_handler import create_lb_handler
+
+        # Create handler without env var set
+        app = create_lb_handler({}, include_execute=False)
+        client = TestClient(app)
+
+        # Verify /manifest returns 404
+        response = client.get("/manifest")
+        assert response.status_code == 404
+
+    def test_manifest_endpoint_with_deployed_lb_resource(self, monkeypatch):
+        """Test manifest endpoint with LoadBalancerSlsResource."""
+        from unittest.mock import patch
+        from fastapi.testclient import TestClient
+
+        monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
+
+        # Create test manifest for deployed endpoint
+        test_manifest = {
+            "version": "1.0",
+            "generated_at": "2024-01-15T10:30:00Z",
+            "project_name": "deployed-app",
+            "resources": {
+                "gpu-worker": {
+                    "resource_type": "LoadBalancerSlsResource",
+                    "handler_file": "handler_gpu_worker.py",
+                    "functions": [
+                        {
+                            "name": "process_image",
+                            "module": "workers.gpu",
+                            "is_async": True,
+                            "is_class": False,
+                            "http_method": "POST",
+                            "http_path": "/api/process",
+                        }
+                    ],
+                }
+            },
+            "function_registry": {"process_image": "gpu-worker"},
+        }
+
+        with patch(
+            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
+        ):
+            from tetra_rp.runtime.lb_handler import create_lb_handler
+
+            # Create deployed handler (not LiveLoadBalancer)
+            app = create_lb_handler({}, include_execute=False)
+            client = TestClient(app)
+
+            # Verify /manifest endpoint is available
+            response = client.get("/manifest")
+            assert response.status_code == 200
+            assert response.json() == test_manifest
+
+    def test_manifest_endpoint_coexists_with_ping(self, monkeypatch):
+        """Test that /manifest endpoint coexists with /ping health check."""
+        from unittest.mock import patch
+        from fastapi.testclient import TestClient
+
+        monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
+
+        test_manifest = {
+            "version": "1.0",
+            "resources": {"test": {}},
+            "function_registry": {},
+        }
+
+        with patch(
+            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
+        ):
+            from tetra_rp.runtime.lb_handler import create_lb_handler
+
+            app = create_lb_handler({}, include_execute=False)
+            client = TestClient(app)
+
+            # Verify both endpoints exist
+            manifest_response = client.get("/manifest")
+            assert manifest_response.status_code == 200
+
+            ping_response = client.get("/ping")
+            assert ping_response.status_code == 404  # Ping not auto-added by factory
