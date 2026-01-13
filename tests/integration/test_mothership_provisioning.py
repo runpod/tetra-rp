@@ -8,7 +8,6 @@ import pytest
 
 from tetra_rp.runtime.mothership_provisioner import (
     compute_resource_hash,
-    get_manifest_directory,
     provision_children,
 )
 from tetra_rp.runtime.state_manager_client import StateManagerClient
@@ -256,12 +255,12 @@ class TestMothershipProvisioningFlow:
             )
 
     @pytest.mark.asyncio
-    async def test_provision_children_skips_load_balancer_resources(self):
-        """Test that LoadBalancer resources are skipped during provisioning.
+    async def test_provision_children_deploys_load_balancer_resources(self):
+        """Test that LoadBalancer resources are provisioned during provisioning.
 
         Scenario:
-        - Manifest includes LoadBalancerSlsResource (the mothership itself)
-        - Mothership should not deploy itself as a child
+        - Manifest includes LoadBalancerSlsResource
+        - Mothership should deploy it as a child resource to RunPod
         """
         local_manifest = {
             "version": "1.0",
@@ -283,11 +282,16 @@ class TestMothershipProvisioningFlow:
         mock_state_client.update_resource_state = AsyncMock()
 
         # Mock ResourceManager
+        mock_lb_resource = MagicMock()
+        mock_lb_resource.endpoint_url = "https://mothership-lb.api.runpod.ai"
         mock_gpu_resource = MagicMock()
         mock_gpu_resource.endpoint_url = "https://gpu-worker.api.runpod.ai"
 
         with (
             patch("tetra_rp.runtime.mothership_provisioner.load_manifest") as mock_load,
+            patch(
+                "tetra_rp.runtime.mothership_provisioner.create_resource_from_manifest"
+            ) as mock_create,
             patch(
                 "tetra_rp.runtime.mothership_provisioner.ResourceManager"
             ) as mock_rm_class,
@@ -297,10 +301,11 @@ class TestMothershipProvisioningFlow:
             ),
         ):
             mock_load.return_value = local_manifest
+            mock_create.side_effect = [MagicMock(), MagicMock()]
 
             mock_manager = MagicMock()
             mock_manager.get_or_deploy_resource = AsyncMock(
-                return_value=mock_gpu_resource
+                side_effect=[mock_lb_resource, mock_gpu_resource]
             )
             mock_rm_class.return_value = mock_manager
 
@@ -313,14 +318,16 @@ class TestMothershipProvisioningFlow:
                     manifest_path, mothership_url, mock_state_client
                 )
 
-            # Verify: Only gpu_worker deployed, mothership skipped
-            assert mock_manager.get_or_deploy_resource.call_count == 1
-            # Verify: Only gpu_worker in State Manager
-            assert mock_state_client.update_resource_state.call_count == 1
-            assert (
-                mock_state_client.update_resource_state.call_args_list[0][0][1]
-                == "gpu_worker"
-            )
+            # Verify: Both mothership LoadBalancer and gpu_worker deployed
+            assert mock_manager.get_or_deploy_resource.call_count == 2
+            # Verify: Both resources in State Manager
+            assert mock_state_client.update_resource_state.call_count == 2
+            resource_names = [
+                mock_state_client.update_resource_state.call_args_list[i][0][1]
+                for i in range(2)
+            ]
+            assert "mothership" in resource_names
+            assert "gpu_worker" in resource_names
 
     @pytest.mark.asyncio
     async def test_provision_children_handles_deployment_errors(self):
@@ -402,40 +409,6 @@ class TestMothershipProvisioningFlow:
             cpu_call = mock_state_client.update_resource_state.call_args_list[1]
             assert cpu_call[0][1] == "cpu_worker"
             assert cpu_call[0][2]["status"] == "deployed"
-
-    @pytest.mark.asyncio
-    async def test_manifest_directory_endpoint_after_provisioning(self):
-        """Test /manifest endpoint returns correct directory after provisioning.
-
-        Scenario:
-        - After provisioning, /manifest endpoint queried
-        - Should return mapping of all deployed resources
-        """
-        with patch(
-            "tetra_rp.runtime.mothership_provisioner.ResourceManager"
-        ) as mock_rm_class:
-            mock_gpu_resource = MagicMock()
-            mock_gpu_resource.endpoint_url = "https://gpu-worker.api.runpod.ai"
-
-            mock_cpu_resource = MagicMock()
-            mock_cpu_resource.endpoint_url = "https://cpu-worker.api.runpod.ai"
-
-            resources = {
-                "ServerlessResource:gpu_worker": mock_gpu_resource,
-                "ServerlessResource:cpu_worker": mock_cpu_resource,
-            }
-
-            mock_manager = MagicMock()
-            mock_manager.list_all_resources.return_value = resources
-            mock_rm_class.return_value = mock_manager
-
-            # Execute
-            directory = await get_manifest_directory()
-
-            # Verify: Directory contains all resources
-            assert len(directory) == 2
-            assert directory["gpu_worker"] == "https://gpu-worker.api.runpod.ai"
-            assert directory["cpu_worker"] == "https://cpu-worker.api.runpod.ai"
 
     @pytest.mark.asyncio
     async def test_idempotent_provisioning_on_second_boot(self):

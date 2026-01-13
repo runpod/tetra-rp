@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -12,7 +12,6 @@ from tetra_rp.runtime.mothership_provisioner import (
     ManifestDiff,
     compute_resource_hash,
     create_resource_from_manifest,
-    get_manifest_directory,
     get_mothership_url,
     is_mothership,
     load_manifest,
@@ -286,8 +285,8 @@ class TestReconcileManifests:
         assert result.removed == []
         assert result.unchanged == ["worker1"]
 
-    def test_reconcile_manifests_skip_load_balancer_resources(self):
-        """Test that LoadBalancer resources are skipped."""
+    def test_reconcile_manifests_includes_load_balancer_resources(self):
+        """Test that LoadBalancer resources are included in provisioning."""
         local = {
             "resources": {
                 "mothership": {
@@ -301,12 +300,12 @@ class TestReconcileManifests:
 
         result = reconcile_manifests(local, persisted)
 
-        # LoadBalancer should not be in new resources
-        assert "mothership" not in result.new
+        # LoadBalancer should be in new resources alongside Serverless
+        assert "mothership" in result.new
         assert "worker1" in result.new
 
-    def test_reconcile_manifests_skip_live_load_balancer(self):
-        """Test that LiveLoadBalancer resources are skipped."""
+    def test_reconcile_manifests_includes_live_load_balancer(self):
+        """Test that LiveLoadBalancer resources are included in provisioning."""
         local = {
             "resources": {
                 "live_mothership": {
@@ -320,8 +319,8 @@ class TestReconcileManifests:
 
         result = reconcile_manifests(local, persisted)
 
-        # LiveLoadBalancer should not be in new resources
-        assert "live_mothership" not in result.new
+        # LiveLoadBalancer should be in new resources alongside Serverless
+        assert "live_mothership" in result.new
         assert "worker1" in result.new
 
     def test_reconcile_manifests_persisted_none(self):
@@ -392,15 +391,16 @@ class TestCreateResourceFromManifest:
         resource_data = {"resource_type": "ServerlessResource"}
         mothership_url = "https://test.api.runpod.ai"
 
-        resource = create_resource_from_manifest(
-            resource_name, resource_data, mothership_url
-        )
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
+            resource = create_resource_from_manifest(
+                resource_name, resource_data, mothership_url
+            )
 
-        assert isinstance(resource, ServerlessResource)
-        # ServerlessResource may append "-fb" suffix during initialization
-        assert resource_name in resource.name
-        assert resource.env["FLASH_MOTHERSHIP_URL"] == mothership_url
-        assert resource.env["FLASH_RESOURCE_NAME"] == resource_name
+            assert isinstance(resource, ServerlessResource)
+            # ServerlessResource may append "-fb" suffix during initialization
+            assert resource_name in resource.name
+            assert resource.env["FLASH_MOTHERSHIP_ID"] == "mothership-123"
+            assert resource.env["FLASH_RESOURCE_NAME"] == resource_name
 
     def test_create_resource_from_manifest_live_serverless(self):
         """Test that LiveServerless type is accepted but creates ServerlessResource.
@@ -415,19 +415,20 @@ class TestCreateResourceFromManifest:
         resource_data = {"resource_type": "LiveServerless"}
         mothership_url = "https://test.api.runpod.ai"
 
-        # Should not raise - LiveServerless is in supported types
-        resource = create_resource_from_manifest(
-            resource_name, resource_data, mothership_url
-        )
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
+            # Should not raise - LiveServerless is in supported types
+            resource = create_resource_from_manifest(
+                resource_name, resource_data, mothership_url
+            )
 
-        # Returns ServerlessResource (current limitation)
-        assert isinstance(resource, ServerlessResource)
-        assert resource_name in resource.name
+            # Returns ServerlessResource (current limitation)
+            assert isinstance(resource, ServerlessResource)
+            assert resource_name in resource.name
 
     def test_create_resource_from_manifest_unsupported_type(self):
         """Test that ValueError is raised for unsupported resource types."""
         resource_name = "worker1"
-        resource_data = {"resource_type": "LoadBalancerSlsResource"}
+        resource_data = {"resource_type": "UnsupportedResourceType"}
         mothership_url = "https://test.api.runpod.ai"
 
         with pytest.raises(ValueError, match="Unsupported resource type"):
@@ -441,130 +442,10 @@ class TestCreateResourceFromManifest:
         resource_data = {}  # No resource_type specified
         mothership_url = "https://test.api.runpod.ai"
 
-        resource = create_resource_from_manifest(
-            resource_name, resource_data, mothership_url
-        )
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
+            resource = create_resource_from_manifest(
+                resource_name, resource_data, mothership_url
+            )
 
-        assert isinstance(resource, ServerlessResource)
-        assert resource_name in resource.name
-
-
-class TestGetManifestDirectory:
-    """Tests for get_manifest_directory function."""
-
-    @pytest.mark.asyncio
-    async def test_get_manifest_directory_empty(self):
-        """Test getting manifest directory with no resources."""
-        with patch(
-            "tetra_rp.runtime.mothership_provisioner.ResourceManager"
-        ) as mock_manager_class:
-            mock_manager = MagicMock()
-            mock_manager.list_all_resources.return_value = {}
-            mock_manager_class.return_value = mock_manager
-
-            result = await get_manifest_directory()
-
-            assert result == {}
-
-    @pytest.mark.asyncio
-    async def test_get_manifest_directory_with_resources(self):
-        """Test getting manifest directory with deployed resources."""
-        with patch(
-            "tetra_rp.runtime.mothership_provisioner.ResourceManager"
-        ) as mock_manager_class:
-            mock_resource1 = MagicMock()
-            mock_resource1.endpoint_url = "https://worker1.api.runpod.ai"
-
-            mock_resource2 = MagicMock()
-            mock_resource2.endpoint_url = "https://worker2.api.runpod.ai"
-
-            resources = {
-                "ServerlessResource:worker1": mock_resource1,
-                "ServerlessResource:worker2": mock_resource2,
-            }
-
-            mock_manager = MagicMock()
-            mock_manager.list_all_resources.return_value = resources
-            mock_manager_class.return_value = mock_manager
-
-            result = await get_manifest_directory()
-
-            assert result == {
-                "worker1": "https://worker1.api.runpod.ai",
-                "worker2": "https://worker2.api.runpod.ai",
-            }
-
-    @pytest.mark.asyncio
-    async def test_get_manifest_directory_fallback_to_url(self):
-        """Test that fallback to 'url' attribute works when endpoint_url missing."""
-        with patch(
-            "tetra_rp.runtime.mothership_provisioner.ResourceManager"
-        ) as mock_manager_class:
-            mock_resource = MagicMock(spec=[])  # No endpoint_url attribute
-            mock_resource.url = "https://worker1.api.runpod.ai"
-
-            resources = {"ServerlessResource:worker1": mock_resource}
-
-            mock_manager = MagicMock()
-            mock_manager.list_all_resources.return_value = resources
-            mock_manager_class.return_value = mock_manager
-
-            result = await get_manifest_directory()
-
-            assert result == {"worker1": "https://worker1.api.runpod.ai"}
-
-    @pytest.mark.asyncio
-    async def test_get_manifest_directory_error_handling(self):
-        """Test that errors are handled gracefully."""
-        with patch(
-            "tetra_rp.runtime.mothership_provisioner.ResourceManager"
-        ) as mock_manager_class:
-            mock_manager = MagicMock()
-            mock_manager.list_all_resources.side_effect = Exception("Test error")
-            mock_manager_class.return_value = mock_manager
-
-            result = await get_manifest_directory()
-
-            # Should return empty dict on error
-            assert result == {}
-
-    @pytest.mark.asyncio
-    async def test_get_manifest_directory_extracts_resource_name(self):
-        """Test correct extraction of resource name from key format."""
-        with patch(
-            "tetra_rp.runtime.mothership_provisioner.ResourceManager"
-        ) as mock_manager_class:
-            mock_resource = MagicMock()
-            mock_resource.endpoint_url = "https://worker1.api.runpod.ai"
-
-            # Test key format: "ResourceType:name"
-            resources = {"ServerlessResource:gpu_worker": mock_resource}
-
-            mock_manager = MagicMock()
-            mock_manager.list_all_resources.return_value = resources
-            mock_manager_class.return_value = mock_manager
-
-            result = await get_manifest_directory()
-
-            assert "gpu_worker" in result
-            assert result["gpu_worker"] == "https://worker1.api.runpod.ai"
-
-    @pytest.mark.asyncio
-    async def test_get_manifest_directory_handles_key_without_colon(self):
-        """Test handling of keys without colon separator."""
-        with patch(
-            "tetra_rp.runtime.mothership_provisioner.ResourceManager"
-        ) as mock_manager_class:
-            mock_resource = MagicMock()
-            mock_resource.endpoint_url = "https://worker1.api.runpod.ai"
-
-            # Key without colon - should use key as-is
-            resources = {"worker1": mock_resource}
-
-            mock_manager = MagicMock()
-            mock_manager.list_all_resources.return_value = resources
-            mock_manager_class.return_value = mock_manager
-
-            result = await get_manifest_directory()
-
-            assert result == {"worker1": "https://worker1.api.runpod.ai"}
+            assert isinstance(resource, ServerlessResource)
+            assert resource_name in resource.name
