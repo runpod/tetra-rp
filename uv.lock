@@ -2916,6 +2916,7 @@ dependencies = [
     { name = "questionary" },
     { name = "rich" },
     { name = "runpod" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
 ]
 
@@ -2943,6 +2944,7 @@ requires-dist = [
     { name = "questionary", specifier = ">=2.0.0" },
     { name = "rich", specifier = ">=14.0.0" },
     { name = "runpod", git = "https://github.com/runpod/runpod-python?rev=main" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
     { name = "typer", specifier = ">=0.12.0" },
 ]
 
