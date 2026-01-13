@@ -86,32 +86,6 @@ class FlashApp:
         self._hydrated = True
         return
 
-        log.debug("Hydrating app")
-        async with RunpodGraphQLClient() as client:
-            try:
-                result = await client.get_flash_app_by_name(self.name)
-                found_id = result["id"]
-
-                # if an id is attached to instance check if it makes sense
-                if self.id:
-                    if self.id != found_id:
-                        raise ValueError(
-                            "provided id for app class does not match existing app resource."
-                        )
-                    self._hydrated = True
-                    return self
-                self.id = found_id
-                self._hydrated = True
-                return self
-
-            except Exception as exc:
-                if "app not found" not in str(exc).lower():
-                    raise
-            result = await client.create_flash_app({"name": self.name})
-            self.id = result["id"]
-
-        self._hydrated = True
-
     async def _get_id_by_name(self) -> str:
         """Get the app ID from the server by name.
 
