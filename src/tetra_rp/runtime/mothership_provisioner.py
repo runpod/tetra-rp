@@ -113,6 +113,71 @@ def compute_resource_hash(resource_data: Dict[str, Any]) -> str:
     return hashlib.md5(config_json.encode()).hexdigest()
 
 
+def filter_resources_by_manifest(
+    all_resources: Dict[str, DeployableResource],
+    manifest: Dict[str, Any],
+) -> Dict[str, DeployableResource]:
+    """Filter cached resources to only those defined in manifest.
+
+    Prevents stale cache entries from being deployed by checking:
+    1. Resource name exists in manifest
+    2. Resource type matches manifest entry
+
+    Stale entries can occur when codebase is refactored but the resource
+    cache still contains endpoints from an older version.
+
+    Args:
+        all_resources: All resources from ResourceManager cache
+        manifest: Current deployment manifest
+
+    Returns:
+        Filtered dict containing only manifest-matching resources
+    """
+    manifest_resources = manifest.get("resources", {})
+    filtered = {}
+    removed_count = 0
+
+    for key, resource in all_resources.items():
+        resource_name = resource.name if hasattr(resource, "name") else None
+
+        if not resource_name:
+            logger.warning(f"Skipping cached resource without name: {key}")
+            removed_count += 1
+            continue
+
+        # Check if resource exists in manifest
+        if resource_name not in manifest_resources:
+            logger.info(
+                f"Removing stale cached resource '{resource_name}' "
+                f"(not in current manifest)"
+            )
+            removed_count += 1
+            continue
+
+        # Check if type matches
+        manifest_entry = manifest_resources[resource_name]
+        expected_type = manifest_entry.get("resource_type")
+        actual_type = resource.__class__.__name__
+
+        if expected_type and expected_type != actual_type:
+            logger.warning(
+                f"Removing stale cached resource '{resource_name}' "
+                f"(type mismatch: cached={actual_type}, manifest={expected_type})"
+            )
+            removed_count += 1
+            continue
+
+        filtered[key] = resource
+
+    if removed_count > 0:
+        logger.info(
+            f"Cache validation: Removed {removed_count} stale "
+            f"resource(s) not matching manifest"
+        )
+
+    return filtered
+
+
 def reconcile_manifests(
     local_manifest: Dict[str, Any],
     persisted_manifest: Optional[Dict[str, Any]],
@@ -136,14 +201,6 @@ def reconcile_manifests(
     unchanged = []
 
     for name, local_data in local_resources.items():
-        # Skip LoadBalancer resources (mothership itself)
-        if local_data.get("resource_type") in [
-            "LoadBalancerSlsResource",
-            "LiveLoadBalancer",
-        ]:
-            logger.debug(f"Skipping LoadBalancer resource (mothership): {name}")
-            continue
-
         if name not in persisted_resources:
             new.append(name)
         else:
@@ -157,13 +214,7 @@ def reconcile_manifests(
                 unchanged.append(name)
 
     # Detect removed resources (in persisted, not in local)
-    removed = [
-        name
-        for name in persisted_resources
-        if name not in local_resources
-        and persisted_resources[name].get("resource_type")
-        not in ["LoadBalancerSlsResource", "LiveLoadBalancer"]
-    ]
+    removed = [name for name in persisted_resources if name not in local_resources]
 
     return ManifestDiff(new=new, changed=changed, removed=removed, unchanged=unchanged)
 
@@ -186,30 +237,62 @@ def create_resource_from_manifest(
     Raises:
         ValueError: If resource type not supported
     """
+    from tetra_rp.core.resources.live_serverless import (
+        CpuLiveLoadBalancer,
+        LiveLoadBalancer,
+    )
+    from tetra_rp.core.resources.load_balancer_sls_resource import (
+        LoadBalancerSlsResource,
+    )
     from tetra_rp.core.resources.serverless import ServerlessResource
 
     resource_type = resource_data.get("resource_type", "ServerlessResource")
 
-    # For now, we only support ServerlessResource children
-    # LoadBalancerSlsResource children are skipped in reconciliation
-    if resource_type not in ["ServerlessResource", "LiveServerless"]:
+    # Support both Serverless and LoadBalancer resource types
+    if resource_type not in [
+        "ServerlessResource",
+        "LiveServerless",
+        "LoadBalancerSlsResource",
+        "LiveLoadBalancer",
+        "CpuLiveLoadBalancer",
+    ]:
         raise ValueError(
             f"Unsupported resource type for auto-provisioning: {resource_type}"
         )
 
-    # Create basic ServerlessResource config
+    # Create resource with mothership environment variables
     # Note: Manifest doesn't contain full deployment config (image, workers, etc.)
-    # This is a limitation - we need to enhance the manifest or get config elsewhere
-
     # For now, create a minimal config with required fields
     # TODO: Enhance manifest to include deployment config (image, workers, GPU type, etc.)
-    resource = ServerlessResource(
-        name=resource_name,
-        env={
-            "FLASH_MOTHERSHIP_URL": mothership_url,
-            "FLASH_RESOURCE_NAME": resource_name,
-        },
-    )
+
+    # Create appropriate resource type based on manifest entry
+    import os
+
+    env = {
+        "FLASH_RESOURCE_NAME": resource_name,
+        "FLASH_MOTHERSHIP_ID": os.getenv("RUNPOD_ENDPOINT_ID"),
+    }
+
+    # Add "tmp-" prefix for test-mothership deployments
+    # Check environment variable set by test-mothership command
+
+    is_test_mothership = os.getenv("FLASH_IS_TEST_MOTHERSHIP", "").lower() == "true"
+
+    if is_test_mothership and not resource_name.startswith("tmp-"):
+        prefixed_name = f"tmp-{resource_name}"
+        logger.info(f"Test mode: Using temporary name '{prefixed_name}'")
+    else:
+        prefixed_name = resource_name
+
+    if resource_type == "CpuLiveLoadBalancer":
+        resource = CpuLiveLoadBalancer(name=prefixed_name, env=env)
+    elif resource_type == "LiveLoadBalancer":
+        resource = LiveLoadBalancer(name=prefixed_name, env=env)
+    elif resource_type == "LoadBalancerSlsResource":
+        resource = LoadBalancerSlsResource(name=prefixed_name, env=env)
+    else:
+        # ServerlessResource and LiveServerless
+        resource = ServerlessResource(name=prefixed_name, env=env)
 
     return resource
 
@@ -241,14 +324,31 @@ async def provision_children(
         persisted_manifest = await state_client.get_persisted_manifest(mothership_id)
 
         # Reconcile manifests
+        logger.info(
+            f"Starting reconciliation: {len(local_manifest.get('resources', {}))} manifest resources"
+        )
+
         diff = reconcile_manifests(local_manifest, persisted_manifest)
 
         logger.info(
-            f"Reconciliation complete: {len(diff.new)} new, {len(diff.changed)} changed, "
-            f"{len(diff.removed)} removed, {len(diff.unchanged)} unchanged"
+            f"Reconciliation plan: {len(diff.new)} to deploy, "
+            f"{len(diff.changed)} to update, "
+            f"{len(diff.removed)} to remove, "
+            f"{len(diff.unchanged)} unchanged"
         )
 
         manager = ResourceManager()
+
+        # Filter cached resources to prevent stale entries from being deployed
+        # This ensures resources from old codebase versions don't get redeployed
+        all_cached = manager.list_all_resources()
+        if all_cached:
+            valid_cached = filter_resources_by_manifest(all_cached, local_manifest)
+            logger.info(
+                f"Cache validation: {len(all_cached)} cached, "
+                f"{len(valid_cached)} valid, "
+                f"{len(local_manifest.get('resources', {}))} in manifest"
+            )
 
         # Deploy NEW resources
         for resource_name in diff.new:
@@ -352,39 +452,11 @@ async def provision_children(
             except Exception as e:
                 logger.error(f"Failed to delete {resource_name}: {e}")
 
-        logger.info("Provisioning complete")
+        logger.info("=" * 60)
+        logger.info("Provisioning complete - All child endpoints deployed")
+        logger.info(f"Total endpoints: {len(local_manifest.get('resources', {}))}")
+        logger.info("Test phase: Manifest updated with child endpoint URLs")
+        logger.info("=" * 60)
 
     except Exception as e:
         logger.error(f"Provisioning failed: {e}", exc_info=True)
-
-
-async def get_manifest_directory() -> Dict[str, str]:
-    """Get manifest directory mapping of resource_config_name -> endpoint_url.
-
-    Returns:
-        Dictionary mapping resource names to endpoint URLs.
-        Empty dict if no resources deployed yet.
-    """
-    try:
-        manager = ResourceManager()
-        resources = manager.list_all_resources()
-
-        manifest_directory = {}
-        for key, resource in resources.items():
-            # Extract resource name from key format: "ResourceType:name"
-            if ":" in key:
-                resource_name = key.split(":", 1)[1]
-            else:
-                resource_name = key
-
-            # Get endpoint URL
-            if hasattr(resource, "endpoint_url"):
-                manifest_directory[resource_name] = resource.endpoint_url
-            elif hasattr(resource, "url"):
-                manifest_directory[resource_name] = resource.url
-
-        return manifest_directory
-
-    except Exception as e:
-        logger.error(f"Failed to get manifest directory: {e}")
-        return {}
