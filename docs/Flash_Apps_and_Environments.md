@@ -22,6 +22,6 @@ Flash apps are the top-level packaging unit for Flash projects. Each app tracks 
    - `flash deploy list/info` zoom into environment state, showing associated endpoints and volumes, while `flash deploy delete` tears them down with confirmation prompts.
 
 ## Operational Notes
-- Flasha app CLI entrypoint wraps async helpers with `asyncio.run`, so tests patch that boundary and the shared Rich `console` to keep assertions deterministic.
+- Flash app CLI entrypoint wraps async helpers with `asyncio.run`, so tests patch that boundary and the shared Rich `console` to keep assertions deterministic.
 - Environment deletion requires confirmation because the API call is irreversible. The CLI renders a warning `Panel` with the app/env IDs before prompting.
 
