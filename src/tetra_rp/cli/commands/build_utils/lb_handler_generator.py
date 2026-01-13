@@ -25,6 +25,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, Request
 from tetra_rp.runtime.lb_handler import create_lb_handler
@@ -38,6 +39,9 @@ logger = logging.getLogger(__name__)
 ROUTE_REGISTRY = {{
 {registry}
 }}
+
+# Module-level state for /manifest endpoint
+_state_client: Optional[StateManagerClient] = None
 
 
 # Lifespan context manager for startup/shutdown
@@ -57,13 +61,18 @@ async def lifespan(app: FastAPI):
         from tetra_rp.runtime.state_manager_client import StateManagerClient
 
         if is_mothership():
-            logger.info("Mothership detected, initiating auto-provisioning")
+            logger.info("=" * 60)
+            logger.info("Mothership detected - Starting auto-provisioning")
+            logger.info("Test phase: Deploying child endpoints with 'tmp-' prefix")
+            logger.info("=" * 60)
             try:
                 mothership_url = get_mothership_url()
                 logger.info(f"Mothership URL: {{mothership_url}}")
 
-                # Initialize State Manager client
+                # Initialize State Manager client and store in module-level state
                 state_client = StateManagerClient()
+                global _state_client
+                _state_client = state_client
 
                 # Spawn background provisioning task (non-blocking)
                 manifest_path = Path(__file__).parent / "flash_manifest.json"
@@ -105,22 +114,53 @@ def ping():
 # Manifest endpoint for service discovery
 @app.get("/manifest")
 async def manifest():
-    """Return manifest directory for service discovery.
+    """Return complete authoritative manifest for service discovery.
 
-    Maps resource_config_name -> endpoint_url for all deployed children.
-    Used by child endpoints to discover peers via FLASH_MOTHERSHIP_URL.
+    Fetches the full manifest from State Manager, allowing child endpoints
+    to synchronize their configuration.
 
     Returns:
-        dict: {{"manifest": {{resource_name: endpoint_url, ...}}}}
+        dict: Complete manifest with version, generated_at, project_name,
+              function_registry, resources, and routes
     """
     try:
-        from tetra_rp.runtime.mothership_provisioner import get_manifest_directory
+        import os
+        from tetra_rp.runtime.mothership_provisioner import is_mothership
 
-        manifest_directory = await get_manifest_directory()
-        return {{"manifest": manifest_directory}}
+        # Only mothership serves manifest
+        if not is_mothership():
+            return {{"error": "Only mothership serves manifest"}}, 403
+
+        # Check state client initialized
+        global _state_client
+        if _state_client is None:
+            return {{"error": "State Manager not initialized"}}, 500
+
+        # Get mothership ID
+        mothership_id = os.getenv("RUNPOD_ENDPOINT_ID")
+        if not mothership_id:
+            return {{"error": "RUNPOD_ENDPOINT_ID not set"}}, 500
+
+        # Fetch persisted manifest from State Manager (single source of truth)
+        persisted_manifest = await _state_client.get_persisted_manifest(mothership_id)
+
+        # First boot: no manifest yet, return minimal structure
+        if persisted_manifest is None:
+            return {{
+                "version": "1.0",
+                "generated_at": "",
+                "project_name": "",
+                "function_registry": {{}},
+                "resources": {{}},
+                "routes": {{}}
+            }}
+
+        # Return complete manifest
+        return persisted_manifest
+
     except Exception as e:
-        logger.error(f"Failed to get manifest directory: {{e}}")
-        return {{"manifest": {{}}, "error": str(e)}}
+        logger.error(f"Failed to get manifest: {{e}}")
+        return {{"error": str(e)}}, 500
 
 
 if __name__ == "__main__":

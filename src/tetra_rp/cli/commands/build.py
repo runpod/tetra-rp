@@ -1,6 +1,7 @@
 """Flash build command - Package Flash applications for deployment."""
 
 import ast
+import importlib.util
 import json
 import logging
 import re
@@ -9,12 +10,18 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
+
+try:
+    import tomllib  # Python 3.11+
+except ImportError:
+    import tomli as tomllib  # Python 3.9-3.10
 
 from ..utils.ignore import get_file_tree, load_ignore_patterns
 from .build_utils.handler_generator import HandlerGenerator
@@ -52,6 +59,132 @@ UV_COMMAND = "uv"
 PIP_MODULE = "pip"
 
 
+def _find_local_tetra_rp() -> Optional[Path]:
+    """Find local tetra_rp source directory if available.
+
+    Returns:
+        Path to tetra_rp package directory, or None if not found or installed from PyPI
+    """
+    try:
+        spec = importlib.util.find_spec("tetra_rp")
+
+        if not spec or not spec.origin:
+            return None
+
+        # Get package directory (spec.origin is __init__.py path)
+        pkg_dir = Path(spec.origin).parent
+
+        # Skip if installed in site-packages (PyPI install)
+        if "site-packages" in str(pkg_dir):
+            return None
+
+        # Must be development install
+        return pkg_dir
+
+    except Exception:
+        return None
+
+
+def _bundle_local_tetra_rp(build_dir: Path) -> bool:
+    """Copy local tetra_rp source into build directory.
+
+    Args:
+        build_dir: Target build directory
+
+    Returns:
+        True if bundled successfully, False otherwise
+    """
+    tetra_pkg = _find_local_tetra_rp()
+
+    if not tetra_pkg:
+        console.print(
+            "[yellow]⚠ Local tetra_rp not found or using PyPI install[/yellow]"
+        )
+        return False
+
+    # Copy tetra_rp to build
+    dest = build_dir / "tetra_rp"
+    if dest.exists():
+        shutil.rmtree(dest)
+
+    shutil.copytree(
+        tetra_pkg,
+        dest,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache"),
+    )
+
+    console.print(f"[cyan]✓ Bundled local tetra_rp from {tetra_pkg}[/cyan]")
+    return True
+
+
+def _extract_tetra_rp_dependencies(tetra_pkg_dir: Path) -> list[str]:
+    """Extract runtime dependencies from tetra_rp's pyproject.toml.
+
+    When bundling local tetra_rp source, we need to also install its dependencies
+    so they're available in the build environment.
+
+    Args:
+        tetra_pkg_dir: Path to tetra_rp package directory (src/tetra_rp)
+
+    Returns:
+        List of dependency strings, empty list if parsing fails
+    """
+    try:
+        # Navigate from tetra_rp package to project root
+        # tetra_pkg_dir is src/tetra_rp, need to go up 2 levels to reach project root
+        project_root = tetra_pkg_dir.parent.parent
+        pyproject_path = project_root / "pyproject.toml"
+
+        if not pyproject_path.exists():
+            console.print(
+                "[yellow]⚠ tetra_rp pyproject.toml not found, "
+                "dependencies may be missing[/yellow]"
+            )
+            return []
+
+        # Parse TOML
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+
+        # Extract dependencies from [project.dependencies]
+        dependencies = data.get("project", {}).get("dependencies", [])
+
+        if dependencies:
+            console.print(
+                f"[dim]Found {len(dependencies)} tetra_rp dependencies to install[/dim]"
+            )
+
+        return dependencies
+
+    except Exception as e:
+        console.print(f"[yellow]⚠ Failed to parse tetra_rp dependencies: {e}[/yellow]")
+        return []
+
+
+def _remove_tetra_from_requirements(build_dir: Path) -> None:
+    """Remove tetra_rp from requirements.txt and clean up dist-info since we bundled source."""
+    req_file = build_dir / "requirements.txt"
+
+    if not req_file.exists():
+        return
+
+    lines = req_file.read_text().splitlines()
+    filtered = [
+        line
+        for line in lines
+        if not line.strip().startswith("tetra_rp")
+        and not line.strip().startswith("tetra-rp")
+    ]
+
+    req_file.write_text("\n".join(filtered) + "\n")
+
+    # Remove tetra_rp dist-info directory to avoid conflicts with bundled source
+    # dist-info is created by pip install and can confuse Python's import system
+    for dist_info in build_dir.glob("tetra_rp-*.dist-info"):
+        if dist_info.is_dir():
+            shutil.rmtree(dist_info)
+
+
 def build_command(
     no_deps: bool = typer.Option(
         False, "--no-deps", help="Skip transitive dependencies during pip install"
@@ -66,6 +199,11 @@ def build_command(
         None,
         "--exclude",
         help="Comma-separated packages to exclude (e.g., 'torch,torchvision')",
+    ),
+    use_local_tetra: bool = typer.Option(
+        False,
+        "--use-local-tetra",
+        help="Bundle local tetra_rp source instead of PyPI version (for development/testing)",
     ),
 ):
     """
@@ -89,6 +227,9 @@ def build_command(
             console.print("[red]Error:[/red] Not a valid Flash project")
             console.print("Run [bold]flash init[/bold] to create a Flash project")
             raise typer.Exit(1)
+
+        # Create build directory first to ensure clean state before collecting files
+        build_dir = create_build_directory(project_dir, app_name)
 
         # Parse exclusions
         excluded_packages = []
@@ -121,9 +262,8 @@ def build_command(
             )
             progress.stop_task(collect_task)
 
-            # Create build directory
+            # Note: build directory already created before progress tracking
             build_task = progress.add_task("Creating build directory...")
-            build_dir = create_build_directory(project_dir, app_name)
             progress.update(
                 build_task,
                 description="[green]✓ Created .flash/.build/",
@@ -219,9 +359,20 @@ def build_command(
                 logger.exception("Build failed")
                 raise typer.Exit(1)
 
+            # Extract tetra_rp dependencies if bundling local version
+            tetra_deps = []
+            if use_local_tetra:
+                tetra_pkg = _find_local_tetra_rp()
+                if tetra_pkg:
+                    tetra_deps = _extract_tetra_rp_dependencies(tetra_pkg)
+
             # Install dependencies
             deps_task = progress.add_task("Installing dependencies...")
             requirements = collect_requirements(project_dir, build_dir)
+
+            # Add tetra_rp dependencies if bundling local version
+            # This ensures all tetra_rp runtime dependencies are available in the build
+            requirements.extend(tetra_deps)
 
             # Filter out excluded packages
             if excluded_packages:
@@ -279,6 +430,22 @@ def build_command(
                 )
 
             progress.stop_task(deps_task)
+
+            # Bundle local tetra_rp if requested
+            if use_local_tetra:
+                tetra_task = progress.add_task("Bundling local tetra_rp...")
+                if _bundle_local_tetra_rp(build_dir):
+                    _remove_tetra_from_requirements(build_dir)
+                    progress.update(
+                        tetra_task,
+                        description="[green]✓ Bundled local tetra_rp",
+                    )
+                else:
+                    progress.update(
+                        tetra_task,
+                        description="[yellow]⚠ Using PyPI tetra_rp",
+                    )
+                progress.stop_task(tetra_task)
 
             # Clean up Python bytecode before archiving
             cleanup_python_bytecode(build_dir)
