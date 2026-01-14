@@ -21,6 +21,8 @@ class ManifestFunction:
     is_class: bool
     http_method: Optional[str] = None  # HTTP method for LB endpoints (GET, POST, etc.)
     http_path: Optional[str] = None  # HTTP path for LB endpoints (/api/process)
+    is_load_balanced: bool = False  # Determined by isinstance() at scan time
+    is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
 
 
 @dataclass
@@ -30,6 +32,8 @@ class ManifestResource:
     resource_type: str
     handler_file: str
     functions: List[ManifestFunction]
+    is_load_balanced: bool = False  # Determined by isinstance() at scan time
+    is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
 
 
 class ManifestBuilder:
@@ -66,12 +70,12 @@ class ManifestBuilder:
                 functions[0].resource_type if functions else "LiveServerless"
             )
 
+            # Extract flags from first function (determined by isinstance() at scan time)
+            is_load_balanced = functions[0].is_load_balanced if functions else False
+            is_live_resource = functions[0].is_live_resource if functions else False
+
             # Validate and collect routing for LB endpoints
             resource_routes = {}
-            is_load_balanced = resource_type in [
-                "LoadBalancerSlsResource",
-                "LiveLoadBalancer",
-            ]
             if is_load_balanced:
                 for f in functions:
                     if not f.http_method or not f.http_path:
@@ -104,6 +108,8 @@ class ManifestBuilder:
                     "module": f.module_path,
                     "is_async": f.is_async,
                     "is_class": f.is_class,
+                    "is_load_balanced": f.is_load_balanced,
+                    "is_live_resource": f.is_live_resource,
                     **(
                         {"http_method": f.http_method, "http_path": f.http_path}
                         if is_load_balanced
@@ -117,6 +123,8 @@ class ManifestBuilder:
                 "resource_type": resource_type,
                 "handler_file": handler_file,
                 "functions": functions_list,
+                "is_load_balanced": is_load_balanced,
+                "is_live_resource": is_live_resource,
             }
 
             # Store routes for LB endpoints

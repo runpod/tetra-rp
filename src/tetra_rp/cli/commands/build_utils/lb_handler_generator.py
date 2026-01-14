@@ -190,12 +190,13 @@ class LBHandlerGenerator:
 
         for resource_name, resource_data in resources.items():
             # Generate for both LiveLoadBalancer (local dev) and LoadBalancerSlsResource (deployed)
-            resource_type = (
-                resource_data.resource_type
-                if hasattr(resource_data, "resource_type")
-                else resource_data.get("resource_type")
+            # Use flag determined by isinstance() at scan time
+            is_load_balanced = (
+                resource_data.is_load_balanced
+                if hasattr(resource_data, "is_load_balanced")
+                else resource_data.get("is_load_balanced", False)
             )
-            if resource_type not in ["LoadBalancerSlsResource", "LiveLoadBalancer"]:
+            if not is_load_balanced:
                 continue
 
             handler_path = self._generate_handler(resource_name, resource_data)
@@ -217,12 +218,12 @@ class LBHandlerGenerator:
 
         # Determine if /execute endpoint should be included
         # LiveLoadBalancer (local dev) includes /execute, deployed LoadBalancerSlsResource does not
-        resource_type = (
-            resource_data.resource_type
-            if hasattr(resource_data, "resource_type")
-            else resource_data.get("resource_type", "LoadBalancerSlsResource")
+        # Use flag determined by isinstance() at scan time
+        include_execute = (
+            resource_data.is_live_resource
+            if hasattr(resource_data, "is_live_resource")
+            else resource_data.get("is_live_resource", False)
         )
-        include_execute = resource_type == "LiveLoadBalancer"
 
         # Get functions from resource (handle both dict and ResourceConfig)
         functions = (
@@ -256,13 +257,19 @@ class LBHandlerGenerator:
     def _generate_imports(self, functions: List[Any]) -> str:
         """Generate import statements for functions.
 
+        Uses importlib to handle module paths with any characters,
+        including numeric prefixes that aren't valid Python identifiers.
+
         Args:
             functions: List of function metadata (dicts or FunctionMetadata objects)
 
         Returns:
             Import statements as string
         """
-        imports = []
+        if not functions:
+            return "# No functions to import"
+
+        imports = ["import importlib"]
 
         for func in functions:
             # Handle both dict and FunctionMetadata
@@ -270,9 +277,10 @@ class LBHandlerGenerator:
             name = func.name if hasattr(func, "name") else func.get("name")
 
             if module and name:
-                imports.append(f"from {module} import {name}")
+                # Use importlib to handle module names with invalid identifiers
+                imports.append(f"{name} = importlib.import_module('{module}').{name}")
 
-        return "\n".join(imports) if imports else "# No functions to import"
+        return "\n".join(imports)
 
     def _generate_route_registry(self, functions: List[Any]) -> str:
         """Generate route registry for FastAPI app.

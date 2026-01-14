@@ -296,15 +296,16 @@ def build_command(
                         handler_paths = []
 
                         # Separate resources by type
+                        # Use flag determined by isinstance() at scan time
                         lb_resources = {
                             name: data
                             for name, data in manifest.get("resources", {}).items()
-                            if data.get("resource_type") == "LoadBalancerSlsResource"
+                            if data.get("is_load_balanced", False)
                         }
                         qb_resources = {
                             name: data
                             for name, data in manifest.get("resources", {}).items()
-                            if data.get("resource_type") != "LoadBalancerSlsResource"
+                            if not data.get("is_load_balanced", False)
                         }
 
                         # Generate LB handlers

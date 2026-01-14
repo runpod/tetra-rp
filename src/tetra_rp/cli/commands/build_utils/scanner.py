@@ -24,6 +24,10 @@ class RemoteFunctionMetadata:
     file_path: Path
     http_method: Optional[str] = None  # HTTP method for LB endpoints: GET, POST, etc.
     http_path: Optional[str] = None  # HTTP path for LB endpoints: /api/process
+    is_load_balanced: bool = False  # LoadBalancerSlsResource or LiveLoadBalancer
+    is_live_resource: bool = (
+        False  # LiveLoadBalancer (vs deployed LoadBalancerSlsResource)
+    )
 
 
 class RemoteDecoratorScanner:
@@ -34,6 +38,7 @@ class RemoteDecoratorScanner:
         self.py_files: List[Path] = []
         self.resource_configs: Dict[str, str] = {}  # name -> name
         self.resource_types: Dict[str, str] = {}  # name -> type
+        self.resource_flags: Dict[str, Dict[str, bool]] = {}  # name -> {flag: bool}
 
     def discover_remote_functions(self) -> List[RemoteFunctionMetadata]:
         """Discover all @remote decorated functions and classes."""
@@ -83,7 +88,11 @@ class RemoteDecoratorScanner:
         return functions
 
     def _extract_resource_configs(self, tree: ast.AST, py_file: Path) -> None:
-        """Extract resource config variable assignments."""
+        """Extract resource config variable assignments and determine type flags.
+
+        This method extracts resource configurations and determines is_load_balanced
+        and is_live_resource flags using string-based type matching.
+        """
         module_path = self._get_module_path(py_file)
 
         for node in ast.walk(tree):
@@ -94,7 +103,7 @@ class RemoteDecoratorScanner:
                         variable_name = target.id
                         config_type = self._get_call_type(node.value)
 
-                        # Accept any class that looks like a resource config (ServerlessResource)
+                        # Accept any class that looks like a resource config (DeployableResource)
                         if config_type and self._is_resource_config_type(config_type):
                             # Extract the resource's name parameter (the actual identifier)
                             # If extraction fails, fall back to variable name
@@ -110,6 +119,26 @@ class RemoteDecoratorScanner:
                             var_key = f"{module_path}:{variable_name}"
                             self.resource_configs[var_key] = resource_name
                             self.resource_types[var_key] = config_type
+
+                            # Determine boolean flags using string-based type checking
+                            # This is determined by isinstance() at scan time in production,
+                            # but we use string matching for reliability
+                            is_load_balanced = config_type in [
+                                "LoadBalancerSlsResource",
+                                "LiveLoadBalancer",
+                            ]
+                            is_live_resource = config_type == "LiveLoadBalancer"
+
+                            # Store flags for this resource
+                            self.resource_flags[resource_name] = {
+                                "is_load_balanced": is_load_balanced,
+                                "is_live_resource": is_live_resource,
+                            }
+                            # Also store for variable key
+                            self.resource_flags[var_key] = {
+                                "is_load_balanced": is_load_balanced,
+                                "is_live_resource": is_live_resource,
+                            }
 
     def _extract_remote_functions(
         self, tree: ast.AST, py_file: Path
@@ -141,6 +170,12 @@ class RemoteDecoratorScanner:
                             remote_decorator
                         )
 
+                        # Get flags for this resource
+                        flags = self.resource_flags.get(
+                            resource_config_name,
+                            {"is_load_balanced": False, "is_live_resource": False},
+                        )
+
                         metadata = RemoteFunctionMetadata(
                             function_name=node.name,
                             module_path=module_path,
@@ -151,6 +186,8 @@ class RemoteDecoratorScanner:
                             file_path=py_file,
                             http_method=http_method,
                             http_path=http_path,
+                            is_load_balanced=flags["is_load_balanced"],
+                            is_live_resource=flags["is_live_resource"],
                         )
                         functions.append(metadata)
 
