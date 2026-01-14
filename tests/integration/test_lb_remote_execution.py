@@ -374,9 +374,18 @@ def get_status():
 class TestManifestEndpointIntegration:
     """Integration tests for GET /manifest endpoint."""
 
+    @pytest.fixture(autouse=True)
+    def reset_manifest_fetcher(self):
+        """Reset the global manifest fetcher before each test."""
+        import tetra_rp.runtime.lb_handler as lb_handler_module
+
+        lb_handler_module._manifest_fetcher = None
+        yield
+        lb_handler_module._manifest_fetcher = None
+
     def test_manifest_endpoint_in_live_load_balancer(self, monkeypatch):
         """Test manifest endpoint in LiveLoadBalancer with FLASH_IS_MOTHERSHIP=true."""
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
         from fastapi.testclient import TestClient
 
         monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
@@ -414,10 +423,12 @@ class TestManifestEndpointIntegration:
             "routes": {"test-mothership": {"GET /api/hello": "hello"}},
         }
 
-        # Mock load_manifest to return test manifest
-        with patch(
-            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
-        ):
+        # Mock ManifestFetcher to return test manifest
+        with patch("tetra_rp.runtime.lb_handler.ManifestFetcher") as MockFetcher:
+            mock_fetcher = AsyncMock()
+            mock_fetcher.get_manifest = AsyncMock(return_value=test_manifest)
+            MockFetcher.return_value = mock_fetcher
+
             from tetra_rp.runtime.lb_handler import create_lb_handler
 
             # Create handler with manifest endpoint enabled
@@ -445,10 +456,12 @@ class TestManifestEndpointIntegration:
 
     def test_manifest_endpoint_with_deployed_lb_resource(self, monkeypatch):
         """Test manifest endpoint with LoadBalancerSlsResource."""
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
         from fastapi.testclient import TestClient
+        from tetra_rp.runtime.lb_handler import _get_manifest_fetcher
 
         monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
+        _get_manifest_fetcher.cache_clear()
 
         # Create test manifest for deployed endpoint
         test_manifest = {
@@ -474,9 +487,11 @@ class TestManifestEndpointIntegration:
             "function_registry": {"process_image": "gpu-worker"},
         }
 
-        with patch(
-            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
-        ):
+        with patch("tetra_rp.runtime.lb_handler.ManifestFetcher") as MockFetcher:
+            mock_fetcher = AsyncMock()
+            mock_fetcher.get_manifest = AsyncMock(return_value=test_manifest)
+            MockFetcher.return_value = mock_fetcher
+
             from tetra_rp.runtime.lb_handler import create_lb_handler
 
             # Create deployed handler (not LiveLoadBalancer)
@@ -488,12 +503,16 @@ class TestManifestEndpointIntegration:
             assert response.status_code == 200
             assert response.json() == test_manifest
 
+        _get_manifest_fetcher.cache_clear()
+
     def test_manifest_endpoint_coexists_with_ping(self, monkeypatch):
         """Test that /manifest endpoint coexists with /ping health check."""
-        from unittest.mock import patch
+        from unittest.mock import patch, AsyncMock
         from fastapi.testclient import TestClient
+        from tetra_rp.runtime.lb_handler import _get_manifest_fetcher
 
         monkeypatch.setenv("FLASH_IS_MOTHERSHIP", "true")
+        _get_manifest_fetcher.cache_clear()
 
         test_manifest = {
             "version": "1.0",
@@ -501,9 +520,11 @@ class TestManifestEndpointIntegration:
             "function_registry": {},
         }
 
-        with patch(
-            "tetra_rp.runtime.lb_handler.load_manifest", return_value=test_manifest
-        ):
+        with patch("tetra_rp.runtime.lb_handler.ManifestFetcher") as MockFetcher:
+            mock_fetcher = AsyncMock()
+            mock_fetcher.get_manifest = AsyncMock(return_value=test_manifest)
+            MockFetcher.return_value = mock_fetcher
+
             from tetra_rp.runtime.lb_handler import create_lb_handler
 
             app = create_lb_handler({}, include_execute=False)
@@ -515,3 +536,54 @@ class TestManifestEndpointIntegration:
 
             ping_response = client.get("/ping")
             assert ping_response.status_code == 404  # Ping not auto-added by factory
+
+        _get_manifest_fetcher.cache_clear()
+
+
+class TestManifestClientToEndpointIntegration:
+    """Integration tests for ManifestClient calling GET /manifest endpoint."""
+
+    def test_manifest_client_can_parse_response(self):
+        """Test ManifestClient can parse manifest response directly."""
+        import asyncio
+        from unittest.mock import patch, AsyncMock, MagicMock
+        from tetra_rp.runtime.manifest_client import ManifestClient
+
+        # Create a manifest to simulate
+        test_manifest = {
+            "version": "1.0",
+            "generated_at": "2024-01-15T10:30:00Z",
+            "project_name": "test-app",
+            "resources": {
+                "gpu_config": {
+                    "resource_type": "LoadBalancerSlsResource",
+                    "handler_file": "handler_gpu.py",
+                    "endpoint_url": "https://api.runpod.io/v2/gpu123",
+                }
+            },
+            "function_registry": {"process_gpu": "gpu_config"},
+        }
+
+        async def test_client_parsing():
+            # Create a mock httpx client that returns the manifest directly
+            mock_http_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = test_manifest
+            mock_http_client.get = AsyncMock(return_value=mock_response)
+
+            # Create ManifestClient
+            client = ManifestClient(mothership_url="http://localhost:8000")
+
+            # Mock the _get_client to return our mock
+            with patch.object(client, "_get_client", return_value=mock_http_client):
+                # Call get_manifest - should parse the response
+                result = await client.get_manifest()
+
+                # Verify it successfully parsed the manifest
+                assert result == test_manifest
+                assert "gpu_config" in result["resources"]
+                assert result["function_registry"]["process_gpu"] == "gpu_config"
+
+        # Run the async test
+        asyncio.run(test_client_parsing())
