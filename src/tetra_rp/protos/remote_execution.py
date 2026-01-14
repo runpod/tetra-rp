@@ -84,26 +84,24 @@ class FunctionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_execution_requirements(self) -> "FunctionRequest":
-        """Validate that required fields are provided based on execution_type"""
+        """Validate that required fields are provided based on execution_type.
+
+        Note: function_code and class_code are optional to support Flash deployments
+        where code is pre-deployed and not sent with the request.
+        """
         if self.execution_type == "function":
             if self.function_name is None:
                 raise ValueError(
                     'function_name is required when execution_type is "function"'
                 )
-            if self.function_code is None:
-                raise ValueError(
-                    'function_code is required when execution_type is "function"'
-                )
+            # function_code is optional - absent for Flash deployments
 
         elif self.execution_type == "class":
             if self.class_name is None:
                 raise ValueError(
                     'class_name is required when execution_type is "class"'
                 )
-            if self.class_code is None:
-                raise ValueError(
-                    'class_code is required when execution_type is "class"'
-                )
+            # class_code is optional - absent for Flash deployments
 
         return self
 
