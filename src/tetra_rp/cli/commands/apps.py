@@ -82,8 +82,8 @@ async def create_flash_app(app_name: str):
 async def get_flash_app(app_name: str):
     with console.status(f"Fetching flash app: {app_name}"):
         app = await FlashApp.from_name(app_name)
-        envs = await app.list_environments()
-        builds = await app.list_builds()
+        # Fetch environments and builds in parallel for better performance
+        envs, builds = await asyncio.gather(app.list_environments(), app.list_builds())
 
     main_info = f"Name: {app.name}\n"
     main_info += f"ID: {app.id}\n"

@@ -7,6 +7,7 @@ import logging
 from ..api.runpod import RunpodGraphQLClient
 from ..resources.resource_manager import ResourceManager
 from ..resources.serverless import ServerlessEndpoint, NetworkVolume
+from ..resources.constants import TARBALL_CONTENT_TYPE
 
 if TYPE_CHECKING:
     from . import ServerlessResource
@@ -38,17 +39,59 @@ class FlashBuildNotFoundError(FlashAppError):
     pass
 
 
-class FlashApp:
+def _validate_exclusive_params(
+    param1: Any, param2: Any, name1: str, name2: str
+) -> None:
+    """Validate that exactly one of two parameters is provided (XOR).
+
+    Args:
+        param1: First parameter value
+        param2: Second parameter value
+        name1: Name of first parameter (for error message)
+        name2: Name of second parameter (for error message)
+
+    Raises:
+        ValueError: If both or neither parameters are provided
     """
-    A flash app serves as the entrypoint for interacting with and managing Flash applications.
-    The primary entrypoint that it's used is to run a script using the Flash library.
-    An instance of this class will eagerly create an application in Runpod by creating an async event loop.
-    To create a flash app from an async event loop, use FlashApp.create()
-    to limit how much we query our gql, follow this philosophy:
-        list requests fetch only top-level attributes, no child resources
-        child resources can be descriptively fetched by querying them by id (or name, in some cases)
-        except in special cases, direct resource queries only fetch one level deeper than the parent
-        (eg flashAppById will fetch an app and its environments and builds, but not resources for all envs)
+    if (not param1 and not param2) or (param1 and param2):
+        raise ValueError(f"Provide exactly one of {name1} or {name2}")
+
+
+class FlashApp:
+    """Flash app resource for managing applications, environments, and builds.
+
+    FlashApp provides the interface for Flash application lifecycle management including:
+    - Creating and managing flash apps
+    - Managing environments within apps
+    - Uploading and deploying builds
+    - Registering endpoints and network volumes to environments
+
+    Lifecycle Management:
+        - Constructor (__init__): Creates instance without I/O by default
+        - Factory methods (from_name, create, get_or_create): Recommended for async contexts
+        - Hydration: Lazy-loads app ID from server via _hydrate()
+        - All API methods call _hydrate() automatically before execution
+
+    Thread Safety:
+        - Hydration is protected by asyncio.Lock to prevent concurrent API calls
+        - Safe to call _hydrate() multiple times from different coroutines
+        - All async methods are safe for concurrent use after hydration
+
+    Usage Patterns:
+        # Factory method (recommended in async context)
+        app = await FlashApp.from_name("my-app")
+
+        # Constructor with eager hydration (blocks, creates event loop)
+        app = FlashApp("my-app", eager_hydrate=True)
+
+        # Constructor without hydration (deferred until first API call)
+        app = FlashApp("my-app")
+        await app._hydrate()  # Explicit hydration
+
+    GraphQL Query Philosophy:
+        - List operations fetch only top-level attributes
+        - Child resources queried separately by ID or name
+        - Direct queries fetch one level deeper (app + envs/builds, not env resources)
     """
 
     def __init__(self, name: str, id: Optional[str] = "", eager_hydrate: bool = False):
@@ -210,12 +253,9 @@ class FlashApp:
             ValueError: If both or neither environment_id and environment_name are provided
             RuntimeError: If app is not hydrated (no ID available)
         """
-        if (not environment_id and not environment_name) or (
-            environment_name and environment_id
-        ):
-            raise ValueError(
-                "One of environment name or environment id must be provided."
-            )
+        _validate_exclusive_params(
+            environment_id, environment_name, "environment_id", "environment_name"
+        )
 
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
@@ -343,7 +383,7 @@ class FlashApp:
         url = result["uploadUrl"]
         object_key = result["objectKey"]
 
-        headers = {"Content-Type": "application/gzip"}
+        headers = {"Content-Type": TARBALL_CONTENT_TYPE}
 
         with tar_path.open("rb") as fh:
             resp = requests.put(url, data=fh, headers=headers)
@@ -468,8 +508,7 @@ class FlashApp:
     async def delete(
         cls, app_name: Optional[str] = None, app_id: Optional[str] = None
     ) -> bool:
-        if (not app_name and not app_id) or (app_name and app_id):
-            raise ValueError("Provide one of app_name or app_id")
+        _validate_exclusive_params(app_name, app_id, "app_name", "app_id")
 
         if not app_id:
             if app_name is None:
