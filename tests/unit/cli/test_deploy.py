@@ -1,0 +1,330 @@
+"""Unit tests for flash deploy CLI commands (async + console aware)."""
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from rich.panel import Panel
+from rich.table import Table
+from typer.testing import CliRunner
+
+from tetra_rp.cli.main import app
+
+
+@pytest.fixture
+def runner():
+    return CliRunner()
+
+
+@pytest.fixture
+def patched_console():
+    with patch("tetra_rp.cli.commands.deploy.console") as mock_console:
+        status_cm = MagicMock()
+        status_cm.__enter__.return_value = None
+        status_cm.__exit__.return_value = None
+        mock_console.status.return_value = status_cm
+        yield mock_console
+
+
+class TestDeployList:
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_list_environments_empty(
+        self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
+    ):
+        flash_app = MagicMock()
+        flash_app.list_environments = AsyncMock(return_value=[])
+        mock_from_name.return_value = flash_app
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(app, ["deploy", "list", "--app-name", "demo"])
+
+        assert result.exit_code == 0
+        patched_console.print.assert_called_with("No environments found for 'demo'.")
+        mock_from_name.assert_awaited_once_with("demo")
+
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_list_environments_with_data(
+        self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
+    ):
+        flash_app = MagicMock()
+        flash_app.list_environments = AsyncMock(
+            return_value=[
+                {
+                    "id": "env-1",
+                    "name": "dev",
+                    "activeBuildId": "build-1",
+                    "createdAt": "2024-01-01",
+                }
+            ]
+        )
+        mock_from_name.return_value = flash_app
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(app, ["deploy", "list", "--app-name", "demo"])
+
+        assert result.exit_code == 0
+        table = patched_console.print.call_args_list[-1].args[0]
+        assert isinstance(table, Table)
+        assert table.columns[0]._cells[0] == "dev"
+        assert table.columns[2]._cells[0] == "build-1"
+
+    @patch("tetra_rp.cli.commands.deploy.discover_flash_project")
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_list_envs_uses_discovery(
+        self,
+        mock_from_name,
+        mock_discover,
+        runner,
+        mock_asyncio_run_coro,
+        patched_console,
+    ):
+        mock_discover.return_value = ("/tmp/project", "derived")
+        flash_app = MagicMock()
+        flash_app.list_environments = AsyncMock(return_value=[])
+        mock_from_name.return_value = flash_app
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(app, ["deploy", "list"])
+
+        assert result.exit_code == 0
+        mock_discover.assert_called_once()
+        mock_from_name.assert_awaited_once_with("derived")
+
+
+class TestDeployNew:
+    @patch(
+        "tetra_rp.cli.commands.deploy.FlashApp.create_environment_and_app",
+        new_callable=AsyncMock,
+    )
+    def test_new_environment_success(
+        self, mock_create, runner, mock_asyncio_run_coro, patched_console
+    ):
+        mock_app = MagicMock()
+        mock_app.id = "app-1"
+        mock_env = {
+            "id": "env-123",
+            "name": "dev",
+            "state": "PENDING",
+            "createdAt": "now",
+        }
+        mock_create.return_value = (mock_app, mock_env)
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(app, ["deploy", "new", "dev", "--app-name", "demo"])
+
+        assert result.exit_code == 0
+        mock_create.assert_awaited_once_with("demo", "dev")
+        panel = patched_console.print.call_args_list[0].args[0]
+        assert isinstance(panel, Panel)
+        assert "[bold]dev[/bold]" in panel.renderable
+        table = patched_console.print.call_args_list[1].args[0]
+        assert isinstance(table, Table)
+
+
+class TestDeployInfo:
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_info_includes_children(
+        self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
+    ):
+        flash_app = MagicMock()
+        flash_app.get_environment_by_name = AsyncMock(
+            return_value={
+                "id": "env-1",
+                "name": "dev",
+                "state": "HEALTHY",
+                "activeBuildId": "build-9",
+                "createdAt": "today",
+                "endpoints": [{"name": "http", "id": "ep-1"}],
+                "networkVolumes": [{"name": "nv", "id": "nv-1"}],
+            }
+        )
+        mock_from_name.return_value = flash_app
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(app, ["deploy", "info", "dev", "--app-name", "demo"])
+
+        assert result.exit_code == 0
+        panel = patched_console.print.call_args_list[0].args[0]
+        assert isinstance(panel, Panel)
+        endpoint_table = patched_console.print.call_args_list[1].args[0]
+        network_table = patched_console.print.call_args_list[2].args[0]
+        assert isinstance(endpoint_table, Table)
+        assert isinstance(network_table, Table)
+
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_info_without_children(
+        self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
+    ):
+        flash_app = MagicMock()
+        flash_app.get_environment_by_name = AsyncMock(
+            return_value={
+                "id": "env-1",
+                "name": "dev",
+                "state": "PENDING",
+                "activeBuildId": None,
+                "createdAt": None,
+                "endpoints": [],
+                "networkVolumes": [],
+            }
+        )
+        mock_from_name.return_value = flash_app
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(app, ["deploy", "info", "dev", "--app-name", "demo"])
+
+        assert result.exit_code == 0
+        # Only the panel should be printed when there are no child resources
+        assert len(patched_console.print.call_args_list) == 1
+        assert isinstance(patched_console.print.call_args.args[0], Panel)
+
+
+class TestDeployDelete:
+    @patch("tetra_rp.cli.commands.deploy.questionary")
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_delete_environment_success(
+        self,
+        mock_from_name,
+        mock_questionary,
+        runner,
+        mock_asyncio_run_coro,
+        patched_console,
+    ):
+        flash_app = MagicMock()
+        flash_app.get_environment_by_name = AsyncMock(return_value={"id": "env-1"})
+        flash_app.delete_environment = AsyncMock(return_value=True)
+        mock_from_name.return_value = flash_app
+
+        confirm = MagicMock()
+        confirm.ask.return_value = True
+        mock_questionary.confirm.return_value = confirm
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(
+                app, ["deploy", "delete", "dev", "--app-name", "demo"]
+            )
+
+        assert result.exit_code == 0
+        flash_app.delete_environment.assert_awaited_once_with("dev")
+        patched_console.print.assert_any_call(
+            "✅ Environment 'dev' deleted successfully"
+        )
+
+    @patch("tetra_rp.cli.commands.deploy.questionary")
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_delete_environment_cancelled(
+        self,
+        mock_from_name,
+        mock_questionary,
+        runner,
+        mock_asyncio_run_coro,
+        patched_console,
+    ):
+        flash_app = MagicMock()
+        flash_app.get_environment_by_name = AsyncMock(return_value={"id": "env-1"})
+        mock_from_name.return_value = flash_app
+
+        confirm = MagicMock()
+        confirm.ask.return_value = False
+        mock_questionary.confirm.return_value = confirm
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(
+                app, ["deploy", "delete", "dev", "--app-name", "demo"]
+            )
+
+        assert result.exit_code == 0
+        patched_console.print.assert_any_call("Deletion cancelled")
+        flash_app.delete_environment.assert_not_called()
+
+    @patch("tetra_rp.cli.commands.deploy.questionary")
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_delete_environment_failure(
+        self,
+        mock_from_name,
+        mock_questionary,
+        runner,
+        mock_asyncio_run_coro,
+        patched_console,
+    ):
+        flash_app = MagicMock()
+        flash_app.get_environment_by_name = AsyncMock(return_value={"id": "env-1"})
+        flash_app.delete_environment = AsyncMock(return_value=False)
+        mock_from_name.return_value = flash_app
+
+        confirm = MagicMock()
+        confirm.ask.return_value = True
+        mock_questionary.confirm.return_value = confirm
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(
+                app, ["deploy", "delete", "dev", "--app-name", "demo"]
+            )
+
+        assert result.exit_code == 1
+        patched_console.print.assert_any_call("❌ Failed to delete environment 'dev'")
+
+
+class TestDeploySend:
+    @patch("tetra_rp.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock)
+    def test_send_success(
+        self, mock_deploy, runner, mock_asyncio_run_coro, patched_console
+    ):
+        build_path = MagicMock()
+        build_path.exists.return_value = True
+
+        with (
+            patch("tetra_rp.cli.commands.deploy.Path", return_value=build_path),
+            patch(
+                "tetra_rp.cli.commands.deploy.asyncio.run",
+                side_effect=mock_asyncio_run_coro,
+            ),
+        ):
+            result = runner.invoke(
+                app,
+                ["deploy", "send", "dev", "--app-name", "demo"],
+            )
+
+        assert result.exit_code == 0
+        mock_deploy.assert_awaited_once()
+        panel = patched_console.print.call_args_list[-1].args[0]
+        assert isinstance(panel, Panel)
+        assert panel.title == "Deployment Complete"
+
+    def test_send_missing_build_path_errors(self, runner):
+        missing_path = MagicMock()
+        missing_path.exists.return_value = False
+
+        with patch("tetra_rp.cli.commands.deploy.Path", return_value=missing_path):
+            result = runner.invoke(
+                app,
+                ["deploy", "send", "dev", "--app-name", "demo"],
+            )
+
+        assert result.exit_code == 1
+        assert "no build path found" in result.stdout.lower()

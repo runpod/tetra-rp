@@ -12,6 +12,7 @@ from .commands import (
     test_mothership,
     # resource,
     deploy,
+    apps,
     undeploy,
 )
 
@@ -51,7 +52,9 @@ deploy_app = typer.Typer(
 
 deploy_app.command("list")(deploy.list_command)
 deploy_app.command("new")(deploy.new_command)
-# deploy_app.command("send")(deploy.send_command)
+deploy_app.command("send")(deploy.send_command)
+deploy_app.command("info")(deploy.info_command)
+deploy_app.command("delete")(deploy.delete_command)
 # deploy_app.command("report")(deploy.report_command)
 # deploy_app.command("rollback")(deploy.rollback_command)
 # deploy_app.command("remove")(deploy.remove_command)
@@ -59,6 +62,7 @@ deploy_app.command("new")(deploy.new_command)
 
 # command: flash deploy *
 app.add_typer(deploy_app, name="deploy")
+app.add_typer(apps.apps_app)
 
 
 # command: flash undeploy
