@@ -565,18 +565,19 @@ class RunpodGraphQLClient:
 
         return result["updateFlashEnvironment"]
 
-    async def get_flash_build(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_flash_build(self, build_id: str) -> Dict[str, Any]:
         query = """
         query getFlashBuild($input: String!) {
                 flashBuild(flashBuildId: $input) {
                     id
                     name
+                    manifest
             }
         }
         """
-        variables = {"input": input_data}
+        variables = {"input": build_id}
 
-        log.debug(f"Fetching flash build for input: {input_data}")
+        log.debug(f"Fetching flash build for input: {build_id}")
         result = await self._execute_graphql(query, variables)
         return result["flashBuild"]
 

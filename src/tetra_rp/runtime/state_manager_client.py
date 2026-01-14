@@ -5,6 +5,8 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from tetra_rp.core.api.runpod import RunpodGraphQLClient
+
 try:
     import httpx
 except ImportError:
@@ -50,7 +52,7 @@ class StateManagerClient:
         self.base_url = base_url
         self.timeout = timeout
         self.max_retries = max_retries
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: RunpodGraphQLClient
 
     async def get_persisted_manifest(
         self, mothership_id: str
@@ -75,28 +77,20 @@ class StateManagerClient:
 
         for attempt in range(self.max_retries):
             try:
-                client = await self._get_client()
-                response = await client.get(
-                    f"{self.base_url}/api/v1/flash/manifests/{mothership_id}",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                    timeout=self.timeout,
-                )
+                async with RunpodGraphQLClient() as client:
+                    environment = await client.get_flash_environment({"flashEnvironmentId": mothership_id})
+                    build_id = environment.get("activeBuildId")
+                    if not build_id:
+                        raise ValueError(f"active build for environment {mothership_id} not found")
+                    build = await client.get_flash_build(build_id)
 
-                if response.status_code == 404:
-                    logger.debug(
-                        f"No persisted manifest found for {mothership_id} (first boot)"
-                    )
-                    return None
+                manifest = build.get("manifest")
+                if not manifest:
+                    raise ManifestServiceUnavailableError(f"manifest not found for build {build["id"]}")
 
-                if response.status_code >= 400:
-                    raise ManifestServiceUnavailableError(
-                        f"State Manager returned {response.status_code}: "
-                        f"{response.text[:200]}"
-                    )
-
-                data = response.json()
                 logger.debug(f"Persisted manifest loaded for {mothership_id}")
-                return data
+                return manifest
+
 
             except (
                 asyncio.TimeoutError,
