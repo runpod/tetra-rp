@@ -92,7 +92,7 @@ class GpuGroup(Enum):
         for pool_id in list(pool_ids):
             for gpu_type in POOLS_TO_TYPES.get(pool_id, []):
                 if gpu_type not in gpu_types:
-                    pool_ids.add(f"-{gpu_type.name}")
+                    pool_ids.add(f"-{gpu_type.value}")
 
         # normalize to strings for the api
         out = []
@@ -179,7 +179,7 @@ class GpuType(Enum):
         """
         Check if a string is a valid GPU type.
         """
-        return gpu_type in cls.__members__
+        return gpu_type in {m.value for m in cls}
 
 
 POOLS_TO_TYPES = {
