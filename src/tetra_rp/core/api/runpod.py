@@ -17,6 +17,37 @@ log = logging.getLogger(__name__)
 RUNPOD_API_BASE_URL = os.environ.get("RUNPOD_API_BASE_URL", "https://api.runpod.io")
 RUNPOD_REST_API_URL = os.environ.get("RUNPOD_REST_API_URL", "https://rest.runpod.io/v1")
 
+# Sensitive fields that should be redacted from logs (pre-signed URLs, tokens, etc.)
+SENSITIVE_FIELDS = {"uploadUrl", "downloadUrl", "presignedUrl"}
+
+
+def _sanitize_for_logging(data: Any, redaction_text: str = "<REDACTED>") -> Any:
+    """Recursively sanitize sensitive fields from data structures before logging.
+
+    Pre-signed URLs and other sensitive fields should not be logged as they
+    are temporary credentials that could be misused if exposed.
+
+    Args:
+        data: Data structure to sanitize (dict, list, or primitive)
+        redaction_text: Text to replace sensitive values with
+
+    Returns:
+        Sanitized copy of the data structure
+    """
+    if isinstance(data, dict):
+        return {
+            key: (
+                redaction_text
+                if key in SENSITIVE_FIELDS
+                else _sanitize_for_logging(value, redaction_text)
+            )
+            for key, value in data.items()
+        }
+    elif isinstance(data, list):
+        return [_sanitize_for_logging(item, redaction_text) for item in data]
+    else:
+        return data
+
 
 class RunpodGraphQLClient:
     """
@@ -55,23 +86,31 @@ class RunpodGraphQLClient:
         payload = {"query": query, "variables": variables or {}}
 
         log.debug(f"GraphQL Query: {query}")
-        log.debug(f"GraphQL Variables: {json.dumps(variables, indent=2)}")
+        sanitized_vars = _sanitize_for_logging(variables)
+        log.debug(f"GraphQL Variables: {json.dumps(sanitized_vars, indent=2)}")
 
         try:
             async with session.post(self.GRAPHQL_URL, json=payload) as response:
                 response_data = await response.json()
 
                 log.debug(f"GraphQL Response Status: {response.status}")
-                log.debug(f"GraphQL Response: {json.dumps(response_data, indent=2)}")
+                sanitized_response = _sanitize_for_logging(response_data)
+                log.debug(
+                    f"GraphQL Response: {json.dumps(sanitized_response, indent=2)}"
+                )
 
                 if response.status >= 400:
+                    sanitized_err = _sanitize_for_logging(response_data)
                     raise Exception(
-                        f"GraphQL request failed: {response.status} - {response_data}"
+                        f"GraphQL request failed: {response.status} - {sanitized_err}"
                     )
 
                 if "errors" in response_data:
                     errors = response_data["errors"]
-                    error_msg = "; ".join([e.get("message", str(e)) for e in errors])
+                    sanitized_errors = _sanitize_for_logging(errors)
+                    error_msg = "; ".join(
+                        [e.get("message", str(e)) for e in sanitized_errors]
+                    )
                     raise Exception(f"GraphQL errors: {error_msg}")
 
                 return response_data.get("data", {})
