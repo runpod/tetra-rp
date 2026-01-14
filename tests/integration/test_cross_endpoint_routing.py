@@ -70,8 +70,8 @@ class TestCrossEndpointRoutingIntegration:
         with patch.dict(
             "os.environ",
             {
-                "RUNPOD_ENDPOINT_ID": "gpu_config",
-                "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                "FLASH_RESOURCE_NAME": "gpu_config",
+                "FLASH_MOTHERSHIP_ID": "mothership-test",
             },
         ):
             endpoint_registry = {
@@ -124,8 +124,8 @@ class TestCrossEndpointRoutingIntegration:
         with patch.dict(
             "os.environ",
             {
-                "RUNPOD_ENDPOINT_ID": "gpu_config",
-                "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                "FLASH_RESOURCE_NAME": "gpu_config",
+                "FLASH_MOTHERSHIP_ID": "mothership-test",
             },
         ):
             endpoint_registry = {
@@ -188,8 +188,8 @@ class TestCrossEndpointRoutingIntegration:
         with patch.dict(
             "os.environ",
             {
-                "RUNPOD_ENDPOINT_ID": "gpu_config",
-                "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                "FLASH_RESOURCE_NAME": "gpu_config",
+                "FLASH_MOTHERSHIP_ID": "mothership-test",
             },
         ):
             endpoint_registry = {
@@ -245,8 +245,8 @@ class TestCrossEndpointRoutingIntegration:
         with patch.dict(
             "os.environ",
             {
-                "RUNPOD_ENDPOINT_ID": "gpu_config",
-                "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                "FLASH_RESOURCE_NAME": "gpu_config",
+                "FLASH_MOTHERSHIP_ID": "mothership-test",
             },
         ):
             endpoint_registry = {
@@ -316,7 +316,7 @@ class TestCrossEndpointRoutingIntegration:
                 "os.environ",
                 {
                     "RUNPOD_ENDPOINT_ID": "resource1",
-                    "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                    "FLASH_MOTHERSHIP_ID": "mothership-test",
                 },
             ):
                 wrapper = create_production_wrapper()

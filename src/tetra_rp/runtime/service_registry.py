@@ -75,7 +75,9 @@ class ServiceRegistry:
                     logger.warning(f"Failed to initialize manifest client: {e}")
                     manifest_client = None
             else:
-                logger.debug("FLASH_MOTHERSHIP_ID not set, manifest service unavailable")
+                logger.debug(
+                    "FLASH_MOTHERSHIP_ID not set, manifest service unavailable"
+                )
                 manifest_client = None
 
         self._manifest_client = manifest_client
