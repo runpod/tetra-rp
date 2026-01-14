@@ -7,7 +7,12 @@ import logging
 from ..api.runpod import RunpodGraphQLClient
 from ..resources.resource_manager import ResourceManager
 from ..resources.serverless import ServerlessEndpoint, NetworkVolume
-from ..resources.constants import TARBALL_CONTENT_TYPE
+from ..resources.constants import (
+    TARBALL_CONTENT_TYPE,
+    MAX_TARBALL_SIZE_MB,
+    VALID_TARBALL_EXTENSIONS,
+    GZIP_MAGIC_BYTES,
+)
 
 if TYPE_CHECKING:
     from . import ServerlessResource
@@ -55,6 +60,56 @@ def _validate_exclusive_params(
     """
     if (not param1 and not param2) or (param1 and param2):
         raise ValueError(f"Provide exactly one of {name1} or {name2}")
+
+
+def _validate_tarball_file(tar_path: Path) -> None:
+    """Validate tarball file before upload.
+
+    Validates:
+    - File exists
+    - File extension is valid (.tar.gz or .tgz)
+    - File is a gzip file (magic bytes check)
+    - File size is within limits
+
+    Args:
+        tar_path: Path to the tarball file
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If file is invalid (extension, magic bytes, or size)
+    """
+    # Check file exists
+    if not tar_path.exists():
+        raise FileNotFoundError(f"Tarball file not found: {tar_path}")
+
+    # Check if it's a file, not directory
+    if not tar_path.is_file():
+        raise ValueError(f"Path is not a file: {tar_path}")
+
+    # Check extension
+    if not any(str(tar_path).endswith(ext) for ext in VALID_TARBALL_EXTENSIONS):
+        raise ValueError(
+            f"Invalid file extension. Expected one of {VALID_TARBALL_EXTENSIONS}, "
+            f"got: {tar_path.suffix}"
+        )
+
+    # Check magic bytes (first 2 bytes should be gzip signature)
+    with tar_path.open("rb") as f:
+        magic = f.read(2)
+        if len(magic) < 2 or (magic[0], magic[1]) != GZIP_MAGIC_BYTES:
+            raise ValueError(
+                f"File is not a valid gzip file. Expected magic bytes "
+                f"{GZIP_MAGIC_BYTES}, got: {tuple(magic) if magic else 'empty file'}"
+            )
+
+    # Check file size
+    size_bytes = tar_path.stat().st_size
+    size_mb = size_bytes / (1024 * 1024)
+    if size_mb > MAX_TARBALL_SIZE_MB:
+        raise ValueError(
+            f"Tarball exceeds maximum size. "
+            f"File size: {size_mb:.2f}MB, Max: {MAX_TARBALL_SIZE_MB}MB"
+        )
 
 
 class FlashApp:
@@ -363,8 +418,11 @@ class FlashApp:
     async def upload_build(self, tar_path: Union[str, Path]) -> Dict[str, Any]:
         """Upload a build tarball to the server.
 
+        Validates the tarball file before upload (extension, magic bytes, size limits).
+
         Args:
             tar_path: Path to the tarball file (string or Path object)
+                     Must be .tar.gz or .tgz, under 500MB
 
         Returns:
             Dictionary containing build information including the build ID
@@ -372,11 +430,15 @@ class FlashApp:
         Raises:
             RuntimeError: If app is not hydrated (no ID available)
             FileNotFoundError: If tar_path does not exist
+            ValueError: If file is invalid (extension, magic bytes, or size)
             requests.HTTPError: If upload fails
         """
-        await self._hydrate()
+        # Convert to Path and validate before hydrating
         if isinstance(tar_path, str):
             tar_path = Path(tar_path)
+        _validate_tarball_file(tar_path)
+
+        await self._hydrate()
         tarball_size = tar_path.stat().st_size
 
         result = await self._get_tarball_upload_url(tarball_size)
