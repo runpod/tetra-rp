@@ -1,6 +1,6 @@
 from typing import Callable, Any, List, Union
 from pydantic import BaseModel
-from .gpu import GpuType, GpuTypeDetail
+from .gpu import GpuTypeModel, GpuTypeDetail
 from .serverless import ServerlessEndpoint
 
 
@@ -9,7 +9,7 @@ Define the mapping for the methods and their return types
 Only include methods from runpod.*
 """
 RUNPOD_TYPED_OPERATIONS = {
-    "get_gpus": List[GpuType],
+    "get_gpus": List[GpuTypeModel],
     "get_gpu": GpuTypeDetail,
     "get_endpoints": List[ServerlessEndpoint],
 }
