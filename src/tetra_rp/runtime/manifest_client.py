@@ -1,4 +1,4 @@
-"""HTTP client for mothership manifest directory API."""
+"""HTTP client for mothership /manifest endpoint API."""
 
 import asyncio
 import logging
@@ -17,14 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class ManifestClient:
-    """HTTP client for querying mothership manifest directory service.
+    """HTTP client for querying mothership /manifest endpoint.
 
-    Fetches the endpoint registry that maps resource_config names to their
-    deployment URLs. This is the "manifest directory service" - an endpoint
-    registry showing where resources are deployed.
+    Fetches the endpoint registry from the mothership's /manifest endpoint,
+    which maps resource_config names to their deployment URLs.
 
-    The directory maps resource_config names to their endpoint URLs.
-    Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
+    The manifest maps resource_config names to their endpoint URLs.
+    Example: {"gpu_config": "https://gpu-worker.api.runpod.ai"}
     """
 
     def __init__(
@@ -37,33 +36,37 @@ class ManifestClient:
 
         Args:
             mothership_url: Base URL of mothership endpoint. Defaults to
-                FLASH_MOTHERSHIP_URL environment variable.
+                constructed from FLASH_MOTHERSHIP_ID environment variable.
             timeout: Request timeout in seconds (default: 10).
             max_retries: Maximum retry attempts (default: 3).
 
         Raises:
             ValueError: If mothership_url not provided and env var not set.
         """
-        self.mothership_url = mothership_url or os.getenv("FLASH_MOTHERSHIP_URL")
-        if not self.mothership_url:
-            raise ValueError(
-                "mothership_url required: pass mothership_url or set "
-                "FLASH_MOTHERSHIP_URL environment variable"
-            )
+        if mothership_url:
+            self.mothership_url = mothership_url
+        else:
+            mothership_id = os.getenv("FLASH_MOTHERSHIP_ID")
+            if not mothership_id:
+                raise ValueError(
+                    "mothership_url required: pass mothership_url or set "
+                    "FLASH_MOTHERSHIP_ID environment variable"
+                )
+            self.mothership_url = f"https://{mothership_id}.api.runpod.ai"
 
         self.timeout = timeout
         self.max_retries = max_retries
         self._client: Optional[httpx.AsyncClient] = None
 
     async def get_directory(self) -> Dict[str, str]:
-        """Fetch endpoint directory from mothership.
+        """Fetch manifest from mothership /manifest endpoint.
 
         Returns:
             Dictionary mapping resource_config_name → endpoint_url.
-            Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
+            Example: {"gpu_config": "https://gpu-worker.api.runpod.ai"}
 
         Raises:
-            ManifestServiceUnavailableError: If manifest directory service unavailable after retries.
+            ManifestServiceUnavailableError: If /manifest endpoint unavailable after retries.
         """
         if httpx is None:
             raise ImportError(
@@ -76,7 +79,7 @@ class ManifestClient:
             try:
                 client = await self._get_client()
                 response = await client.get(
-                    f"{self.mothership_url}/directory",
+                    f"{self.mothership_url}/manifest",
                     timeout=self.timeout,
                 )
 

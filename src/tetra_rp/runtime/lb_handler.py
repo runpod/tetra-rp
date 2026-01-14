@@ -39,7 +39,9 @@ logger = logging.getLogger(__name__)
 
 
 def create_lb_handler(
-    route_registry: Dict[tuple[str, str], Callable], include_execute: bool = False
+    route_registry: Dict[tuple[str, str], Callable],
+    include_execute: bool = False,
+    lifespan: Callable = None,
 ) -> FastAPI:
     """Create FastAPI app with routes from registry.
 
@@ -49,11 +51,12 @@ def create_lb_handler(
         include_execute: Whether to register /execute endpoint for @remote execution.
                         Only used for LiveLoadBalancer (local development).
                         Deployed endpoints should not expose /execute for security.
+        lifespan: Optional lifespan context manager for startup/shutdown hooks.
 
     Returns:
         Configured FastAPI application with routes registered.
     """
-    app = FastAPI(title="Flash Load-Balanced Handler")
+    app = FastAPI(title="Flash Load-Balanced Handler", lifespan=lifespan)
 
     # Register /execute endpoint for @remote stub execution (if enabled)
     if include_execute:

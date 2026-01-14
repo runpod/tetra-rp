@@ -9,6 +9,7 @@ from .commands import (
     init,
     run,
     build,
+    test_mothership,
     # resource,
     deploy,
     apps,
@@ -38,6 +39,7 @@ app = typer.Typer(
 app.command("init")(init.init_command)
 app.command("run")(run.run_command)
 app.command("build")(build.build_command)
+app.command("test-mothership")(test_mothership.test_mothership_command)
 # app.command("report")(resource.report_command)
 
 
