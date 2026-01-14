@@ -23,6 +23,7 @@ class ManifestFunction:
     http_path: Optional[str] = None  # HTTP path for LB endpoints (/api/process)
     is_load_balanced: bool = False  # Determined by isinstance() at scan time
     is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
+    config_variable: Optional[str] = None  # Variable name like "gpu_config"
 
 
 @dataclass
@@ -34,6 +35,7 @@ class ManifestResource:
     functions: List[ManifestFunction]
     is_load_balanced: bool = False  # Determined by isinstance() at scan time
     is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
+    config_variable: Optional[str] = None  # Variable name for test-mothership
 
 
 class ManifestBuilder:
@@ -102,6 +104,9 @@ class ManifestBuilder:
                             f"Reserved paths: {', '.join(RESERVED_PATHS)}"
                         )
 
+            # Extract config_variable from first function (all functions in same resource share same config)
+            config_variable = functions[0].config_variable if functions else None
+
             functions_list = [
                 {
                     "name": f.function_name,
@@ -110,6 +115,7 @@ class ManifestBuilder:
                     "is_class": f.is_class,
                     "is_load_balanced": f.is_load_balanced,
                     "is_live_resource": f.is_live_resource,
+                    "config_variable": f.config_variable,
                     **(
                         {"http_method": f.http_method, "http_path": f.http_path}
                         if is_load_balanced
@@ -125,6 +131,7 @@ class ManifestBuilder:
                 "functions": functions_list,
                 "is_load_balanced": is_load_balanced,
                 "is_live_resource": is_live_resource,
+                "config_variable": config_variable,
             }
 
             # Store routes for LB endpoints

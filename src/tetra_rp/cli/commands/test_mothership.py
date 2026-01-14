@@ -217,22 +217,33 @@ async def provision_from_manifest():
                 continue
 
             # Import the module and look for resource config variable
-            # Convention: config variables are named like {resource_type.lower()}_config
             try:
                 module = importlib.import_module(module_name)
 
-                # Try common config variable names
-                config_names = [
-                    "gpu_config", "cpu_config",
-                    "resource_config", "config",
-                    f"{resource_name.lower()}_config",
-                ]
-
                 config = None
-                for config_name in config_names:
-                    if hasattr(module, config_name):
-                        config = getattr(module, config_name)
-                        break
+
+                # Try config_variable from manifest first (most reliable)
+                config_variable = resource_data.get("config_variable")
+                if config_variable and hasattr(module, config_variable):
+                    config = getattr(module, config_variable)
+                    logger.info(f"Loaded resource config from {module_name}: {config.name} (variable: {config_variable})")
+                else:
+                    # Fallback to old search logic for backward compatibility
+                    config_names = [
+                        "gpu_config", "cpu_config",
+                        "resource_config", "config",
+                        f"{resource_name.lower()}_config",
+                    ]
+
+                    for config_name in config_names:
+                        if hasattr(module, config_name):
+                            config = getattr(module, config_name)
+                            break
+
+                    if config:
+                        logger.info(f"Loaded resource config from {module_name}: {config.name}")
+                    else:
+                        logger.warning(f"No config variable found in {module_name} for {resource_name}")
 
                 if config:
                     # Apply test-mothership naming convention
@@ -242,9 +253,6 @@ async def provision_from_manifest():
                         config.name = resource_name
 
                     resources.append(config)
-                    logger.info(f"Loaded resource config from {module_name}: {config.name}")
-                else:
-                    logger.warning(f"No config variable found in {module_name} for {resource_name}")
 
             except Exception as e:
                 logger.warning(f"Failed to import resource config from {module_name}: {e}")

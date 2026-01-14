@@ -28,6 +28,7 @@ class RemoteFunctionMetadata:
     is_live_resource: bool = (
         False  # LiveLoadBalancer (vs deployed LoadBalancerSlsResource)
     )
+    config_variable: Optional[str] = None  # Variable name like "gpu_config"
 
 
 class RemoteDecoratorScanner:
@@ -39,6 +40,7 @@ class RemoteDecoratorScanner:
         self.resource_configs: Dict[str, str] = {}  # name -> name
         self.resource_types: Dict[str, str] = {}  # name -> type
         self.resource_flags: Dict[str, Dict[str, bool]] = {}  # name -> {flag: bool}
+        self.resource_variables: Dict[str, str] = {}  # name -> variable_name
 
     def discover_remote_functions(self) -> List[RemoteFunctionMetadata]:
         """Discover all @remote decorated functions and classes."""
@@ -115,10 +117,14 @@ class RemoteDecoratorScanner:
                             self.resource_configs[resource_name] = resource_name
                             self.resource_types[resource_name] = config_type
 
+                            # Store variable name for test-mothership config discovery
+                            self.resource_variables[resource_name] = variable_name
+
                             # Also store variable name mapping for local lookups in same module
                             var_key = f"{module_path}:{variable_name}"
                             self.resource_configs[var_key] = resource_name
                             self.resource_types[var_key] = config_type
+                            self.resource_variables[var_key] = variable_name
 
                             # Determine boolean flags using string-based type checking
                             # This is determined by isinstance() at scan time in production,
@@ -188,6 +194,9 @@ class RemoteDecoratorScanner:
                             http_path=http_path,
                             is_load_balanced=flags["is_load_balanced"],
                             is_live_resource=flags["is_live_resource"],
+                            config_variable=self.resource_variables.get(
+                                resource_config_name
+                            ),
                         )
                         functions.append(metadata)
 
