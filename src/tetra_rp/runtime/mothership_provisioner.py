@@ -106,11 +106,11 @@ def compute_resource_hash(resource_data: Dict[str, Any]) -> str:
         resource_data: Resource configuration from manifest
 
     Returns:
-        MD5 hash of resource config
+        SHA-256 hash of resource config
     """
     # Convert to JSON and hash to detect changes
     config_json = json.dumps(resource_data, sort_keys=True)
-    return hashlib.md5(config_json.encode()).hexdigest()
+    return hashlib.sha256(config_json.encode()).hexdigest()
 
 
 def filter_resources_by_manifest(

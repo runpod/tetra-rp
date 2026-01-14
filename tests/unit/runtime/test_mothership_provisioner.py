@@ -150,7 +150,7 @@ class TestComputeResourceHash:
 
         # Verify it's a hex string
         assert isinstance(hash_value, str)
-        assert len(hash_value) == 32  # MD5 hex is 32 chars
+        assert len(hash_value) == 64  # SHA-256 hex is 64 chars
         assert all(c in "0123456789abcdef" for c in hash_value)
 
     def test_compute_resource_hash_consistent(self):
@@ -195,7 +195,7 @@ class TestComputeResourceHash:
         hash_value = compute_resource_hash(resource_data)
 
         assert isinstance(hash_value, str)
-        assert len(hash_value) == 32
+        assert len(hash_value) == 64  # SHA-256 hex is 64 chars
 
 
 class TestReconcileManifests:

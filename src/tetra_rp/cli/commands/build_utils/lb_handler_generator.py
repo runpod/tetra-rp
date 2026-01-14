@@ -76,8 +76,14 @@ async def lifespan(app: FastAPI):
 
                 # Spawn background provisioning task (non-blocking)
                 manifest_path = Path(__file__).parent / "flash_manifest.json"
-                asyncio.create_task(
+                task = asyncio.create_task(
                     provision_children(manifest_path, mothership_url, state_client)
+                )
+                # Add error callback to catch and log background task exceptions
+                task.add_done_callback(
+                    lambda t: logger.error(f"Background provisioning failed: {{t.exception()}}")
+                    if t.exception()
+                    else None
                 )
 
             except Exception as e:
