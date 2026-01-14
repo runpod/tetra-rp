@@ -88,12 +88,34 @@ class TestAppsList:
     def test_list_apps_with_data(
         self, mock_list, runner, mock_asyncio_run_coro, patched_console
     ):
+        # Matches actual GraphQL flashApp response structure
         mock_list.return_value = [
             {
                 "id": "app-1",
                 "name": "demo",
-                "flashEnvironments": [{"name": "dev"}, {"name": "prod"}],
-                "flashBuilds": [{"id": "build-1"}],
+                "flashEnvironments": [
+                    {
+                        "id": "env-1",
+                        "name": "dev",
+                        "state": "ACTIVE",
+                        "activeBuildId": None,
+                        "createdAt": "2024-01-01T00:00:00Z",
+                    },
+                    {
+                        "id": "env-2",
+                        "name": "prod",
+                        "state": "ACTIVE",
+                        "activeBuildId": "build-1",
+                        "createdAt": "2024-01-02T00:00:00Z",
+                    },
+                ],
+                "flashBuilds": [
+                    {
+                        "id": "build-1",
+                        "objectKey": "builds/app-1/build-1.tar.gz",
+                        "createdAt": "2024-01-01T00:00:00Z",
+                    }
+                ],
             }
         ]
 

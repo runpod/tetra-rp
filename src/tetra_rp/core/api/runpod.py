@@ -541,6 +541,62 @@ class RunpodGraphQLClient:
         result = await self._execute_graphql(query, variables)
         return result["flashBuild"]
 
+    async def list_flash_builds_by_app_id(self, app_id: str) -> List[Dict[str, Any]]:
+        """List all builds for a flash app by app ID (optimized query).
+
+        Args:
+            app_id: The flash app ID
+
+        Returns:
+            List of build dictionaries with id, objectKey, createdAt fields
+        """
+        query = """
+        query listFlashBuilds($flashAppId: String!) {
+            flashApp(flashAppId: $flashAppId) {
+                flashBuilds {
+                    id
+                    objectKey
+                    createdAt
+                }
+            }
+        }
+        """
+        variables = {"flashAppId": app_id}
+
+        log.debug(f"Listing flash builds for app: {app_id}")
+        result = await self._execute_graphql(query, variables)
+        return result["flashApp"]["flashBuilds"]
+
+    async def list_flash_environments_by_app_id(
+        self, app_id: str
+    ) -> List[Dict[str, Any]]:
+        """List all environments for a flash app by app ID (optimized query).
+
+        Args:
+            app_id: The flash app ID
+
+        Returns:
+            List of environment dictionaries with id, name, state, activeBuildId, createdAt fields
+        """
+        query = """
+        query listFlashEnvironments($flashAppId: String!) {
+            flashApp(flashAppId: $flashAppId) {
+                flashEnvironments {
+                    id
+                    name
+                    state
+                    activeBuildId
+                    createdAt
+                }
+            }
+        }
+        """
+        variables = {"flashAppId": app_id}
+
+        log.debug(f"Listing flash environments for app: {app_id}")
+        result = await self._execute_graphql(query, variables)
+        return result["flashApp"]["flashEnvironments"]
+
     async def delete_flash_app(self, app_id: str) -> Dict[str, Any]:
         mutation = """
         mutation deleteFlashApp($flashAppId: String!) {

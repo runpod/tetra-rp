@@ -571,8 +571,7 @@ class FlashApp:
         """
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
-            result = await client.get_flash_app_by_name(self.name)
-            return result["flashBuilds"]
+            return await client.list_flash_builds_by_app_id(self.id)
 
     async def get_environment_by_name(self, environment_name: str) -> Dict[str, Any]:
         """Get an environment by name (public wrapper for _get_environment_by_name).
@@ -617,5 +616,4 @@ class FlashApp:
         """
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
-            result = await client.get_flash_app_by_name(self.name)
-            return result["flashEnvironments"]
+            return await client.list_flash_environments_by_app_id(self.id)
