@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Optional, List
 from pydantic import BaseModel
 from enum import Enum
@@ -79,19 +81,27 @@ class GpuGroup(Enum):
 
         for gpu_type in gpu_types:
             if isinstance(gpu_type, GpuGroup):
-                pool_id = gpu_type.value
+                pool_id = gpu_type
             else:
                 pool_id = _pool_from_gpu_type(gpu_type)
 
             if pool_id:
                 pool_ids.add(pool_id)
 
-        for pool_id in pool_ids:
-            for gpu_type in POOLS_TO_TYPES[pool_id]:
+        # iterate over a snapshot because we add negations into the same set
+        for pool_id in list(pool_ids):
+            for gpu_type in POOLS_TO_TYPES.get(pool_id, []):
                 if gpu_type not in gpu_types:
-                    pool_ids.add(f"-{gpu_type}")
+                    pool_ids.add(f"-{gpu_type.name}")
 
-        return ",".join(pool_ids)
+        # normalize to strings for the api
+        out = []
+        for pool_id in pool_ids:
+            if isinstance(pool_id, GpuGroup):
+                out.append(pool_id.value)
+            else:
+                out.append(str(pool_id))
+        return ",".join(out)
 
     @classmethod
     def from_gpu_ids_str(cls, gpu_ids_str: str) -> List[GpuGroup | GpuType]:
@@ -113,7 +123,13 @@ class GpuGroup(Enum):
         ids = []
 
         for pool_id in pool_ids:
-            pool_gpus = POOLS_TO_TYPES[pool_id]
+            try:
+                pool = GpuGroup(pool_id)
+            except ValueError:
+                # ignore unknown pool ids from backend
+                continue
+
+            pool_gpus = POOLS_TO_TYPES.get(pool, [])
             # check if there are any negated gpu types in the pool
             if any(gpu_type in negated_gpu_types for gpu_type in pool_gpus):
                 # add the gpu types that are not in the negated gpu types
@@ -125,7 +141,7 @@ class GpuGroup(Enum):
                     ]
                 )
             else:
-                ids.extend(pool_id)
+                ids.append(pool)
 
         ids.extend(gpu_types)
         return ids

@@ -214,6 +214,8 @@ class ServerlessResource(DeployableResource):
     @classmethod
     def validate_gpus(cls, value: List[GpuGroup | GpuType]) -> List[GpuGroup | GpuType]:
         """Expand ANY to all GPU groups"""
+        if not value:
+            return value
         if GpuGroup.ANY in value or GpuType.ANY in value:
             return GpuGroup.all()
         return value
