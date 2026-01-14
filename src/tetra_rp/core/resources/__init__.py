@@ -23,7 +23,7 @@ from .load_balancer_sls_resource import (
     CpuLoadBalancerSlsResource,
     LoadBalancerSlsResource,
 )
-
+from .app import FlashApp
 
 __all__ = [
     "BaseResource",
@@ -49,4 +49,5 @@ __all__ = [
     "ServerlessResource",
     "ServerlessScalerType",
     "ServerlessType",
+    "FlashApp",
 ]
