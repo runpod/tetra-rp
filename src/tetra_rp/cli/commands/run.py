@@ -206,6 +206,16 @@ def _discover_resources(entry_point: str):
     try:
         discovery = ResourceDiscovery(entry_point, max_depth=2)
         resources = discovery.discover()
+
+        # Debug: Log what was discovered
+        if resources:
+            console.print(f"\n[dim]Discovered {len(resources)} resource(s):[/dim]")
+            for res in resources:
+                res_name = getattr(res, "name", "Unknown")
+                res_type = res.__class__.__name__
+                console.print(f"  [dim]• {res_name} ({res_type})[/dim]")
+            console.print()
+
         return resources
     except Exception as e:
         console.print(f"[yellow]Warning:[/yellow] Resource discovery failed: {e}")

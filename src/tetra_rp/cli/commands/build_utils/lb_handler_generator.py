@@ -21,8 +21,16 @@ Load-balanced endpoints expose HTTP servers directly to clients, enabling:
 - Real-time communication patterns
 """
 
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Optional
+
 from fastapi import FastAPI, Request
 from tetra_rp.runtime.lb_handler import create_lb_handler
+
+logger = logging.getLogger(__name__)
 
 # Import all functions/classes that belong to this resource
 {imports}
@@ -32,11 +40,70 @@ ROUTE_REGISTRY = {{
 {registry}
 }}
 
-# Create FastAPI app with routes
+# Module-level state for /manifest endpoint
+_state_client: Optional[StateManagerClient] = None
+
+
+# Lifespan context manager for startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown."""
+    # Startup
+    logger.info("Starting {resource_name} endpoint")
+
+    # Check if this is the mothership and initiate provisioning
+    try:
+        from tetra_rp.runtime.mothership_provisioner import (
+            is_mothership,
+            provision_children,
+            get_mothership_url,
+        )
+        from tetra_rp.runtime.state_manager_client import StateManagerClient
+
+        if is_mothership():
+            logger.info("=" * 60)
+            logger.info("Mothership detected - Starting auto-provisioning")
+            logger.info("Test phase: Deploying child endpoints with 'tmp-' prefix")
+            logger.info("=" * 60)
+            try:
+                mothership_url = get_mothership_url()
+                logger.info(f"Mothership URL: {{mothership_url}}")
+
+                # Initialize State Manager client and store in module-level state
+                state_client = StateManagerClient()
+                global _state_client
+                _state_client = state_client
+
+                # Spawn background provisioning task (non-blocking)
+                manifest_path = Path(__file__).parent / "flash_manifest.json"
+                task = asyncio.create_task(
+                    provision_children(manifest_path, mothership_url, state_client)
+                )
+                # Add error callback to catch and log background task exceptions
+                task.add_done_callback(
+                    lambda t: logger.error(f"Background provisioning failed: {{t.exception()}}")
+                    if t.exception()
+                    else None
+                )
+
+            except Exception as e:
+                logger.error(f"Failed to start mothership provisioning: {{e}}")
+                # Don't fail startup - continue serving traffic
+
+    except ImportError:
+        logger.debug("Mothership provisioning modules not available")
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down {resource_name} endpoint")
+
+
+# Create FastAPI app with routes and lifespan
 # Note: include_execute={include_execute} for this endpoint type
 # - LiveLoadBalancer (local): include_execute=True for /execute endpoint
 # - LoadBalancerSlsResource (deployed): include_execute=False (security)
-app = create_lb_handler(ROUTE_REGISTRY, include_execute={include_execute})
+app = create_lb_handler(ROUTE_REGISTRY, include_execute={include_execute}, lifespan=lifespan)
 
 
 # Health check endpoint (required for RunPod load-balancer endpoints)
@@ -48,6 +115,58 @@ def ping():
         dict: Status response
     """
     return {{"status": "healthy"}}
+
+
+# Manifest endpoint for service discovery
+@app.get("/manifest")
+async def manifest():
+    """Return complete authoritative manifest for service discovery.
+
+    Fetches the full manifest from State Manager, allowing child endpoints
+    to synchronize their configuration.
+
+    Returns:
+        dict: Complete manifest with version, generated_at, project_name,
+              function_registry, resources, and routes
+    """
+    try:
+        import os
+        from tetra_rp.runtime.mothership_provisioner import is_mothership
+
+        # Only mothership serves manifest
+        if not is_mothership():
+            return {{"error": "Only mothership serves manifest"}}, 403
+
+        # Check state client initialized
+        global _state_client
+        if _state_client is None:
+            return {{"error": "State Manager not initialized"}}, 500
+
+        # Get mothership ID
+        mothership_id = os.getenv("RUNPOD_ENDPOINT_ID")
+        if not mothership_id:
+            return {{"error": "RUNPOD_ENDPOINT_ID not set"}}, 500
+
+        # Fetch persisted manifest from State Manager (single source of truth)
+        persisted_manifest = await _state_client.get_persisted_manifest(mothership_id)
+
+        # First boot: no manifest yet, return minimal structure
+        if persisted_manifest is None:
+            return {{
+                "version": "1.0",
+                "generated_at": "",
+                "project_name": "",
+                "function_registry": {{}},
+                "resources": {{}},
+                "routes": {{}}
+            }}
+
+        # Return complete manifest
+        return persisted_manifest
+
+    except Exception as e:
+        logger.error(f"Failed to get manifest: {{e}}")
+        return {{"error": str(e)}}, 500
 
 
 if __name__ == "__main__":
@@ -77,12 +196,13 @@ class LBHandlerGenerator:
 
         for resource_name, resource_data in resources.items():
             # Generate for both LiveLoadBalancer (local dev) and LoadBalancerSlsResource (deployed)
-            resource_type = (
-                resource_data.resource_type
-                if hasattr(resource_data, "resource_type")
-                else resource_data.get("resource_type")
+            # Use flag determined by isinstance() at scan time
+            is_load_balanced = (
+                resource_data.is_load_balanced
+                if hasattr(resource_data, "is_load_balanced")
+                else resource_data.get("is_load_balanced", False)
             )
-            if resource_type not in ["LoadBalancerSlsResource", "LiveLoadBalancer"]:
+            if not is_load_balanced:
                 continue
 
             handler_path = self._generate_handler(resource_name, resource_data)
@@ -104,12 +224,12 @@ class LBHandlerGenerator:
 
         # Determine if /execute endpoint should be included
         # LiveLoadBalancer (local dev) includes /execute, deployed LoadBalancerSlsResource does not
-        resource_type = (
-            resource_data.resource_type
-            if hasattr(resource_data, "resource_type")
-            else resource_data.get("resource_type", "LoadBalancerSlsResource")
+        # Use flag determined by isinstance() at scan time
+        include_execute = (
+            resource_data.is_live_resource
+            if hasattr(resource_data, "is_live_resource")
+            else resource_data.get("is_live_resource", False)
         )
-        include_execute = resource_type == "LiveLoadBalancer"
 
         # Get functions from resource (handle both dict and ResourceConfig)
         functions = (
@@ -143,13 +263,19 @@ class LBHandlerGenerator:
     def _generate_imports(self, functions: List[Any]) -> str:
         """Generate import statements for functions.
 
+        Uses importlib to handle module paths with any characters,
+        including numeric prefixes that aren't valid Python identifiers.
+
         Args:
             functions: List of function metadata (dicts or FunctionMetadata objects)
 
         Returns:
             Import statements as string
         """
-        imports = []
+        if not functions:
+            return "# No functions to import"
+
+        imports = ["import importlib"]
 
         for func in functions:
             # Handle both dict and FunctionMetadata
@@ -157,9 +283,10 @@ class LBHandlerGenerator:
             name = func.name if hasattr(func, "name") else func.get("name")
 
             if module and name:
-                imports.append(f"from {module} import {name}")
+                # Use importlib to handle module names with invalid identifiers
+                imports.append(f"{name} = importlib.import_module('{module}').{name}")
 
-        return "\n".join(imports) if imports else "# No functions to import"
+        return "\n".join(imports)
 
     def _generate_route_registry(self, functions: List[Any]) -> str:
         """Generate route registry for FastAPI app.

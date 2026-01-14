@@ -178,12 +178,16 @@ class TestRemoteWithLoadBalancerIntegration:
                 "test-api": {
                     "resource_type": "LiveLoadBalancer",
                     "handler_file": "handler_test_api.py",
+                    "is_load_balanced": True,
+                    "is_live_resource": True,
                     "functions": [
                         {
                             "name": "process_data",
                             "module": "api.endpoints",
                             "is_async": True,
                             "is_class": False,
+                            "is_load_balanced": True,
+                            "is_live_resource": True,
                             "http_method": "POST",
                             "http_path": "/api/process",
                         }
@@ -204,7 +208,7 @@ class TestRemoteWithLoadBalancerIntegration:
             # Verify the handler includes include_execute=True for LiveLoadBalancer
             assert "include_execute=True" in handler_code
             assert (
-                "create_lb_handler(ROUTE_REGISTRY, include_execute=True)"
+                "create_lb_handler(ROUTE_REGISTRY, include_execute=True, lifespan=lifespan)"
                 in handler_code
             )
 
@@ -228,12 +232,16 @@ class TestRemoteWithLoadBalancerIntegration:
                 "api-service": {
                     "resource_type": "LoadBalancerSlsResource",
                     "handler_file": "handler_api_service.py",
+                    "is_load_balanced": True,
+                    "is_live_resource": False,
                     "functions": [
                         {
                             "name": "process_data",
                             "module": "api.endpoints",
                             "is_async": True,
                             "is_class": False,
+                            "is_load_balanced": True,
+                            "is_live_resource": False,
                             "http_method": "POST",
                             "http_path": "/api/process",
                         }
@@ -254,7 +262,7 @@ class TestRemoteWithLoadBalancerIntegration:
             # Verify the handler includes include_execute=False for deployed endpoints
             assert "include_execute=False" in handler_code
             assert (
-                "create_lb_handler(ROUTE_REGISTRY, include_execute=False)"
+                "create_lb_handler(ROUTE_REGISTRY, include_execute=False, lifespan=lifespan)"
                 in handler_code
             )
 
@@ -304,6 +312,63 @@ def get_status():
             assert scanner.resource_types["test-api"] == "LiveLoadBalancer"
             assert "deployed-api" in scanner.resource_types
             assert scanner.resource_types["deployed-api"] == "LoadBalancerSlsResource"
+
+    def test_handler_generation_with_numeric_module_paths(self):
+        """Test that LB handlers use importlib for numeric module paths."""
+        from tetra_rp.cli.commands.build_utils.lb_handler_generator import (
+            LBHandlerGenerator,
+        )
+        from datetime import datetime, timezone
+        from pathlib import Path
+        import tempfile
+
+        # Create a manifest with numeric module paths
+        manifest = {
+            "version": "1.0",
+            "generated_at": datetime.now(timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
+            "project_name": "test-project",
+            "resources": {
+                "test-api": {
+                    "resource_type": "LoadBalancerSlsResource",
+                    "handler_file": "handler_test_api.py",
+                    "is_load_balanced": True,
+                    "is_live_resource": False,
+                    "functions": [
+                        {
+                            "name": "gpu_health",
+                            "module": "03_advanced_workers.05_load_balancer.workers.gpu.endpoint",
+                            "is_async": True,
+                            "is_class": False,
+                            "is_load_balanced": True,
+                            "is_live_resource": False,
+                            "http_method": "GET",
+                            "http_path": "/health",
+                        }
+                    ],
+                }
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            build_dir = Path(tmpdir)
+            generator = LBHandlerGenerator(manifest, build_dir)
+            handlers = generator.generate_handlers()
+
+            assert len(handlers) == 1
+            handler_path = handlers[0]
+            handler_code = handler_path.read_text()
+
+            # Verify importlib pattern is used
+            assert "import importlib" in handler_code
+            assert (
+                "gpu_health = importlib.import_module('03_advanced_workers.05_load_balancer.workers.gpu.endpoint').gpu_health"
+                in handler_code
+            )
+
+            # Verify no invalid from syntax
+            assert "from 03_advanced_workers" not in handler_code
 
 
 class TestManifestEndpointIntegration:

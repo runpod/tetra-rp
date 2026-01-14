@@ -437,3 +437,29 @@ async def my_function(data):
         assert len(functions) == 1
         # Should preserve special characters in resource name
         assert functions[0].resource_config_name == "01_gpu-worker.v1"
+
+
+def test_scanner_extracts_config_variable_names():
+    """Test that scanner captures config variable names."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+        test_file = project_dir / "endpoint.py"
+
+        test_file.write_text(
+            """
+from tetra_rp import LiveLoadBalancer, remote
+
+gpu_config = LiveLoadBalancer(name="my-endpoint")
+
+@remote(gpu_config, method="GET", path="/health")
+async def health():
+    return {"status": "ok"}
+"""
+        )
+
+        scanner = RemoteDecoratorScanner(project_dir)
+        functions = scanner.discover_remote_functions()
+
+        assert len(functions) == 1
+        assert functions[0].config_variable == "gpu_config"
+        assert functions[0].resource_config_name == "my-endpoint"

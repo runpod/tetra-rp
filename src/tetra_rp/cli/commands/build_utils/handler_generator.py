@@ -57,12 +57,13 @@ class HandlerGenerator:
 
         for resource_name, resource_data in resources.items():
             # Skip load-balanced resources (handled by LBHandlerGenerator)
-            resource_type = (
-                resource_data.resource_type
-                if hasattr(resource_data, "resource_type")
-                else resource_data.get("resource_type")
+            # Use flag determined by isinstance() at scan time
+            is_load_balanced = (
+                resource_data.is_load_balanced
+                if hasattr(resource_data, "is_load_balanced")
+                else resource_data.get("is_load_balanced", False)
             )
-            if resource_type == "LoadBalancerSlsResource":
+            if is_load_balanced:
                 continue
 
             handler_path = self._generate_handler(resource_name, resource_data)
