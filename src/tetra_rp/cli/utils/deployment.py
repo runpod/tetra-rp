@@ -71,14 +71,14 @@ def remove_deployment_environment(name: str):
 async def deploy_to_environment(
     app_name: str, env_name: str, build_path: Path
 ) -> Dict[str, Any]:
-    """Deploy current project to environment."""
+    """Deploy current project to environment.
+
+    Raises:
+        tetra_rp.core.resources.app.FlashEnvironmentNotFoundError: If the environment does not exist
+    """
     app = await FlashApp.from_name(app_name)
-    try:
-        await app.get_environment_by_name(env_name)
-    except Exception as exc:
-        text = str(exc)
-        if "flash environment" in text.lower() and "not found" in text.lower():
-            raise
+    # Verify environment exists (will raise FlashEnvironmentNotFoundError if not)
+    await app.get_environment_by_name(env_name)
 
     build = await app.upload_build(build_path)
     build_id = build["id"]

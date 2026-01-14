@@ -14,6 +14,30 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+class FlashAppError(Exception):
+    """Base exception for Flash app operations."""
+
+    pass
+
+
+class FlashAppNotFoundError(FlashAppError):
+    """Raised when a Flash app cannot be found."""
+
+    pass
+
+
+class FlashEnvironmentNotFoundError(FlashAppError):
+    """Raised when a Flash environment cannot be found."""
+
+    pass
+
+
+class FlashBuildNotFoundError(FlashAppError):
+    """Raised when a Flash build cannot be found."""
+
+    pass
+
+
 class FlashApp:
     """
     A flash app serves as the entrypoint for interacting with and managing Flash applications.
@@ -27,11 +51,12 @@ class FlashApp:
         (eg flashAppById will fetch an app and its environments and builds, but not resources for all envs)
     """
 
-    def __init__(self, name: str, id: Optional[str] = "", eager_hydrate: bool = True):
+    def __init__(self, name: str, id: Optional[str] = "", eager_hydrate: bool = False):
         self.name: str = name
         self.id: Optional[str] = id
         self.resources: Dict[str, "ServerlessResource"] = {}
         self._hydrated = False
+        self._hydrate_lock = asyncio.Lock()
         if eager_hydrate:
             asyncio.run(self._hydrate())
 
@@ -54,37 +79,42 @@ class FlashApp:
         If the app already exists on the server, it retrieves its ID.
         If it doesn't exist, it creates a new app with the given name.
 
+        Thread-safe: Uses asyncio.Lock to prevent concurrent hydration attempts.
+
         Returns:
             None (modifies self.id and self._hydrated in-place)
         """
-        if self._hydrated:
-            log.debug("App is already hydrated while calling hydrate. Returning")
-            return
-
-        log.debug("Hydrating app")
-        async with RunpodGraphQLClient() as client:
-            try:
-                result = await client.get_flash_app_by_name(self.name)
-                found_id = result["id"]
-
-                # if an id is attached to instance check if it makes sense
-                if self.id:
-                    if self.id != found_id:
-                        raise ValueError(
-                            "provided id for app class does not match existing app resource."
-                        )
-                    return
-                self.id = found_id
+        async with self._hydrate_lock:
+            if self._hydrated:
+                log.debug("App is already hydrated while calling hydrate. Returning")
                 return
 
-            except Exception as exc:
-                if "app not found" not in str(exc).lower():
-                    raise
-            result = await client.create_flash_app({"name": self.name})
-            self.id = result["id"]
+            log.debug("Hydrating app")
+            async with RunpodGraphQLClient() as client:
+                try:
+                    result = await client.get_flash_app_by_name(self.name)
+                    found_id = result["id"]
 
-        self._hydrated = True
-        return
+                    # if an id is attached to instance check if it makes sense
+                    if self.id:
+                        if self.id != found_id:
+                            raise ValueError(
+                                "provided id for app class does not match existing app resource."
+                            )
+                        self._hydrated = True
+                        return
+                    self.id = found_id
+                    self._hydrated = True
+                    return
+
+                except Exception as exc:
+                    if "app not found" not in str(exc).lower():
+                        raise
+                result = await client.create_flash_app({"name": self.name})
+                self.id = result["id"]
+
+            self._hydrated = True
+            return
 
     async def _get_id_by_name(self) -> str:
         """Get the app ID from the server by name.
@@ -93,12 +123,12 @@ class FlashApp:
             The app ID string
 
         Raises:
-            ValueError: If the app is not found on the server
+            FlashAppNotFoundError: If the app is not found on the server
         """
         async with RunpodGraphQLClient() as client:
             result = await client.get_flash_app_by_name(self.name)
         if not result.get("id"):
-            raise ValueError("flash app not found", self.name)
+            raise FlashAppNotFoundError(f"Flash app '{self.name}' not found")
         return result["id"]
 
     async def create_environment(self, environment_name: str) -> Dict[str, Any]:
@@ -442,11 +472,13 @@ class FlashApp:
             raise ValueError("Provide one of app_name or app_id")
 
         if not app_id:
-            assert app_name is not None
+            if app_name is None:
+                raise ValueError("app_name cannot be None when app_id is not provided")
             app = await cls.from_name(app_name)
             app_id = app.id
 
-        assert app_id is not None
+        if app_id is None:
+            raise ValueError("Failed to resolve app_id")
 
         async with RunpodGraphQLClient() as client:
             result = await client.delete_flash_app(app_id)
@@ -514,13 +546,26 @@ class FlashApp:
 
         Raises:
             RuntimeError: If app is not hydrated (no ID available)
-            ValueError: If environment is not found
+            FlashEnvironmentNotFoundError: If environment is not found
         """
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
-            return await client.get_flash_environment_by_name(
-                {"flashAppId": self.id, "name": environment_name}
-            )
+            try:
+                result = await client.get_flash_environment_by_name(
+                    {"flashAppId": self.id, "name": environment_name}
+                )
+                if result is None:
+                    raise FlashEnvironmentNotFoundError(
+                        f"Environment '{environment_name}' not found in app '{self.name}'"
+                    )
+                return result
+            except Exception as exc:
+                # Convert generic exceptions that indicate "not found" to specific exception
+                if "not found" in str(exc).lower():
+                    raise FlashEnvironmentNotFoundError(
+                        f"Environment '{environment_name}' not found in app '{self.name}'"
+                    ) from exc
+                raise
 
     async def list_environments(self) -> List[Dict[str, Any]]:
         """List all environments for this app.
