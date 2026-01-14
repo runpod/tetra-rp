@@ -30,6 +30,7 @@ if TYPE_CHECKING:
         ResourceManager,
         ServerlessEndpoint,
         ServerlessType,
+        FlashApp,
     )
 
 
@@ -56,6 +57,7 @@ def __getattr__(name):
         "ResourceManager",
         "ServerlessEndpoint",
         "ServerlessType",
+        "FlashApp",
     ):
         from .core.resources import (
             CpuInstanceType,
@@ -74,6 +76,7 @@ def __getattr__(name):
             ResourceManager,
             ServerlessEndpoint,
             ServerlessType,
+            FlashApp,
         )
 
         attrs = {
@@ -93,6 +96,7 @@ def __getattr__(name):
             "ResourceManager": ResourceManager,
             "ServerlessEndpoint": ServerlessEndpoint,
             "ServerlessType": ServerlessType,
+            "FlashApp": FlashApp,
         }
         return attrs[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -116,4 +120,5 @@ __all__ = [
     "ResourceManager",
     "ServerlessEndpoint",
     "ServerlessType",
+    "FlashApp",
 ]
