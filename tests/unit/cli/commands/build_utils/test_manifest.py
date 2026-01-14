@@ -214,3 +214,32 @@ def test_manifest_generated_at_timestamp():
 
     assert "generated_at" in manifest
     assert manifest["generated_at"].endswith("Z")
+
+
+def test_manifest_includes_config_variable():
+    """Test that manifest includes config_variable field."""
+    functions = [
+        RemoteFunctionMetadata(
+            function_name="health",
+            module_path="endpoint",
+            resource_config_name="my-endpoint",
+            resource_type="LiveLoadBalancer",
+            is_async=True,
+            is_class=False,
+            file_path=Path("endpoint.py"),
+            http_method="GET",
+            http_path="/health",
+            is_load_balanced=True,
+            is_live_resource=True,
+            config_variable="gpu_config",
+        )
+    ]
+
+    builder = ManifestBuilder("test-project", functions)
+    manifest = builder.build()
+
+    assert manifest["resources"]["my-endpoint"]["config_variable"] == "gpu_config"
+    assert (
+        manifest["resources"]["my-endpoint"]["functions"][0]["config_variable"]
+        == "gpu_config"
+    )

@@ -63,13 +63,16 @@ Configure the mothership manifest URL (required for remote routing):
 
 ```bash
 # Required for cross-endpoint routing to work
-export FLASH_MOTHERSHIP_URL=https://mothership.example.com
+export FLASH_MOTHERSHIP_ID=mothership-endpoint-id
 
-# Optional: Identifies the current endpoint (useful for distributed tracing)
-export RUNPOD_ENDPOINT_ID=gpu_config
+# For child endpoints: Identifies which resource config this endpoint represents
+export FLASH_RESOURCE_NAME=gpu_config
+
+# Fallback: Used if FLASH_RESOURCE_NAME not set (for mothership identification)
+export RUNPOD_ENDPOINT_ID=gpu-endpoint-123
 ```
 
-Note: Without `FLASH_MOTHERSHIP_URL`, all functions execute locally. The system gracefully falls back to local execution.
+Note: Without `FLASH_MOTHERSHIP_ID`, all functions execute locally. The system gracefully falls back to local execution.
 
 #### 3. Define Functions
 
@@ -149,8 +152,9 @@ The manifest file (`flash_manifest.json`) defines function routing and resource 
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `FLASH_MOTHERSHIP_URL` | Yes* | URL of mothership manifest service |
-| `RUNPOD_ENDPOINT_ID` | No | Current endpoint ID (for tracing) |
+| `FLASH_MOTHERSHIP_ID` | Yes* | Mothership endpoint ID for manifest service |
+| `FLASH_RESOURCE_NAME` | No | Resource config name for child endpoints (identifies which resource this endpoint represents) |
+| `RUNPOD_ENDPOINT_ID` | No | Fallback endpoint ID (used if FLASH_RESOURCE_NAME not set) |
 | `FLASH_MANIFEST_PATH` | No | Explicit path to manifest file |
 
 *Required for remote routing; without it, all functions execute locally
@@ -271,9 +275,9 @@ async def helper_function(x: int) -> int:
 
 **Manifest Service Unavailable**
 
-If `FLASH_MOTHERSHIP_URL` is not set or unreachable:
+If `FLASH_MOTHERSHIP_ID` is not set or unreachable:
 ```
-WARNING: FLASH_MOTHERSHIP_URL not set, manifest service unavailable
+WARNING: FLASH_MOTHERSHIP_ID not set, manifest service unavailable
 ```
 
 Functions default to local execution. Set the environment variable to enable routing.
@@ -531,13 +535,58 @@ class ManifestClient:
 ```
 
 **Configuration**:
-- Mothership URL from `FLASH_MOTHERSHIP_URL` env var
+- Mothership ID from `FLASH_MOTHERSHIP_ID` env var (constructs URL as https://{id}.api.runpod.ai)
 - HTTP timeout: 10 seconds (via `DEFAULT_REQUEST_TIMEOUT`)
 - Retry logic: Exponential backoff with `DEFAULT_MAX_RETRIES` attempts (default: 3)
 - Uses `httpx` library for async HTTP requests
 - Raises `ImportError` if httpx not installed (with helpful message)
 
-#### 4. Exception Hierarchy
+#### 4. StateManagerClient
+
+**Location**: `src/tetra_rp/runtime/state_manager_client.py`
+
+HTTP client for State Manager API (used by mothership auto-provisioning):
+
+```python
+class StateManagerClient:
+    """HTTP client for State Manager API.
+
+    The State Manager persists manifest state and provides reconciliation
+    for detecting new, changed, and removed resources.
+    """
+
+    async def get_persisted_manifest(
+        self, mothership_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch persisted manifest from State Manager.
+
+        Returns:
+            Manifest dict or None if not found (first boot).
+
+        Raises:
+            ManifestServiceUnavailableError: If State Manager unavailable.
+        """
+        # Queries {base_url}/api/v1/flash/manifests/{mothership_id}
+
+    async def update_resource_state(
+        self,
+        mothership_id: str,
+        resource_name: str,
+        resource_data: Dict[str, Any],
+    ) -> None:
+        """Update resource entry in State Manager after deployment."""
+        # Queries {base_url}/api/v1/flash/manifests/{mothership_id}/resources/{resource_name}
+```
+
+**Configuration**:
+- Base URL: `https://api.runpod.io` (default, configurable)
+- Authentication: Bearer token using RUNPOD_API_KEY env var
+- HTTP timeout: 10 seconds (via `DEFAULT_REQUEST_TIMEOUT`)
+- Retry logic: Exponential backoff with `DEFAULT_MAX_RETRIES` attempts (default: 3)
+- Uses `httpx` library for async HTTP requests
+- Raises `ImportError` if httpx not installed (with helpful message)
+
+#### 5. Exception Hierarchy
 
 **Location**: `src/tetra_rp/runtime/exceptions.py`
 
@@ -935,7 +984,7 @@ except Exception as e:
 ```python
 # Check environment variables
 import os
-print(f"FLASH_MOTHERSHIP_URL: {os.getenv('FLASH_MOTHERSHIP_URL')}")
+print(f"FLASH_MOTHERSHIP_ID: {os.getenv('FLASH_MOTHERSHIP_ID')}")
 print(f"RUNPOD_ENDPOINT_ID: {os.getenv('RUNPOD_ENDPOINT_ID')}")
 
 # Check manifest client directly

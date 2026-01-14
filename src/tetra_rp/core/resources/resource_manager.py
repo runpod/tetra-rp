@@ -252,10 +252,22 @@ class ResourceManager(SingletonMixin):
                 if not existing.is_deployed():
                     log.warning(f"{existing} is no longer valid, redeploying.")
                     self._remove_resource(resource_key)
-                    deployed_resource = await self._deploy_with_error_context(config)
-                    log.info(f"URL: {deployed_resource.url}")
-                    self._add_resource(resource_key, deployed_resource)
-                    return deployed_resource
+                    try:
+                        deployed_resource = await self._deploy_with_error_context(
+                            config
+                        )
+                        log.info(f"URL: {deployed_resource.url}")
+                        self._add_resource(resource_key, deployed_resource)
+                        return deployed_resource
+                    except Exception:
+                        # Universal rule: If resource was created (has ID), track it for cleanup
+                        if hasattr(config, "id") and config.id:
+                            log.warning(
+                                f"Deployment failed but resource '{config.name}' was created with ID {config.id}, "
+                                f"caching for cleanup"
+                            )
+                            self._add_resource(resource_key, config)
+                        raise
 
                 # Check for config drift
                 stored_config_hash = self._resource_configs.get(resource_key, "")
@@ -288,12 +300,22 @@ class ResourceManager(SingletonMixin):
                             "redeploying"
                         )
                         await existing.undeploy()
-                        deployed_resource = await self._deploy_with_error_context(
-                            config
-                        )
-                        log.info(f"URL: {deployed_resource.url}")
-                        self._add_resource(resource_key, deployed_resource)
-                        return deployed_resource
+                        try:
+                            deployed_resource = await self._deploy_with_error_context(
+                                config
+                            )
+                            log.info(f"URL: {deployed_resource.url}")
+                            self._add_resource(resource_key, deployed_resource)
+                            return deployed_resource
+                        except Exception:
+                            # Universal rule: If resource was created (has ID), track it for cleanup
+                            if hasattr(config, "id") and config.id:
+                                log.warning(
+                                    f"Deployment failed but resource '{config.name}' was created with ID {config.id}, "
+                                    f"caching for cleanup"
+                                )
+                                self._add_resource(resource_key, config)
+                            raise
 
                 # Config unchanged, reuse existing
                 log.debug(f"{existing} exists, reusing (config unchanged)")
@@ -305,10 +327,20 @@ class ResourceManager(SingletonMixin):
                 f"Resource NOT found in cache, deploying new: {resource_key}\n"
                 f"  Searched in keys: {list(self._resources.keys())}"
             )
-            deployed_resource = await self._deploy_with_error_context(config)
-            log.info(f"URL: {deployed_resource.url}")
-            self._add_resource(resource_key, deployed_resource)
-            return deployed_resource
+            try:
+                deployed_resource = await self._deploy_with_error_context(config)
+                log.info(f"URL: {deployed_resource.url}")
+                self._add_resource(resource_key, deployed_resource)
+                return deployed_resource
+            except Exception:
+                # Universal rule: If resource was created (has ID), track it for cleanup
+                if hasattr(config, "id") and config.id:
+                    log.warning(
+                        f"Deployment failed but resource '{config.name}' was created with ID {config.id}, "
+                        f"caching for cleanup"
+                    )
+                    self._add_resource(resource_key, config)
+                raise
 
     @asynccontextmanager
     async def resource_lock(self, uid: str):

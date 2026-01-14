@@ -36,19 +36,23 @@ class ManifestClient:
 
         Args:
             mothership_url: Base URL of mothership endpoint. Defaults to
-                FLASH_MOTHERSHIP_URL environment variable.
+                constructed from FLASH_MOTHERSHIP_ID environment variable.
             timeout: Request timeout in seconds (default: 10).
             max_retries: Maximum retry attempts (default: 3).
 
         Raises:
             ValueError: If mothership_url not provided and env var not set.
         """
-        self.mothership_url = mothership_url or os.getenv("FLASH_MOTHERSHIP_URL")
-        if not self.mothership_url:
-            raise ValueError(
-                "mothership_url required: pass mothership_url or set "
-                "FLASH_MOTHERSHIP_URL environment variable"
-            )
+        if mothership_url:
+            self.mothership_url = mothership_url
+        else:
+            mothership_id = os.getenv("FLASH_MOTHERSHIP_ID")
+            if not mothership_id:
+                raise ValueError(
+                    "mothership_url required: pass mothership_url or set "
+                    "FLASH_MOTHERSHIP_ID environment variable"
+                )
+            self.mothership_url = f"https://{mothership_id}.api.runpod.ai"
 
         self.timeout = timeout
         self.max_retries = max_retries
@@ -59,7 +63,7 @@ class ManifestClient:
 
         Returns:
             Dictionary mapping resource_config_name → endpoint_url.
-            Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
+            Example: {"gpu_config": "https://gpu-worker.api.runpod.ai"}
 
         Raises:
             ManifestServiceUnavailableError: If manifest service unavailable after retries.

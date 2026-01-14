@@ -58,9 +58,13 @@ class ResourceDiscovery:
                 else:
                     log.warning(f"Failed to import {self.entry_point}")
 
+            log.info(f"[Discovery] After entry point: {len(resources)} resource(s)")
+
             # Recursively scan imported modules (static imports)
             imported_resources = self._scan_imports(self.entry_point, depth=1)
             resources.extend(imported_resources)
+
+            log.info(f"[Discovery] After static imports: {len(resources)} resource(s)")
 
             # Fallback: Scan project directory for Python files with @remote decorators
             # This handles dynamic imports (importlib.util) that AST parsing misses
@@ -70,6 +74,15 @@ class ResourceDiscovery:
                 )
                 directory_resources = self._scan_project_directory()
                 resources.extend(directory_resources)
+                log.info(
+                    f"[Discovery] After directory scan: {len(resources)} resource(s)"
+                )
+
+            log.info(f"[Discovery] Total: {len(resources)} resource(s) discovered")
+            for res in resources:
+                res_name = getattr(res, "name", "Unknown")
+                res_type = res.__class__.__name__
+                log.info(f"[Discovery]   • {res_name} ({res_type})")
 
             # Cache results
             self._cache[str(self.entry_point)] = resources
@@ -363,6 +376,7 @@ class ResourceDiscovery:
                             "dist/",
                             ".tox/",
                             "node_modules/",
+                            ".flash/",
                         ]
                     ):
                         continue

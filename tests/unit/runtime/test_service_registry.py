@@ -83,28 +83,36 @@ class TestServiceRegistry:
             # Should not fail, returns empty manifest
             assert registry.get_manifest().function_registry == {}
 
-    def test_get_current_endpoint_id(self):
-        """Test retrieval of current endpoint ID from env."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu-endpoint-123"}):
+    def test_get_current_endpoint_id_with_resource_name(self):
+        """Test retrieval using FLASH_RESOURCE_NAME (child endpoint)."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
+            registry = ServiceRegistry(manifest_path=Path("/nonexistent"))
+            assert registry.get_current_endpoint_id() == "gpu_config"
+
+    def test_get_current_endpoint_id_fallback_to_runpod_id(self):
+        """Test fallback to RUNPOD_ENDPOINT_ID when FLASH_RESOURCE_NAME not set."""
+        with patch.dict(
+            os.environ, {"RUNPOD_ENDPOINT_ID": "gpu-endpoint-123"}, clear=True
+        ):
             registry = ServiceRegistry(manifest_path=Path("/nonexistent"))
             assert registry.get_current_endpoint_id() == "gpu-endpoint-123"
 
     def test_get_current_endpoint_id_not_set(self):
-        """Test when endpoint ID not set."""
+        """Test when neither env var is set."""
         with patch.dict(os.environ, {}, clear=True):
             registry = ServiceRegistry(manifest_path=Path("/nonexistent"))
             assert registry.get_current_endpoint_id() is None
 
     def test_is_local_function_local(self, manifest_file):
-        """Test determining local function."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        """Test determining local function using FLASH_RESOURCE_NAME."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             registry = ServiceRegistry(manifest_path=manifest_file)
             assert registry.is_local_function("gpu_task") is True
             assert registry.is_local_function("inference") is True
 
     def test_is_local_function_remote(self, manifest_file):
         """Test determining remote function (with manifest loaded)."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             mock_client = AsyncMock()
             mock_client.get_manifest.return_value = {
                 "cpu_config": "https://cpu.example.com"
@@ -125,15 +133,15 @@ class TestServiceRegistry:
         assert registry.is_local_function("unknown_function") is True
 
     def test_get_endpoint_for_function_local(self, manifest_file):
-        """Test getting endpoint for local function."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        """Test getting endpoint for local function using FLASH_RESOURCE_NAME."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             registry = ServiceRegistry(manifest_path=manifest_file)
             endpoint = registry.get_endpoint_for_function("gpu_task")
             assert endpoint is None  # Local returns None
 
     def test_get_endpoint_for_function_remote_no_manifest(self, manifest_file):
         """Test getting endpoint for remote function without manifest."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             registry = ServiceRegistry(manifest_path=manifest_file)
             # CPU function is remote, but no manifest loaded
             endpoint = registry.get_endpoint_for_function("preprocess")
@@ -146,8 +154,8 @@ class TestServiceRegistry:
             registry.get_endpoint_for_function("unknown_function")
 
     def test_get_resource_for_function_local(self, manifest_file):
-        """Test getting ServerlessResource for local function."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        """Test getting ServerlessResource for local function using FLASH_RESOURCE_NAME."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             registry = ServiceRegistry(manifest_path=manifest_file)
             resource = registry.get_resource_for_function("gpu_task")
             # Local function returns None
@@ -155,7 +163,7 @@ class TestServiceRegistry:
 
     def test_get_resource_for_function_remote(self, manifest_file):
         """Test getting ServerlessResource for remote function."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             mock_client = AsyncMock()
             mock_client.get_manifest.return_value = {
                 "cpu_config": "https://api.runpod.io/v2/abc123"
@@ -284,8 +292,8 @@ class TestServiceRegistry:
         functions = registry.get_resource_functions("nonexistent")
         assert functions == []
 
-    def test_init_no_manifest_client_no_mothership_url(self, manifest_file):
-        """Test initialization without manifest client or URL."""
+    def test_init_no_manifest_client_no_mothership_id(self, manifest_file):
+        """Test initialization without manifest client or FLASH_MOTHERSHIP_ID."""
         with patch.dict(os.environ, {}, clear=True):
             registry = ServiceRegistry(manifest_path=manifest_file)
             assert registry._manifest_client is None

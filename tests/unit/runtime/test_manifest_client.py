@@ -39,9 +39,9 @@ class TestManifestClient:
 
     def test_init_from_env(self):
         """Test initialization from environment variable."""
-        with patch.dict(os.environ, {"FLASH_MOTHERSHIP_URL": "https://from-env.com"}):
+        with patch.dict(os.environ, {"FLASH_MOTHERSHIP_ID": "mothership123"}):
             client = ManifestClient()
-            assert client.mothership_url == "https://from-env.com"
+            assert client.mothership_url == "https://mothership123.api.runpod.ai"
 
     def test_init_missing_url(self):
         """Test initialization fails without URL."""
@@ -51,7 +51,7 @@ class TestManifestClient:
 
     def test_init_explicit_over_env(self):
         """Test explicit URL takes precedence over env var."""
-        with patch.dict(os.environ, {"FLASH_MOTHERSHIP_URL": "https://env.com"}):
+        with patch.dict(os.environ, {"FLASH_MOTHERSHIP_ID": "env-mothership"}):
             client = ManifestClient(mothership_url="https://explicit.com")
             assert client.mothership_url == "https://explicit.com"
 
