@@ -86,8 +86,8 @@ def _validate_tarball_file(tar_path: Path) -> None:
     if not tar_path.is_file():
         raise ValueError(f"Path is not a file: {tar_path}")
 
-    # Check extension
-    if not any(str(tar_path).endswith(ext) for ext in VALID_TARBALL_EXTENSIONS):
+    # Check extension (check filename only, not full path)
+    if not any(tar_path.name.endswith(ext) for ext in VALID_TARBALL_EXTENSIONS):
         raise ValueError(
             f"Invalid file extension. Expected one of {VALID_TARBALL_EXTENSIONS}, "
             f"got: {tar_path.suffix}"
@@ -284,7 +284,7 @@ class FlashApp:
             result = await client.get_flash_artifact_url(environment_id)
             if not result.get("activeArtifact"):
                 raise ValueError(
-                    "No active artifact for environment id found", environment_id
+                    f"No active artifact found for environment ID: {environment_id}"
                 )
             return result["activeArtifact"]
 
