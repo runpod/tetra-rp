@@ -1,5 +1,3 @@
-import pytest
-
 from tetra_rp.core.resources.gpu import GpuGroup, GpuType
 
 
