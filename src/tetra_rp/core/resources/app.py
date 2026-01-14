@@ -432,6 +432,12 @@ class FlashApp:
             FileNotFoundError: If tar_path does not exist
             ValueError: If file is invalid (extension, magic bytes, or size)
             requests.HTTPError: If upload fails
+
+        TODO: Add integration tests for tarball upload flow including:
+              - Network failures and retry behavior
+              - Large file uploads (edge cases near size limit)
+              - Corrupted tarball handling
+              - Pre-signed URL expiration scenarios
         """
         # Convert to Path and validate before hydrating
         if isinstance(tar_path, str):
