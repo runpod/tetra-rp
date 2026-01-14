@@ -453,12 +453,35 @@ Manages service discovery and manifest loading:
 class ServiceRegistry:
     """Service discovery and routing for cross-endpoint function calls."""
 
-    def __init__(self, manifest_path: Optional[Path] = None):
-        """Initialize with manifest and optional manifest client."""
+    def __init__(
+        self,
+        manifest_path: Optional[Path] = None,
+        manifest_client: Optional[ManifestClient] = None,
+        cache_ttl: int = DEFAULT_CACHE_TTL,
+    ):
+        """Initialize service registry.
+
+        Args:
+            manifest_path: Path to flash_manifest.json. Defaults to
+                FLASH_MANIFEST_PATH env var or auto-detection.
+            manifest_client: Manifest service client for mothership API. If None,
+                creates one from FLASH_MOTHERSHIP_ID env var.
+            cache_ttl: Manifest cache lifetime in seconds (default: 300).
+
+        Environment Variables (for local vs remote detection):
+            FLASH_RESOURCE_NAME: Resource config name for this endpoint (child endpoints).
+                Identifies which resource config this endpoint represents in the manifest.
+            RUNPOD_ENDPOINT_ID: Endpoint ID (used as fallback for mothership identification).
+        """
         self._load_manifest(manifest_path)
-        self._manifest_client = ManifestClient(...)
+        self._manifest_client = manifest_client or ManifestClient()
         self._endpoint_registry = {}  # Cached endpoint URLs
         self._endpoint_registry_lock = asyncio.Lock()
+        # Child endpoints use FLASH_RESOURCE_NAME to identify which resource they represent
+        # Mothership doesn't have FLASH_RESOURCE_NAME, so falls back to RUNPOD_ENDPOINT_ID
+        self._current_endpoint = os.getenv("FLASH_RESOURCE_NAME") or os.getenv(
+            "RUNPOD_ENDPOINT_ID"
+        )
 
     def get_resource_for_function(self, func_name: str) -> Optional[ServerlessResource]:
         """Get resource config for function from manifest."""
