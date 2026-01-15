@@ -26,7 +26,6 @@ class ProductionWrapper:
             service_registry: Service registry for routing decisions.
         """
         self.service_registry = service_registry
-        self._directory_loaded = False
 
     async def wrap_function_execution(
         self,
@@ -57,8 +56,8 @@ class ProductionWrapper:
         """
         function_name = func.__name__
 
-        # Ensure directory is loaded
-        await self.service_registry._ensure_directory_loaded()
+        # Ensure manifest is loaded
+        await self.service_registry._ensure_manifest_loaded()
 
         # Determine routing
         try:
@@ -116,8 +115,8 @@ class ProductionWrapper:
         Raises:
             Exception: If execution fails.
         """
-        # Ensure directory is loaded
-        await self.service_registry._ensure_directory_loaded()
+        # Ensure manifest is loaded
+        await self.service_registry._ensure_manifest_loaded()
 
         class_name = getattr(request, "class_name", None)
 

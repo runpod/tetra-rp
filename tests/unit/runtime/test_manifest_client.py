@@ -21,11 +21,14 @@ class TestManifestClient:
         response = MagicMock()
         response.status_code = 200
         response.json.return_value = {
-            "directory": {
-                "gpu_config": "https://api.runpod.io/v2/gpu123",
-                "cpu_config": "https://api.runpod.io/v2/cpu456",
+            "version": "1.0",
+            "generated_at": "2025-01-03T12:00:00Z",
+            "project_name": "test-app",
+            "resources": {
+                "gpu_config": {"endpoint_url": "https://api.runpod.io/v2/gpu123"},
+                "cpu_config": {"endpoint_url": "https://api.runpod.io/v2/cpu456"},
             },
-            "updated_at": "2025-01-03T12:00:00Z",
+            "function_registry": {},
         }
         return response
 
@@ -36,9 +39,9 @@ class TestManifestClient:
 
     def test_init_from_env(self):
         """Test initialization from environment variable."""
-        with patch.dict(os.environ, {"FLASH_MOTHERSHIP_URL": "https://from-env.com"}):
+        with patch.dict(os.environ, {"FLASH_MOTHERSHIP_ID": "mothership123"}):
             client = ManifestClient()
-            assert client.mothership_url == "https://from-env.com"
+            assert client.mothership_url == "https://mothership123.api.runpod.ai"
 
     def test_init_missing_url(self):
         """Test initialization fails without URL."""
@@ -48,13 +51,13 @@ class TestManifestClient:
 
     def test_init_explicit_over_env(self):
         """Test explicit URL takes precedence over env var."""
-        with patch.dict(os.environ, {"FLASH_MOTHERSHIP_URL": "https://env.com"}):
+        with patch.dict(os.environ, {"FLASH_MOTHERSHIP_ID": "env-mothership"}):
             client = ManifestClient(mothership_url="https://explicit.com")
             assert client.mothership_url == "https://explicit.com"
 
     @pytest.mark.asyncio
-    async def test_get_directory_success(self, mock_response):
-        """Test successful directory fetch."""
+    async def test_get_manifest_success(self, mock_response):
+        """Test successful manifest fetch."""
         client = ManifestClient(mothership_url="https://mothership.example.com")
 
         with patch("tetra_rp.runtime.manifest_client.httpx"):
@@ -63,15 +66,25 @@ class TestManifestClient:
             mock_client.get.return_value = mock_response
 
             with patch.object(client, "_get_client", return_value=mock_client):
-                directory = await client.get_directory()
+                manifest = await client.get_manifest()
 
-                assert directory == {
-                    "gpu_config": "https://api.runpod.io/v2/gpu123",
-                    "cpu_config": "https://api.runpod.io/v2/cpu456",
+                assert manifest == {
+                    "version": "1.0",
+                    "generated_at": "2025-01-03T12:00:00Z",
+                    "project_name": "test-app",
+                    "resources": {
+                        "gpu_config": {
+                            "endpoint_url": "https://api.runpod.io/v2/gpu123"
+                        },
+                        "cpu_config": {
+                            "endpoint_url": "https://api.runpod.io/v2/cpu456"
+                        },
+                    },
+                    "function_registry": {},
                 }
 
     @pytest.mark.asyncio
-    async def test_get_directory_http_error(self):
+    async def test_get_manifest_http_error(self):
         """Test handling of HTTP errors."""
         client = ManifestClient(mothership_url="https://mothership.example.com")
 
@@ -86,10 +99,10 @@ class TestManifestClient:
             mock_get_client.return_value = mock_http_client
 
             with pytest.raises(ManifestServiceUnavailableError, match="500"):
-                await client.get_directory()
+                await client.get_manifest()
 
     @pytest.mark.asyncio
-    async def test_get_directory_timeout(self):
+    async def test_get_manifest_timeout(self):
         """Test handling of request timeout."""
         client = ManifestClient(
             mothership_url="https://mothership.example.com", timeout=0.1
@@ -104,10 +117,10 @@ class TestManifestClient:
             with pytest.raises(
                 ManifestServiceUnavailableError, match="after \\d+ attempts"
             ):
-                await client.get_directory()
+                await client.get_manifest()
 
     @pytest.mark.asyncio
-    async def test_get_directory_retry(self):
+    async def test_get_manifest_retry(self):
         """Test retry logic on transient failure."""
         client = ManifestClient(
             mothership_url="https://mothership.example.com", max_retries=3
@@ -115,7 +128,11 @@ class TestManifestClient:
 
         response = MagicMock()
         response.status_code = 200
-        response.json.return_value = {"directory": {"gpu": "https://gpu.example.com"}}
+        response.json.return_value = {
+            "version": "1.0",
+            "resources": {"gpu": {"endpoint_url": "https://gpu.example.com"}},
+            "function_registry": {},
+        }
 
         with patch.object(client, "_get_client") as mock_get_client:
             mock_http_client = AsyncMock()
@@ -133,12 +150,16 @@ class TestManifestClient:
                 "tetra_rp.runtime.manifest_client.asyncio.sleep",
                 new_callable=AsyncMock,
             ):
-                directory = await client.get_directory()
-                assert directory == {"gpu": "https://gpu.example.com"}
+                manifest = await client.get_manifest()
+                assert manifest == {
+                    "version": "1.0",
+                    "resources": {"gpu": {"endpoint_url": "https://gpu.example.com"}},
+                    "function_registry": {},
+                }
                 assert mock_http_client.get.call_count == 3
 
     @pytest.mark.asyncio
-    async def test_get_directory_exhaust_retries(self):
+    async def test_get_manifest_exhaust_retries(self):
         """Test failure after exhausting retries."""
         client = ManifestClient(
             mothership_url="https://mothership.example.com", max_retries=2
@@ -157,7 +178,7 @@ class TestManifestClient:
                 with pytest.raises(
                     ManifestServiceUnavailableError, match="after 2 attempts"
                 ):
-                    await client.get_directory()
+                    await client.get_manifest()
 
     @pytest.mark.asyncio
     async def test_context_manager(self):

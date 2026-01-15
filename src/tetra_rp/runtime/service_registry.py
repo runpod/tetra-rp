@@ -22,14 +22,14 @@ class ServiceRegistry:
     """Service discovery and routing for cross-endpoint function calls.
 
     Loads manifest to map functions to resource configs, queries mothership
-    directory for endpoint URLs, and determines if function calls are local
+    manifest for endpoint URLs, and determines if function calls are local
     or remote.
     """
 
     def __init__(
         self,
         manifest_path: Optional[Path] = None,
-        directory_client: Optional[ManifestClient] = None,
+        manifest_client: Optional[ManifestClient] = None,
         cache_ttl: int = DEFAULT_CACHE_TTL,
     ):
         """Initialize service registry.
@@ -37,17 +37,22 @@ class ServiceRegistry:
         Args:
             manifest_path: Path to flash_manifest.json. Defaults to
                 FLASH_MANIFEST_PATH env var or auto-detection.
-            directory_client: Manifest service client for mothership API. If None, creates one
-                from FLASH_MOTHERSHIP_URL env var.
-            cache_ttl: Directory cache lifetime in seconds (default: 300).
+            manifest_client: Manifest service client for mothership API. If None, creates one
+                from FLASH_MOTHERSHIP_ID env var.
+            cache_ttl: Manifest cache lifetime in seconds (default: 300).
+
+        Environment Variables (for local vs remote detection):
+            FLASH_RESOURCE_NAME: Resource config name for this endpoint (child endpoints only).
+                Identifies which resource config this endpoint represents in the manifest.
+            RUNPOD_ENDPOINT_ID: Endpoint ID (used as fallback for mothership identification).
 
         Raises:
             FileNotFoundError: If manifest_path doesn't exist.
-            ValueError: If required env vars missing for directory_client.
+            ValueError: If required env vars missing for manifest_client.
         """
         self.cache_ttl = cache_ttl
-        self._directory: Dict[str, str] = {}
-        self._directory_loaded_at = 0.0
+        self._endpoint_registry: Dict[str, str] = {}
+        self._endpoint_registry_loaded_at = 0.0
         self._manifest: Manifest = Manifest(
             version="1.0",
             generated_at="",
@@ -55,22 +60,32 @@ class ServiceRegistry:
             function_registry={},
             resources={},
         )
-        self._directory_lock = asyncio.Lock()
+        self._endpoint_registry_lock = asyncio.Lock()
 
         # Load manifest
         self._load_manifest(manifest_path)
 
         # Initialize manifest client
-        if directory_client is None:
-            mothership_url = os.getenv("FLASH_MOTHERSHIP_URL")
-            if mothership_url:
-                directory_client = ManifestClient(mothership_url=mothership_url)
+        if manifest_client is None:
+            mothership_id = os.getenv("FLASH_MOTHERSHIP_ID")
+            if mothership_id:
+                try:
+                    manifest_client = ManifestClient()
+                except ValueError as e:
+                    logger.warning(f"Failed to initialize manifest client: {e}")
+                    manifest_client = None
             else:
-                logger.warning("FLASH_MOTHERSHIP_URL not set, directory unavailable")
-                directory_client = None
+                logger.debug(
+                    "FLASH_MOTHERSHIP_ID not set, manifest service unavailable"
+                )
+                manifest_client = None
 
-        self._directory_client = directory_client
-        self._current_endpoint = os.getenv("RUNPOD_ENDPOINT_ID")
+        self._manifest_client = manifest_client
+        # Child endpoints use FLASH_RESOURCE_NAME to identify which resource config they represent
+        # Mothership doesn't have FLASH_RESOURCE_NAME, so falls back to RUNPOD_ENDPOINT_ID
+        self._current_endpoint = os.getenv("FLASH_RESOURCE_NAME") or os.getenv(
+            "RUNPOD_ENDPOINT_ID"
+        )
 
     def _load_manifest(self, manifest_path: Optional[Path]) -> None:
         """Load flash_manifest.json.
@@ -127,30 +142,30 @@ class ServiceRegistry:
             resources={},
         )
 
-    async def _ensure_directory_loaded(self) -> None:
-        """Load directory from mothership if cache expired or not loaded."""
-        async with self._directory_lock:
+    async def _ensure_manifest_loaded(self) -> None:
+        """Load manifest from mothership if cache expired or not loaded."""
+        async with self._endpoint_registry_lock:
             now = time.time()
-            cache_age = now - self._directory_loaded_at
+            cache_age = now - self._endpoint_registry_loaded_at
 
             if cache_age > self.cache_ttl:
-                if self._directory_client is None:
-                    logger.debug("Directory client not available, skipping refresh")
+                if self._manifest_client is None:
+                    logger.debug("Manifest client not available, skipping refresh")
                     return
 
                 try:
-                    self._directory = await self._directory_client.get_directory()
-                    self._directory_loaded_at = now
+                    self._endpoint_registry = await self._manifest_client.get_manifest()
+                    self._endpoint_registry_loaded_at = now
                     logger.debug(
-                        f"Directory loaded: {len(self._directory)} endpoints, "
+                        f"Manifest loaded: {len(self._endpoint_registry)} endpoints, "
                         f"cache TTL {self.cache_ttl}s"
                     )
                 except ManifestServiceUnavailableError as e:
                     logger.warning(
-                        f"Failed to load manifest directory: {e}. "
+                        f"Failed to load manifest: {e}. "
                         f"Cross-endpoint routing unavailable."
                     )
-                    self._directory = {}
+                    self._endpoint_registry = {}
 
     def get_endpoint_for_function(self, function_name: str) -> Optional[str]:
         """Get endpoint URL for a function.
@@ -181,12 +196,12 @@ class ServiceRegistry:
         if resource_config_name == self._current_endpoint:
             return None
 
-        # Check directory for remote endpoint URL
-        endpoint_url = self._directory.get(resource_config_name)
+        # Check manifest for remote endpoint URL
+        endpoint_url = self._endpoint_registry.get(resource_config_name)
         if not endpoint_url:
             logger.debug(
-                f"Endpoint URL for '{resource_config_name}' not in directory. "
-                f"Directory has: {list(self._directory.keys())}"
+                f"Endpoint URL for '{resource_config_name}' not in manifest. "
+                f"Manifest has: {list(self._endpoint_registry.keys())}"
             )
 
         return endpoint_url
@@ -256,13 +271,13 @@ class ServiceRegistry:
         """Get ID of current endpoint from environment.
 
         Returns:
-            Endpoint ID from RUNPOD_ENDPOINT_ID, or None if not set.
+            Endpoint ID from FLASH_RESOURCE_NAME or RUNPOD_ENDPOINT_ID, or None if not set.
         """
         return self._current_endpoint
 
-    def refresh_directory(self) -> None:
-        """Force refresh directory from mothership on next access."""
-        self._directory_loaded_at = 0
+    def refresh_manifest(self) -> None:
+        """Force refresh manifest from mothership on next access."""
+        self._endpoint_registry_loaded_at = 0
 
     def get_manifest(self) -> Manifest:
         """Get loaded manifest.

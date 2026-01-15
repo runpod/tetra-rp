@@ -1,8 +1,10 @@
 """Factory for creating FastAPI load-balanced handlers.
 
 This module provides the factory function for generating FastAPI applications
-that handle load-balanced serverless endpoints. It supports both user-defined
-HTTP routes and the framework's /execute endpoint for @remote function execution.
+that handle load-balanced serverless endpoints. It supports:
+- User-defined HTTP routes
+- /execute endpoint for @remote function execution (LiveLoadBalancer only)
+- /manifest endpoint for mothership service discovery (when FLASH_IS_MOTHERSHIP=true)
 
 Security Model:
     The /execute endpoint accepts and executes serialized function code. This is
@@ -13,14 +15,21 @@ Security Model:
     4. In production, API authentication should protect the /execute endpoint
 
     Users should NOT expose the /execute endpoint to untrusted clients.
+
+    The /manifest endpoint returns deployment metadata and is safe to expose
+    publicly as it contains only structural information about deployed functions.
 """
 
 import inspect
 import logging
+import os
+from functools import lru_cache
 from typing import Any, Callable, Dict
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
+from .manifest_fetcher import ManifestFetcher
 from .serialization import (
     deserialize_args,
     deserialize_kwargs,
@@ -30,8 +39,19 @@ from .serialization import (
 logger = logging.getLogger(__name__)
 
 
+@lru_cache(maxsize=1)
+def _get_manifest_fetcher() -> ManifestFetcher:
+    """Get or create the manifest fetcher singleton.
+
+    Uses @lru_cache for thread-safe lazy initialization.
+    """
+    return ManifestFetcher()
+
+
 def create_lb_handler(
-    route_registry: Dict[tuple[str, str], Callable], include_execute: bool = False
+    route_registry: Dict[tuple[str, str], Callable],
+    include_execute: bool = False,
+    lifespan: Callable = None,
 ) -> FastAPI:
     """Create FastAPI app with routes from registry.
 
@@ -41,11 +61,12 @@ def create_lb_handler(
         include_execute: Whether to register /execute endpoint for @remote execution.
                         Only used for LiveLoadBalancer (local development).
                         Deployed endpoints should not expose /execute for security.
+        lifespan: Optional lifespan context manager for startup/shutdown hooks.
 
     Returns:
         Configured FastAPI application with routes registered.
     """
-    app = FastAPI(title="Flash Load-Balanced Handler")
+    app = FastAPI(title="Flash Load-Balanced Handler", lifespan=lifespan)
 
     # Register /execute endpoint for @remote stub execution (if enabled)
     if include_execute:
@@ -162,6 +183,39 @@ def create_lb_handler(
             except Exception as e:
                 logger.error(f"Unexpected error in /execute endpoint: {e}")
                 return {"success": False, "error": f"Unexpected error: {e}"}
+
+    # Register /manifest endpoint for mothership discovery (if enabled)
+    if os.getenv("FLASH_IS_MOTHERSHIP", "").lower() == "true":
+
+        @app.get("/manifest")
+        async def get_manifest() -> JSONResponse:
+            """Mothership discovery endpoint.
+
+            Fetches manifest from RunPod GraphQL API (source of truth), caches it
+            locally, and serves to child endpoints. Falls back to local file if
+            RunPod API is unavailable.
+
+            Only available when FLASH_IS_MOTHERSHIP=true environment variable is set.
+
+            Returns:
+                JSONResponse with manifest content or 404 if not found
+            """
+            fetcher = _get_manifest_fetcher()
+            mothership_id = os.getenv("RUNPOD_ENDPOINT_ID")
+
+            # Fetch manifest (from cache, RunPod GQL, or local file)
+            manifest_dict = await fetcher.get_manifest(mothership_id)
+
+            if not manifest_dict or not manifest_dict.get("resources"):
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "error": "Manifest not found",
+                        "detail": "Could not load manifest from RunPod or local file",
+                    },
+                )
+
+            return JSONResponse(status_code=200, content=manifest_dict)
 
     # Register user-defined routes from registry
     for (method, path), handler in route_registry.items():

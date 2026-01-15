@@ -83,39 +83,47 @@ class TestServiceRegistry:
             # Should not fail, returns empty manifest
             assert registry.get_manifest().function_registry == {}
 
-    def test_get_current_endpoint_id(self):
-        """Test retrieval of current endpoint ID from env."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu-endpoint-123"}):
+    def test_get_current_endpoint_id_with_resource_name(self):
+        """Test retrieval using FLASH_RESOURCE_NAME (child endpoint)."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
+            registry = ServiceRegistry(manifest_path=Path("/nonexistent"))
+            assert registry.get_current_endpoint_id() == "gpu_config"
+
+    def test_get_current_endpoint_id_fallback_to_runpod_id(self):
+        """Test fallback to RUNPOD_ENDPOINT_ID when FLASH_RESOURCE_NAME not set."""
+        with patch.dict(
+            os.environ, {"RUNPOD_ENDPOINT_ID": "gpu-endpoint-123"}, clear=True
+        ):
             registry = ServiceRegistry(manifest_path=Path("/nonexistent"))
             assert registry.get_current_endpoint_id() == "gpu-endpoint-123"
 
     def test_get_current_endpoint_id_not_set(self):
-        """Test when endpoint ID not set."""
+        """Test when neither env var is set."""
         with patch.dict(os.environ, {}, clear=True):
             registry = ServiceRegistry(manifest_path=Path("/nonexistent"))
             assert registry.get_current_endpoint_id() is None
 
     def test_is_local_function_local(self, manifest_file):
-        """Test determining local function."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        """Test determining local function using FLASH_RESOURCE_NAME."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             registry = ServiceRegistry(manifest_path=manifest_file)
             assert registry.is_local_function("gpu_task") is True
             assert registry.is_local_function("inference") is True
 
     def test_is_local_function_remote(self, manifest_file):
-        """Test determining remote function (with directory loaded)."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        """Test determining remote function (with manifest loaded)."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             mock_client = AsyncMock()
-            mock_client.get_directory.return_value = {
+            mock_client.get_manifest.return_value = {
                 "cpu_config": "https://cpu.example.com"
             }
 
             registry = ServiceRegistry(
-                manifest_path=manifest_file, directory_client=mock_client
+                manifest_path=manifest_file, manifest_client=mock_client
             )
-            # After directory is loaded, CPU tasks should be recognized as remote
+            # After manifest is loaded, CPU tasks should be recognized as remote
             # (but is_local_function doesn't async load, so returns True for now)
-            # This is actually expected behavior - sync method can't load async directory
+            # This is actually expected behavior - sync method can't load async manifest
             assert registry.is_local_function("preprocess") is True
 
     def test_is_local_function_not_in_manifest(self, manifest_file):
@@ -125,17 +133,17 @@ class TestServiceRegistry:
         assert registry.is_local_function("unknown_function") is True
 
     def test_get_endpoint_for_function_local(self, manifest_file):
-        """Test getting endpoint for local function."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        """Test getting endpoint for local function using FLASH_RESOURCE_NAME."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             registry = ServiceRegistry(manifest_path=manifest_file)
             endpoint = registry.get_endpoint_for_function("gpu_task")
             assert endpoint is None  # Local returns None
 
-    def test_get_endpoint_for_function_remote_no_directory(self, manifest_file):
-        """Test getting endpoint for remote function without directory."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+    def test_get_endpoint_for_function_remote_no_manifest(self, manifest_file):
+        """Test getting endpoint for remote function without manifest."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             registry = ServiceRegistry(manifest_path=manifest_file)
-            # CPU function is remote, but no directory loaded
+            # CPU function is remote, but no manifest loaded
             endpoint = registry.get_endpoint_for_function("preprocess")
             assert endpoint is None
 
@@ -146,8 +154,8 @@ class TestServiceRegistry:
             registry.get_endpoint_for_function("unknown_function")
 
     def test_get_resource_for_function_local(self, manifest_file):
-        """Test getting ServerlessResource for local function."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        """Test getting ServerlessResource for local function using FLASH_RESOURCE_NAME."""
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             registry = ServiceRegistry(manifest_path=manifest_file)
             resource = registry.get_resource_for_function("gpu_task")
             # Local function returns None
@@ -155,17 +163,19 @@ class TestServiceRegistry:
 
     def test_get_resource_for_function_remote(self, manifest_file):
         """Test getting ServerlessResource for remote function."""
-        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "gpu_config"}):
+        with patch.dict(os.environ, {"FLASH_RESOURCE_NAME": "gpu_config"}):
             mock_client = AsyncMock()
-            mock_client.get_directory.return_value = {
+            mock_client.get_manifest.return_value = {
                 "cpu_config": "https://api.runpod.io/v2/abc123"
             }
 
             registry = ServiceRegistry(
-                manifest_path=manifest_file, directory_client=mock_client
+                manifest_path=manifest_file, manifest_client=mock_client
             )
-            # Manually set directory to simulate loaded state
-            registry._directory = {"cpu_config": "https://api.runpod.io/v2/abc123"}
+            # Manually set endpoint registry to simulate loaded state
+            registry._endpoint_registry = {
+                "cpu_config": "https://api.runpod.io/v2/abc123"
+            }
 
             resource = registry.get_resource_for_function("preprocess")
 
@@ -182,77 +192,77 @@ class TestServiceRegistry:
             registry.get_resource_for_function("unknown_function")
 
     @pytest.mark.asyncio
-    async def test_ensure_directory_loaded(self, manifest_file):
-        """Test lazy loading of directory from client."""
-        mock_directory = {
+    async def test_ensure_manifest_loaded(self, manifest_file):
+        """Test lazy loading of manifest from client."""
+        mock_endpoint_registry = {
             "gpu_config": "https://gpu.example.com",
             "cpu_config": "https://cpu.example.com",
         }
 
         mock_client = AsyncMock()
-        mock_client.get_directory.return_value = mock_directory
+        mock_client.get_manifest.return_value = mock_endpoint_registry
 
         registry = ServiceRegistry(
-            manifest_path=manifest_file, directory_client=mock_client, cache_ttl=10
+            manifest_path=manifest_file, manifest_client=mock_client, cache_ttl=10
         )
 
-        # Directory not loaded yet
-        assert registry._directory == {}
+        # Endpoint registry not loaded yet
+        assert registry._endpoint_registry == {}
 
-        # Load directory
-        await registry._ensure_directory_loaded()
+        # Load manifest
+        await registry._ensure_manifest_loaded()
 
-        # Should now have loaded directory
-        assert registry._directory == mock_directory
-        mock_client.get_directory.assert_called_once()
+        # Should now have loaded endpoint registry
+        assert registry._endpoint_registry == mock_endpoint_registry
+        mock_client.get_manifest.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_ensure_directory_cache_respects_ttl(self, manifest_file):
-        """Test that directory cache respects TTL."""
-        mock_directory = {"gpu_config": "https://gpu.example.com"}
+    async def test_ensure_manifest_cache_respects_ttl(self, manifest_file):
+        """Test that manifest cache respects TTL."""
+        mock_endpoint_registry = {"gpu_config": "https://gpu.example.com"}
 
         mock_client = AsyncMock()
-        mock_client.get_directory.return_value = mock_directory
+        mock_client.get_manifest.return_value = mock_endpoint_registry
 
         registry = ServiceRegistry(
-            manifest_path=manifest_file, directory_client=mock_client, cache_ttl=1
+            manifest_path=manifest_file, manifest_client=mock_client, cache_ttl=1
         )
 
-        # Load directory
-        await registry._ensure_directory_loaded()
-        assert mock_client.get_directory.call_count == 1
+        # Load manifest
+        await registry._ensure_manifest_loaded()
+        assert mock_client.get_manifest.call_count == 1
 
         # Immediate reload should use cache
-        await registry._ensure_directory_loaded()
-        assert mock_client.get_directory.call_count == 1
+        await registry._ensure_manifest_loaded()
+        assert mock_client.get_manifest.call_count == 1
 
         # After TTL, should reload
-        registry._directory_loaded_at = time.time() - 2  # 2 seconds ago
-        await registry._ensure_directory_loaded()
-        assert mock_client.get_directory.call_count == 2
+        registry._endpoint_registry_loaded_at = time.time() - 2  # 2 seconds ago
+        await registry._ensure_manifest_loaded()
+        assert mock_client.get_manifest.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_refresh_directory(self, manifest_file):
-        """Test forcing directory refresh."""
-        mock_directory = {"gpu_config": "https://gpu.example.com"}
+    async def test_refresh_manifest(self, manifest_file):
+        """Test forcing manifest refresh."""
+        mock_endpoint_registry = {"gpu_config": "https://gpu.example.com"}
 
         mock_client = AsyncMock()
-        mock_client.get_directory.return_value = mock_directory
+        mock_client.get_manifest.return_value = mock_endpoint_registry
 
         registry = ServiceRegistry(
-            manifest_path=manifest_file, directory_client=mock_client, cache_ttl=3600
+            manifest_path=manifest_file, manifest_client=mock_client, cache_ttl=3600
         )
 
-        # Load directory
-        await registry._ensure_directory_loaded()
-        assert mock_client.get_directory.call_count == 1
+        # Load manifest
+        await registry._ensure_manifest_loaded()
+        assert mock_client.get_manifest.call_count == 1
 
         # Force refresh
-        registry.refresh_directory()
+        registry.refresh_manifest()
 
         # Next load should fetch again
-        await registry._ensure_directory_loaded()
-        assert mock_client.get_directory.call_count == 2
+        await registry._ensure_manifest_loaded()
+        assert mock_client.get_manifest.call_count == 2
 
     def test_get_manifest(self, manifest_file):
         """Test getting manifest."""
@@ -282,16 +292,16 @@ class TestServiceRegistry:
         functions = registry.get_resource_functions("nonexistent")
         assert functions == []
 
-    def test_init_no_directory_client_no_mothership_url(self, manifest_file):
-        """Test initialization without directory client or URL."""
+    def test_init_no_manifest_client_no_mothership_id(self, manifest_file):
+        """Test initialization without manifest client or FLASH_MOTHERSHIP_ID."""
         with patch.dict(os.environ, {}, clear=True):
             registry = ServiceRegistry(manifest_path=manifest_file)
-            assert registry._directory_client is None
+            assert registry._manifest_client is None
 
     @pytest.mark.asyncio
-    async def test_ensure_directory_loaded_unavailable_client(self, manifest_file):
-        """Test directory loading when client is None."""
-        registry = ServiceRegistry(manifest_path=manifest_file, directory_client=None)
+    async def test_ensure_manifest_loaded_unavailable_client(self, manifest_file):
+        """Test manifest loading when client is None."""
+        registry = ServiceRegistry(manifest_path=manifest_file, manifest_client=None)
         # Should not fail, just log warning
-        await registry._ensure_directory_loaded()
-        assert registry._directory == {}
+        await registry._ensure_manifest_loaded()
+        assert registry._endpoint_registry == {}

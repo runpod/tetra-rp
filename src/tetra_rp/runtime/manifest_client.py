@@ -1,4 +1,4 @@
-"""HTTP client for mothership manifest directory API."""
+"""HTTP client for mothership manifest API."""
 
 import asyncio
 import logging
@@ -17,13 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 class ManifestClient:
-    """HTTP client for querying mothership manifest directory service.
+    """HTTP client for querying mothership manifest service.
 
-    Fetches the endpoint registry that maps resource_config names to their
-    deployment URLs. This is the "manifest directory service" - an endpoint
-    registry showing where resources are deployed.
+    Fetches the manifest (endpoint registry) that maps resource_config names to
+    their deployment URLs. The manifest provides service discovery for remote
+    resource endpoints.
 
-    The directory maps resource_config names to their endpoint URLs.
     Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
     """
 
@@ -37,33 +36,37 @@ class ManifestClient:
 
         Args:
             mothership_url: Base URL of mothership endpoint. Defaults to
-                FLASH_MOTHERSHIP_URL environment variable.
+                constructed from FLASH_MOTHERSHIP_ID environment variable.
             timeout: Request timeout in seconds (default: 10).
             max_retries: Maximum retry attempts (default: 3).
 
         Raises:
             ValueError: If mothership_url not provided and env var not set.
         """
-        self.mothership_url = mothership_url or os.getenv("FLASH_MOTHERSHIP_URL")
-        if not self.mothership_url:
-            raise ValueError(
-                "mothership_url required: pass mothership_url or set "
-                "FLASH_MOTHERSHIP_URL environment variable"
-            )
+        if mothership_url:
+            self.mothership_url = mothership_url
+        else:
+            mothership_id = os.getenv("FLASH_MOTHERSHIP_ID")
+            if not mothership_id:
+                raise ValueError(
+                    "mothership_url required: pass mothership_url or set "
+                    "FLASH_MOTHERSHIP_ID environment variable"
+                )
+            self.mothership_url = f"https://{mothership_id}.api.runpod.ai"
 
         self.timeout = timeout
         self.max_retries = max_retries
         self._client: Optional[httpx.AsyncClient] = None
 
-    async def get_directory(self) -> Dict[str, str]:
-        """Fetch endpoint directory from mothership.
+    async def get_manifest(self) -> Dict[str, str]:
+        """Fetch endpoint manifest from mothership.
 
         Returns:
             Dictionary mapping resource_config_name → endpoint_url.
-            Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
+            Example: {"gpu_config": "https://gpu-worker.api.runpod.ai"}
 
         Raises:
-            ManifestServiceUnavailableError: If manifest directory service unavailable after retries.
+            ManifestServiceUnavailableError: If manifest service unavailable after retries.
         """
         if httpx is None:
             raise ImportError(
@@ -76,25 +79,26 @@ class ManifestClient:
             try:
                 client = await self._get_client()
                 response = await client.get(
-                    f"{self.mothership_url}/directory",
+                    f"{self.mothership_url}/manifest",
                     timeout=self.timeout,
                 )
 
                 if response.status_code >= 400:
                     raise ManifestServiceUnavailableError(
-                        f"Directory API returned {response.status_code}: "
+                        f"Manifest API returned {response.status_code}: "
                         f"{response.text[:200]}"
                     )
 
-                data = response.json()
-                if "directory" not in data:
+                manifest = response.json()
+                if not isinstance(manifest, dict) or "resources" not in manifest:
                     raise ManifestServiceUnavailableError(
-                        "Invalid directory response: missing 'directory' key"
+                        "Invalid manifest response: missing 'resources'"
                     )
 
-                directory = data["directory"]
-                logger.debug(f"Directory loaded: {len(directory)} endpoints")
-                return directory
+                logger.debug(
+                    f"Manifest loaded: {len(manifest.get('resources', {}))} resources"
+                )
+                return manifest
 
             except (
                 asyncio.TimeoutError,
@@ -112,7 +116,7 @@ class ManifestClient:
                     continue
 
         raise ManifestServiceUnavailableError(
-            f"Failed to fetch manifest directory after {self.max_retries} attempts: {last_exception}"
+            f"Failed to fetch manifest after {self.max_retries} attempts: {last_exception}"
         )
 
     async def _get_client(self) -> httpx.AsyncClient:

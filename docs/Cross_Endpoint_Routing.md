@@ -59,17 +59,20 @@ The manifest structure:
 
 #### 2. Set Environment Variables
 
-Configure the mothership directory URL (required for remote routing):
+Configure the mothership manifest URL (required for remote routing):
 
 ```bash
 # Required for cross-endpoint routing to work
-export FLASH_MOTHERSHIP_URL=https://mothership.example.com
+export FLASH_MOTHERSHIP_ID=mothership-endpoint-id
 
-# Optional: Identifies the current endpoint (useful for distributed tracing)
-export RUNPOD_ENDPOINT_ID=gpu_config
+# For child endpoints: Identifies which resource config this endpoint represents
+export FLASH_RESOURCE_NAME=gpu_config
+
+# Fallback: Used if FLASH_RESOURCE_NAME not set (for mothership identification)
+export RUNPOD_ENDPOINT_ID=gpu-endpoint-123
 ```
 
-Note: Without `FLASH_MOTHERSHIP_URL`, all functions execute locally. The system gracefully falls back to local execution.
+Note: Without `FLASH_MOTHERSHIP_ID`, all functions execute locally. The system gracefully falls back to local execution.
 
 #### 3. Define Functions
 
@@ -149,8 +152,9 @@ The manifest file (`flash_manifest.json`) defines function routing and resource 
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `FLASH_MOTHERSHIP_URL` | Yes* | URL of mothership directory service |
-| `RUNPOD_ENDPOINT_ID` | No | Current endpoint ID (for tracing) |
+| `FLASH_MOTHERSHIP_ID` | Yes* | Mothership endpoint ID for manifest service |
+| `FLASH_RESOURCE_NAME` | No | Resource config name for child endpoints (identifies which resource this endpoint represents) |
+| `RUNPOD_ENDPOINT_ID` | No | Fallback endpoint ID (used if FLASH_RESOURCE_NAME not set) |
 | `FLASH_MANIFEST_PATH` | No | Explicit path to manifest file |
 
 *Required for remote routing; without it, all functions execute locally
@@ -255,7 +259,7 @@ Functions gracefully fall back to local execution if routing fails:
 async def critical_service(request: dict) -> dict:
     # Routes to critical-endpoint if:
     # - In function_registry
-    # - Directory available
+    # - Manifest available
     # Otherwise executes locally
     return handle_critical(request)
 
@@ -269,11 +273,11 @@ async def helper_function(x: int) -> int:
 
 #### Common Issues
 
-**Directory Unavailable**
+**Manifest Service Unavailable**
 
-If `FLASH_MOTHERSHIP_URL` is not set or unreachable:
+If `FLASH_MOTHERSHIP_ID` is not set or unreachable:
 ```
-WARNING: FLASH_MOTHERSHIP_URL not set, directory unavailable
+WARNING: FLASH_MOTHERSHIP_ID not set, manifest service unavailable
 ```
 
 Functions default to local execution. Set the environment variable to enable routing.
@@ -342,8 +346,8 @@ graph TD
     A["Function Call"] -->|"intercepts stub layer"| B["ProductionWrapper"]
 
     B -->|"load service configuration"| C["ServiceRegistry"]
-    C -->|"if not cached"| D["DirectoryClient"]
-    D -->|"query mothership API"| E["Directory<br/>Endpoint URLs"]
+    C -->|"if not cached"| D["ManifestClient"]
+    D -->|"query mothership API"| E["Manifest<br/>Endpoint URLs"]
     E -->|"cache result<br/>TTL 300s"| C
 
     C -->|"lookup in manifest<br/>flash_manifest.json"| F{"Routing<br/>Decision"}
@@ -358,7 +362,7 @@ graph TD
     K --> L["Return Response<br/>base64 → cloudpickle"]
     L --> M["Deserialized Result"]
 
-    N["Error Handling:<br/>- RemoteExecutionError<br/>- SerializationError<br/>- DirectoryUnavailableError"] -.-> H
+    N["Error Handling:<br/>- RemoteExecutionError<br/>- SerializationError<br/>- ManifestServiceUnavailableError"] -.-> H
     N -.-> I
     N -.-> J
 
@@ -405,8 +409,8 @@ class ProductionWrapper:
         **kwargs: Any,
     ) -> Any:
         """Route function execution to local or remote endpoint."""
-        # 1. Load directory (if needed)
-        await self.service_registry._ensure_directory_loaded()
+        # 1. Load manifest (if needed)
+        await self.service_registry._ensure_manifest_loaded()
 
         # 2. Look up function in manifest
         resource = self.service_registry.get_resource_for_function(func.__name__)
@@ -449,31 +453,53 @@ Manages service discovery and manifest loading:
 class ServiceRegistry:
     """Service discovery and routing for cross-endpoint function calls."""
 
-    def __init__(self, manifest_path: Optional[Path] = None):
-        """Initialize with manifest and optional directory client."""
+    def __init__(
+        self,
+        manifest_path: Optional[Path] = None,
+        manifest_client: Optional[ManifestClient] = None,
+        cache_ttl: int = DEFAULT_CACHE_TTL,
+    ):
+        """Initialize service registry.
+
+        Args:
+            manifest_path: Path to flash_manifest.json. Defaults to
+                FLASH_MANIFEST_PATH env var or auto-detection.
+            manifest_client: Manifest service client for mothership API. If None,
+                creates one from FLASH_MOTHERSHIP_ID env var.
+            cache_ttl: Manifest cache lifetime in seconds (default: 300).
+
+        Environment Variables (for local vs remote detection):
+            FLASH_RESOURCE_NAME: Resource config name for this endpoint (child endpoints).
+                Identifies which resource config this endpoint represents in the manifest.
+            RUNPOD_ENDPOINT_ID: Endpoint ID (used as fallback for mothership identification).
+        """
         self._load_manifest(manifest_path)
-        self._directory_client = DirectoryClient(...)
-        self._directory = {}  # Cached endpoint URLs
-        self._directory_lock = asyncio.Lock()
+        self._manifest_client = manifest_client or ManifestClient()
+        self._endpoint_registry = {}  # Cached endpoint URLs
+        self._endpoint_registry_lock = asyncio.Lock()
+        # Child endpoints use FLASH_RESOURCE_NAME to identify which resource they represent
+        # Mothership doesn't have FLASH_RESOURCE_NAME, so falls back to RUNPOD_ENDPOINT_ID
+        self._current_endpoint = os.getenv("FLASH_RESOURCE_NAME") or os.getenv(
+            "RUNPOD_ENDPOINT_ID"
+        )
 
     def get_resource_for_function(self, func_name: str) -> Optional[ServerlessResource]:
         """Get resource config for function from manifest."""
-        # Returns None if:
-        # - Function not in manifest
-        # - Explicitly set to null in manifest
-
-        # Returns ServerlessResource if mapped in manifest
-        config = self._manifest["functions"].get(func_name)
+        # Returns the ServerlessResource if function is mapped in manifest
+        # Returns None if function maps to current endpoint
+        # Raises ValueError if function not found in manifest
+        config = self._manifest.function_registry.get(func_name)
         return self._resolve_resource(config)
 
-    async def _ensure_directory_loaded(self) -> None:
-        """Load directory from mothership with caching (TTL 300s)."""
-        if self._is_directory_fresh():
-            return
+    async def _ensure_manifest_loaded(self) -> None:
+        """Load manifest from mothership if cache expired or not loaded."""
+        async with self._endpoint_registry_lock:
+            now = time.time()
+            cache_age = now - self._endpoint_registry_loaded_at
 
-        async with self._directory_lock:
-            self._directory = await self._directory_client.get_directory()
-            self._directory_loaded_at = time.time()
+            if cache_age > self.cache_ttl:
+                self._endpoint_registry = await self._manifest_client.get_manifest()
+                self._endpoint_registry_loaded_at = now
 ```
 
 **Manifest Format**:
@@ -499,46 +525,91 @@ class ServiceRegistry:
 - `function_registry`: Maps function names to resource config names (null = local)
 - `resources`: Defines resource configurations and their handler details
 
-**Directory Cache**:
+**Manifest Cache**:
 - TTL: 300 seconds (configurable via `DEFAULT_CACHE_TTL`)
 - Thread-safe with `asyncio.Lock()`
-- Graceful fallback if directory unavailable
+- Graceful fallback if manifest service unavailable
 
-#### 3. DirectoryClient
+#### 3. ManifestClient
 
-**Location**: `src/tetra_rp/runtime/directory_client.py`
+**Location**: `src/tetra_rp/runtime/manifest_client.py`
 
-HTTP client for mothership directory service:
+HTTP client for mothership manifest service:
 
 ```python
-class DirectoryClient:
-    """HTTP client for querying mothership directory.
+class ManifestClient:
+    """HTTP client for querying mothership manifest.
 
-    The directory maps resource_config names to their endpoint URLs.
+    The manifest maps resource_config names to their endpoint URLs.
     Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
     """
 
-    async def get_directory(self) -> Dict[str, str]:
-        """Fetch endpoint directory from mothership.
+    async def get_manifest(self) -> Dict[str, str]:
+        """Fetch endpoint manifest from mothership.
 
         Returns:
             Dictionary mapping resource_config_name → endpoint_url.
             Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
 
         Raises:
-            DirectoryUnavailableError: If directory service unavailable after retries.
+            ManifestServiceUnavailableError: If manifest service unavailable after retries.
         """
-        # Queries {mothership_url}/directory endpoint with retry logic
+        # Queries {mothership_url}/manifest endpoint with retry logic
 ```
 
 **Configuration**:
-- Mothership URL from `FLASH_MOTHERSHIP_URL` env var
+- Mothership ID from `FLASH_MOTHERSHIP_ID` env var (constructs URL as https://{id}.api.runpod.ai)
 - HTTP timeout: 10 seconds (via `DEFAULT_REQUEST_TIMEOUT`)
 - Retry logic: Exponential backoff with `DEFAULT_MAX_RETRIES` attempts (default: 3)
 - Uses `httpx` library for async HTTP requests
 - Raises `ImportError` if httpx not installed (with helpful message)
 
-#### 4. Exception Hierarchy
+#### 4. StateManagerClient
+
+**Location**: `src/tetra_rp/runtime/state_manager_client.py`
+
+HTTP client for State Manager API (used by mothership auto-provisioning):
+
+```python
+class StateManagerClient:
+    """HTTP client for State Manager API.
+
+    The State Manager persists manifest state and provides reconciliation
+    for detecting new, changed, and removed resources.
+    """
+
+    async def get_persisted_manifest(
+        self, mothership_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch persisted manifest from State Manager.
+
+        Returns:
+            Manifest dict or None if not found (first boot).
+
+        Raises:
+            ManifestServiceUnavailableError: If State Manager unavailable.
+        """
+        # Queries {base_url}/api/v1/flash/manifests/{mothership_id}
+
+    async def update_resource_state(
+        self,
+        mothership_id: str,
+        resource_name: str,
+        resource_data: Dict[str, Any],
+    ) -> None:
+        """Update resource entry in State Manager after deployment."""
+        # Queries {base_url}/api/v1/flash/manifests/{mothership_id}/resources/{resource_name}
+```
+
+**Configuration**:
+- Base URL: `https://api.runpod.io` (default, configurable)
+- Authentication: Bearer token using RUNPOD_API_KEY env var
+- HTTP timeout: 10 seconds (via `DEFAULT_REQUEST_TIMEOUT`)
+- Retry logic: Exponential backoff with `DEFAULT_MAX_RETRIES` attempts (default: 3)
+- Uses `httpx` library for async HTTP requests
+- Raises `ImportError` if httpx not installed (with helpful message)
+
+#### 5. Exception Hierarchy
 
 **Location**: `src/tetra_rp/runtime/exceptions.py`
 
@@ -561,8 +632,8 @@ class ManifestError(FlashRuntimeError):
     """Raised when manifest is invalid, missing, or has unexpected structure."""
     pass
 
-class DirectoryUnavailableError(FlashRuntimeError):
-    """Raised when directory service is unavailable."""
+class ManifestServiceUnavailableError(FlashRuntimeError):
+    """Raised when manifest service is unavailable."""
     pass
 ```
 
@@ -576,8 +647,8 @@ except SerializationError as e:
     logger.error(f"Serialization failed: {e}")
 except ManifestError as e:
     logger.error(f"Manifest configuration error: {e}")
-except DirectoryUnavailableError as e:
-    logger.warning(f"Directory unavailable, using fallback")
+except ManifestServiceUnavailableError as e:
+    logger.warning(f"Manifest unavailable, using fallback")
 ```
 
 ### Integration Points
@@ -613,7 +684,7 @@ Functions retrieve remote endpoint info from ResourceManager:
 # ServiceRegistry uses ResourceManager to find endpoint URLs
 resource_manager = ResourceManager()
 endpoint = resource_manager.get_resource_for_function("function_name")
-endpoint_url = endpoint.url  # e.g., "https://api.runpod.io/v1/abc123"
+endpoint_url = endpoint.url  # e.g., "https://api.runpod.io/v2/abc123"
 ```
 
 ### Configuration
@@ -640,46 +711,70 @@ Add new configuration by:
 
 #### Local Execution Flow
 
-```
-Function Call
-    ↓
-ProductionWrapper.wrap_function_execution()
-    ↓
-ServiceRegistry.get_resource_for_function()
-    ↓
-Manifest Lookup (resource = None)
-    ↓
-Local Execution (original_stub_func)
-    ↓
-Result
+```mermaid
+flowchart TD
+    A["Function Call"]
+    B["ProductionWrapper.wrap_function_execution()"]
+    C["ServiceRegistry.get_resource_for_function()"]
+    D["Manifest Lookup<br/>resource = None"]
+    E["Local Execution<br/>original_stub_func"]
+    F["Result"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style C fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style D fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style E fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style F fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
 ```
 
 #### Remote Execution Flow
 
-```
-Function Call
-    ↓
-ProductionWrapper.wrap_function_execution()
-    ↓
-ServiceRegistry.get_resource_for_function()
-    ↓
-Manifest Lookup (resource found)
-    ↓
-Ensure Directory Loaded
-    ↓
-DirectoryClient.get_endpoints()
-    ↓
-Get Remote Endpoint URL
-    ↓
-Serialize Arguments (cloudpickle → base64)
-    ↓
-HTTP POST to Remote Endpoint
-    ↓
-Remote Function Execution
-    ↓
-Deserialize Result (base64 → cloudpickle)
-    ↓
-Result
+```mermaid
+flowchart TD
+    A["Function Call"]
+    B["ProductionWrapper.wrap_function_execution()"]
+    C["ServiceRegistry.get_resource_for_function()"]
+    D["Manifest Lookup<br/>resource found"]
+    E["Ensure Manifest Loaded"]
+    F["ManifestClient.get_manifest()"]
+    G["Get Remote Endpoint URL"]
+    H["Serialize Arguments<br/>cloudpickle → base64"]
+    I["HTTP POST to Remote Endpoint"]
+    J["Remote Function Execution"]
+    K["Deserialize Result<br/>base64 → cloudpickle"]
+    L["Result"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    I --> J
+    J --> K
+    K --> L
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style C fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style D fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style E fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style F fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style G fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style H fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style I fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style J fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style K fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style L fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
 ```
 
 ### Design Decisions
@@ -696,11 +791,11 @@ Result
 
 #### 2. Thread-Safe Async Caching
 
-**Decision**: Use `asyncio.Lock()` for directory cache synchronization
+**Decision**: Use `asyncio.Lock()` for manifest cache synchronization
 
 **Rationale**:
 - Prevents thundering herd on cache expiry
-- Efficient - only one coroutine loads directory
+- Efficient - only one coroutine loads manifest
 - Simple to understand and maintain
 - Follows async/await patterns
 
@@ -716,12 +811,12 @@ Result
 
 #### 4. Graceful Fallback
 
-**Decision**: Default to local execution if directory unavailable
+**Decision**: Default to local execution if manifest service unavailable
 
 **Rationale**:
 - Maintains application resilience
 - Doesn't fail if mothership unreachable
-- Allows local testing without directory
+- Allows local testing without manifest service
 - Gradual degradation vs catastrophic failure
 
 #### 5. Transparent Routing
@@ -755,15 +850,15 @@ class JsonSerializer:
 2. Update ProductionWrapper to select serializer based on config
 3. Add tests for new format
 
-#### Adding New Directory Backends
+#### Adding New Manifest Backends
 
 To support directories other than mothership:
 
-1. Create client class with `get_directory()` method:
+1. Create client class with `get_manifest()` method:
 ```python
-class CustomDirectoryClient:
-    async def get_directory(self) -> Dict[str, str]:
-        """Fetch directory mapping resource_config_name → endpoint_url."""
+class CustomManifestClient:
+    async def get_manifest(self) -> Dict[str, str]:
+        """Fetch manifest mapping resource_config_name → endpoint_url."""
         # Implementation specific to backend
         return {"resource_name": "https://endpoint.url"}
 ```
@@ -772,11 +867,11 @@ class CustomDirectoryClient:
 ```python
 registry = ServiceRegistry(
     manifest_path=Path("manifest.json"),
-    directory_client=CustomDirectoryClient(...)
+    manifest_client=CustomManifestClient(...)
 )
 ```
 
-3. Update environment variable handling if needed (CustomDirectoryClient can read from env vars)
+3. Update environment variable handling if needed (CustomManifestClient can read from env vars)
 
 #### Adding Routing Policies
 
@@ -806,11 +901,11 @@ class RoutingPolicy:
 **ServiceRegistry Tests** (`tests/unit/runtime/test_service_registry.py`):
 - Manifest loading
 - Resource lookup
-- Directory caching
+- Manifest caching
 - TTL expiry
 - Lock behavior under concurrency
 
-**DirectoryClient Tests** (`tests/unit/runtime/test_directory_client.py`):
+**ManifestClient Tests** (`tests/unit/runtime/test_manifest_client.py`):
 - Successful HTTP requests
 - Error handling
 - Retry logic
@@ -831,7 +926,7 @@ class RoutingPolicy:
 - End-to-end remote execution
 - Function call across endpoints
 - Error handling in real scenarios
-- Directory caching behavior
+- Manifest caching behavior
 - Serialization of complex objects
 
 #### Test Patterns
@@ -880,7 +975,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 # ProductionWrapper logs
 # ServiceRegistry logs
-# DirectoryClient logs
+# ManifestClient logs
 ```
 
 #### Common Debug Scenarios
@@ -890,8 +985,8 @@ logging.basicConfig(level=logging.DEBUG)
 # Check manifest
 print(registry._manifest)
 
-# Check directory
-print(registry._directory)
+# Check cached endpoint URLs
+print(registry._endpoint_registry)
 
 # Check resource lookup
 resource = registry.get_resource_for_function("function_name")
@@ -908,24 +1003,119 @@ except Exception as e:
     print(f"Not serializable: {e}")
 ```
 
-**Directory unavailable**:
+**Manifest unavailable**:
 ```python
 # Check environment variables
 import os
-print(f"FLASH_MOTHERSHIP_URL: {os.getenv('FLASH_MOTHERSHIP_URL')}")
+print(f"FLASH_MOTHERSHIP_ID: {os.getenv('FLASH_MOTHERSHIP_ID')}")
 print(f"RUNPOD_ENDPOINT_ID: {os.getenv('RUNPOD_ENDPOINT_ID')}")
 
-# Check directory client directly
-client = DirectoryClient(mothership_url=...)
-endpoints = await client.get_endpoints()
+# Check manifest client directly
+client = ManifestClient(mothership_url=...)
+endpoints = await client.get_manifest()
 ```
+
+## Manifest Synchronization with RunPod GraphQL API
+
+### Overview
+
+The Mothership's GET /manifest endpoint pulls configuration from RunPod's GraphQL API,
+which serves as the single source of truth for manifest data. This enables centralized
+configuration management and ensures all child endpoints receive consistent routing
+information.
+
+### Architecture
+
+```mermaid
+flowchart TD
+    A["Child Endpoint<br/>GET /manifest"]
+    B["Mothership"]
+    C["ManifestFetcher"]
+    D{Cache Valid?}
+    E["Serve Cached<br/>Manifest"]
+    F["Fetch from RunPod<br/>GraphQL API"]
+    G["Update<br/>flash_manifest.json"]
+    H["Cache Result<br/>TTL: 300s"]
+    I["Serve Manifest"]
+    J["Fallback:<br/>Load Local File"]
+
+    A -->|Request| B
+    B --> C
+    C --> D
+    D -->|Yes| E
+    D -->|No| F
+    E --> I
+    F --> G
+    G --> H
+    H --> I
+    F -->|Fails| J
+    J --> I
+
+    style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style B fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style C fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style D fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
+    style E fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style F fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style G fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style H fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style I fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style J fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+```
+
+### How It Works
+
+1. **Source of Truth**: RunPod GraphQL API holds the authoritative manifest configuration
+2. **Caching Proxy**: Mothership fetches from RunPod GQL, caches locally (5 min TTL)
+3. **Local Persistence**: Fetched manifest written to `flash_manifest.json`
+4. **Graceful Fallback**: If RunPod GQL unavailable, serves local file
+5. **Cache Invalidation**: Automatic expiry after TTL, manual invalidation supported
+
+### Implementation Status
+
+**Current (Placeholder)**:
+- `ManifestFetcher` class with caching infrastructure
+- Uses existing `RunpodGraphQLClient` for API communication
+- Falls back to local `flash_manifest.json` (GQL fetch raises `NotImplementedError`)
+- Cache TTL: 300 seconds (configurable)
+
+**Future (Full Implementation)**:
+- Implement `getManifest` query in `ManifestFetcher._fetch_from_gql()`
+- Add `saveManifest` mutation for updating manifest in RunPod
+- Real-time cache invalidation via webhooks
+- Health checks and retry logic
+
+### Configuration
+
+```bash
+# Enable Mothership mode (required for /manifest endpoint)
+export FLASH_IS_MOTHERSHIP=true
+
+# Optional: Identify this mothership instance
+export RUNPOD_ENDPOINT_ID=mothership-prod-1
+
+# Required for RunPod GraphQL API access
+export RUNPOD_API_KEY=your-api-key-here
+```
+
+### Cache Behavior
+
+- **Default TTL**: 300 seconds (5 minutes)
+- **Cache Key**: Per-mothership instance (no cross-instance cache)
+- **Thread-Safe**: Uses `asyncio.Lock` for concurrent request handling
+- **Manual Invalidation**: `fetcher.invalidate_cache()` for testing
+
+### Historical Context
+
+A previous `StateManagerClient` (commit b19bf7c) used REST API. Current placeholder
+prepares for GQL-based architecture with improved caching and error handling.
 
 ## Key Implementation Highlights
 
 ### Design Focus
 
 1. **Transparent Routing**: Functions route automatically without code changes
-2. **Graceful Degradation**: Defaults to local execution if directory unavailable
+2. **Graceful Degradation**: Defaults to local execution if manifest service unavailable
 3. **Type Safety**: Full type hints throughout for IDE support and static analysis
 4. **Thread-Safe Async**: Proper `asyncio.Lock()` usage for concurrent operations
 5. **Clear Error Hierarchy**: Custom exceptions provide actionable error context
@@ -936,7 +1126,7 @@ Cross-endpoint routing provides:
 
 - **Transparency**: Functions route automatically without manual HTTP calls
 - **Flexibility**: Manifest-based routing enables environment-specific configurations
-- **Resilience**: Graceful fallback to local execution if directory unavailable
+- **Resilience**: Graceful fallback to local execution if manifest service unavailable
 - **Simplicity**: No changes to function code or signatures
 - **Debuggability**: Clear error messages and logging for troubleshooting
 

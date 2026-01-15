@@ -19,7 +19,7 @@ class TestProductionWrapper:
     def mock_registry(self):
         """Mock service registry."""
         registry = AsyncMock(spec=ServiceRegistry)
-        registry._ensure_directory_loaded = AsyncMock()
+        registry._ensure_manifest_loaded = AsyncMock()
         return registry
 
     @pytest.fixture
@@ -135,8 +135,8 @@ class TestProductionWrapper:
             )
 
     @pytest.mark.asyncio
-    async def test_wrap_function_loads_directory(self, wrapper, mock_registry):
-        """Test that directory is loaded before routing decision."""
+    async def test_wrap_function_loads_manifest(self, wrapper, mock_registry):
+        """Test that manifest is loaded before routing decision."""
         mock_registry.get_resource_for_function.return_value = None
 
         async def sample_func():
@@ -147,8 +147,8 @@ class TestProductionWrapper:
             original_stub, sample_func, None, None, True
         )
 
-        # Should ensure directory is loaded
-        mock_registry._ensure_directory_loaded.assert_called_once()
+        # Should ensure manifest is loaded
+        mock_registry._ensure_manifest_loaded.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_wrap_class_method_local(self, wrapper, mock_registry, original_stub):

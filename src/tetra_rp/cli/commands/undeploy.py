@@ -225,6 +225,9 @@ def undeploy_command(
         "--cleanup-stale",
         help="Remove inactive endpoints from tracking (already deleted externally)",
     ),
+    force: bool = typer.Option(
+        False, "--force", "-f", help="Force operation without confirmation prompts"
+    ),
 ):
     """Undeploy (delete) RunPod serverless endpoints.
 
@@ -238,6 +241,9 @@ def undeploy_command(
 
         # Undeploy all endpoints (with confirmation)
         flash undeploy --all
+
+        # Undeploy all endpoints without confirmation
+        flash undeploy --all --force
 
         # Interactive selection
         flash undeploy --interactive
@@ -271,11 +277,11 @@ def undeploy_command(
 
     # Handle different modes
     if interactive:
-        _interactive_undeploy(resources)
+        _interactive_undeploy(resources, skip_confirm=force)
     elif all:
-        _undeploy_all(resources)
+        _undeploy_all(resources, skip_confirm=force)
     elif name:
-        _undeploy_by_name(name, resources)
+        _undeploy_by_name(name, resources, skip_confirm=force)
     else:
         console.print(
             Panel(
@@ -291,12 +297,13 @@ def undeploy_command(
         raise typer.Exit(0)
 
 
-def _undeploy_by_name(name: str, resources: dict):
+def _undeploy_by_name(name: str, resources: dict, skip_confirm: bool = False):
     """Undeploy endpoints matching the given name.
 
     Args:
         name: Name to search for
         resources: Dict of all resources
+        skip_confirm: Skip confirmation prompts
     """
     # Find matching resources
     matches = []
@@ -333,17 +340,18 @@ def _undeploy_by_name(name: str, resources: dict):
 
     console.print("[red]🚨 This action cannot be undone![/red]\n")
 
-    try:
-        confirmed = questionary.confirm(
-            f"Are you sure you want to delete {len(matches)} endpoint(s)?"
-        ).ask()
+    if not skip_confirm:
+        try:
+            confirmed = questionary.confirm(
+                f"Are you sure you want to delete {len(matches)} endpoint(s)?"
+            ).ask()
 
-        if not confirmed:
-            console.print("Undeploy cancelled")
+            if not confirmed:
+                console.print("Undeploy cancelled")
+                raise typer.Exit(0)
+        except KeyboardInterrupt:
+            console.print("\nUndeploy cancelled")
             raise typer.Exit(0)
-    except KeyboardInterrupt:
-        console.print("\nUndeploy cancelled")
-        raise typer.Exit(0)
 
     # Delete endpoints
     manager = _get_resource_manager()
@@ -369,11 +377,12 @@ def _undeploy_by_name(name: str, resources: dict):
                 console.print(f"  • {result['message']}")
 
 
-def _undeploy_all(resources: dict):
+def _undeploy_all(resources: dict, skip_confirm: bool = False):
     """Undeploy all endpoints with confirmation.
 
     Args:
         resources: Dict of all resources
+        skip_confirm: Skip confirmation prompts
     """
     # Show what will be deleted
     console.print(
@@ -391,24 +400,25 @@ def _undeploy_all(resources: dict):
 
     console.print("\n[red]🚨 This action cannot be undone![/red]\n")
 
-    try:
-        confirmed = questionary.confirm(
-            f"Are you sure you want to delete ALL {len(resources)} endpoints?"
-        ).ask()
+    if not skip_confirm:
+        try:
+            confirmed = questionary.confirm(
+                f"Are you sure you want to delete ALL {len(resources)} endpoints?"
+            ).ask()
 
-        if not confirmed:
-            console.print("Undeploy cancelled")
+            if not confirmed:
+                console.print("Undeploy cancelled")
+                raise typer.Exit(0)
+
+            # Double confirmation for --all
+            typed_confirm = questionary.text("Type 'DELETE ALL' to confirm:").ask()
+
+            if typed_confirm != "DELETE ALL":
+                console.print("Confirmation failed - text does not match")
+                raise typer.Exit(1)
+        except KeyboardInterrupt:
+            console.print("\nUndeploy cancelled")
             raise typer.Exit(0)
-
-        # Double confirmation for --all
-        typed_confirm = questionary.text("Type 'DELETE ALL' to confirm:").ask()
-
-        if typed_confirm != "DELETE ALL":
-            console.print("Confirmation failed - text does not match")
-            raise typer.Exit(1)
-    except KeyboardInterrupt:
-        console.print("\nUndeploy cancelled")
-        raise typer.Exit(0)
 
     # Delete all endpoints
     manager = _get_resource_manager()
@@ -436,11 +446,12 @@ def _undeploy_all(resources: dict):
                 console.print(f"  • {result['message']}")
 
 
-def _interactive_undeploy(resources: dict):
+def _interactive_undeploy(resources: dict, skip_confirm: bool = False):
     """Interactive checkbox selection for undeploying endpoints.
 
     Args:
         resources: Dict of all resources
+        skip_confirm: Skip confirmation prompts
     """
     # Create choices for questionary
     choices = []
@@ -484,13 +495,14 @@ def _interactive_undeploy(resources: dict):
 
         console.print("\n[red]🚨 This action cannot be undone![/red]\n")
 
-        confirmed = questionary.confirm(
-            f"Are you sure you want to delete {len(selected)} endpoint(s)?"
-        ).ask()
+        if not skip_confirm:
+            confirmed = questionary.confirm(
+                f"Are you sure you want to delete {len(selected)} endpoint(s)?"
+            ).ask()
 
-        if not confirmed:
-            console.print("Undeploy cancelled")
-            raise typer.Exit(0)
+            if not confirmed:
+                console.print("Undeploy cancelled")
+                raise typer.Exit(0)
     except KeyboardInterrupt:
         console.print("\nUndeploy cancelled")
         raise typer.Exit(0)
