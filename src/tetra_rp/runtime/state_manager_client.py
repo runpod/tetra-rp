@@ -2,12 +2,11 @@
 
 import asyncio
 import logging
-import os
 from typing import Any, Dict, Optional
 
 from tetra_rp.core.api.runpod import RunpodGraphQLClient
 
-from .config import DEFAULT_MAX_RETRIES, DEFAULT_REQUEST_TIMEOUT
+from .config import DEFAULT_MAX_RETRIES
 from .exceptions import GraphQLError, ManifestServiceUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -38,42 +37,16 @@ class StateManagerClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        base_url: str = "https://api.runpod.io",
-        timeout: int = DEFAULT_REQUEST_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ):
         """Initialize State Manager client.
 
         Args:
-            api_key: RunPod API key. Defaults to RUNPOD_API_KEY env var.
-            base_url: DEPRECATED. GraphQL client manages URLs. This parameter is ignored.
-            timeout: DEPRECATED. GraphQL client manages timeouts. This parameter is ignored.
             max_retries: Maximum retry attempts for operations.
 
         Raises:
-            ValueError: If api_key not provided and env var not set.
+            RunpodAPIKeyError: If RUNPOD_API_KEY environment variable is not set (raised by RunpodGraphQLClient).
         """
-        self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "api_key required: pass api_key or set RUNPOD_API_KEY environment variable"
-            )
-
-        if base_url != "https://api.runpod.io":
-            logger.warning(
-                "StateManagerClient 'base_url' parameter is deprecated and ignored. "
-                "GraphQL client manages endpoint URLs."
-            )
-
-        if timeout != DEFAULT_REQUEST_TIMEOUT:
-            logger.warning(
-                "StateManagerClient 'timeout' parameter is deprecated and ignored. "
-                "GraphQL client manages timeouts."
-            )
-
-        self.base_url = base_url
-        self.timeout = timeout
         self.max_retries = max_retries
         self._manifest_lock = asyncio.Lock()
 

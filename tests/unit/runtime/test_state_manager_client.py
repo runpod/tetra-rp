@@ -38,7 +38,7 @@ class TestStateManagerClientBasicOperations:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key")
+            client = StateManagerClient()
             manifest = await client.get_persisted_manifest("env-123")
 
             assert manifest is not None
@@ -74,7 +74,7 @@ class TestStateManagerClientBasicOperations:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key")
+            client = StateManagerClient()
             await client.update_resource_state(
                 "env-123", "worker1", {"config_hash": "abc123"}
             )
@@ -110,7 +110,7 @@ class TestStateManagerClientBasicOperations:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key")
+            client = StateManagerClient()
             await client.remove_resource_state("env-123", "worker1")
 
             call_args = mock_client.update_build_manifest.call_args
@@ -135,7 +135,7 @@ class TestStateManagerClientErrorHandling:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key")
+            client = StateManagerClient()
 
             with pytest.raises(
                 ManifestServiceUnavailableError, match="Active build not found"
@@ -156,7 +156,7 @@ class TestStateManagerClientErrorHandling:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key")
+            client = StateManagerClient()
 
             with pytest.raises(
                 ManifestServiceUnavailableError, match="Manifest not found"
@@ -178,7 +178,7 @@ class TestStateManagerClientErrorHandling:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key", max_retries=2)
+            client = StateManagerClient(max_retries=2)
 
             with patch(
                 "tetra_rp.runtime.state_manager_client.asyncio.sleep",
@@ -209,7 +209,7 @@ class TestStateManagerClientErrorHandling:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key", max_retries=2)
+            client = StateManagerClient(max_retries=2)
 
             with patch(
                 "tetra_rp.runtime.state_manager_client.asyncio.sleep",
@@ -249,7 +249,7 @@ class TestStateManagerClientRetryLogic:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key", max_retries=3)
+            client = StateManagerClient(max_retries=3)
 
             with patch(
                 "tetra_rp.runtime.state_manager_client.asyncio.sleep",
@@ -278,7 +278,7 @@ class TestStateManagerClientRetryLogic:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key", max_retries=2)
+            client = StateManagerClient(max_retries=2)
 
             with patch(
                 "tetra_rp.runtime.state_manager_client.asyncio.sleep",
@@ -312,7 +312,7 @@ class TestStateManagerClientRetryLogic:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key", max_retries=3)
+            client = StateManagerClient(max_retries=3)
 
             with patch(
                 "tetra_rp.runtime.state_manager_client.asyncio.sleep",
@@ -347,7 +347,7 @@ class TestStateManagerClientConcurrency:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key")
+            client = StateManagerClient()
 
             tasks = [
                 client.update_resource_state(
@@ -387,7 +387,7 @@ class TestStateManagerClientConcurrency:
             "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
-            client = StateManagerClient(api_key="test_api_key")
+            client = StateManagerClient()
 
             await asyncio.gather(
                 client.update_resource_state(
