@@ -1110,6 +1110,45 @@ export RUNPOD_API_KEY=your-api-key-here
 A previous `StateManagerClient` (commit b19bf7c) used REST API; the current
 implementation now reads and updates manifests through RunPod GraphQL mutations.
 
+### Migration Guide: REST to GraphQL (PR #144)
+
+#### Breaking Changes
+
+1. **get_flash_build() signature changed**:
+   ```python
+   # Before
+   await client.get_flash_build({"flashBuildId": build_id})
+
+   # After
+   await client.get_flash_build(build_id)
+   ```
+
+2. **StateManagerClient no longer uses httpx**:
+   - Remove `httpx` from dependencies if only used by StateManagerClient
+   - All operations now use RunpodGraphQLClient
+
+3. **Constructor parameters deprecated**:
+   - `base_url`: Ignored (GraphQL client manages URLs)
+   - `timeout`: Ignored (GraphQL client manages timeouts)
+   - Code continues to work but logs deprecation warnings
+
+#### Performance Considerations
+
+The new GraphQL implementation requires 3 sequential API calls per update:
+1. Fetch environment to get activeBuildId
+2. Fetch build to get current manifest
+3. Update manifest with changes
+
+For bulk resource updates (10+ resources), consider batching operations
+to reduce latency.
+
+#### Concurrency Safety
+
+StateManagerClient now uses `asyncio.Lock` to prevent race conditions
+during concurrent resource updates. This ensures manifest integrity
+during mothership auto-provisioning when multiple resources deploy
+simultaneously.
+
 ## Key Implementation Highlights
 
 ### Design Focus
