@@ -7,11 +7,6 @@ from typing import Any, Dict, Optional
 
 from tetra_rp.core.api.runpod import RunpodGraphQLClient
 
-try:
-    import httpx
-except ImportError:
-    httpx = None
-
 from .config import DEFAULT_MAX_RETRIES, DEFAULT_REQUEST_TIMEOUT
 from .exceptions import ManifestServiceUnavailableError
 

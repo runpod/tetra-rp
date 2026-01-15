@@ -593,7 +593,6 @@ class RunpodGraphQLClient:
         query getFlashBuild($input: String!) {
                 flashBuild(flashBuildId: $input) {
                     id
-                    name
                     manifest
             }
         }
