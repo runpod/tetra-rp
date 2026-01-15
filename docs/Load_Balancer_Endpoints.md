@@ -35,9 +35,9 @@ Load-balanced endpoints require different provisioning and health check logic th
 
 ### Why This Matters
 
-The Mothership needs to serve as a directory server for child endpoints. This requires:
+The Mothership needs to serve as a manifest server for child endpoints. This requires:
 - HTTP-based service discovery (not queue-based)
-- Ability to expose custom endpoints (`/directory`, `/ping`)
+- Ability to expose custom endpoints (`/manifest`, `/ping`)
 - Health checking to verify children are ready before routing traffic
 
 ## Architecture
@@ -401,6 +401,6 @@ endpoint = LoadBalancerSlsResource(
 ## Next Steps
 
 - **Mothership integration**: Use LoadBalancerSlsResource for Mothership endpoints
-- **Service discovery**: Implement `/directory` endpoint for child endpoint discovery
+- **Service discovery**: Implement `/manifest` endpoint for child endpoint discovery
 - **Auto-provisioning**: Automatic child endpoint deployment on Mothership startup
 - **Cross-endpoint routing**: Route requests between endpoints using service discovery
