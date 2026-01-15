@@ -1,4 +1,4 @@
-"""HTTP client for State Manager API to persist and reconcile manifests."""
+"""GraphQL client for State Manager API to persist and reconcile manifests."""
 
 import asyncio
 import logging
@@ -59,7 +59,7 @@ class StateManagerClient:
             mothership_id: ID of the mothership endpoint.
 
         Returns:
-            Manifest dict or None if not found (first boot).
+            Manifest dict.
 
         Raises:
             ManifestServiceUnavailableError: If State Manager unavailable after retries.
@@ -246,19 +246,3 @@ class StateManagerClient:
             )
 
         return build_id, manifest
-
-    async def close(self) -> None:
-        """Close client session.
-
-        Note: No-op for GraphQL-based implementation. The RunpodGraphQLClient
-        manages its own connection lifecycle via context manager.
-        """
-        pass
-
-    async def __aenter__(self):
-        """Async context manager entry."""
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
-        await self.close()
