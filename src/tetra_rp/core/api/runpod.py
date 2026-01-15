@@ -417,6 +417,29 @@ class RunpodGraphQLClient:
 
         return result["flashEnvironmentByName"]
 
+    async def update_build_manifest(
+        self,
+        build_id: str,
+        manifest: Dict[str, Any],
+    ) -> None:
+
+        mutation = """
+        mutation updateFlashBuildManifest($input: UpdateFlashBuildManifestInput!) {
+            updateFlashBuildManifest(input: $input) {
+                id
+                manifest
+            }
+        }
+        """
+        variables = {"input": {"flashBuildId": build_id, "manifest": manifest}}
+        result = await self._execute_graphql(mutation, variables)
+
+        if "updateFlashBuildManifest" not in result:
+            raise Exception(
+                "Unexpected GraphQL response updating flash build manifest"
+            )
+
+
     async def get_flash_artifact_url(self, environment_id: str) -> Dict[str, Any]:
         result = await self.get_flash_environment(
             {"flashEnvironmentId": environment_id}
