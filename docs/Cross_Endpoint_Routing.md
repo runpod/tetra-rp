@@ -568,11 +568,11 @@ class ManifestClient:
 
 **Location**: `src/tetra_rp/runtime/state_manager_client.py`
 
-HTTP client for State Manager API (used by mothership auto-provisioning):
+GraphQL client for State Manager manifest persistence (used by mothership auto-provisioning):
 
 ```python
 class StateManagerClient:
-    """HTTP client for State Manager API.
+    """GraphQL client for State Manager manifest persistence.
 
     The State Manager persists manifest state and provides reconciliation
     for detecting new, changed, and removed resources.
@@ -589,7 +589,7 @@ class StateManagerClient:
         Raises:
             ManifestServiceUnavailableError: If State Manager unavailable.
         """
-        # Queries {base_url}/api/v1/flash/manifests/{mothership_id}
+        # Fetches environment -> active build -> manifest via RunPod GraphQL
 
     async def update_resource_state(
         self,
@@ -598,16 +598,16 @@ class StateManagerClient:
         resource_data: Dict[str, Any],
     ) -> None:
         """Update resource entry in State Manager after deployment."""
-        # Queries {base_url}/api/v1/flash/manifests/{mothership_id}/resources/{resource_name}
+        # Loads manifest via GQL, merges resource data, calls updateFlashBuildManifest
 ```
 
 **Configuration**:
-- Base URL: `https://api.runpod.io` (default, configurable)
-- Authentication: Bearer token using RUNPOD_API_KEY env var
-- HTTP timeout: 10 seconds (via `DEFAULT_REQUEST_TIMEOUT`)
+- Authentication: API key via `RUNPOD_API_KEY`
+- GraphQL endpoint: RunPod API (via `RunpodGraphQLClient`)
+- Request timeout: 10 seconds (via `DEFAULT_REQUEST_TIMEOUT`)
 - Retry logic: Exponential backoff with `DEFAULT_MAX_RETRIES` attempts (default: 3)
-- Uses `httpx` library for async HTTP requests
-- Raises `ImportError` if httpx not installed (with helpful message)
+- Fetch flow: `get_flash_environment` → `get_flash_build` → `manifest`
+- Update flow: merge `resources` and call `updateFlashBuildManifest`
 
 #### 5. Exception Hierarchy
 
@@ -1107,8 +1107,47 @@ export RUNPOD_API_KEY=your-api-key-here
 
 ### Historical Context
 
-A previous `StateManagerClient` (commit b19bf7c) used REST API. Current placeholder
-prepares for GQL-based architecture with improved caching and error handling.
+A previous `StateManagerClient` (commit b19bf7c) used REST API; the current
+implementation now reads and updates manifests through RunPod GraphQL mutations.
+
+### Migration Guide: REST to GraphQL (PR #144)
+
+#### Breaking Changes
+
+1. **get_flash_build() signature changed**:
+   ```python
+   # Before
+   await client.get_flash_build({"flashBuildId": build_id})
+
+   # After
+   await client.get_flash_build(build_id)
+   ```
+
+2. **StateManagerClient no longer uses httpx**:
+   - Remove `httpx` from dependencies if only used by StateManagerClient
+   - All operations now use RunpodGraphQLClient
+
+3. **Constructor parameters deprecated**:
+   - `base_url`: Ignored (GraphQL client manages URLs)
+   - `timeout`: Ignored (GraphQL client manages timeouts)
+   - Code continues to work but logs deprecation warnings
+
+#### Performance Considerations
+
+The new GraphQL implementation requires 3 sequential API calls per update:
+1. Fetch environment to get activeBuildId
+2. Fetch build to get current manifest
+3. Update manifest with changes
+
+For bulk resource updates (10+ resources), consider batching operations
+to reduce latency.
+
+#### Concurrency Safety
+
+StateManagerClient now uses `asyncio.Lock` to prevent race conditions
+during concurrent resource updates. This ensures manifest integrity
+during mothership auto-provisioning when multiple resources deploy
+simultaneously.
 
 ## Key Implementation Highlights
 

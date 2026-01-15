@@ -19,6 +19,24 @@ class SerializationError(FlashRuntimeError):
     pass
 
 
+class GraphQLError(FlashRuntimeError):
+    """Base exception for GraphQL-related errors."""
+
+    pass
+
+
+class GraphQLMutationError(GraphQLError):
+    """Raised when a GraphQL mutation fails unexpectedly."""
+
+    pass
+
+
+class GraphQLQueryError(GraphQLError):
+    """Raised when a GraphQL query fails unexpectedly."""
+
+    pass
+
+
 class ManifestError(FlashRuntimeError):
     """Raised when manifest is invalid, missing, or has unexpected structure."""
 
