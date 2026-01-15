@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.20.0](https://github.com/runpod/tetra-rp/compare/v0.19.0...v0.20.0) (2026-01-15)
+
+
+### Features
+
+* add generic handler factory and build integration for Flash ([#130](https://github.com/runpod/tetra-rp/issues/130)) ([8c1e6b8](https://github.com/runpod/tetra-rp/commit/8c1e6b86022a0c5f91dcf1832adf467607004f01))
+* add GET /manifest endpoint for mothership service discovery ([#139](https://github.com/runpod/tetra-rp/issues/139)) ([2956f09](https://github.com/runpod/tetra-rp/commit/2956f09318b459183b21a387c10d49bad03f19ee))
+* AE-1741 manifest management via gql for flash client ([#144](https://github.com/runpod/tetra-rp/issues/144)) ([83979e7](https://github.com/runpod/tetra-rp/commit/83979e7a80e6789931f555cd882ca77398a43615))
+* **build:** Add cross-platform build support and package exclusion ([#135](https://github.com/runpod/tetra-rp/issues/135)) ([68e0539](https://github.com/runpod/tetra-rp/commit/68e05391250a1232d4382baefedea81e45ca2f66))
+* complete `[@remote](https://github.com/remote)` support for LoadBalancer endpoints ([#131](https://github.com/runpod/tetra-rp/issues/131)) ([f2f34c0](https://github.com/runpod/tetra-rp/commit/f2f34c07b0d02a7c42c51789cb25c2f5eaaacc41))
+* cross-endpoint routing for serverless functions ([#129](https://github.com/runpod/tetra-rp/issues/129)) ([57ff437](https://github.com/runpod/tetra-rp/commit/57ff437f916ffbd0b29ec989a0361d6af674ca58))
+* mothership manifest sync and caching ([#140](https://github.com/runpod/tetra-rp/issues/140)) ([20490ea](https://github.com/runpod/tetra-rp/commit/20490ea3a749e93a33daf41cc98cebbc30669b5b))
+* **mothership:** implement auto-provisioning with manifest ([#136](https://github.com/runpod/tetra-rp/issues/136)) ([14effd4](https://github.com/runpod/tetra-rp/commit/14effd4ab5ed506206c36153dd9c72485deafa37))
+
+
+### Bug Fixes
+
+* **drift:** Exclude runtime fields from config hash to prevent false positives ([#132](https://github.com/runpod/tetra-rp/issues/132)) ([13ced50](https://github.com/runpod/tetra-rp/commit/13ced50558be287c235b272f3419babf168b6af1))
+
+
+### Documentation
+
+* **architecture:** Add deployment architecture specification ([#141](https://github.com/runpod/tetra-rp/issues/141)) ([b1de925](https://github.com/runpod/tetra-rp/commit/b1de9251a5c90dbfdfe7288a161f7bef51b4fa7f))
+
 ## [0.19.0](https://github.com/runpod/tetra-rp/compare/v0.18.0...v0.19.0) (2025-12-12)
 
 
