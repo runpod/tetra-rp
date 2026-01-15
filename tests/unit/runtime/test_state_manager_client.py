@@ -262,7 +262,8 @@ class TestStateManagerClientRetryLogic:
                 assert mock_sleep.call_count == 2
 
                 sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
-                assert sleep_calls == [1, 2]
+                expected_backoffs = [2**i for i in range(len(sleep_calls))]
+                assert sleep_calls == expected_backoffs
 
     @pytest.mark.asyncio
     async def test_update_resource_state_exhaust_retries(self):
@@ -321,7 +322,8 @@ class TestStateManagerClientRetryLogic:
 
                 assert mock_sleep.call_count == 1
                 sleep_calls = [call[0][0] for call in mock_sleep.call_args_list]
-                assert sleep_calls == [1]
+                expected_backoffs = [2**i for i in range(len(sleep_calls))]
+                assert sleep_calls == expected_backoffs
 
 
 class TestStateManagerClientConcurrency:

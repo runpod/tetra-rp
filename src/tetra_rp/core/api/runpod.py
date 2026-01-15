@@ -602,8 +602,9 @@ class RunpodGraphQLClient:
             GraphQLQueryError: If build not found or query fails.
 
         Note:
-            API changed in PR #144. Previously accepted Dict[str, Any].
-            Now requires string build_id directly.
+            API changed in PR #144:
+            - Previously accepted Dict[str, Any], now requires string build_id directly
+            - Query now requests 'manifest' field instead of 'name' field
         """
         if not isinstance(build_id, str):
             raise TypeError(

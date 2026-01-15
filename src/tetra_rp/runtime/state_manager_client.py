@@ -75,7 +75,6 @@ class StateManagerClient:
         self.base_url = base_url
         self.timeout = timeout
         self.max_retries = max_retries
-        self._client: RunpodGraphQLClient
         self._manifest_lock = asyncio.Lock()
 
     async def get_persisted_manifest(
