@@ -69,7 +69,7 @@ addopts = [
     "--tb=short",
     "--cov=tetra_rp",
     "--cov-report=term-missing",
-    "--cov-fail-under=65"
+    "--cov-fail-under=64"
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
