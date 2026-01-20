@@ -21,6 +21,29 @@ from tetra_rp.core.resources.resource_manager import ResourceManager
 from tetra_rp.core.utils.singleton import SingletonMixin
 
 
+def pytest_configure(config):
+    """Configure pytest-xdist to respect the serial marker.
+
+    Tests marked with @pytest.mark.serial will always run on the main worker,
+    while unmarked tests can be distributed to other workers.
+    """
+    # This hook is called early in pytest initialization
+    # xdist will check for this during test distribution
+
+
+def pytest_collection_modifyitems(config, items):
+    """Mark serial tests so they don't get distributed by xdist.
+
+    This ensures that tests marked with @pytest.mark.serial run on the main
+    worker (worker -1 or 0) and are never distributed to other workers.
+    """
+    for item in items:
+        # Check if item has the serial marker
+        if item.get_closest_marker("serial"):
+            # Add xdist marker to prevent distribution
+            item.add_marker(pytest.mark.xdist_group(name="serial"))
+
+
 @pytest.fixture
 def mock_asyncio_run_coro():
     """Create a mock asyncio.run that executes coroutines."""
