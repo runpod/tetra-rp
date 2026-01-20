@@ -78,6 +78,7 @@ class TestPlatformDetection:
         assert info["platform"] == "Linux"
 
 
+@pytest.mark.serial
 class TestFileLocking:
     """Test cross-platform file locking functionality."""
 
@@ -238,6 +239,7 @@ class TestFileLocking:
         assert write_file.read_bytes() == b"updated data"
 
 
+@pytest.mark.serial
 class TestPlatformSpecificLocking:
     """Test platform-specific locking mechanisms."""
 
