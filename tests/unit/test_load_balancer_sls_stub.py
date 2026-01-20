@@ -264,7 +264,6 @@ class TestLoadBalancerSlsStubCall:
             assert request["dependencies"] == deps
 
 
-@pytest.mark.serial
 class TestLoadBalancerSlsStubRouting:
     """Test suite for routing detection between /execute and user routes."""
 
