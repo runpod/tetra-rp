@@ -70,7 +70,7 @@ test-unit-parallel: # Run unit tests in parallel
 	uv run pytest tests/unit/ -v -n auto -m "not integration"
 
 test-coverage: # Run tests with coverage report (parallel by default)
-	uv run pytest tests/ -v -n auto -m "not serial" --cov=tetra_rp --cov-report=xml --cov-fail-under=0
+	uv run pytest tests/ -v -n auto -m "not serial" --cov=tetra_rp --cov-report=xml
 	uv run pytest tests/ -v -m "serial" --cov=tetra_rp --cov-append --cov-report=term-missing
 
 # Linting commands
