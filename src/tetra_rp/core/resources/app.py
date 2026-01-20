@@ -626,7 +626,7 @@ class FlashApp:
         """
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
-            return await client.get_flash_build({"flashBuildId": build_id})
+            return await client.get_flash_build(build_id)
 
     async def list_builds(self) -> List[Dict[str, Any]]:
         """List all builds for this app.
