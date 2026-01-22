@@ -1,6 +1,5 @@
 """Centralized configuration for reliability features."""
 
-import asyncio
 import os
 from dataclasses import dataclass, field
 from enum import Enum
@@ -44,7 +43,7 @@ class RetryConfig:
     max_delay: float = 10.0
     jitter: float = 0.2
     retryable_exceptions: tuple = field(
-        default_factory=lambda: (asyncio.TimeoutError, ConnectionError)
+        default_factory=lambda: (TimeoutError, ConnectionError)
     )
     retryable_status_codes: set = field(
         default_factory=lambda: {408, 429, 500, 502, 503, 504}

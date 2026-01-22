@@ -216,11 +216,12 @@ def worker_temp_dir(
     """Provide worker-specific temporary directory for file system isolation.
 
     Each xdist worker gets its own isolated temp directory to prevent
-    file system conflicts when tests write to shared paths.
+    file system conflicts when tests write to shared paths. The worker ID
+    is extracted from the pytest-xdist request object.
 
     Args:
         tmp_path_factory: Pytest's temporary path factory.
-        request: Pytest request object.
+        request: Pytest request object used to extract worker ID.
 
     Returns:
         Path to worker-specific temporary directory.
