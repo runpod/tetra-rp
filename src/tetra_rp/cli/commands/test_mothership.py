@@ -345,12 +345,13 @@ def _display_test_objectives() -> None:
     """Display what test-mothership tests and important warnings."""
     objectives_text = """[bold cyan]What this tests:[/bold cyan]
 • Mothership container deployment
-• Child endpoint auto-provisioning
-• Manifest generation and updates
+• Child endpoint auto-provisioning via State Manager
+• Manifest persistence and State Manager integration
 
 [bold yellow]⚠ Important:[/bold yellow]
+• Uses peer-to-peer architecture (no hub-and-spoke)
+• All endpoints query State Manager directly
 • Child endpoints are [bold]temporary[/bold] - prefixed with 'tmp-'
-• Child endpoints are [bold]non-functional[/bold] for actual workloads
 • All child endpoints will be [bold]automatically cleaned up[/bold] on shutdown
 
 [dim]These are test deployments only. Use 'flash deploy' for production.[/dim]"""
@@ -429,9 +430,9 @@ def _run_docker_container(docker_cmd: list, port: int) -> None:
     console.print("[dim]Verification commands:[/dim]")
     console.print(f"[dim]  Health: curl http://localhost:{port}/ping[/dim]")
     console.print(
-        f"[dim]  Manifest (child endpoints see this):"
-        f" curl http://localhost:{port}/manifest[/dim]\n"
+        "[dim]  State Manager Query: All endpoints query State Manager directly[/dim]"
     )
+    console.print("[dim]  No /manifest endpoint - peer-to-peer architecture[/dim]\n")
     console.print("[bold]Test phases:[/bold]")
     console.print("  [dim]1. Mothership startup and health check[/dim]")
     console.print(
