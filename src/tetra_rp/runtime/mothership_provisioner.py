@@ -239,6 +239,7 @@ def create_resource_from_manifest(
     """
     from tetra_rp.core.resources.live_serverless import (
         CpuLiveLoadBalancer,
+        CpuLiveServerless,
         LiveLoadBalancer,
     )
     from tetra_rp.core.resources.load_balancer_sls_resource import (
@@ -252,6 +253,7 @@ def create_resource_from_manifest(
     if resource_type not in [
         "ServerlessResource",
         "LiveServerless",
+        "CpuLiveServerless",
         "LoadBalancerSlsResource",
         "LiveLoadBalancer",
         "CpuLiveLoadBalancer",
@@ -270,8 +272,16 @@ def create_resource_from_manifest(
 
     env = {
         "FLASH_RESOURCE_NAME": resource_name,
-        "FLASH_MOTHERSHIP_ID": os.getenv("RUNPOD_ENDPOINT_ID"),
     }
+
+    # Only set FLASH_MOTHERSHIP_ID when running in mothership context
+    # (i.e., when RUNPOD_ENDPOINT_ID is available).
+    # During CLI provisioning, RUNPOD_ENDPOINT_ID is not set, so we don't
+    # include FLASH_MOTHERSHIP_ID. This avoids Pydantic validation errors
+    # (missing keys are fine, None values are not).
+    mothership_id = os.getenv("RUNPOD_ENDPOINT_ID")
+    if mothership_id:
+        env["FLASH_MOTHERSHIP_ID"] = mothership_id
 
     # Add "tmp-" prefix for test-mothership deployments
     # Check environment variable set by test-mothership command
@@ -286,6 +296,8 @@ def create_resource_from_manifest(
 
     if resource_type == "CpuLiveLoadBalancer":
         resource = CpuLiveLoadBalancer(name=prefixed_name, env=env)
+    elif resource_type == "CpuLiveServerless":
+        resource = CpuLiveServerless(name=prefixed_name, env=env)
     elif resource_type == "LiveLoadBalancer":
         resource = LiveLoadBalancer(name=prefixed_name, env=env)
     elif resource_type == "LoadBalancerSlsResource":
