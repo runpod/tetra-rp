@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/runpod/tetra-rp/compare/v0.20.0...v0.20.1) (2026-01-22)
+
+
+### Performance Improvements
+
+* **tests:** make parallel test execution the default ([#145](https://github.com/runpod/tetra-rp/issues/145)) ([3faf170](https://github.com/runpod/tetra-rp/commit/3faf1706fa7252c56c8fab68e7dc95b570845245))
+
 ## [0.20.0](https://github.com/runpod/tetra-rp/compare/v0.19.0...v0.20.0) (2026-01-15)
 
 
