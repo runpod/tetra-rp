@@ -53,10 +53,13 @@ def run_command(
         console.print("Make sure your main.py contains: app = FastAPI()")
         raise typer.Exit(1)
 
-    # Auto-provision resources if flag is set and not a reload
-    if auto_provision and not _is_reload():
+    # Set flag for all flash run sessions to ensure both auto-provisioned
+    # and on-the-fly provisioned resources get the live- prefix
+    if not _is_reload():
         os.environ["FLASH_IS_LIVE_PROVISIONING"] = "true"
 
+    # Auto-provision resources if flag is set and not a reload
+    if auto_provision and not _is_reload():
         try:
             resources = _discover_resources(entry_point)
 
@@ -69,8 +72,8 @@ def run_command(
                         _provision_resources(resources)
                 else:
                     _provision_resources(resources)
-        finally:
-            os.environ.pop("FLASH_IS_LIVE_PROVISIONING", None)
+        except Exception as e:
+            console.print(f"[yellow]Warning:[/yellow] Auto-provisioning failed: {e}")
 
     console.print("\n[green]Starting Flash Server[/green]")
     console.print(f"Entry point: [bold]{app_location}[/bold]")
