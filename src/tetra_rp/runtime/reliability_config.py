@@ -43,7 +43,9 @@ class RetryConfig:
     base_delay: float = 0.5
     max_delay: float = 10.0
     jitter: float = 0.2
-    retryable_exceptions: tuple = field(default=(asyncio.TimeoutError, ConnectionError))
+    retryable_exceptions: tuple = field(
+        default_factory=lambda: (asyncio.TimeoutError, ConnectionError)
+    )
     retryable_status_codes: set = field(
         default_factory=lambda: {408, 429, 500, 502, 503, 504}
     )

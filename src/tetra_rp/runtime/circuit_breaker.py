@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Optional
 
@@ -28,7 +28,9 @@ class CircuitBreakerStats:
     success_count: int = 0
     last_failure_at: Optional[datetime] = None
     last_success_at: Optional[datetime] = None
-    state_changed_at: datetime = field(default_factory=datetime.utcnow)
+    state_changed_at: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     total_requests: int = 0
     total_failures: int = 0
 
@@ -104,7 +106,7 @@ class EndpointCircuitBreaker:
         async with self._lock:
             self.stats.success_count += 1
             self.stats.total_requests += 1
-            self.stats.last_success_at = datetime.utcnow()
+            self.stats.last_success_at = datetime.now(timezone.utc)
 
             logger.debug(
                 f"Circuit breaker {self.endpoint_url}: "
@@ -126,7 +128,7 @@ class EndpointCircuitBreaker:
             self.stats.failure_count += 1
             self.stats.total_failures += 1
             self.stats.total_requests += 1
-            self.stats.last_failure_at = datetime.utcnow()
+            self.stats.last_failure_at = datetime.now(timezone.utc)
 
             # Track failure times for sliding window
             now = time.time()
@@ -155,7 +157,7 @@ class EndpointCircuitBreaker:
         if self.stats.state == CircuitState.OPEN:
             return  # Already open
         self.stats.state = CircuitState.OPEN
-        self.stats.state_changed_at = datetime.utcnow()
+        self.stats.state_changed_at = datetime.now(timezone.utc)
         self.stats.success_count = 0
         logger.warning(
             f"Circuit breaker OPEN for {self.endpoint_url} "
@@ -165,7 +167,7 @@ class EndpointCircuitBreaker:
     def _transition_to_half_open(self) -> None:
         """Transition circuit to HALF_OPEN state."""
         self.stats.state = CircuitState.HALF_OPEN
-        self.stats.state_changed_at = datetime.utcnow()
+        self.stats.state_changed_at = datetime.now(timezone.utc)
         self.stats.failure_count = 0
         self.stats.success_count = 0
         logger.info(
@@ -175,7 +177,7 @@ class EndpointCircuitBreaker:
     def _transition_to_closed(self) -> None:
         """Transition circuit to CLOSED state."""
         self.stats.state = CircuitState.CLOSED
-        self.stats.state_changed_at = datetime.utcnow()
+        self.stats.state_changed_at = datetime.now(timezone.utc)
         self.stats.failure_count = 0
         self.stats.success_count = 0
         self._failure_times.clear()
@@ -185,14 +187,14 @@ class EndpointCircuitBreaker:
         """Check if enough time has passed to attempt recovery."""
         if not self.stats.last_failure_at:
             return False
-        elapsed = datetime.utcnow() - self.stats.state_changed_at
+        elapsed = datetime.now(timezone.utc) - self.stats.state_changed_at
         return elapsed.total_seconds() >= self.timeout_seconds
 
     def _seconds_until_recovery(self) -> int:
         """Get seconds until recovery can be attempted."""
         if not self.stats.state_changed_at:
             return self.timeout_seconds
-        elapsed = datetime.utcnow() - self.stats.state_changed_at
+        elapsed = datetime.now(timezone.utc) - self.stats.state_changed_at
         remaining = self.timeout_seconds - int(elapsed.total_seconds())
         return max(0, remaining)
 

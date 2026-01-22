@@ -225,12 +225,7 @@ def worker_temp_dir(
     Returns:
         Path to worker-specific temporary directory.
     """
-    # Try to get worker_id from xdist, default to 'master' if not available
-    worker_id = getattr(request.config, "workerinput", None)
-    if worker_id is None:
-        worker_id = "master"
-    else:
-        worker_id = worker_id["workerid"]
+    worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
 
     if worker_id == "master":
         # Single worker (non-parallel)
