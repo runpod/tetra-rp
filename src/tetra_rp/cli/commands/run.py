@@ -55,17 +55,22 @@ def run_command(
 
     # Auto-provision resources if flag is set and not a reload
     if auto_provision and not _is_reload():
-        resources = _discover_resources(entry_point)
+        os.environ["FLASH_IS_LIVE_PROVISIONING"] = "true"
 
-        if resources:
-            # If many resources found, ask for confirmation
-            if len(resources) > 5:
-                if not _confirm_large_provisioning(resources):
-                    console.print("[yellow]Auto-provisioning cancelled[/yellow]\n")
+        try:
+            resources = _discover_resources(entry_point)
+
+            if resources:
+                # If many resources found, ask for confirmation
+                if len(resources) > 5:
+                    if not _confirm_large_provisioning(resources):
+                        console.print("[yellow]Auto-provisioning cancelled[/yellow]\n")
+                    else:
+                        _provision_resources(resources)
                 else:
                     _provision_resources(resources)
-            else:
-                _provision_resources(resources)
+        finally:
+            os.environ.pop("FLASH_IS_LIVE_PROVISIONING", None)
 
     console.print("\n[green]Starting Flash Server[/green]")
     console.print(f"Entry point: [bold]{app_location}[/bold]")
@@ -267,8 +272,6 @@ def _provision_resources(resources):
     from ...core.deployment import DeploymentOrchestrator
 
     try:
-        os.environ["FLASH_IS_LIVE_PROVISIONING"] = "true"
-
         console.print(f"\n[bold]Provisioning {len(resources)} resource(s)...[/bold]")
         orchestrator = DeploymentOrchestrator(max_concurrent=3)
 
@@ -280,5 +283,3 @@ def _provision_resources(resources):
 
     except Exception as e:
         console.print(f"[yellow]Warning:[/yellow] Provisioning failed: {e}")
-    finally:
-        os.environ.pop("FLASH_IS_LIVE_PROVISIONING", None)
