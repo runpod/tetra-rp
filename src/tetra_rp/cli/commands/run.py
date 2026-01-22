@@ -1,5 +1,6 @@
 """Run Flash development server."""
 
+import logging
 import os
 import signal
 import subprocess
@@ -11,6 +12,7 @@ import questionary
 import typer
 from rich.console import Console
 
+logger = logging.getLogger(__name__)
 console = Console()
 
 
@@ -73,8 +75,12 @@ def run_command(
                 else:
                     _provision_resources(resources)
         except Exception as e:
+            logger.error("Auto-provisioning failed", exc_info=True)
             console.print(
                 f"[yellow]Warning:[/yellow] Resource provisioning failed: {e}"
+            )
+            console.print(
+                "[yellow]Note:[/yellow] Resources will be deployed on-demand when first called"
             )
 
     console.print("\n[green]Starting Flash Server[/green]")
