@@ -124,5 +124,36 @@ module = [
 ]
 ignore_missing_imports = true
 
+[tool.coverage.run]
+parallel = true
+branch = false
+source = ["tetra_rp"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.coverage.paths]
+source = [
+    "src/tetra_rp",
+    "*/site-packages/tetra_rp",
+]
+
 [tool.uv.sources]
 runpod = { git = "https://github.com/runpod/runpod-python", rev = "main" }
