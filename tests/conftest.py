@@ -21,6 +21,29 @@ from tetra_rp.core.resources.resource_manager import ResourceManager
 from tetra_rp.core.utils.singleton import SingletonMixin
 
 
+def pytest_configure(config):
+    """Configure pytest-xdist to respect the serial marker.
+
+    Tests marked with @pytest.mark.serial will always run on the main worker,
+    while unmarked tests can be distributed to other workers.
+    """
+    # This hook is called early in pytest initialization
+    # xdist will check for this during test distribution
+
+
+def pytest_collection_modifyitems(config, items):
+    """Mark serial tests so they don't get distributed by xdist.
+
+    This ensures that tests marked with @pytest.mark.serial run on the main
+    worker (worker -1 or 0) and are never distributed to other workers.
+    """
+    for item in items:
+        # Check if item has the serial marker
+        if item.get_closest_marker("serial"):
+            # Add xdist marker to prevent distribution
+            item.add_marker(pytest.mark.xdist_group(name="serial"))
+
+
 @pytest.fixture
 def mock_asyncio_run_coro():
     """Create a mock asyncio.run that executes coroutines."""
@@ -186,6 +209,68 @@ def sample_pod_template() -> Dict[str, Any]:
     }
 
 
+@pytest.fixture(scope="session")
+def worker_temp_dir(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
+    """Provide worker-specific temporary directory for file system isolation.
+
+    Each xdist worker gets its own isolated temp directory to prevent
+    file system conflicts when tests write to shared paths.
+
+    Args:
+        tmp_path_factory: Pytest's temporary path factory.
+        worker_id: Worker ID from pytest-xdist ('master' for single worker).
+
+    Returns:
+        Path to worker-specific temporary directory.
+    """
+    if worker_id == "master":
+        # Single worker (non-parallel)
+        return tmp_path_factory.mktemp("test_data")
+    else:
+        # Parallel execution - worker-specific directory
+        return tmp_path_factory.mktemp(f"test_data_{worker_id}")
+
+
+@pytest.fixture(scope="session")
+def worker_runpod_dir(worker_temp_dir: Path) -> Path:
+    """Provide worker-specific .runpod directory for state file isolation.
+
+    Args:
+        worker_temp_dir: Worker-specific temporary directory.
+
+    Returns:
+        Path to worker-specific .runpod directory.
+    """
+    runpod_dir = worker_temp_dir / ".runpod"
+    runpod_dir.mkdir(parents=True, exist_ok=True)
+    return runpod_dir
+
+
+@pytest.fixture(autouse=True)
+def isolate_resource_state_file(
+    monkeypatch: pytest.MonkeyPatch, worker_runpod_dir: Path
+) -> Path:
+    """Automatically isolate RESOURCE_STATE_FILE per worker.
+
+    Patches RESOURCE_STATE_FILE and RUNPOD_FLASH_DIR to point to
+    worker-specific temp directory, preventing file system conflicts.
+
+    Args:
+        monkeypatch: Pytest's monkeypatch fixture.
+        worker_runpod_dir: Worker-specific .runpod directory.
+
+    Returns:
+        Path to worker-specific state file.
+    """
+    from tetra_rp.core.resources import resource_manager
+
+    worker_state_file = worker_runpod_dir / "resources.pkl"
+    monkeypatch.setattr(resource_manager, "RESOURCE_STATE_FILE", worker_state_file)
+    monkeypatch.setattr(resource_manager, "RUNPOD_FLASH_DIR", worker_runpod_dir)
+
+    return worker_state_file
+
+
 @pytest.fixture(autouse=True)
 def reset_singletons():
     """Reset singleton instances between tests.
@@ -220,6 +305,17 @@ def reset_singletons():
         # If patching fails, continue anyway - the test might still pass
         pass
 
+    # Clear module-level caches (worker-isolated due to process boundaries)
+    try:
+        from tetra_rp.stubs.live_serverless import _SERIALIZED_FUNCTION_CACHE
+        from tetra_rp.execute_class import _SERIALIZED_CLASS_CACHE
+
+        _SERIALIZED_FUNCTION_CACHE.clear()
+        _SERIALIZED_CLASS_CACHE.clear()
+    except (ImportError, AttributeError):
+        # Caches may not exist in all configurations
+        pass
+
     # Reset SingletonMixin instances to clear any accumulated state
     # This prevents old singleton instances from leaking into object graphs during pickling
     SingletonMixin._instances = {}
@@ -242,6 +338,15 @@ def reset_singletons():
     yield
 
     # Cleanup after test
+    try:
+        from tetra_rp.stubs.live_serverless import _SERIALIZED_FUNCTION_CACHE
+        from tetra_rp.execute_class import _SERIALIZED_CLASS_CACHE
+
+        _SERIALIZED_FUNCTION_CACHE.clear()
+        _SERIALIZED_CLASS_CACHE.clear()
+    except (ImportError, AttributeError):
+        pass
+
     SingletonMixin._instances = {}
 
     ResourceManager._resources = {}
