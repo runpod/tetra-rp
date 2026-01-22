@@ -45,33 +45,36 @@ security-scans: # Run security scans (informational)
 	uv run bandit -r src/ -ll -x "**/tests/**" || echo "Security scan completed with issues (informational)"
 
 # Test commands
-test: # Run all tests
-	uv run pytest tests/ -v
-
-test-unit: # Run unit tests only
-	uv run pytest tests/unit/ -v -m "not integration"
-
-test-integration: # Run integration tests only
-	uv run pytest tests/integration/ -v -m integration
-
-test-coverage-serial: # Run tests with coverage report (serial execution)
-	uv run pytest tests/ -v --cov=tetra_rp --cov-report=term-missing
-
-test-fast: # Run tests with fast-fail mode
-	uv run pytest tests/ -v -x --tb=short
-
-test-parallel: # Run tests in parallel (auto-detect cores)
+test: # Run all tests in parallel (auto-detect cores)
 	uv run pytest tests/ -v -n auto
 
-test-parallel-workers: # Run tests with specific number of workers (e.g., WORKERS=4)
-	uv run pytest tests/ -v -n $(WORKERS)
+test-serial: # Run all tests serially (for debugging)
+	uv run pytest tests/ -v
 
-test-unit-parallel: # Run unit tests in parallel
+test-unit: # Run unit tests in parallel (auto-detect cores)
 	uv run pytest tests/unit/ -v -n auto -m "not integration"
+
+test-unit-serial: # Run unit tests serially (for debugging)
+	uv run pytest tests/unit/ -v -m "not integration"
+
+test-integration: # Run integration tests in parallel (auto-detect cores)
+	uv run pytest tests/integration/ -v -n auto -m integration
+
+test-integration-serial: # Run integration tests serially (for debugging)
+	uv run pytest tests/integration/ -v -m integration
 
 test-coverage: # Run tests with coverage report (parallel by default)
 	uv run pytest tests/ -v -n auto -m "not serial" --cov=tetra_rp --cov-report=xml
 	uv run pytest tests/ -v -m "serial" --cov=tetra_rp --cov-append --cov-report=term-missing
+
+test-coverage-serial: # Run tests with coverage report (serial execution)
+	uv run pytest tests/ -v --cov=tetra_rp --cov-report=term-missing
+
+test-fast: # Run tests with fast-fail mode and parallel execution
+	uv run pytest tests/ -v -x --tb=short -n auto
+
+test-workers: # Run tests with specific number of workers (e.g., WORKERS=4)
+	uv run pytest tests/ -v -n $(WORKERS)
 
 # Linting commands
 lint: # Check code with ruff
