@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Set
 
@@ -254,6 +255,19 @@ class ServerlessResource(DeployableResource):
 
         Idempotent: Can be called multiple times safely without changing the result.
         """
+        # Prepend live- prefix for live provisioning context
+        # Must happen BEFORE flashboot suffix to get: live-my-endpoint-fb
+        is_live_provisioning = (
+            os.getenv("FLASH_IS_LIVE_PROVISIONING", "").lower() == "true"
+        )
+
+        if is_live_provisioning:
+            # Remove existing live- prefixes for idempotency
+            while self.name.startswith("live-"):
+                self.name = self.name[5:]
+            # Add prefix once
+            self.name = f"live-{self.name}"
+
         if self.flashboot:
             # Remove all trailing '-fb' suffixes, then add one
             while self.name.endswith("-fb"):

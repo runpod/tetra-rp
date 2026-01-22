@@ -267,6 +267,8 @@ def _provision_resources(resources):
     from ...core.deployment import DeploymentOrchestrator
 
     try:
+        os.environ["FLASH_IS_LIVE_PROVISIONING"] = "true"
+
         console.print(f"\n[bold]Provisioning {len(resources)} resource(s)...[/bold]")
         orchestrator = DeploymentOrchestrator(max_concurrent=3)
 
@@ -278,3 +280,5 @@ def _provision_resources(resources):
 
     except Exception as e:
         console.print(f"[yellow]Warning:[/yellow] Provisioning failed: {e}")
+    finally:
+        os.environ.pop("FLASH_IS_LIVE_PROVISIONING", None)
