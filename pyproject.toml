@@ -39,6 +39,7 @@ test = [
     "pytest-mock>=3.14.0",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.2.1",
+    "pytest-xdist>=3.6.1",
     "twine>=6.1.0",
 ]
 
@@ -75,7 +76,8 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "unit: Unit tests",
     "integration: Integration tests",
-    "slow: Slow tests"
+    "slow: Slow tests",
+    "serial: Tests that must run serially (not parallelized)"
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
