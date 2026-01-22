@@ -71,3 +71,49 @@ async def test_hydrate_propagates_unexpected_errors(mock_graphql_client):
         await app._hydrate()
 
     mock_graphql_client.create_flash_app.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_build_manifest_returns_manifest(mock_graphql_client):
+    build_manifest = {
+        "resources": {"cpu": {"type": "cpu"}},
+        "resources_endpoints": {},
+    }
+    mock_graphql_client.get_flash_build.return_value = {
+        "id": "build-123",
+        "manifest": build_manifest,
+    }
+    app = FlashApp("demo", id="app-123", eager_hydrate=False)
+    app._hydrated = True
+
+    result = await app.get_build_manifest("build-123")
+
+    assert result == build_manifest
+    mock_graphql_client.get_flash_build.assert_awaited_once_with("build-123")
+
+
+@pytest.mark.asyncio
+async def test_get_build_manifest_returns_empty_dict_when_missing(mock_graphql_client):
+    mock_graphql_client.get_flash_build.return_value = {"id": "build-123"}
+    app = FlashApp("demo", id="app-123", eager_hydrate=False)
+    app._hydrated = True
+
+    result = await app.get_build_manifest("build-123")
+
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_update_build_manifest_calls_graphql_client(mock_graphql_client):
+    manifest = {
+        "resources": {"cpu": {"type": "cpu"}},
+        "resources_endpoints": {"cpu": "https://example.com"},
+    }
+    app = FlashApp("demo", id="app-123", eager_hydrate=False)
+    app._hydrated = True
+
+    await app.update_build_manifest("build-123", manifest)
+
+    mock_graphql_client.update_build_manifest.assert_awaited_once_with(
+        "build-123", manifest
+    )

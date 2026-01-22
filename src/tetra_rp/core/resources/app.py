@@ -685,3 +685,36 @@ class FlashApp:
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             return await client.list_flash_environments_by_app_id(self.id)
+
+    async def get_build_manifest(self, build_id: str) -> Dict[str, Any]:
+        """Retrieve manifest for a specific build.
+
+        Args:
+            build_id: ID of the build
+
+        Returns:
+            Manifest dictionary (empty dict if manifest is not present)
+
+        Raises:
+            RuntimeError: If app is not hydrated
+        """
+        await self._hydrate()
+        async with RunpodGraphQLClient() as client:
+            build = await client.get_flash_build(build_id)
+            return build.get("manifest", {})
+
+    async def update_build_manifest(
+        self, build_id: str, manifest: Dict[str, Any]
+    ) -> None:
+        """Update manifest for a specific build.
+
+        Args:
+            build_id: ID of the build
+            manifest: Complete manifest dictionary
+
+        Raises:
+            RuntimeError: If app is not hydrated
+        """
+        await self._hydrate()
+        async with RunpodGraphQLClient() as client:
+            await client.update_build_manifest(build_id, manifest)

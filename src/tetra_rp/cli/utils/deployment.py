@@ -1,12 +1,18 @@
 """Deployment environment management utilities."""
 
+import asyncio
 import json
+import logging
 from typing import Dict, Any
 from datetime import datetime
 from pathlib import Path
 
 from tetra_rp.config import get_paths
 from tetra_rp.core.resources.app import FlashApp
+from tetra_rp.core.resources.resource_manager import ResourceManager
+from tetra_rp.runtime.mothership_provisioner import create_resource_from_manifest
+
+log = logging.getLogger(__name__)
 
 
 async def upload_build(app_name: str, build_path: str | Path):
@@ -68,6 +74,90 @@ def remove_deployment_environment(name: str):
         save_deployment_environments(environments)
 
 
+async def provision_resources_for_build(
+    app: FlashApp, build_id: str, environment_name: str, show_progress: bool = True
+) -> Dict[str, str]:
+    """Provision all resources upfront before environment activation.
+
+    Args:
+        app: FlashApp instance
+        build_id: ID of the build to provision resources for
+        environment_name: Name of environment (for logging/context)
+        show_progress: Whether to show CLI progress
+
+    Returns:
+        Mapping of resource_name -> endpoint_url
+
+    Raises:
+        RuntimeError: If provisioning fails for any resource
+    """
+    # Load manifest from build
+    manifest = await app.get_build_manifest(build_id)
+
+    if not manifest or "resources" not in manifest:
+        log.warning(f"No resources in manifest for build {build_id}")
+        return {}
+
+    # Create resource manager
+    manager = ResourceManager()
+    resources_to_provision = []
+
+    # Create resource configs from manifest
+    for resource_name, resource_config in manifest["resources"].items():
+        resource = create_resource_from_manifest(
+            resource_name,
+            resource_config,
+            mothership_url="",  # Not needed for CLI provisioning
+        )
+        resources_to_provision.append((resource_name, resource))
+
+    if show_progress:
+        print(
+            f"Provisioning {len(resources_to_provision)} resources for environment '{environment_name}'..."
+        )
+
+    # Provision resources in parallel
+    resources_endpoints = {}
+    provisioning_results = []
+
+    try:
+        # Use asyncio.gather for parallel provisioning
+        tasks = [
+            manager.get_or_deploy_resource(resource)
+            for _, resource in resources_to_provision
+        ]
+        provisioning_results = await asyncio.gather(*tasks)
+
+    except Exception as e:
+        log.error(f"Provisioning failed: {e}")
+        raise RuntimeError(f"Failed to provision resources: {e}") from e
+
+    # Build resources_endpoints mapping
+    for (resource_name, _), deployed_resource in zip(
+        resources_to_provision, provisioning_results
+    ):
+        # Get endpoint URL (both LoadBalancer and Serverless have endpoint_url)
+        if hasattr(deployed_resource, "endpoint_url"):
+            endpoint_url = deployed_resource.endpoint_url
+        else:
+            log.warning(f"Resource {resource_name} has no endpoint_url attribute")
+            continue
+
+        resources_endpoints[resource_name] = endpoint_url
+
+        if show_progress:
+            print(f"  ✓ {resource_name}: {endpoint_url}")
+
+    # Update manifest in FlashApp with resources_endpoints
+    manifest["resources_endpoints"] = resources_endpoints
+    await app.update_build_manifest(build_id, manifest)
+
+    if show_progress:
+        print("✓ All resources provisioned and manifest updated")
+
+    return resources_endpoints
+
+
 async def deploy_to_environment(
     app_name: str, env_name: str, build_path: Path
 ) -> Dict[str, Any]:
@@ -83,7 +173,19 @@ async def deploy_to_environment(
     build = await app.upload_build(build_path)
     build_id = build["id"]
 
+    # Provision resources upfront before environment activation
+    try:
+        resources_endpoints = await provision_resources_for_build(
+            app, build_id, env_name, show_progress=True
+        )
+        log.info(f"Provisioned {len(resources_endpoints)} resources for {env_name}")
+    except Exception as e:
+        log.error(f"Resource provisioning failed: {e}")
+        raise
+
+    # Deploy build to environment (now resources are already provisioned)
     result = await app.deploy_build_to_environment(build_id, environment_name=env_name)
+
     return result
 
 

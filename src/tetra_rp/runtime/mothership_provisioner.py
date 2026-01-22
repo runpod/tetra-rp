@@ -222,14 +222,14 @@ def reconcile_manifests(
 def create_resource_from_manifest(
     resource_name: str,
     resource_data: Dict[str, Any],
-    mothership_url: str,
+    mothership_url: str = "",
 ) -> DeployableResource:
     """Create DeployableResource config from manifest entry.
 
     Args:
         resource_name: Name of the resource
         resource_data: Resource configuration from manifest
-        mothership_url: Mothership URL to set in child env vars
+        mothership_url: Optional mothership URL (for future use with child env vars)
 
     Returns:
         Configured DeployableResource ready for deployment
