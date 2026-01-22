@@ -210,7 +210,9 @@ def sample_pod_template() -> Dict[str, Any]:
 
 
 @pytest.fixture(scope="session")
-def worker_temp_dir(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
+def worker_temp_dir(
+    tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest
+) -> Path:
     """Provide worker-specific temporary directory for file system isolation.
 
     Each xdist worker gets its own isolated temp directory to prevent
@@ -218,11 +220,18 @@ def worker_temp_dir(tmp_path_factory: pytest.TempPathFactory, worker_id: str) ->
 
     Args:
         tmp_path_factory: Pytest's temporary path factory.
-        worker_id: Worker ID from pytest-xdist ('master' for single worker).
+        request: Pytest request object.
 
     Returns:
         Path to worker-specific temporary directory.
     """
+    # Try to get worker_id from xdist, default to 'master' if not available
+    worker_id = getattr(request.config, "workerinput", None)
+    if worker_id is None:
+        worker_id = "master"
+    else:
+        worker_id = worker_id["workerid"]
+
     if worker_id == "master":
         # Single worker (non-parallel)
         return tmp_path_factory.mktemp("test_data")
