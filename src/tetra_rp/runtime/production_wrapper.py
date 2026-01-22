@@ -61,7 +61,9 @@ class ProductionWrapper:
 
         # Determine routing
         try:
-            resource = self.service_registry.get_resource_for_function(function_name)
+            resource = await self.service_registry.get_resource_for_function(
+                function_name
+            )
         except ValueError as e:
             # Function not in manifest, execute locally
             logger.debug(
@@ -126,7 +128,7 @@ class ProductionWrapper:
 
         # Determine routing
         try:
-            resource = self.service_registry.get_resource_for_function(class_name)
+            resource = await self.service_registry.get_resource_for_function(class_name)
         except ValueError:
             # Class not in manifest, execute locally
             logger.debug(f"Class {class_name} not in manifest, executing locally")
