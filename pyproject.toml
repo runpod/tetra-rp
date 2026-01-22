@@ -1,6 +1,6 @@
 [project]
 name = "tetra_rp"
-version = "0.20.0"
+version = "0.20.1"
 description = "A Python library for distributed inference and serving of machine learning models"
 authors = [
     { name = "Marut Pandya", email = "pandyamarut@gmail.com" },
@@ -123,6 +123,37 @@ module = [
     "cloudpickle.*",
 ]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+parallel = true
+branch = false
+source = ["tetra_rp"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.coverage.paths]
+source = [
+    "src/tetra_rp",
+    "*/site-packages/tetra_rp",
+]
 
 [tool.uv.sources]
 runpod = { git = "https://github.com/runpod/runpod-python", rev = "main" }
