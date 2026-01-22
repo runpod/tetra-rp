@@ -54,11 +54,24 @@ test-unit: # Run unit tests only
 test-integration: # Run integration tests only
 	uv run pytest tests/integration/ -v -m integration
 
-test-coverage: # Run tests with coverage report
+test-coverage-serial: # Run tests with coverage report (serial execution)
 	uv run pytest tests/ -v --cov=tetra_rp --cov-report=term-missing
 
 test-fast: # Run tests with fast-fail mode
 	uv run pytest tests/ -v -x --tb=short
+
+test-parallel: # Run tests in parallel (auto-detect cores)
+	uv run pytest tests/ -v -n auto
+
+test-parallel-workers: # Run tests with specific number of workers (e.g., WORKERS=4)
+	uv run pytest tests/ -v -n $(WORKERS)
+
+test-unit-parallel: # Run unit tests in parallel
+	uv run pytest tests/unit/ -v -n auto -m "not integration"
+
+test-coverage: # Run tests with coverage report (parallel by default)
+	uv run pytest tests/ -v -n auto -m "not serial" --cov=tetra_rp --cov-report=xml
+	uv run pytest tests/ -v -m "serial" --cov=tetra_rp --cov-append --cov-report=term-missing
 
 # Linting commands
 lint: # Check code with ruff
@@ -78,17 +91,30 @@ typecheck: # Check types with mypy
 	uv run mypy .
 
 # Quality gates (used in CI)
-quality-check: format-check lint test-coverage # Essential quality gate for CI
-quality-check-strict: format-check lint typecheck test-coverage # Strict quality gate with type checking
+quality-check: format-check lint test-coverage # Essential quality gate for CI (parallel by default)
+quality-check-strict: format-check lint typecheck test-coverage # Strict quality gate with type checking (parallel by default)
+quality-check-serial: format-check lint test-coverage-serial # Serial quality gate for debugging
 
 # GitHub Actions specific targets
-ci-quality-github: # Quality checks with GitHub Actions formatting
+ci-quality-github: # Quality checks with GitHub Actions formatting (parallel by default)
 	@echo "::group::Code formatting check"
-	uv run ruff format --check . 
+	uv run ruff format --check .
 	@echo "::endgroup::"
 	@echo "::group::Linting"
 	uv run ruff check . --output-format=github
 	@echo "::endgroup::"
 	@echo "::group::Test suite with coverage"
+	uv run pytest tests/ --junitxml=pytest-results.xml -v -n auto -m "not serial" --cov=tetra_rp --cov-report=xml --cov-fail-under=0
+	uv run pytest tests/ --junitxml=pytest-results.xml -v -m "serial" --cov=tetra_rp --cov-append --cov-report=term-missing
+	@echo "::endgroup::"
+
+ci-quality-github-serial: # Serial quality checks for GitHub Actions (for debugging)
+	@echo "::group::Code formatting check"
+	uv run ruff format --check .
+	@echo "::endgroup::"
+	@echo "::group::Linting"
+	uv run ruff check . --output-format=github
+	@echo "::endgroup::"
+	@echo "::group::Test suite with coverage (serial)"
 	uv run pytest tests/ --junitxml=pytest-results.xml -v --cov=tetra_rp --cov-report=term-missing
 	@echo "::endgroup::"
