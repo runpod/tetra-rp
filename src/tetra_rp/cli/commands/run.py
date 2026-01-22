@@ -73,7 +73,9 @@ def run_command(
                 else:
                     _provision_resources(resources)
         except Exception as e:
-            console.print(f"[yellow]Warning:[/yellow] Auto-provisioning failed: {e}")
+            console.print(
+                f"[yellow]Warning:[/yellow] Resource provisioning failed: {e}"
+            )
 
     console.print("\n[green]Starting Flash Server[/green]")
     console.print(f"Entry point: [bold]{app_location}[/bold]")

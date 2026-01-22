@@ -25,6 +25,10 @@ from .template import KeyValuePair, PodTemplate
 from .resource_manager import ResourceManager
 
 
+# Prefix applied to endpoint names during live provisioning
+LIVE_PREFIX = "live-"
+
+
 # Environment variables are loaded from the .env file
 def get_env_vars() -> Dict[str, str]:
     """
@@ -263,10 +267,10 @@ class ServerlessResource(DeployableResource):
 
         if is_live_provisioning:
             # Remove existing live- prefixes for idempotency
-            while self.name.startswith("live-"):
-                self.name = self.name[5:]
+            while self.name.startswith(LIVE_PREFIX):
+                self.name = self.name[len(LIVE_PREFIX) :]
             # Add prefix once
-            self.name = f"live-{self.name}"
+            self.name = f"{LIVE_PREFIX}{self.name}"
 
         if self.flashboot:
             # Remove all trailing '-fb' suffixes, then add one
