@@ -40,9 +40,6 @@ ROUTE_REGISTRY = {{
 {registry}
 }}
 
-# Module-level state for /manifest endpoint
-_state_client: Optional[StateManagerClient] = None
-
 
 # Lifespan context manager for startup/shutdown
 @asynccontextmanager
@@ -69,10 +66,8 @@ async def lifespan(app: FastAPI):
                 mothership_url = get_mothership_url()
                 logger.info(f"Mothership URL: {{mothership_url}}")
 
-                # Initialize State Manager client and store in module-level state
+                # Initialize State Manager client for provisioning
                 state_client = StateManagerClient()
-                global _state_client
-                _state_client = state_client
 
                 # Spawn background provisioning task (non-blocking)
                 manifest_path = Path(__file__).parent / "flash_manifest.json"
@@ -115,58 +110,6 @@ def ping():
         dict: Status response
     """
     return {{"status": "healthy"}}
-
-
-# Manifest endpoint for service discovery
-@app.get("/manifest")
-async def manifest():
-    """Return complete authoritative manifest for service discovery.
-
-    Fetches the full manifest from State Manager, allowing child endpoints
-    to synchronize their configuration.
-
-    Returns:
-        dict: Complete manifest with version, generated_at, project_name,
-              function_registry, resources, and routes
-    """
-    try:
-        import os
-        from tetra_rp.runtime.mothership_provisioner import is_mothership
-
-        # Only mothership serves manifest
-        if not is_mothership():
-            return {{"error": "Only mothership serves manifest"}}, 403
-
-        # Check state client initialized
-        global _state_client
-        if _state_client is None:
-            return {{"error": "State Manager not initialized"}}, 500
-
-        # Get mothership ID
-        mothership_id = os.getenv("RUNPOD_ENDPOINT_ID")
-        if not mothership_id:
-            return {{"error": "RUNPOD_ENDPOINT_ID not set"}}, 500
-
-        # Fetch persisted manifest from State Manager (single source of truth)
-        persisted_manifest = await _state_client.get_persisted_manifest(mothership_id)
-
-        # First boot: no manifest yet, return minimal structure
-        if persisted_manifest is None:
-            return {{
-                "version": "1.0",
-                "generated_at": "",
-                "project_name": "",
-                "function_registry": {{}},
-                "resources": {{}},
-                "routes": {{}}
-            }}
-
-        # Return complete manifest
-        return persisted_manifest
-
-    except Exception as e:
-        logger.error(f"Failed to get manifest: {{e}}")
-        return {{"error": str(e)}}, 500
 
 
 if __name__ == "__main__":
