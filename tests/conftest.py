@@ -283,7 +283,7 @@ def clear_live_provisioning_env(monkeypatch: pytest.MonkeyPatch):
     """
     # Explicitly unset the variable before each test
     monkeypatch.delenv("FLASH_IS_LIVE_PROVISIONING", raising=False)
-
+    # Cleanup is automatic: monkeypatch restores the environment after each test
     yield
 
 
