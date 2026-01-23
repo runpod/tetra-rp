@@ -2,6 +2,7 @@
 Unit tests for ServerlessResource and related classes.
 """
 
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any, Dict
@@ -854,6 +855,63 @@ class TestServerlessResourceEdgeCases:
         ):
             with pytest.raises(Exception, match="Request failed"):
                 await serverless.run_sync({"input": "test"})
+
+
+class TestLivePrefixNaming:
+    """Test live- prefix naming for auto-provisioned resources."""
+
+    def test_live_prefix_applied_when_flag_set(self):
+        """Test live- prefix applied when FLASH_IS_LIVE_PROVISIONING=true."""
+        with patch.dict(os.environ, {"FLASH_IS_LIVE_PROVISIONING": "true"}):
+            endpoint = ServerlessEndpoint(
+                name="test-endpoint",
+                imageName="test:latest",
+                flashboot=False,
+            )
+            assert endpoint.name == "live-test-endpoint"
+
+    def test_live_prefix_with_flashboot(self):
+        """Test live- prefix with flashboot suffix."""
+        with patch.dict(os.environ, {"FLASH_IS_LIVE_PROVISIONING": "true"}):
+            endpoint = ServerlessEndpoint(
+                name="test-endpoint",
+                imageName="test:latest",
+                flashboot=True,
+            )
+            assert endpoint.name == "live-test-endpoint-fb"
+
+    def test_no_live_prefix_when_flag_not_set(self):
+        """Test no live- prefix without flag."""
+        with patch.dict(os.environ, {}, clear=True):
+            endpoint = ServerlessEndpoint(
+                name="test-endpoint",
+                imageName="test:latest",
+                flashboot=False,
+            )
+            assert endpoint.name == "test-endpoint"
+
+    def test_live_prefix_idempotent(self):
+        """Test live- prefix not duplicated on multiple calls."""
+        with patch.dict(os.environ, {"FLASH_IS_LIVE_PROVISIONING": "true"}):
+            endpoint = ServerlessEndpoint(
+                name="test-endpoint",
+                imageName="test:latest",
+                flashboot=False,
+            )
+            first_name = endpoint.name
+            endpoint.sync_input_fields()  # Call again
+            assert endpoint.name == first_name
+
+    def test_live_prefix_strips_existing(self):
+        """Test existing live- prefix stripped first."""
+        with patch.dict(os.environ, {"FLASH_IS_LIVE_PROVISIONING": "true"}):
+            endpoint = ServerlessEndpoint(
+                name="live-test-endpoint",
+                imageName="test:latest",
+                flashboot=False,
+            )
+            assert endpoint.name == "live-test-endpoint"
+            assert endpoint.name.count("live-") == 1
 
 
 class TestServerlessResourceUndeploy:

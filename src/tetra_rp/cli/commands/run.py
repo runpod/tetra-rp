@@ -1,5 +1,6 @@
 """Run Flash development server."""
 
+import logging
 import os
 import signal
 import subprocess
@@ -11,6 +12,7 @@ import questionary
 import typer
 from rich.console import Console
 
+logger = logging.getLogger(__name__)
 console = Console()
 
 
@@ -53,19 +55,33 @@ def run_command(
         console.print("Make sure your main.py contains: app = FastAPI()")
         raise typer.Exit(1)
 
+    # Set flag for all flash run sessions to ensure both auto-provisioned
+    # and on-the-fly provisioned resources get the live- prefix
+    if not _is_reload():
+        os.environ["FLASH_IS_LIVE_PROVISIONING"] = "true"
+
     # Auto-provision resources if flag is set and not a reload
     if auto_provision and not _is_reload():
-        resources = _discover_resources(entry_point)
+        try:
+            resources = _discover_resources(entry_point)
 
-        if resources:
-            # If many resources found, ask for confirmation
-            if len(resources) > 5:
-                if not _confirm_large_provisioning(resources):
-                    console.print("[yellow]Auto-provisioning cancelled[/yellow]\n")
+            if resources:
+                # If many resources found, ask for confirmation
+                if len(resources) > 5:
+                    if not _confirm_large_provisioning(resources):
+                        console.print("[yellow]Auto-provisioning cancelled[/yellow]\n")
+                    else:
+                        _provision_resources(resources)
                 else:
                     _provision_resources(resources)
-            else:
-                _provision_resources(resources)
+        except Exception as e:
+            logger.error("Auto-provisioning failed", exc_info=True)
+            console.print(
+                f"[yellow]Warning:[/yellow] Resource provisioning failed: {e}"
+            )
+            console.print(
+                "[yellow]Note:[/yellow] Resources will be deployed on-demand when first called"
+            )
 
     console.print("\n[green]Starting Flash Server[/green]")
     console.print(f"Entry point: [bold]{app_location}[/bold]")
