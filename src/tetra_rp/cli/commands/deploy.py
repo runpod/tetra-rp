@@ -234,31 +234,41 @@ def info_command(
     asyncio.run(info_flash_environment(app_name, env_name))
 
 
-async def delete_flash_environment(app_name: str, env_name: str):
-    """Delete a flash deployment environment."""
+async def _fetch_environment_info(app_name: str, env_name: str) -> dict:
+    """Fetch environment information for display.
+
+    Args:
+        app_name: Flash application name
+        env_name: Environment name to fetch
+
+    Returns:
+        Environment dictionary with id, name, activeBuildId, etc.
+
+    Raises:
+        Exception: If environment doesn't exist or API call fails
+    """
     app = await FlashApp.from_name(app_name)
-
     env = await app.get_environment_by_name(env_name)
+    return env
 
-    panel_content = (
-        f"Environment '[bold]{env_name}[/bold]' will be deleted\n\n"
-        f"Environment ID: {env.get('id')}\n"
-        f"App: {app_name}\n"
-        f"Active Build: {env.get('activeBuildId', 'None')}"
-    )
-    console.print(Panel(panel_content, title="⚠️  Delete Confirmation", expand=False))
 
-    try:
-        confirmed = questionary.confirm(
-            f"Are you sure you want to delete environment '{env_name}'?"
-        ).ask()
+async def delete_flash_environment(app_name: str, env_name: str):
+    """Delete a flash deployment environment.
 
-        if not confirmed:
-            console.print("Deletion cancelled")
-            raise typer.Exit(0)
-    except KeyboardInterrupt:
-        console.print("\nDeletion cancelled")
-        raise typer.Exit(0)
+    Note: User confirmation should be handled by caller before calling this function.
+    This function only performs the deletion operation.
+
+    This design ensures questionary prompts run in sync context, avoiding
+    event loop conflicts between asyncio.run() and prompt_toolkit's Application.run().
+
+    Args:
+        app_name: Flash application name
+        env_name: Environment name to delete
+
+    Raises:
+        typer.Exit: If deletion fails
+    """
+    app = await FlashApp.from_name(app_name)
 
     with console.status(f"Deleting environment '{env_name}'..."):
         success = await app.delete_environment(env_name)
@@ -279,6 +289,37 @@ def delete_command(
     """Delete a deployment environment."""
     if not app_name:
         _, app_name = discover_flash_project()
+
+    # Fetch environment info in async context for display
+    try:
+        env = asyncio.run(_fetch_environment_info(app_name, env_name))
+    except Exception as e:
+        console.print(f"[red]Error:[/red] Failed to fetch environment info: {e}")
+        raise typer.Exit(1)
+
+    # Display deletion preview in sync context
+    panel_content = (
+        f"Environment '[bold]{env_name}[/bold]' will be deleted\n\n"
+        f"Environment ID: {env.get('id')}\n"
+        f"App: {app_name}\n"
+        f"Active Build: {env.get('activeBuildId', 'None')}"
+    )
+    console.print(Panel(panel_content, title="⚠️  Delete Confirmation", expand=False))
+
+    # Get user confirmation in sync context (BEFORE asyncio.run for deletion)
+    try:
+        confirmed = questionary.confirm(
+            f"Are you sure you want to delete environment '{env_name}'?"
+        ).ask()
+
+        if not confirmed:
+            console.print("Deletion cancelled")
+            raise typer.Exit(0)
+    except KeyboardInterrupt:
+        console.print("\nDeletion cancelled")
+        raise typer.Exit(0)
+
+    # Perform async deletion after confirmation
     asyncio.run(delete_flash_environment(app_name, env_name))
 
 
