@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Set
 
@@ -22,6 +23,10 @@ from .gpu import GpuGroup
 from .network_volume import NetworkVolume, DataCenter
 from .template import KeyValuePair, PodTemplate
 from .resource_manager import ResourceManager
+
+
+# Prefix applied to endpoint names during live provisioning
+LIVE_PREFIX = "live-"
 
 
 # Environment variables are loaded from the .env file
@@ -254,6 +259,19 @@ class ServerlessResource(DeployableResource):
 
         Idempotent: Can be called multiple times safely without changing the result.
         """
+        # Prepend live- prefix for live provisioning context
+        # Must happen BEFORE flashboot suffix to get: live-my-endpoint-fb
+        is_live_provisioning = (
+            os.getenv("FLASH_IS_LIVE_PROVISIONING", "").lower() == "true"
+        )
+
+        if is_live_provisioning:
+            # Remove existing live- prefixes for idempotency
+            while self.name.startswith(LIVE_PREFIX):
+                self.name = self.name[len(LIVE_PREFIX) :]
+            # Add prefix once
+            self.name = f"{LIVE_PREFIX}{self.name}"
+
         if self.flashboot:
             # Remove all trailing '-fb' suffixes, then add one
             while self.name.endswith("-fb"):
