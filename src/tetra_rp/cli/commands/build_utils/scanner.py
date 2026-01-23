@@ -132,8 +132,12 @@ class RemoteDecoratorScanner:
                             is_load_balanced = config_type in [
                                 "LoadBalancerSlsResource",
                                 "LiveLoadBalancer",
+                                "CpuLiveLoadBalancer",
                             ]
-                            is_live_resource = config_type == "LiveLoadBalancer"
+                            is_live_resource = config_type in [
+                                "LiveLoadBalancer",
+                                "CpuLiveLoadBalancer",
+                            ]
 
                             # Store flags for this resource
                             self.resource_flags[resource_name] = {
