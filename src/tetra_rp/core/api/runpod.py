@@ -305,7 +305,7 @@ class RunpodGraphQLClient:
         mutation FinalizeArtifactUpload($input: FinalizeFlashArtifactUploadInput!) {
                 finalizeFlashArtifactUpload(input: $input) {
                     id
-                    resourceSpec
+                    manifest
                     }
                 }
         """
