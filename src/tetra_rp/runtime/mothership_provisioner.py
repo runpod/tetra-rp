@@ -241,6 +241,7 @@ def create_resource_from_manifest(
         CpuLiveLoadBalancer,
         CpuLiveServerless,
         LiveLoadBalancer,
+        LiveServerless,
     )
     from tetra_rp.core.resources.load_balancer_sls_resource import (
         LoadBalancerSlsResource,
@@ -263,9 +264,8 @@ def create_resource_from_manifest(
         )
 
     # Create resource with mothership environment variables
-    # Note: Manifest doesn't contain full deployment config (image, workers, etc.)
-    # For now, create a minimal config with required fields
-    # TODO: Enhance manifest to include deployment config (image, workers, GPU type, etc.)
+    # Manifest now includes deployment config (imageName, templateId, GPU/worker settings)
+    # This enables auto-provisioning to create valid resource configurations
 
     # Create appropriate resource type based on manifest entry
     import os
@@ -294,17 +294,41 @@ def create_resource_from_manifest(
     else:
         prefixed_name = resource_name
 
+    # Extract deployment config from manifest
+    deployment_kwargs = {"name": prefixed_name, "env": env}
+
+    # Add imageName or templateId if present (required for validation)
+    if "imageName" in resource_data:
+        deployment_kwargs["imageName"] = resource_data["imageName"]
+    elif "templateId" in resource_data:
+        deployment_kwargs["templateId"] = resource_data["templateId"]
+
+    # Optional: Add GPU/worker config if present
+    if "gpuIds" in resource_data:
+        deployment_kwargs["gpuIds"] = resource_data["gpuIds"]
+    if "workersMin" in resource_data:
+        deployment_kwargs["workersMin"] = resource_data["workersMin"]
+    if "workersMax" in resource_data:
+        deployment_kwargs["workersMax"] = resource_data["workersMax"]
+
+    # Note: template is extracted but not passed to resource constructor
+    # Let resources create their own templates with proper initialization
+    # Templates are created by resource's _create_new_template() method
+
+    # Create resource with full deployment config
     if resource_type == "CpuLiveLoadBalancer":
-        resource = CpuLiveLoadBalancer(name=prefixed_name, env=env)
+        resource = CpuLiveLoadBalancer(**deployment_kwargs)
     elif resource_type == "CpuLiveServerless":
-        resource = CpuLiveServerless(name=prefixed_name, env=env)
+        resource = CpuLiveServerless(**deployment_kwargs)
     elif resource_type == "LiveLoadBalancer":
-        resource = LiveLoadBalancer(name=prefixed_name, env=env)
+        resource = LiveLoadBalancer(**deployment_kwargs)
+    elif resource_type == "LiveServerless":
+        resource = LiveServerless(**deployment_kwargs)
     elif resource_type == "LoadBalancerSlsResource":
-        resource = LoadBalancerSlsResource(name=prefixed_name, env=env)
+        resource = LoadBalancerSlsResource(**deployment_kwargs)
     else:
-        # ServerlessResource and LiveServerless
-        resource = ServerlessResource(name=prefixed_name, env=env)
+        # ServerlessResource (default)
+        resource = ServerlessResource(**deployment_kwargs)
 
     return resource
 

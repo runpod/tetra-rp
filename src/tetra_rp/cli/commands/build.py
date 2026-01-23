@@ -286,8 +286,10 @@ def build_command(
                     remote_functions = scanner.discover_remote_functions()
 
                     if remote_functions:
-                        # Build and write manifest
-                        manifest_builder = ManifestBuilder(app_name, remote_functions)
+                        # Build and write manifest with scanner context for deployment config extraction
+                        manifest_builder = ManifestBuilder(
+                            app_name, remote_functions, scanner
+                        )
                         manifest = manifest_builder.build()
                         manifest_path = build_dir / "flash_manifest.json"
                         manifest_path.write_text(json.dumps(manifest, indent=2))

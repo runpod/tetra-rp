@@ -388,7 +388,10 @@ class TestCreateResourceFromManifest:
         from tetra_rp.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
-        resource_data = {"resource_type": "ServerlessResource"}
+        resource_data = {
+            "resource_type": "ServerlessResource",
+            "imageName": "runpod/tetra-rp:latest",
+        }
         mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
@@ -413,7 +416,10 @@ class TestCreateResourceFromManifest:
         from tetra_rp.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
-        resource_data = {"resource_type": "LiveServerless"}
+        resource_data = {
+            "resource_type": "LiveServerless",
+            "imageName": "runpod/tetra-rp:latest",
+        }
         mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
@@ -440,7 +446,9 @@ class TestCreateResourceFromManifest:
         from tetra_rp.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
-        resource_data = {}  # No resource_type specified
+        resource_data = {
+            "imageName": "runpod/tetra-rp:latest"
+        }  # No resource_type specified
         mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
@@ -461,7 +469,10 @@ class TestCreateResourceFromManifest:
         from tetra_rp.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
-        resource_data = {"resource_type": "ServerlessResource"}
+        resource_data = {
+            "resource_type": "ServerlessResource",
+            "imageName": "runpod/tetra-rp:latest",
+        }
         mothership_url = ""  # Empty URL indicates CLI context
 
         # Clear RUNPOD_ENDPOINT_ID to simulate CLI environment
@@ -486,7 +497,10 @@ class TestCreateResourceFromManifest:
         from tetra_rp.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
-        resource_data = {"resource_type": "ServerlessResource"}
+        resource_data = {
+            "resource_type": "ServerlessResource",
+            "imageName": "runpod/tetra-rp:latest",
+        }
         mothership_url = "https://mothership.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-endpoint-456"}):
