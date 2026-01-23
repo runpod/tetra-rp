@@ -27,6 +27,7 @@ from ..utils.ignore import get_file_tree, load_ignore_patterns
 from .build_utils.handler_generator import HandlerGenerator
 from .build_utils.lb_handler_generator import LBHandlerGenerator
 from .build_utils.manifest import ManifestBuilder
+from .build_utils.mothership_handler_generator import generate_mothership_handler
 from .build_utils.scanner import RemoteDecoratorScanner
 
 logger = logging.getLogger(__name__)
@@ -319,6 +320,29 @@ def build_command(
                         if qb_resources:
                             qb_gen = HandlerGenerator(manifest, build_dir)
                             handler_paths.extend(qb_gen.generate_handlers())
+
+                        # Generate mothership handler if present in manifest
+                        mothership_resources = {
+                            name: data
+                            for name, data in manifest.get("resources", {}).items()
+                            if data.get("is_mothership", False)
+                        }
+                        if mothership_resources:
+                            for (
+                                resource_name,
+                                resource_data,
+                            ) in mothership_resources.items():
+                                mothership_handler_path = (
+                                    build_dir / "handlers" / "handler_mothership.py"
+                                )
+                                generate_mothership_handler(
+                                    main_file=resource_data.get("main_file", "main.py"),
+                                    app_variable=resource_data.get(
+                                        "app_variable", "app"
+                                    ),
+                                    output_path=mothership_handler_path,
+                                )
+                                handler_paths.append(str(mothership_handler_path))
 
                         progress.update(
                             manifest_task,

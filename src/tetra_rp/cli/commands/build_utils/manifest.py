@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .scanner import RemoteFunctionMetadata
+from .scanner import RemoteFunctionMetadata, detect_main_app
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,9 @@ class ManifestResource:
     is_load_balanced: bool = False  # Determined by isinstance() at scan time
     is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
     config_variable: Optional[str] = None  # Variable name for test-mothership
+    is_mothership: bool = False  # Special flag for mothership endpoint
+    main_file: Optional[str] = None  # Filename of main.py for mothership
+    app_variable: Optional[str] = None  # Variable name of FastAPI app
     imageName: Optional[str] = None  # Docker image name for auto-provisioning
     templateId: Optional[str] = None  # RunPod template ID for auto-provisioning
     gpuIds: Optional[list] = None  # GPU types/IDs for auto-provisioning
@@ -176,6 +179,29 @@ class ManifestBuilder:
 
         return config
 
+    def _create_mothership_resource(self, main_app_config: dict) -> Dict[str, Any]:
+        """Create implicit mothership resource from main.py.
+
+        Args:
+            main_app_config: Dict with 'file_path', 'app_variable', 'has_routes' keys
+
+        Returns:
+            Dictionary representing the mothership resource for the manifest
+        """
+        return {
+            "resource_type": "CpuLiveLoadBalancer",
+            "handler_file": "handler_mothership.py",
+            "functions": [],
+            "is_load_balanced": True,
+            "is_live_resource": True,
+            "is_mothership": True,
+            "main_file": main_app_config["file_path"].name,
+            "app_variable": main_app_config["app_variable"],
+            "imageName": "runpod/tetra-rp-lb-cpu:latest",
+            "workersMin": 1,
+            "workersMax": 3,
+        }
+
     def build(self) -> Dict[str, Any]:
         """Build the manifest dictionary."""
         # Group functions by resource_config_name
@@ -281,6 +307,25 @@ class ManifestBuilder:
                         f"resources '{function_registry[f.function_name]}' and '{resource_name}'"
                     )
                 function_registry[f.function_name] = resource_name
+
+        # Detect and add mothership resource
+        main_app_config = detect_main_app(Path.cwd())
+        if main_app_config and main_app_config["has_routes"]:
+            # Check for name conflict
+            if "mothership" in resources_dict:
+                logger.warning(
+                    "Project has a @remote resource named 'mothership'. "
+                    "Using 'mothership-entrypoint' for auto-generated mothership endpoint."
+                )
+                mothership_name = "mothership-entrypoint"
+            else:
+                mothership_name = "mothership"
+
+            mothership_resource = self._create_mothership_resource(main_app_config)
+            resources_dict[mothership_name] = mothership_resource
+            logger.info(
+                "Detected main.py FastAPI app - mothership endpoint will be auto-deployed"
+            )
 
         manifest = {
             "version": "1.0",

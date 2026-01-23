@@ -395,3 +395,100 @@ class RemoteDecoratorScanner:
             )
 
         return http_method, http_path
+
+
+def detect_main_app(project_root: Path) -> Optional[dict]:
+    """Detect main.py FastAPI app and return mothership config.
+
+    Searches for main.py/app.py/server.py and parses AST to find FastAPI app.
+    Only returns config if app has custom routes (not just @remote calls).
+
+    Args:
+        project_root: Root directory of Flash project
+
+    Returns:
+        Dict with app metadata: {
+            'file_path': Path,
+            'app_variable': str,
+            'has_routes': bool,
+        }
+        Returns None if no FastAPI app found with custom routes.
+    """
+    for filename in ["main.py", "app.py", "server.py"]:
+        main_path = project_root / filename
+        if not main_path.exists():
+            continue
+
+        try:
+            content = main_path.read_text(encoding="utf-8")
+            tree = ast.parse(content)
+
+            # Find FastAPI app instantiation
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign):
+                    if isinstance(node.value, ast.Call):
+                        call_type = None
+                        if isinstance(node.value.func, ast.Name):
+                            call_type = node.value.func.id
+                        elif isinstance(node.value.func, ast.Attribute):
+                            call_type = node.value.func.attr
+
+                        if call_type == "FastAPI":
+                            app_variable = None
+                            for target in node.targets:
+                                if isinstance(target, ast.Name):
+                                    app_variable = target.id
+                                    break
+
+                            if app_variable:
+                                # Check for custom routes (not just @remote)
+                                has_routes = _has_custom_routes(tree, app_variable)
+
+                                return {
+                                    "file_path": main_path,
+                                    "app_variable": app_variable,
+                                    "has_routes": has_routes,
+                                }
+        except UnicodeDecodeError:
+            logger.debug(f"Skipping non-UTF-8 file: {main_path}")
+        except SyntaxError as e:
+            logger.debug(f"Syntax error in {main_path}: {e}")
+        except Exception as e:
+            logger.debug(f"Failed to parse {main_path}: {e}")
+
+    return None
+
+
+def _has_custom_routes(tree: ast.AST, app_variable: str) -> bool:
+    """Check if FastAPI app has custom routes (beyond @remote).
+
+    Args:
+        tree: AST tree of the file
+        app_variable: Name of the FastAPI app variable
+
+    Returns:
+        True if app has route decorators (app.get, app.post, etc.)
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for decorator in node.decorator_list:
+                # Look for app.get(), app.post(), app.put(), etc.
+                if isinstance(decorator, ast.Call):
+                    if isinstance(decorator.func, ast.Attribute):
+                        if (
+                            isinstance(decorator.func.value, ast.Name)
+                            and decorator.func.value.id == app_variable
+                            and decorator.func.attr
+                            in ["get", "post", "put", "delete", "patch"]
+                        ):
+                            return True
+                # Also check for @app.get without parentheses (decorator without Call)
+                elif isinstance(decorator, ast.Attribute):
+                    if (
+                        isinstance(decorator.value, ast.Name)
+                        and decorator.value.id == app_variable
+                        and decorator.attr in ["get", "post", "put", "delete", "patch"]
+                    ):
+                        return True
+
+    return False

@@ -133,6 +133,7 @@ async def provision_resources_for_build(
         raise RuntimeError(f"Failed to provision resources: {e}") from e
 
     # Build resources_endpoints mapping
+    mothership_url = None
     for (resource_name, _), deployed_resource in zip(
         resources_to_provision, provisioning_results
     ):
@@ -145,6 +146,12 @@ async def provision_resources_for_build(
 
         resources_endpoints[resource_name] = endpoint_url
 
+        # Track mothership URL for prominent logging
+        if resource_name == "mothership" or manifest["resources"][resource_name].get(
+            "is_mothership"
+        ):
+            mothership_url = endpoint_url
+
         if show_progress:
             print(f"  ✓ {resource_name}: {endpoint_url}")
 
@@ -154,6 +161,12 @@ async def provision_resources_for_build(
 
     if show_progress:
         print("✓ All resources provisioned and manifest updated")
+        # Display mothership URL prominently if present
+        if mothership_url:
+            print()
+            print("=" * 60)
+            print(f"Mothership Endpoint: {mothership_url}")
+            print("=" * 60)
 
     return resources_endpoints
 
