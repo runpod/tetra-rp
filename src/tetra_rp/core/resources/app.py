@@ -3,8 +3,6 @@ import requests
 import asyncio
 from typing import Dict, Optional, Union, Tuple, TYPE_CHECKING, Any, List
 import logging
-import json
-import tarfile
 
 from ..api.runpod import RunpodGraphQLClient
 from ..resources.resource_manager import ResourceManager
@@ -112,53 +110,6 @@ def _validate_tarball_file(tar_path: Path) -> None:
             f"Tarball exceeds maximum size. "
             f"File size: {size_mb:.2f}MB, Max: {MAX_TARBALL_SIZE_MB}MB"
         )
-
-
-def _extract_manifest_from_tarball(tar_path: Path) -> Dict[str, Any]:
-    """Extract flash_manifest.json from tarball without unpacking entire archive.
-
-    Searches for flash_manifest.json anywhere in the tarball, extracts and
-    parses it as JSON. This is efficient because it only reads the specific
-    file from the archive, not the entire contents.
-
-    Args:
-        tar_path: Path to the tarball
-
-    Returns:
-        Parsed manifest dictionary
-
-    Raises:
-        ValueError: If manifest not found, cannot be extracted, or contains invalid JSON
-        FileNotFoundError: If tarball doesn't exist
-    """
-    if not tar_path.exists():
-        raise FileNotFoundError(f"Tarball not found: {tar_path}")
-
-    try:
-        with tarfile.open(tar_path, "r:gz") as tar:
-            # Look for flash_manifest.json in the tarball
-            manifest_file = None
-            for member in tar.getmembers():
-                if member.name.endswith("flash_manifest.json"):
-                    manifest_file = member
-                    break
-
-            if not manifest_file:
-                raise ValueError(f"No flash_manifest.json found in tarball: {tar_path}")
-
-            # Extract and parse manifest
-            manifest_data = tar.extractfile(manifest_file)
-            if not manifest_data:
-                raise ValueError("Could not extract flash_manifest.json")
-
-            try:
-                manifest = json.loads(manifest_data.read().decode("utf-8"))
-                log.debug(f"Extracted manifest from tarball: {list(manifest.keys())}")
-                return manifest
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON in flash_manifest.json: {e}") from e
-    except tarfile.TarError as e:
-        raise ValueError(f"Error reading tarball: {e}") from e
 
 
 class FlashApp:
@@ -395,19 +346,14 @@ class FlashApp:
                     if chunk:
                         stream.write(chunk)
 
-    async def _finalize_upload_build(
-        self, object_key: str, manifest: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _finalize_upload_build(self, object_key: str) -> Dict[str, Any]:
         """Finalize the upload of a build tarball.
 
         After uploading the tarball to the pre-signed URL, this method
         must be called to inform the server that the upload is complete.
-        The manifest extracted from the tarball is provided so the server
-        can store it on the build record.
 
         Args:
             object_key: The object key returned by _get_tarball_upload_url
-            manifest: The manifest dictionary extracted from the tarball
 
         Returns:
             Dictionary containing build information including the build ID
@@ -418,7 +364,7 @@ class FlashApp:
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             result = await client.finalize_artifact_upload(
-                {"flashAppId": self.id, "objectKey": object_key, "manifest": manifest}
+                {"flashAppId": self.id, "objectKey": object_key}
             )
             return result
 
@@ -473,8 +419,8 @@ class FlashApp:
         """Upload a build tarball to the server.
 
         Validates the tarball file before upload (extension, magic bytes, size limits).
-        Extracts the manifest from the tarball and includes it during finalization
-        so the server can store it on the build record.
+        Manifest is read from .flash/flash_manifest.json during deployment, not extracted
+        from tarball.
 
         Args:
             tar_path: Path to the tarball file (string or Path object)
@@ -500,15 +446,6 @@ class FlashApp:
             tar_path = Path(tar_path)
         _validate_tarball_file(tar_path)
 
-        # Extract manifest before uploading
-        try:
-            manifest = _extract_manifest_from_tarball(tar_path)
-        except Exception as e:
-            log.error(f"Failed to extract manifest from tarball: {e}")
-            raise ValueError(
-                f"Invalid tarball - missing or invalid manifest: {e}"
-            ) from e
-
         await self._hydrate()
         tarball_size = tar_path.stat().st_size
 
@@ -522,7 +459,7 @@ class FlashApp:
             resp = requests.put(url, data=fh, headers=headers)
 
         resp.raise_for_status()
-        resp = await self._finalize_upload_build(object_key, manifest)
+        resp = await self._finalize_upload_build(object_key)
         return resp
 
     async def _set_environment_state(self, environment_id: str, status: str) -> None:

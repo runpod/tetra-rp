@@ -59,12 +59,14 @@ class ManifestBuilder:
         project_name: str,
         remote_functions: List[RemoteFunctionMetadata],
         scanner=None,
+        build_dir: Optional[Path] = None,
     ):
         self.project_name = project_name
         self.remote_functions = remote_functions
         self.scanner = (
             scanner  # Optional: RemoteDecoratorScanner with resource config info
         )
+        self.build_dir = build_dir
 
     def _extract_deployment_config(
         self, resource_name: str, config_variable: Optional[str], resource_type: str
@@ -309,7 +311,8 @@ class ManifestBuilder:
                 function_registry[f.function_name] = resource_name
 
         # Detect and add mothership resource
-        main_app_config = detect_main_app(Path.cwd())
+        search_dir = self.build_dir if self.build_dir else Path.cwd()
+        main_app_config = detect_main_app(search_dir)
         if main_app_config and main_app_config["has_routes"]:
             # Check for name conflict
             if "mothership" in resources_dict:

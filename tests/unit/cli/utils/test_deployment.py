@@ -202,7 +202,9 @@ async def test_provision_resources_for_build_parallel_execution(
 
 
 @pytest.mark.asyncio
-async def test_deploy_to_environment_success(mock_flash_app, mock_deployed_resource):
+async def test_deploy_to_environment_success(
+    mock_flash_app, mock_deployed_resource, tmp_path
+):
     """Test successful deployment flow with provisioning."""
     mock_flash_app.get_environment_by_name = AsyncMock()
     mock_flash_app.upload_build = AsyncMock(return_value={"id": "build-123"})
@@ -219,8 +221,23 @@ async def test_deploy_to_environment_success(mock_flash_app, mock_deployed_resou
     mock_flash_app.update_build_manifest = AsyncMock()
 
     build_path = Path("/tmp/build.tar.gz")
+    local_manifest = {
+        "resources": {
+            "cpu": {"resource_type": "ServerlessResource"},
+        },
+        "resources_endpoints": {},
+    }
+
+    # Create temporary manifest file
+    import json
+
+    manifest_dir = tmp_path / ".flash"
+    manifest_dir.mkdir()
+    manifest_file = manifest_dir / "flash_manifest.json"
+    manifest_file.write_text(json.dumps(local_manifest))
 
     with (
+        patch("pathlib.Path.cwd", return_value=tmp_path),
         patch("tetra_rp.cli.utils.deployment.FlashApp.from_name") as mock_from_name,
         patch("tetra_rp.cli.utils.deployment.ResourceManager") as mock_manager_cls,
         patch(
@@ -244,21 +261,35 @@ async def test_deploy_to_environment_success(mock_flash_app, mock_deployed_resou
 
 
 @pytest.mark.asyncio
-async def test_deploy_to_environment_provisioning_failure(mock_flash_app):
+async def test_deploy_to_environment_provisioning_failure(mock_flash_app, tmp_path):
     """Test deployment when provisioning fails."""
     mock_flash_app.get_environment_by_name = AsyncMock()
     mock_flash_app.upload_build = AsyncMock(return_value={"id": "build-123"})
+    # State Manager has no resources, so local_manifest resources will be NEW
     mock_flash_app.get_build_manifest = AsyncMock(
         return_value={
-            "resources": {
-                "cpu": {"resource_type": "ServerlessResource"},
-            }
+            "resources": {},
         }
     )
 
     build_path = Path("/tmp/build.tar.gz")
+    local_manifest = {
+        "resources": {
+            "cpu": {"resource_type": "ServerlessResource"},
+        },
+        "resources_endpoints": {},
+    }
+
+    # Create temporary manifest file
+    import json
+
+    manifest_dir = tmp_path / ".flash"
+    manifest_dir.mkdir()
+    manifest_file = manifest_dir / "flash_manifest.json"
+    manifest_file.write_text(json.dumps(local_manifest))
 
     with (
+        patch("pathlib.Path.cwd", return_value=tmp_path),
         patch("tetra_rp.cli.utils.deployment.FlashApp.from_name") as mock_from_name,
         patch("tetra_rp.cli.utils.deployment.ResourceManager") as mock_manager_cls,
         patch(

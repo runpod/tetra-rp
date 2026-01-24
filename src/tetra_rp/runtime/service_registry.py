@@ -135,7 +135,24 @@ class ServiceRegistry:
     async def _ensure_manifest_loaded(self) -> None:
         """Load manifest from State Manager if cache expired or not loaded.
 
-        Uses peer-to-peer model - queries State Manager directly.
+        Peer-to-Peer Architecture:
+            Each endpoint queries State Manager independently using its own
+            RUNPOD_ENDPOINT_ID. No mothership dependency - all endpoints
+            are equal peers discovering each other through the manifest.
+
+        Query Flow:
+            1. get_flash_environment(RUNPOD_ENDPOINT_ID) → activeBuildId
+            2. get_flash_build(activeBuildId) → manifest
+            3. Extract manifest["resources_endpoints"] mapping
+            4. Cache for 300s (DEFAULT_CACHE_TTL)
+
+        State Manager Consistency:
+            - CLI updates manifest after provisioning all endpoints
+            - Endpoints cache manifest to reduce API calls
+            - TTL ensures eventual consistency (300s by default)
+
+        Returns:
+            None. Updates self._endpoint_registry internally.
         """
         async with self._endpoint_registry_lock:
             now = time.time()
