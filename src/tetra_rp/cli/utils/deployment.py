@@ -233,7 +233,7 @@ async def reconcile_and_provision_resources(
             ("provision", resource_name, manager.get_or_deploy_resource(resource))
         )
 
-    # Update existing resources (check if config changed)
+    # Update existing resources (check if config changed OR if endpoint missing)
     for resource_name in sorted(to_update):
         local_config = local_manifest["resources"][resource_name]
         state_config = state_manifest.get("resources", {}).get(resource_name, {})
@@ -242,8 +242,11 @@ async def reconcile_and_provision_resources(
         local_json = json.dumps(local_config, sort_keys=True)
         state_json = json.dumps(state_config, sort_keys=True)
 
-        if local_json != state_json:
-            # Config changed, update the resource
+        # Check if endpoint exists in state manifest
+        has_endpoint = resource_name in state_manifest.get("resources_endpoints", {})
+
+        if local_json != state_json or not has_endpoint:
+            # Config changed OR no endpoint - need to provision/update
             resource = create_resource_from_manifest(
                 resource_name, local_config, mothership_url=""
             )
@@ -251,7 +254,7 @@ async def reconcile_and_provision_resources(
                 ("update", resource_name, manager.get_or_deploy_resource(resource))
             )
         else:
-            # Config unchanged - reuse existing endpoint info
+            # Config unchanged AND endpoint exists - reuse existing endpoint info
             if "endpoint_id" in state_config:
                 local_manifest["resources"][resource_name]["endpoint_id"] = (
                     state_config["endpoint_id"]
