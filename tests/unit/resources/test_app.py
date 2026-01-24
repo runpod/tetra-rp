@@ -121,21 +121,23 @@ async def test_update_build_manifest_calls_graphql_client(mock_graphql_client):
 
 @pytest.mark.asyncio
 async def test_finalize_upload_build(mock_graphql_client):
-    """Test _finalize_upload_build finalizes artifact upload."""
-    expected_response = {"id": "build-123"}
+    """Test _finalize_upload_build finalizes artifact upload with manifest."""
+    manifest_data = {"resources": {"cpu": {"type": "cpu"}}}
+    expected_response = {"id": "build-123", "manifest": manifest_data}
 
     mock_graphql_client.finalize_artifact_upload.return_value = expected_response
 
     app = FlashApp("test-app", id="app-123", eager_hydrate=False)
     app._hydrated = True
 
-    result = await app._finalize_upload_build("object-key-123")
+    result = await app._finalize_upload_build("object-key-123", manifest_data)
 
-    # Verify the API was called with correct parameters
+    # Verify the manifest was passed to the API
     mock_graphql_client.finalize_artifact_upload.assert_awaited_once_with(
         {
             "flashAppId": "app-123",
             "objectKey": "object-key-123",
+            "manifest": manifest_data,
         }
     )
     assert result == expected_response

@@ -1,6 +1,7 @@
 from pathlib import Path
 import requests
 import asyncio
+import json
 from typing import Dict, Optional, Union, Tuple, TYPE_CHECKING, Any, List
 import logging
 
@@ -346,7 +347,9 @@ class FlashApp:
                     if chunk:
                         stream.write(chunk)
 
-    async def _finalize_upload_build(self, object_key: str) -> Dict[str, Any]:
+    async def _finalize_upload_build(
+        self, object_key: str, manifest: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Finalize the upload of a build tarball.
 
         After uploading the tarball to the pre-signed URL, this method
@@ -354,6 +357,7 @@ class FlashApp:
 
         Args:
             object_key: The object key returned by _get_tarball_upload_url
+            manifest: The manifest dictionary (read from .flash/flash_manifest.json)
 
         Returns:
             Dictionary containing build information including the build ID
@@ -364,7 +368,7 @@ class FlashApp:
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             result = await client.finalize_artifact_upload(
-                {"flashAppId": self.id, "objectKey": object_key}
+                {"flashAppId": self.id, "objectKey": object_key, "manifest": manifest}
             )
             return result
 
@@ -446,6 +450,18 @@ class FlashApp:
             tar_path = Path(tar_path)
         _validate_tarball_file(tar_path)
 
+        # Read manifest from .flash/flash_manifest.json
+        manifest_path = Path.cwd() / ".flash" / "flash_manifest.json"
+        try:
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"Manifest not found at {manifest_path}. Run 'flash build' first."
+            ) from e
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid manifest JSON at {manifest_path}: {e}") from e
+
         await self._hydrate()
         tarball_size = tar_path.stat().st_size
 
@@ -459,7 +475,7 @@ class FlashApp:
             resp = requests.put(url, data=fh, headers=headers)
 
         resp.raise_for_status()
-        resp = await self._finalize_upload_build(object_key)
+        resp = await self._finalize_upload_build(object_key, manifest)
         return resp
 
     async def _set_environment_state(self, environment_id: str, status: str) -> None:
