@@ -40,9 +40,7 @@ mothership = CpuLiveLoadBalancer(
 # from tetra_rp import LiveLoadBalancer
 # mothership = LiveLoadBalancer(
 #     name="mothership",
-#     gpus=["NVIDIA A40"],
-#     workersMin=1,
-#     workersMax=3,
+#     gpus=[GpuGroup.ANY],
 # )
 
 # Custom endpoint name
