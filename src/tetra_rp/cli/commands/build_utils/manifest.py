@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .scanner import RemoteFunctionMetadata, detect_main_app
+from .scanner import RemoteFunctionMetadata, detect_explicit_mothership, detect_main_app
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ class ManifestResource:
     is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
     config_variable: Optional[str] = None  # Variable name for test-mothership
     is_mothership: bool = False  # Special flag for mothership endpoint
+    is_explicit: bool = False  # Flag indicating explicit mothership.py configuration
     main_file: Optional[str] = None  # Filename of main.py for mothership
     app_variable: Optional[str] = None  # Variable name of FastAPI app
     imageName: Optional[str] = None  # Docker image name for auto-provisioning
@@ -204,6 +205,51 @@ class ManifestBuilder:
             "workersMax": 3,
         }
 
+    def _create_mothership_from_explicit(
+        self, explicit_config: dict, search_dir: Path
+    ) -> Dict[str, Any]:
+        """Create mothership resource from explicit mothership.py configuration.
+
+        Args:
+            explicit_config: Configuration dict from detect_explicit_mothership()
+            search_dir: Project directory
+
+        Returns:
+            Dictionary representing the mothership resource for the manifest
+        """
+        # Detect FastAPI app details for handler generation
+        main_app_config = detect_main_app(search_dir, explicit_mothership_exists=False)
+
+        if not main_app_config:
+            # No FastAPI app found, use defaults
+            main_file = "main.py"
+            app_variable = "app"
+        else:
+            main_file = main_app_config["file_path"].name
+            app_variable = main_app_config["app_variable"]
+
+        # Map resource type to image name
+        resource_type = explicit_config.get("resource_type", "CpuLiveLoadBalancer")
+        if resource_type == "LiveLoadBalancer":
+            image_name = "runpod/tetra-rp-lb:latest"  # GPU load balancer
+        else:
+            image_name = "runpod/tetra-rp-lb-cpu:latest"  # CPU load balancer
+
+        return {
+            "resource_type": resource_type,
+            "handler_file": "handler_mothership.py",
+            "functions": [],
+            "is_load_balanced": True,
+            "is_live_resource": True,
+            "is_mothership": True,
+            "is_explicit": True,  # Flag to indicate explicit configuration
+            "main_file": main_file,
+            "app_variable": app_variable,
+            "imageName": image_name,
+            "workersMin": explicit_config.get("workersMin", 1),
+            "workersMax": explicit_config.get("workersMax", 3),
+        }
+
     def build(self) -> Dict[str, Any]:
         """Build the manifest dictionary."""
         # Group functions by resource_config_name
@@ -310,25 +356,56 @@ class ManifestBuilder:
                     )
                 function_registry[f.function_name] = resource_name
 
-        # Detect and add mothership resource
+        # === MOTHERSHIP DETECTION (EXPLICIT THEN FALLBACK) ===
         search_dir = self.build_dir if self.build_dir else Path.cwd()
-        main_app_config = detect_main_app(search_dir)
-        if main_app_config and main_app_config["has_routes"]:
+
+        # Step 1: Check for explicit mothership.py
+        explicit_mothership = detect_explicit_mothership(search_dir)
+
+        if explicit_mothership:
+            # Use explicit configuration
+            logger.info("Found explicit mothership configuration in mothership.py")
+
             # Check for name conflict
-            if "mothership" in resources_dict:
+            mothership_name = explicit_mothership.get("name", "mothership")
+            if mothership_name in resources_dict:
                 logger.warning(
-                    "Project has a @remote resource named 'mothership'. "
-                    "Using 'mothership-entrypoint' for auto-generated mothership endpoint."
+                    f"Project has a @remote resource named '{mothership_name}'. "
+                    f"Using 'mothership-entrypoint' for explicit mothership endpoint."
                 )
                 mothership_name = "mothership-entrypoint"
-            else:
-                mothership_name = "mothership"
 
-            mothership_resource = self._create_mothership_resource(main_app_config)
-            resources_dict[mothership_name] = mothership_resource
-            logger.info(
-                "Detected main.py FastAPI app - mothership endpoint will be auto-deployed"
+            # Create mothership resource from explicit config
+            mothership_resource = self._create_mothership_from_explicit(
+                explicit_mothership, search_dir
             )
+            resources_dict[mothership_name] = mothership_resource
+
+        else:
+            # Step 2: Fallback to auto-detection
+            main_app_config = detect_main_app(
+                search_dir, explicit_mothership_exists=False
+            )
+
+            if main_app_config and main_app_config["has_routes"]:
+                logger.warning(
+                    "Auto-detected FastAPI app in main.py (no mothership.py found). "
+                    "Consider running 'flash init' to create explicit mothership configuration."
+                )
+
+                # Check for name conflict
+                if "mothership" in resources_dict:
+                    logger.warning(
+                        "Project has a @remote resource named 'mothership'. "
+                        "Using 'mothership-entrypoint' for auto-generated mothership endpoint."
+                    )
+                    mothership_name = "mothership-entrypoint"
+                else:
+                    mothership_name = "mothership"
+
+                # Create mothership resource from auto-detection (legacy behavior)
+                mothership_resource = self._create_mothership_resource(main_app_config)
+                resources_dict[mothership_name] = mothership_resource
 
         manifest = {
             "version": "1.0",

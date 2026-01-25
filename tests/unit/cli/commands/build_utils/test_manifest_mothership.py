@@ -199,3 +199,199 @@ def root():
                 assert mothership["imageName"] == "runpod/tetra-rp-lb-cpu:latest"
                 assert mothership["workersMin"] == 1
                 assert mothership["workersMax"] == 3
+
+    def test_manifest_uses_explicit_mothership_config(self):
+        """Test explicit mothership.py config takes precedence over auto-detection."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create main.py with FastAPI routes
+            main_file = project_root / "main.py"
+            main_file.write_text(
+                """
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"msg": "Hello"}
+"""
+            )
+
+            # Create explicit mothership.py with custom config
+            mothership_file = project_root / "mothership.py"
+            mothership_file.write_text(
+                """
+from tetra_rp import CpuLiveLoadBalancer
+
+mothership = CpuLiveLoadBalancer(
+    name="my-api",
+    workersMin=3,
+    workersMax=7,
+)
+"""
+            )
+
+            with patch(
+                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                return_value=project_root,
+            ):
+                builder = ManifestBuilder(project_name="test", remote_functions=[])
+                manifest = builder.build()
+
+                # Check explicit config is used
+                assert "my-api" in manifest["resources"]
+                mothership = manifest["resources"]["my-api"]
+                assert mothership["is_explicit"] is True
+                assert mothership["workersMin"] == 3
+                assert mothership["workersMax"] == 7
+
+    def test_manifest_skips_auto_detect_with_explicit_config(self):
+        """Test auto-detection is skipped when explicit config exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create main.py with FastAPI routes
+            main_file = project_root / "main.py"
+            main_file.write_text(
+                """
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"msg": "Hello"}
+"""
+            )
+
+            # Create explicit mothership.py
+            mothership_file = project_root / "mothership.py"
+            mothership_file.write_text(
+                """
+from tetra_rp import CpuLiveLoadBalancer
+
+mothership = CpuLiveLoadBalancer(
+    name="explicit-mothership",
+    workersMin=2,
+    workersMax=4,
+)
+"""
+            )
+
+            with patch(
+                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                return_value=project_root,
+            ):
+                builder = ManifestBuilder(project_name="test", remote_functions=[])
+                manifest = builder.build()
+
+                # Check only explicit config is in resources (not auto-detected "mothership")
+                assert "explicit-mothership" in manifest["resources"]
+                assert (
+                    manifest["resources"]["explicit-mothership"]["is_explicit"] is True
+                )
+                assert "mothership" not in manifest["resources"]
+
+    def test_manifest_handles_explicit_mothership_name_conflict(self):
+        """Test explicit mothership uses alternate name if conflict with @remote."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create explicit mothership.py with name that conflicts with resource
+            mothership_file = project_root / "mothership.py"
+            mothership_file.write_text(
+                """
+from tetra_rp import CpuLiveLoadBalancer
+
+mothership = CpuLiveLoadBalancer(
+    name="api",  # Will conflict with @remote resource named "api"
+    workersMin=1,
+    workersMax=3,
+)
+"""
+            )
+
+            # Create a remote function with name "api" (conflict)
+            func_file = project_root / "functions.py"
+            func_file.write_text(
+                """
+from tetra_rp import remote
+from tetra_rp import LiveServerless
+
+api_config = LiveServerless(name="api")
+
+@remote(resource_config=api_config)
+def process(data):
+    return data
+"""
+            )
+
+            remote_func = RemoteFunctionMetadata(
+                function_name="process",
+                module_path="functions",
+                resource_config_name="api",
+                resource_type="LiveServerless",
+                is_async=False,
+                is_class=False,
+                file_path=func_file,
+            )
+
+            with patch(
+                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                return_value=project_root,
+            ):
+                builder = ManifestBuilder(
+                    project_name="test", remote_functions=[remote_func]
+                )
+                manifest = builder.build()
+
+                # Original resource should be in resources
+                assert "api" in manifest["resources"]
+                # Explicit mothership should use alternate name
+                assert "mothership-entrypoint" in manifest["resources"]
+                entrypoint = manifest["resources"]["mothership-entrypoint"]
+                assert entrypoint["is_explicit"] is True
+
+    def test_manifest_explicit_mothership_with_gpu_load_balancer(self):
+        """Test explicit GPU-based load balancer config."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_root = Path(tmpdir)
+
+            # Create explicit mothership.py with GPU load balancer
+            mothership_file = project_root / "mothership.py"
+            mothership_file.write_text(
+                """
+from tetra_rp import LiveLoadBalancer
+
+mothership = LiveLoadBalancer(
+    name="gpu-mothership",
+    workersMin=1,
+    workersMax=2,
+)
+"""
+            )
+
+            # Create main.py for handler generation
+            main_file = project_root / "main.py"
+            main_file.write_text(
+                """
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"msg": "Hello"}
+"""
+            )
+
+            with patch(
+                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                return_value=project_root,
+            ):
+                builder = ManifestBuilder(project_name="test", remote_functions=[])
+                manifest = builder.build()
+
+                mothership = manifest["resources"]["gpu-mothership"]
+                assert mothership["resource_type"] == "LiveLoadBalancer"
+                assert mothership["imageName"] == "runpod/tetra-rp-lb:latest"
+                assert mothership["is_explicit"] is True

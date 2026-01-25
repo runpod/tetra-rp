@@ -1,10 +1,10 @@
-import os
 import logging
+import os
+
 from fastapi import FastAPI
 
-from workers.gpu import gpu_router
 from workers.cpu import cpu_router
-
+from workers.gpu import gpu_router
 
 logger = logging.getLogger(__name__)
 
