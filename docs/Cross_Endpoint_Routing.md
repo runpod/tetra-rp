@@ -454,7 +454,7 @@ class ServiceRegistry:
     def __init__(
         self,
         manifest_path: Optional[Path] = None,
-        manifest_client: Optional[ManifestClient] = None,
+        state_manager_client: Optional[StateManagerClient] = None,
         cache_ttl: int = DEFAULT_CACHE_TTL,
     ):
         """Initialize service registry.
@@ -462,18 +462,18 @@ class ServiceRegistry:
         Args:
             manifest_path: Path to flash_manifest.json. Defaults to
                 FLASH_MANIFEST_PATH env var or auto-detection.
-            manifest_client: Manifest service client for mothership API. If None,
-                creates one from FLASH_MOTHERSHIP_ID env var.
+            state_manager_client: State Manager GraphQL client for peer-to-peer discovery.
+                If None, creates one from RUNPOD_API_KEY env var.
             cache_ttl: Manifest cache lifetime in seconds (default: 300).
 
         Environment Variables (for local vs remote detection):
-            RUNPOD_API_KEY: API key for State Manager GraphQL access.
+            RUNPOD_API_KEY: API key for State Manager GraphQL access (peer-to-peer).
             FLASH_RESOURCE_NAME: Resource config name for this endpoint (child endpoints).
                 Identifies which resource config this endpoint represents in the manifest.
             RUNPOD_ENDPOINT_ID: Endpoint ID (used as fallback for identification).
         """
         self._load_manifest(manifest_path)
-        self._manifest_client = manifest_client or StateManagerClient()
+        self._state_manager_client = state_manager_client or StateManagerClient()
         self._endpoint_registry = {}  # Cached endpoint URLs
         self._endpoint_registry_lock = asyncio.Lock()
         # Child endpoints use FLASH_RESOURCE_NAME to identify which resource they represent
@@ -491,13 +491,14 @@ class ServiceRegistry:
         return self._resolve_resource(config)
 
     async def _ensure_manifest_loaded(self) -> None:
-        """Load manifest from State Manager if cache expired or not loaded."""
+        """Load manifest from State Manager GraphQL API if cache expired or not loaded."""
         async with self._endpoint_registry_lock:
             now = time.time()
             cache_age = now - self._endpoint_registry_loaded_at
 
             if cache_age > self.cache_ttl:
-                manifest = await self._manifest_client.get_persisted_manifest(mothership_id)
+                # Query State Manager GraphQL API directly (peer-to-peer)
+                manifest = await self._state_manager_client.get_persisted_manifest()
                 self._endpoint_registry = manifest.get("resources_endpoints", {})
                 self._endpoint_registry_loaded_at = now
 ```
@@ -777,12 +778,12 @@ flowchart TD
 
 #### 4. Graceful Fallback
 
-**Decision**: Default to local execution if manifest service unavailable
+**Decision**: Default to local execution if State Manager unavailable
 
 **Rationale**:
 - Maintains application resilience
-- Doesn't fail if mothership unreachable
-- Allows local testing without manifest service
+- Doesn't fail if State Manager temporarily unavailable
+- Allows local testing without State Manager access
 - Gradual degradation vs catastrophic failure
 
 #### 5. Transparent Routing

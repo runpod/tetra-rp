@@ -13,7 +13,7 @@ from .scanner import RemoteFunctionMetadata, detect_explicit_mothership, detect_
 
 logger = logging.getLogger(__name__)
 
-RESERVED_PATHS = ["/execute", "/ping", "/manifest"]
+RESERVED_PATHS = ["/execute", "/ping"]
 
 
 @dataclass
