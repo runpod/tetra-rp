@@ -341,12 +341,12 @@ def create_resource_from_manifest(
     return resource
 
 
-async def provision_children(
+async def reconcile_children(
     manifest_path: Path,
     mothership_url: str,
     state_client: StateManagerClient,
 ) -> None:
-    """Provision all child resources with reconciliation.
+    """Reconcile all child resources based on manifest differences.
 
     Orchestrates deployment/update/delete of resources based on manifest differences.
 

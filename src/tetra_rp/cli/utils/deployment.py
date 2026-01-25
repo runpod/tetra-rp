@@ -107,7 +107,7 @@ async def provision_resources_for_build(
         resource = create_resource_from_manifest(
             resource_name,
             resource_config,
-            mothership_url="",  # Not needed for CLI provisioning
+            mothership_url="",  # Intentionally left empty during CLI provisioning
         )
         resources_to_provision.append((resource_name, resource))
 
