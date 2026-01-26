@@ -651,7 +651,7 @@ Functions retrieve remote endpoint info from ResourceManager:
 # ServiceRegistry uses ResourceManager to find endpoint URLs
 resource_manager = ResourceManager()
 endpoint = resource_manager.get_resource_for_function("function_name")
-endpoint_url = endpoint.url  # e.g., "https://api.runpod.io/v2/abc123"
+endpoint_url = endpoint.url  # e.g., "https://api.runpod.ai/v2/abc123"
 ```
 
 ### Configuration
