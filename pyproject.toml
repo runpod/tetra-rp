@@ -87,10 +87,6 @@ filterwarnings = [
 ]
 
 [tool.ruff]
-# Exclude tetra-examples directory since it's a separate repository
-exclude = [
-    "tetra-examples/",
-]
 
 [tool.mypy]
 # Basic configuration
@@ -112,7 +108,6 @@ pretty = true
 
 # Exclude directories
 exclude = [
-    "tetra-examples/",
     "tests/",  # Start by excluding tests, can add later
 ]
 

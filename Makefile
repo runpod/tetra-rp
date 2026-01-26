@@ -23,12 +23,6 @@ update:
 proto: # TODO: auto-generate proto files
 	@echo "TODO"
 
-examples: dev # Pull in tetra-examples
-	git submodule init
-	git submodule update --remote
-	@echo "🚀 Running make inside tetra-examples..."; \
-	$(MAKE) -C tetra-examples
-
 clean: # Remove build artifacts and cache files
 	rm -rf dist build *.egg-info
 	find . -type d -name __pycache__ -exec rm -rf {} +
