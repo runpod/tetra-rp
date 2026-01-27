@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.0](https://github.com/runpod/tetra-rp/compare/v0.21.0...v0.22.0) (2026-01-27)
+
+
+### Features
+
+* implement cross-endpoint routing reliability infrastructure ([#149](https://github.com/runpod/tetra-rp/issues/149)) ([cb6a226](https://github.com/runpod/tetra-rp/commit/cb6a2268836d449e4d3445ef787c5b7c184bbea6))
+* implement upfront resource provisioning in deployment flow ([#152](https://github.com/runpod/tetra-rp/issues/152)) ([b9c5571](https://github.com/runpod/tetra-rp/commit/b9c5571db3e260b0456e62dd77329db6e754822b))
+
 ## [0.21.0](https://github.com/runpod/tetra-rp/compare/v0.20.1...v0.21.0) (2026-01-26)
 
 
