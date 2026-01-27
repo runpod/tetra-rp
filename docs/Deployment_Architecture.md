@@ -301,6 +301,5 @@ Each reconciliation action updates State Manager:
 - `FLASH_MANIFEST_PATH` - Optional explicit path to manifest
 
 ### Child Endpoints
-- `FLASH_MOTHERSHIP_ID` - Mothership's endpoint ID (constructs URL as `https://{FLASH_MOTHERSHIP_ID}.api.runpod.ai`)
 - `FLASH_RESOURCE_NAME` - Which resource config this endpoint represents
 - `RUNPOD_ENDPOINT_ID` - This child's endpoint ID

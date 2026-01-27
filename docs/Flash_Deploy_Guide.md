@@ -397,7 +397,6 @@ sequenceDiagram
 
 **Key Environment Variables**:
 - `FLASH_RESOURCE_NAME`: This endpoint's resource config name (e.g., "gpu_config")
-- `FLASH_MOTHERSHIP_ID`: Mothership endpoint ID for manifest queries
 - `FLASH_MANIFEST_PATH`: Optional override for manifest location
 - `RUNPOD_ENDPOINT_ID`: This endpoint's RunPod endpoint ID
 
@@ -1025,11 +1024,6 @@ graph LR
 - Identifies which resource config this endpoint represents
 - Used by ServiceRegistry for local vs remote detection
 
-**FLASH_MOTHERSHIP_ID** (Required for remote calls)
-- Mothership endpoint ID
-- Used to construct mothership URL for manifest queries
-- Format: `{endpoint_id}` (constructed as `https://{FLASH_MOTHERSHIP_ID}.api.runpod.ai`)
-
 **FLASH_MANIFEST_PATH** (Optional)
 - Override default manifest file location
 - If not set, searches: cwd, module dir, parent dirs
@@ -1283,10 +1277,9 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 **Cause**: ServiceRegistry unable to query mothership or manifest outdated
 
 **Solution**:
-1. Verify `FLASH_MOTHERSHIP_ID` environment variable is set
-2. Check mothership endpoint is running: `curl https://{mothership_id}.api.runpod.ai/manifest`
-3. Verify manifest includes the resource config: `grep resource_name flash_manifest.json`
-4. Check network connectivity between child and mothership endpoints
+1. Check mothership endpoint is running: `curl https://{mothership_id}.api.runpod.ai/ping`
+2. Verify manifest includes the resource config: `grep resource_name flash_manifest.json`
+3. Check network connectivity between child and mothership endpoints
 
 ### Issue: Manifest cache staleness
 
