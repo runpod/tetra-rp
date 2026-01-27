@@ -24,6 +24,69 @@ from tetra_rp.core.resources.app import FlashApp
 console = Console()
 
 
+def _get_resource_manager():
+    from tetra_rp.core.resources.resource_manager import ResourceManager
+
+    return ResourceManager()
+
+
+async def _undeploy_environment_resources(env_name: str, env: dict) -> None:
+    """Undeploy resources tied to a flash environment before deletion."""
+    endpoints = env.get("endpoints") or []
+    network_volumes = env.get("networkVolumes") or []
+
+    if not endpoints and not network_volumes:
+        return
+
+    manager = _get_resource_manager()
+    failures = []
+    undeployed = 0
+    seen_resource_ids = set()
+
+    with console.status(f"Undeploying resources for '{env_name}'..."):
+        for label, items in (
+            ("Endpoint", endpoints),
+            ("Network volume", network_volumes),
+        ):
+            for item in items:
+                name = item.get("name") if isinstance(item, dict) else None
+                if not name:
+                    failures.append(f"{label} missing name in environment '{env_name}'")
+                    continue
+
+                matches = manager.find_resources_by_name(name)
+                if not matches:
+                    failures.append(f"{label} '{name}' not found in local tracking")
+                    continue
+
+                for resource_id, resource in matches:
+                    if resource_id in seen_resource_ids:
+                        continue
+                    seen_resource_ids.add(resource_id)
+                    resource_name = getattr(resource, "name", name)
+                    result = await manager.undeploy_resource(resource_id, resource_name)
+                    if result.get("success"):
+                        undeployed += 1
+                    else:
+                        failures.append(
+                            result.get(
+                                "message",
+                                f"Failed to undeploy {label.lower()} '{name}'",
+                            )
+                        )
+
+    if failures:
+        console.print(
+            "❌ Failed to undeploy all resources; environment deletion aborted."
+        )
+        for message in failures:
+            console.print(f"  • {message}")
+        raise typer.Exit(1)
+
+    if undeployed:
+        console.print(f"✅ Undeployed {undeployed} resource(s) for '{env_name}'")
+
+
 def list_command(
     app_name: str | None = typer.Option(
         None, "--app-name", "-a", help="flash app name to inspect"
@@ -269,6 +332,8 @@ async def delete_flash_environment(app_name: str, env_name: str):
         typer.Exit: If deletion fails
     """
     app = await FlashApp.from_name(app_name)
+
+    await _undeploy_environment_resources(env_name, env)
 
     with console.status(f"Deleting environment '{env_name}'..."):
         success = await app.delete_environment(env_name)
