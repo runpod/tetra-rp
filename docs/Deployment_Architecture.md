@@ -11,43 +11,40 @@ graph TD
     B -->|"Write"| C["flash_manifest.json"]
     B -->|"Archive"| D["archive.tar.gz"]
 
-    D -->|"flash deploy"| E["Push Archive +<br/>Assign Build ID"]
+    D -->|"flash deploy"| E["Push Archive +<br/>Provision Resources"]
 
-    E -->|"User deploys"| F["🎯 Mothership<br/>Endpoint"]
+    E -->|"CLI provisions<br/>upfront"| F["Child Endpoints<br/>Deployed"]
 
-    F -->|"Load persisted<br/>manifest"| G{"Persisted<br/>Manifest?"}
-    G -->|"First Time"| H["Initialize<br/>New Manifest"]
-    G -->|"Exists"| I{"Local vs<br/>Persisted<br/>Match?"}
-    I -->|"Outdated"| J["Update Local<br/>from State"]
-    I -->|"Current"| K["Use Local<br/>Manifest"]
+    G["🎯 Mothership<br/>Endpoint"] -->|"Load from<br/>.flash/"| H["Load Local<br/>Manifest"]
 
-    H --> L["Reconcile<br/>Resources"]
-    J --> L
-    K --> L
+    H --> I["reconcile_children()"]
 
-    L --> M["Categorize:<br/>New, Changed,<br/>Removed, Unchanged"]
+    I --> J["Categorize:<br/>New, Changed,<br/>Removed, Unchanged"]
 
-    M --> N["Deploy NEW<br/>Endpoints"]
-    M --> O["Update CHANGED<br/>Endpoints"]
-    M --> P["Undeploy REMOVED<br/>Endpoints"]
-    M --> Q["Skip UNCHANGED<br/>Endpoints"]
+    J --> K["Verify NEW<br/>Endpoints"]
+    J --> L["Verify CHANGED<br/>Endpoints"]
+    J --> M["Verify REMOVED<br/>Endpoints"]
+    J --> N["Skip UNCHANGED<br/>Endpoints"]
 
-    N -->|"Success/Fail"| R["Update Local Manifest<br/>+ Persist to State"]
-    O -->|"Success/Fail"| R
-    P -->|"Success/Fail"| R
+    K -->|"Healthy?"| O["Update State"]
+    L -->|"Healthy?"| O
+    M -->|"Decommissioned?"| O
 
-    R --> S["🚀 Reconciliation<br/>Complete"]
+    O --> P["Persist to State Manager"]
 
-    F -.->|"Parallel:<br/>Serve anytime"| T["GET /manifest<br/>Returns manifest"]
+    P --> Q["🚀 Reconciliation<br/>Complete"]
+
+    F -.->|"Peer-to-peer<br/>Service Discovery"| R["Query State Manager<br/>GraphQL API"]
 
     style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
-    style F fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style G fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style I fill:#f57c00,stroke:#bf360c,stroke-width:3px,color:#fff
+    style K fill:#f57c00,stroke:#bf360c,stroke-width:3px,color:#fff
     style L fill:#f57c00,stroke:#bf360c,stroke-width:3px,color:#fff
-    style N fill:#f57c00,stroke:#bf360c,stroke-width:3px,color:#fff
-    style O fill:#f57c00,stroke:#bf360c,stroke-width:3px,color:#fff
-    style P fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
-    style S fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
-    style T fill:#7b1fa2,stroke:#4a148c,stroke-width:3px,color:#fff
+    style M fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style Q fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style R fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style F fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
 ```
 
 ## Request Routing and Execution
@@ -123,7 +120,7 @@ graph LR
 - **Transparent Execution**: Functions can call other functions without knowing deployment topology; manifest handles routing
 - **State Synchronization**: Mothership maintains single source of truth, synced with GQL State Manager
 - **Reconciliation**: On each boot, Mothership reconciles local manifest with persisted state to deploy/update/undeploy resources
-- **Parallel Serving**: GET /manifest endpoint serves manifest independently of reconciliation process
+- **Peer-to-Peer Discovery**: All endpoints query State Manager GraphQL API directly for service discovery
 
 ## Actual Manifest Structure
 
@@ -230,9 +227,9 @@ Stored in State Manager with deployment metadata:
 }
 ```
 
-### GET /manifest Response
+### Persisted Manifest in State Manager
 
-Served by Mothership at `/manifest` endpoint. Returns the complete authoritative manifest fetched from State Manager, allowing Child Endpoints to synchronize their configuration:
+All endpoints query State Manager directly for manifest synchronization. There is no HTTP `/manifest` endpoint. Instead, endpoints use StateManagerClient to query the GraphQL API directly:
 
 ```json
 {
@@ -296,10 +293,10 @@ Each reconciliation action updates State Manager:
 
 ### Mothership
 - `FLASH_IS_MOTHERSHIP=true` - Identifies this endpoint as mothership
-- `RUNPOD_ENDPOINT_ID` - Used to construct mothership URL
 - `RUNPOD_API_KEY` - For State Manager authentication
 - `FLASH_MANIFEST_PATH` - Optional explicit path to manifest
 
 ### Child Endpoints
+- `RUNPOD_API_KEY` - For State Manager GraphQL access (peer-to-peer service discovery)
 - `FLASH_RESOURCE_NAME` - Which resource config this endpoint represents
 - `RUNPOD_ENDPOINT_ID` - This child's endpoint ID

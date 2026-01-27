@@ -17,8 +17,8 @@ class TestLiveServerless:
             name="example_gpu_live_serverless",
         )
 
-        # Should not have CPU functionality, uses default 64GB
-        assert not hasattr(live_serverless, "instanceIds")
+        # Should not have CPU instances, uses default 64GB
+        assert live_serverless.instanceIds is None
         assert live_serverless.template is not None
         assert live_serverless.template.containerDiskInGb == 64
         assert "tetra-rp:" in live_serverless.imageName  # GPU image

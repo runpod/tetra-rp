@@ -463,3 +463,51 @@ async def health():
         assert len(functions) == 1
         assert functions[0].config_variable == "gpu_config"
         assert functions[0].resource_config_name == "my-endpoint"
+
+
+def test_cpu_live_load_balancer_flags():
+    """Test that CpuLiveLoadBalancer is correctly flagged as load-balanced and live."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_dir = Path(tmpdir)
+        test_file = project_dir / "cpu_endpoint.py"
+
+        test_file.write_text(
+            """
+from tetra_rp import CpuLiveLoadBalancer, remote
+
+cpu_config = CpuLiveLoadBalancer(name="cpu_worker")
+
+@remote(cpu_config, method="POST", path="/validate")
+async def validate_data(text):
+    return {"valid": True}
+
+@remote(cpu_config, method="GET", path="/health")
+async def health():
+    return {"status": "ok"}
+"""
+        )
+
+        scanner = RemoteDecoratorScanner(project_dir)
+        functions = scanner.discover_remote_functions()
+
+        assert len(functions) == 2
+
+        # Check that both functions have the correct flags
+        for func in functions:
+            assert func.resource_config_name == "cpu_worker"
+            assert func.is_load_balanced is True, (
+                "CpuLiveLoadBalancer should be marked as load-balanced"
+            )
+            assert func.is_live_resource is True, (
+                "CpuLiveLoadBalancer should be marked as live resource"
+            )
+            assert func.resource_type == "CpuLiveLoadBalancer"
+
+        # Check specific HTTP metadata for each function
+        validate_func = next(f for f in functions if f.function_name == "validate_data")
+        assert validate_func.http_method == "POST"
+        assert validate_func.http_path == "/validate"
+
+        health_func = next(f for f in functions if f.function_name == "health")
+        assert health_func.http_method == "GET"
+        assert health_func.http_path == "/health"

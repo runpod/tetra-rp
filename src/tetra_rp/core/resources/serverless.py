@@ -19,6 +19,7 @@ from .base import DeployableResource
 from .cloud import runpod
 from .constants import CONSOLE_URL
 from .environment import EnvironmentVars
+from .cpu import CpuInstanceType
 from .gpu import GpuGroup
 from .network_volume import NetworkVolume, DataCenter
 from .template import KeyValuePair, PodTemplate
@@ -145,6 +146,7 @@ class ServerlessResource(DeployableResource):
     executionTimeoutMs: Optional[int] = 0
     gpuCount: Optional[int] = 1
     idleTimeout: Optional[int] = 5
+    instanceIds: Optional[List[CpuInstanceType]] = None
     locations: Optional[str] = None
     name: str
     networkVolumeId: Optional[str] = None
@@ -272,7 +274,7 @@ class ServerlessResource(DeployableResource):
             # Add prefix once
             self.name = f"{LIVE_PREFIX}{self.name}"
 
-        if self.flashboot:
+        if self.flashboot and not self.name.endswith("-fb"):
             # Remove all trailing '-fb' suffixes, then add one
             while self.name.endswith("-fb"):
                 self.name = self.name[:-3]
@@ -296,6 +298,85 @@ class ServerlessResource(DeployableResource):
         self._sync_input_fields_gpu()
 
         return self
+
+    def _has_cpu_instances(self) -> bool:
+        """Check if endpoint has CPU instances configured.
+
+        Returns:
+            True if instanceIds field is present and non-empty, False otherwise.
+        """
+        return (
+            hasattr(self, "instanceIds")
+            and self.instanceIds is not None
+            and len(self.instanceIds) > 0
+        )
+
+    def _get_cpu_disk_limit(self) -> Optional[int]:
+        """Calculate max disk size for CPU instances.
+
+        Returns:
+            Maximum allowed disk size in GB, or None if no CPU instances.
+        """
+        if not self._has_cpu_instances():
+            return None
+
+        from .cpu import get_max_disk_size_for_instances
+
+        return get_max_disk_size_for_instances(self.instanceIds)
+
+    def _apply_smart_disk_sizing(self, template: PodTemplate) -> None:
+        """Apply smart disk sizing based on instance type detection.
+
+        If CPU instances are detected and using the default disk size,
+        auto-sizes the disk to the CPU instance limit.
+
+        Args:
+            template: PodTemplate to configure.
+        """
+        cpu_limit = self._get_cpu_disk_limit()
+
+        if cpu_limit is None:
+            return  # No CPU instances, keep default
+
+        # Auto-size if using default value
+        default_disk_size = PodTemplate.model_fields["containerDiskInGb"].default
+        if template.containerDiskInGb == default_disk_size:
+            log.info(
+                f"Auto-sizing containerDiskInGb from {default_disk_size}GB "
+                f"to {cpu_limit}GB (CPU instance limit)"
+            )
+            template.containerDiskInGb = cpu_limit
+
+    def _validate_cpu_disk_size(self) -> None:
+        """Validate disk size doesn't exceed CPU instance limits.
+
+        Raises:
+            ValueError: If disk size exceeds CPU instance limits.
+        """
+        cpu_limit = self._get_cpu_disk_limit()
+
+        if cpu_limit is None:
+            return  # No CPU instances, no validation needed
+
+        if not self.template or not self.template.containerDiskInGb:
+            return
+
+        if self.template.containerDiskInGb > cpu_limit:
+            from .cpu import CPU_INSTANCE_DISK_LIMITS
+
+            instance_limits = [
+                f"{inst.value}: max {CPU_INSTANCE_DISK_LIMITS[inst]}GB"
+                for inst in self.instanceIds
+            ]
+
+            raise ValueError(
+                f"Container disk size {self.template.containerDiskInGb}GB exceeds "
+                f"the maximum allowed for CPU instances. "
+                f"Instance limits: {', '.join(instance_limits)}. "
+                f"Maximum allowed: {cpu_limit}GB. "
+                f"Consider using CpuServerlessEndpoint or CpuLiveServerless classes "
+                f"for CPU-only deployments."
+            )
 
     def _create_new_template(self) -> PodTemplate:
         """Create a new PodTemplate with standard configuration."""
@@ -665,10 +746,33 @@ class ServerlessEndpoint(ServerlessResource):
     """
 
     @model_validator(mode="after")
+    def validate_instance_mutual_exclusivity(self):
+        """Ensure gpuIds and instanceIds are mutually exclusive.
+
+        When instanceIds is specified, clears GPU configuration since CPU and GPU
+        are mutually exclusive resources. Prevents mixing GPU and CPU configurations.
+        """
+        has_cpu = (
+            hasattr(self, "instanceIds")
+            and self.instanceIds is not None
+            and len(self.instanceIds) > 0
+        )
+
+        if has_cpu:
+            # Clear GPU configuration if CPU instances are specified
+            # This makes CPU intent explicit
+            self.gpus = []
+            self.gpuIds = ""
+            self.gpuCount = 0
+
+        return self
+
+    @model_validator(mode="after")
     def set_serverless_template(self):
         """Create template from imageName if not provided.
 
         Must run after sync_input_fields to ensure all input fields are synced.
+        Applies smart disk sizing and validates configuration.
         """
         if not any([self.imageName, self.template, self.templateId]):
             raise ValueError(
@@ -677,8 +781,15 @@ class ServerlessEndpoint(ServerlessResource):
 
         if not self.templateId and not self.template:
             self.template = self._create_new_template()
+            # Apply smart disk sizing to new template
+            self._apply_smart_disk_sizing(self.template)
         elif self.template:
             self._configure_existing_template()
+            # Apply smart disk sizing to existing template
+            self._apply_smart_disk_sizing(self.template)
+
+        # Validate CPU disk size if applicable
+        self._validate_cpu_disk_size()
 
         return self
 

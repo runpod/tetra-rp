@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 from .endpoint import gpu_hello
 
-
 gpu_router = APIRouter()
 
 

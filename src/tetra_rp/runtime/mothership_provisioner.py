@@ -222,14 +222,14 @@ def reconcile_manifests(
 def create_resource_from_manifest(
     resource_name: str,
     resource_data: Dict[str, Any],
-    mothership_url: str,
+    mothership_url: str = "",
 ) -> DeployableResource:
     """Create DeployableResource config from manifest entry.
 
     Args:
         resource_name: Name of the resource
         resource_data: Resource configuration from manifest
-        mothership_url: Mothership URL to set in child env vars
+        mothership_url: Optional mothership URL (for future use with child env vars)
 
     Returns:
         Configured DeployableResource ready for deployment
@@ -239,7 +239,9 @@ def create_resource_from_manifest(
     """
     from tetra_rp.core.resources.live_serverless import (
         CpuLiveLoadBalancer,
+        CpuLiveServerless,
         LiveLoadBalancer,
+        LiveServerless,
     )
     from tetra_rp.core.resources.load_balancer_sls_resource import (
         LoadBalancerSlsResource,
@@ -252,6 +254,7 @@ def create_resource_from_manifest(
     if resource_type not in [
         "ServerlessResource",
         "LiveServerless",
+        "CpuLiveServerless",
         "LoadBalancerSlsResource",
         "LiveLoadBalancer",
         "CpuLiveLoadBalancer",
@@ -261,9 +264,8 @@ def create_resource_from_manifest(
         )
 
     # Create resource with mothership environment variables
-    # Note: Manifest doesn't contain full deployment config (image, workers, etc.)
-    # For now, create a minimal config with required fields
-    # TODO: Enhance manifest to include deployment config (image, workers, GPU type, etc.)
+    # Manifest now includes deployment config (imageName, templateId, GPU/worker settings)
+    # This enables auto-provisioning to create valid resource configurations
 
     # Create appropriate resource type based on manifest entry
     import os
@@ -271,6 +273,23 @@ def create_resource_from_manifest(
     env = {
         "FLASH_RESOURCE_NAME": resource_name,
     }
+
+    # Only set FLASH_MOTHERSHIP_ID when running in mothership context
+    # (i.e., when RUNPOD_ENDPOINT_ID is available).
+    # During CLI provisioning, RUNPOD_ENDPOINT_ID is not set, so we don't
+    # include FLASH_MOTHERSHIP_ID. This avoids Pydantic validation errors
+    # (missing keys are fine, None values are not).
+    mothership_id = os.getenv("RUNPOD_ENDPOINT_ID")
+    if mothership_id:
+        env["FLASH_MOTHERSHIP_ID"] = mothership_id
+
+    # Mothership-specific environment variables
+    if resource_data.get("is_mothership"):
+        env["FLASH_IS_MOTHERSHIP"] = "true"
+        if "main_file" in resource_data:
+            env["FLASH_MAIN_FILE"] = resource_data["main_file"]
+        if "app_variable" in resource_data:
+            env["FLASH_APP_VARIABLE"] = resource_data["app_variable"]
 
     # Add "tmp-" prefix for test-mothership deployments
     # Check environment variable set by test-mothership command
@@ -283,25 +302,51 @@ def create_resource_from_manifest(
     else:
         prefixed_name = resource_name
 
+    # Extract deployment config from manifest
+    deployment_kwargs = {"name": prefixed_name, "env": env}
+
+    # Add imageName or templateId if present (required for validation)
+    if "imageName" in resource_data:
+        deployment_kwargs["imageName"] = resource_data["imageName"]
+    elif "templateId" in resource_data:
+        deployment_kwargs["templateId"] = resource_data["templateId"]
+
+    # Optional: Add GPU/worker config if present
+    if "gpuIds" in resource_data:
+        deployment_kwargs["gpuIds"] = resource_data["gpuIds"]
+    if "workersMin" in resource_data:
+        deployment_kwargs["workersMin"] = resource_data["workersMin"]
+    if "workersMax" in resource_data:
+        deployment_kwargs["workersMax"] = resource_data["workersMax"]
+
+    # Note: template is extracted but not passed to resource constructor
+    # Let resources create their own templates with proper initialization
+    # Templates are created by resource's _create_new_template() method
+
+    # Create resource with full deployment config
     if resource_type == "CpuLiveLoadBalancer":
-        resource = CpuLiveLoadBalancer(name=prefixed_name, env=env)
+        resource = CpuLiveLoadBalancer(**deployment_kwargs)
+    elif resource_type == "CpuLiveServerless":
+        resource = CpuLiveServerless(**deployment_kwargs)
     elif resource_type == "LiveLoadBalancer":
-        resource = LiveLoadBalancer(name=prefixed_name, env=env)
+        resource = LiveLoadBalancer(**deployment_kwargs)
+    elif resource_type == "LiveServerless":
+        resource = LiveServerless(**deployment_kwargs)
     elif resource_type == "LoadBalancerSlsResource":
-        resource = LoadBalancerSlsResource(name=prefixed_name, env=env)
+        resource = LoadBalancerSlsResource(**deployment_kwargs)
     else:
-        # ServerlessResource and LiveServerless
-        resource = ServerlessResource(name=prefixed_name, env=env)
+        # ServerlessResource (default)
+        resource = ServerlessResource(**deployment_kwargs)
 
     return resource
 
 
-async def provision_children(
+async def reconcile_children(
     manifest_path: Path,
     mothership_url: str,
     state_client: StateManagerClient,
 ) -> None:
-    """Provision all child resources with reconciliation.
+    """Reconcile all child resources based on manifest differences.
 
     Orchestrates deployment/update/delete of resources based on manifest differences.
 

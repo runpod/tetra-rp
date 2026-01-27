@@ -14,20 +14,86 @@ from tetra_rp.core.resources.live_serverless import LiveServerless, CpuLiveServe
 from tetra_rp.core.resources.template import PodTemplate
 
 
+class TestUniversalCpuDetectionIntegration:
+    """Test universal CPU detection on GPU endpoint classes."""
+
+    def test_gpu_class_with_cpu_instances_auto_sizes(self):
+        """Integration: GPU class with CPU instances auto-sizes correctly."""
+        endpoint = ServerlessEndpoint(
+            name="gpu_class_cpu_instances",
+            imageName="my-app:latest",
+            instanceIds=[CpuInstanceType.CPU3G_8_32],
+        )
+
+        # Should auto-size to 80GB (not fail with 64GB default)
+        assert endpoint.template is not None
+        assert endpoint.template.containerDiskInGb == 80
+        assert endpoint.instanceIds == [CpuInstanceType.CPU3G_8_32]
+
+    def test_gpu_class_with_small_cpu_instance_auto_sizes(self):
+        """GPU class with small CPU instance auto-sizes from default 64GB."""
+        endpoint = ServerlessEndpoint(
+            name="gpu_class_small_cpu",
+            imageName="my-app:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],  # 10GB limit
+        )
+
+        # Should auto-size from default 64GB to 10GB limit
+        assert endpoint.template.containerDiskInGb == 10
+
+    def test_gpu_live_class_with_cpu_instances_auto_sizes(self):
+        """Integration: LiveServerless with CPU instances auto-sizes."""
+        # This creates a GPU-class endpoint with CPU instances
+        endpoint = LiveServerless(
+            name="gpu_live_cpu_instances",
+            instanceIds=[CpuInstanceType.CPU3G_4_16],  # 40GB limit
+        )
+
+        # Should auto-size from 64GB to 40GB
+        assert endpoint.template.containerDiskInGb == 40
+
+    def test_instance_ids_clears_gpu_config_integration(self):
+        """Integration: instanceIds clears GPU config across classes."""
+        # ServerlessEndpoint with both GPU and CPU specs
+        endpoint1 = ServerlessEndpoint(
+            name="test-mixed-1",
+            imageName="my-app:latest",
+            gpuIds="NVIDIA A40",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        # GPU config should be cleared
+        assert endpoint1.gpus == []
+        assert endpoint1.gpuIds == ""
+        assert endpoint1.instanceIds == [CpuInstanceType.CPU3G_1_4]
+
+        # LiveServerless with both GPU and CPU specs
+        endpoint2 = LiveServerless(
+            name="test-mixed-2",
+            gpuIds="NVIDIA A40",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        # GPU config should be cleared
+        assert endpoint2.gpus == []
+        assert endpoint2.gpuIds == ""
+        assert endpoint2.instanceIds == [CpuInstanceType.CPU3G_1_4]
+
+
 class TestCpuDiskSizingIntegration:
     """Test CPU disk sizing across different endpoint types."""
 
     def test_serverless_endpoint_no_auto_sizing(self):
-        """Test ServerlessEndpoint (GPU) doesn't auto-size for CPU instances."""
+        """Test ServerlessEndpoint (GPU) without instanceIds uses default 64GB."""
         endpoint = ServerlessEndpoint(
             name="test-gpu-endpoint",
             imageName="test/gpu-image:latest",
         )
 
-        # Should not have instanceIds, so no auto-sizing - uses default 64GB
+        # Should not have instanceIds specified, so no auto-sizing - uses default 64GB
         assert endpoint.template is not None
         assert endpoint.template.containerDiskInGb == 64
-        assert not hasattr(endpoint, "instanceIds")
+        assert endpoint.instanceIds is None
 
     def test_cpu_serverless_endpoint_auto_sizing_flow(self):
         """Test complete CPU auto-sizing flow in CpuServerlessEndpoint."""

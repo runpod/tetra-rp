@@ -189,7 +189,7 @@ class TestServiceRegistry:
             # Mock the manifest client
             mock_client = AsyncMock()
             mock_client.get_persisted_manifest.return_value = {
-                "resources_endpoints": {"cpu_config": "https://api.runpod.io/v2/abc123"}
+                "resources_endpoints": {"cpu_config": "https://api.runpod.ai/v2/abc123"}
             }
             registry._manifest_client = mock_client
 

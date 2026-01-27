@@ -27,14 +27,14 @@ graph TB
         S3["S3 Storage<br/>archive.tar.gz"]
 
         subgraph Mothership["Mothership Endpoint<br/>(FLASH_IS_MOTHERSHIP=true)"]
-            MothershipProvisioner["MothershipsProvisioner<br/>Reconcile & Deploy"]
-            MothershipRegistry["Manifest Cache<br/>Function Registry"]
+            MothershipReconciler["MothershipsProvisioner<br/>Reconcile Children"]
+            MothershipState["State Sync<br/>to State Manager"]
         end
 
         subgraph ChildEndpoints["Child Endpoints<br/>(Resource Configs)"]
             Handler1["GPU Handler<br/>@remote functions"]
             Handler2["CPU Handler<br/>@remote functions"]
-            LocalRegistry["Service Registry<br/>Cross-endpoint routing"]
+            StateQuery["Service Registry<br/>Query State Manager"]
         end
     end
 
@@ -43,10 +43,10 @@ graph TB
     Developer -->|flash build| Build
     Build -->|archive| S3
     Developer -->|flash deploy send| S3
-    S3 -->|download| Mothership
-    Mothership -->|reconcile| ChildEndpoints
-    MothershipProvisioner -->|update state| Database
-    ChildEndpoints -->|query manifest| Database
+    CLI -->|provision upfront<br/>before activation| ChildEndpoints
+    Mothership -->|reconcile_children<br/>on boot| ChildEndpoints
+    MothershipReconciler -->|update state| Database
+    ChildEndpoints -->|query manifest<br/>peer-to-peer| Database
     Developer -->|call @remote| ChildEndpoints
 
     style Mothership fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
@@ -120,8 +120,8 @@ flash deploy send <env_name> [--app-name <app_name>]
 
 **What it does:**
 1. Uploads archive.tar.gz to S3
-2. Notifies mothership endpoint to download and extract
-3. Triggers auto-provisioning on mothership boot
+2. Provisions all resources upfront before environment activation
+3. Manifest is read from `.flash/` directory on resources
 
 **Example:**
 ```bash
@@ -275,12 +275,10 @@ archive.tar.gz
 sequenceDiagram
     Developer->>CLI: flash deploy send <env_name>
     CLI->>S3: Upload .flash/archive.tar.gz
-    CLI->>RunPod: POST /run<br/>with archive URL
-    RunPod->>Mothership: Boot mothership endpoint
-    Mothership->>Mothership: Download archive from URL
-    Mothership->>Mothership: Extract to working dir
-    Mothership->>Mothership: Load flash_manifest.json
-    Mothership->>MothershipsProvisioner: Trigger reconciliation
+    CLI->>RunPod: Create endpoints via API<br/>with manifest reference
+    RunPod->>ChildEndpoints: Boot endpoints
+    ChildEndpoints->>ChildEndpoints: Read manifest from .flash/
+    ChildEndpoints->>StateManager: Query for peer endpoints<br/>peer-to-peer discovery
 ```
 
 **Upload Process** (`src/tetra_rp/cli/commands/deploy.py:197-224`):
@@ -293,44 +291,39 @@ sequenceDiagram
 
 ---
 
-### Phase 3: Mothership Boot & Auto-Provisioning
+### Phase 3: Mothership Boot & Reconciliation
 
-The mothership runs on each boot to reconcile desired state (manifest) with current state (local resources).
+The mothership runs on each boot to perform reconcile_children() - reconciling desired state (manifest) with current state (local resources). Note: All resources are provisioned upfront by the CLI before environment activation.
 
 ```mermaid
 sequenceDiagram
     RunPod->>Mothership: Boot endpoint
     Mothership->>Mothership: Initialize runtime
-    Mothership->>ManifestProvisioner: Load manifest
-    ManifestProvisioner->>ManifestProvisioner: Read flash_manifest.json
-    ManifestProvisioner->>StateManager: Fetch persisted state
-    StateManager->>GraphQL: Query activeBuildId →<br/>manifest
+    Mothership->>ManifestFetcher: Load manifest from .flash/
+    ManifestFetcher->>ManifestFetcher: Read flash_manifest.json
+    Mothership->>MothershipsProvisioner: Execute reconcile_children()
+    MothershipsProvisioner->>StateManager: Fetch persisted state
+    StateManager->>GraphQL: Query persisted manifest
     GraphQL->>StateManager: Return persisted manifest
-    ManifestProvisioner->>ManifestProvisioner: Compute diff:<br/>new, changed, removed
-    ManifestProvisioner->>ResourceManager: Deploy resources
-    ResourceManager->>RunPod: Create GPU endpoint<br/>(gpu_config)
-    RunPod->>GPU: Boot with handler
-    GPU->>Mothership: Register endpoint
-    ResourceManager->>RunPod: Create CPU endpoint<br/>(cpu_config)
-    RunPod->>CPU: Boot with handler
-    CPU->>Mothership: Register endpoint
-    ManifestProvisioner->>StateManager: Update state<br/>with endpoints
+    MothershipsProvisioner->>MothershipsProvisioner: Compute diff:<br/>new, changed, removed
+    MothershipsProvisioner->>StateManager: Update state after<br/>reconciliation
     StateManager->>GraphQL: Mutation:<br/>updateFlashBuildManifest
+    MothershipsProvisioner->>Mothership: Reconciliation complete
 ```
 
 **Key Components:**
 
 **MothershipsProvisioner** (`src/tetra_rp/runtime/mothership_provisioner.py`):
 - `is_mothership()`: Check if endpoint is mothership (FLASH_IS_MOTHERSHIP=true)
-- `reconcile_manifest()`: Compute diff between desired and current state
-- Orchestrates resource creation via ResourceManager
-- Updates State Manager with deployed resources
+- `reconcile_children()`: Compute diff between desired and current state
+- Verifies child endpoints are deployed and healthy
+- Updates State Manager with reconciliation results
 
 **ResourceManager** (`src/tetra_rp/core/resources/resource_manager.py`):
 - Singleton pattern (global resource registry)
 - Stores state in `.runpod/resources.pkl` with file locking
 - Tracks config hashes for drift detection (hash comparison)
-- Supports parallel deployment (max 3 concurrent, configurable)
+- Provisioned upfront by CLI before environment activation
 - Auto-migrates legacy resources
 
 **StateManagerClient** (`src/tetra_rp/runtime/state_manager_client.py`):
@@ -340,12 +333,12 @@ sequenceDiagram
 - Retries with exponential backoff (3 attempts)
 
 **Reconciliation Logic**:
-1. **Fetch persisted manifest**: Query State Manager for previous deployment state
+1. **Fetch persisted manifest**: Query State Manager for previous reconciliation state
 2. **Compare with current manifest**: Detect new, changed, and removed resources
-3. **Deploy new resources**: Create endpoints for new resource configs
-4. **Update changed resources**: Apply configuration changes if hash differs
-5. **Remove deleted resources**: Decommission endpoints no longer in manifest
-6. **Persist new state**: Update State Manager with current deployment
+3. **Verify new resources**: Check that new endpoints are deployed and healthy
+4. **Verify changed resources**: Check if hash differs, verify endpoint health
+5. **Verify removed resources**: Check that deleted endpoints are decommissioned
+6. **Persist new state**: Update State Manager with current reconciliation results
 
 **Key Files:**
 - `src/tetra_rp/runtime/mothership_provisioner.py` - Reconciliation logic
@@ -362,11 +355,11 @@ Each child endpoint boots independently and prepares for function execution.
 sequenceDiagram
     RunPod->>Child: Boot with handler_gpu_config.py
     Child->>Child: Initialize runtime
-    Child->>ManifestFetcher: Load manifest
+    Child->>ManifestFetcher: Load manifest from .flash/
     ManifestFetcher->>ManifestFetcher: Check cache<br/>(TTL: 300s)
     alt Cache expired
-        ManifestFetcher->>RunPod: Query GraphQL API<br/>getManifest()
-        RunPod->>ManifestFetcher: Return manifest
+        ManifestFetcher->>StateManager: Query GraphQL API<br/>State Manager
+        StateManager->>ManifestFetcher: Return manifest
     else Cache valid
         ManifestFetcher->>ManifestFetcher: Return cached
     end
@@ -374,29 +367,30 @@ sequenceDiagram
     Child->>ServiceRegistry: Load manifest
     ServiceRegistry->>ServiceRegistry: Build function_registry
     ServiceRegistry->>ServiceRegistry: Build resource_mapping
-    Child->>Mothership: GET /manifest<br/>Get endpoint registry
-    Mothership->>Child: Return {resource_name: url}
+    Child->>StateManager: Query State Manager<br/>peer-to-peer discovery
+    StateManager->>Child: Return peer endpoints
     Child->>ServiceRegistry: Cache endpoint URLs
     Child->>Ready: Ready to execute functions
 ```
 
 **ManifestFetcher** (`src/tetra_rp/runtime/manifest_fetcher.py`):
 - Caches manifest with TTL (default: 300s)
-- Fetches from RunPod GraphQL API (source of truth)
+- Fetches from State Manager GraphQL API (source of truth)
 - Falls back to local flash_manifest.json if API unavailable
 - Updates local file with fetched data
 - Thread-safe with asyncio.Lock
 
 **ServiceRegistry** (`src/tetra_rp/runtime/service_registry.py`):
 - Loads manifest to build function registry
-- Queries mothership for endpoint URLs: `GET /manifest`
+- Queries State Manager for peer endpoint URLs via GraphQL (peer-to-peer)
 - Returns mapping: `{resource_config_name: endpoint_url}`
 - Determines local vs remote function calls:
   - Local: Function's resource config matches FLASH_RESOURCE_NAME env var
-  - Remote: Query ServiceRegistry for endpoint URL
+  - Remote: Query State Manager for peer endpoint URL
 
 **Key Environment Variables**:
 - `FLASH_RESOURCE_NAME`: This endpoint's resource config name (e.g., "gpu_config")
+- `RUNPOD_API_KEY`: API key for State Manager GraphQL access (peer-to-peer discovery)
 - `FLASH_MANIFEST_PATH`: Optional override for manifest location
 - `RUNPOD_ENDPOINT_ID`: This endpoint's RunPod endpoint ID
 
@@ -472,7 +466,6 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 **Load-Balanced** (`src/tetra_rp/runtime/lb_handler.py`):
 - FastAPI app with user-defined HTTP routes
 - `/execute` endpoint for @remote execution (LiveLoadBalancer only)
-- `/manifest` endpoint for mothership service discovery
 - User routes: HTTP methods + paths from manifest
 
 **Key Files:**
@@ -537,7 +530,7 @@ The manifest is the contract between build-time and runtime. It defines all depl
 - No duplicate function names across resources
 - No duplicate routes (method + path conflicts)
 - Load-balanced endpoints have method and path
-- No reserved paths (/execute, /ping, /manifest)
+- No reserved paths (/execute, /ping)
 
 **Code Reference**: `src/tetra_rp/cli/commands/build_utils/manifest.py:50-164`
 
@@ -571,9 +564,9 @@ The manifest is the contract between build-time and runtime. It defines all depl
 2. **Build function registry**: Map function_name → resource_config
    - Used to determine local vs remote execution
 
-3. **Query mothership**: Get endpoint URLs
-   - Endpoint: `GET https://{mothership_id}.api.runpod.ai/manifest`
-   - Returns: `{"resource_name": "https://endpoint.api.runpod.ai"}`
+3. **Query State Manager**: Get endpoint URLs via GraphQL
+   - Queries RunPod State Manager GraphQL API directly
+   - Returns: Resource endpoints for all deployed child endpoints
    - Retries with exponential backoff
 
 4. **Cache endpoints**: Store for routing decisions
@@ -585,9 +578,9 @@ The manifest is the contract between build-time and runtime. It defines all depl
 ### State Persistence: StateManagerClient
 
 The State Manager persists manifest state in RunPod's infrastructure, enabling:
-- Mothership boot consistency
-- Cross-boot resource tracking
-- Manifest reconciliation
+- Cross-boot reconciliation tracking
+- Peer-to-peer service discovery
+- Manifest synchronization across endpoints
 
 **Architecture**:
 ```
@@ -720,7 +713,7 @@ When `@remote function` is called, the client determines whether to execute loca
 **Load-Balanced (FastAPI)**:
 - HTTP routing with user-defined routes
 - `/execute` endpoint for framework use
-- `/manifest` endpoint for service discovery
+- State Manager GraphQL for peer-to-peer service discovery
 - Example: `LiveLoadBalancer` resource
 
 ### FunctionRequest/FunctionResponse Protocol
@@ -833,11 +826,6 @@ async def execute_remote_function(request: Request) -> Dict[str, Any]:
         "result": serialize_result(result),
     }
 
-# Manifest service discovery endpoint
-@app.get("/manifest")
-async def get_manifest() -> Dict[str, Any]:
-    fetcher = ManifestFetcher()
-    return await fetcher.get_manifest()
 ```
 
 **Code References**:
@@ -869,7 +857,7 @@ else:
 ```
 
 **Endpoint URL Caching**:
-- Queries mothership: `GET /manifest`
+- Queries State Manager GraphQL API directly (peer-to-peer)
 - Caches with TTL (default: 300s)
 - Retries with exponential backoff if query fails
 
@@ -946,25 +934,24 @@ graph TB
 graph LR
     A["Build Time<br/>ManifestBuilder"] -->|Generate| B["flash_manifest.json<br/>(embedded in archive)"]
     B -->|Upload| C["S3<br/>(archive.tar.gz)"]
-    C -->|Download| D["Mothership<br/>(extract archive)"]
-    D -->|Load & Query<br/>RunPod GQL| E["ManifestFetcher<br/>(cache)"]
-    D -->|Update State| F["StateManager<br/>(GraphQL API)"]
-    G["Child Endpoint<br/>(boot)"] -->|Load from<br/>local file| H["LocalManifest<br/>(from archive)"]
-    H -->|Build registry| I["ServiceRegistry<br/>(function mapping)"]
-    I -->|Query| J["Mothership<br/>GET /manifest"]
-    J -->|Return endpoints| I
-    I -->|Route calls| K["Handler<br/>(execute)"]
+    C -->|Provision upfront<br/>before activation| D["Child Endpoints<br/>(deployed)"]
+    D -->|Extract from<br/>.flash/ directory| E["LocalManifest<br/>(from archive)"]
+    Mothership -->|Load from<br/>.flash/| E
+    E -->|Build registry| F["ServiceRegistry<br/>(function mapping)"]
+    F -->|Query State Manager<br/>peer-to-peer| G["StateManager<br/>(GraphQL API)"]
+    G -->|Return endpoints| F
+    F -->|Route calls| H["Handler<br/>(execute)"]
+    Mothership -->|reconcile_children<br/>on boot| D
 
     style A fill:#f57c00,stroke:#e65100,stroke-width:2px,color:#fff
     style B fill:#ff6f00,stroke:#e65100,stroke-width:2px,color:#fff
     style C fill:#ff6f00,stroke:#e65100,stroke-width:2px,color:#fff
     style D fill:#1976d2,stroke:#0d47a1,stroke-width:2px,color:#fff
-    style E fill:#1976d2,stroke:#0d47a1,stroke-width:2px,color:#fff
-    style F fill:#0d47a1,stroke:#051c66,stroke-width:2px,color:#fff
-    style G fill:#388e3c,stroke:#1b5e20,stroke-width:2px,color:#fff
+    style E fill:#388e3c,stroke:#1b5e20,stroke-width:2px,color:#fff
+    style F fill:#388e3c,stroke:#1b5e20,stroke-width:2px,color:#fff
+    style G fill:#0d47a1,stroke:#051c66,stroke-width:2px,color:#fff
     style H fill:#388e3c,stroke:#1b5e20,stroke-width:2px,color:#fff
-    style I fill:#388e3c,stroke:#1b5e20,stroke-width:2px,color:#fff
-    style K fill:#388e3c,stroke:#1b5e20,stroke-width:2px,color:#fff
+    style Mothership fill:#1976d2,stroke:#0d47a1,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -1023,6 +1010,11 @@ graph LR
 - Resource config name (e.g., "gpu_config", "cpu_config")
 - Identifies which resource config this endpoint represents
 - Used by ServiceRegistry for local vs remote detection
+
+**RUNPOD_API_KEY** (Required for peer-to-peer discovery)
+- API key for State Manager GraphQL access
+- Enables endpoints to query manifest peer-to-peer
+- Used by all endpoints for service discovery
 
 **FLASH_MANIFEST_PATH** (Optional)
 - Override default manifest file location
@@ -1114,11 +1106,11 @@ async with state_manager_lock:
 
 **Reconciliation**:
 On mothership boot:
-1. Load local manifest (desired state)
-2. Fetch persisted manifest (current state)
+1. Load local manifest from .flash/ (desired state)
+2. Fetch persisted manifest from State Manager (previous reconciliation state)
 3. Compare → detect new, changed, removed resources
-4. Update resources
-5. Persist new state
+4. Verify resource health and status
+5. Persist reconciliation state to State Manager
 
 **Code Reference**: `src/tetra_rp/runtime/state_manager_client.py`
 
@@ -1228,9 +1220,8 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 
 | File | Purpose |
 |------|---------|
-| `src/tetra_rp/runtime/manifest_fetcher.py` | Manifest fetching with caching (GQL API) |
-| `src/tetra_rp/runtime/manifest_client.py` | HTTP client for mothership manifest API |
-| `src/tetra_rp/runtime/state_manager_client.py` | GraphQL client for state persistence |
+| `src/tetra_rp/runtime/manifest_fetcher.py` | Manifest loading from local .flash/ directory |
+| `src/tetra_rp/runtime/state_manager_client.py` | GraphQL client for peer-to-peer service discovery |
 | `src/tetra_rp/runtime/mothership_provisioner.py` | Auto-provisioning logic |
 
 ### Runtime: Execution
@@ -1277,9 +1268,10 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 **Cause**: ServiceRegistry unable to query mothership or manifest outdated
 
 **Solution**:
-1. Check mothership endpoint is running: `curl https://{mothership_id}.api.runpod.ai/ping`
-2. Verify manifest includes the resource config: `grep resource_name flash_manifest.json`
-3. Check network connectivity between child and mothership endpoints
+1. Verify `RUNPOD_API_KEY` environment variable is set
+2. Check State Manager GraphQL API is accessible
+3. Verify manifest includes the resource config: `grep resource_name flash_manifest.json`
+4. Check that child endpoints are deployed and healthy
 
 ### Issue: Manifest cache staleness
 
