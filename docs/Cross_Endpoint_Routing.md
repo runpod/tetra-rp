@@ -974,7 +974,6 @@ except Exception as e:
 ```python
 # Check environment variables
 import os
-print(f"FLASH_MOTHERSHIP_ID: {os.getenv('FLASH_MOTHERSHIP_ID')}")
 print(f"RUNPOD_ENDPOINT_ID: {os.getenv('RUNPOD_ENDPOINT_ID')}")
 
 # Check state manager client directly

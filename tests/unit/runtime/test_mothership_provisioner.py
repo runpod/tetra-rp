@@ -402,8 +402,6 @@ class TestCreateResourceFromManifest:
             assert isinstance(resource, ServerlessResource)
             # ServerlessResource may append "-fb" suffix during initialization
             assert resource_name in resource.name
-            # FLASH_MOTHERSHIP_ID should be present when RUNPOD_ENDPOINT_ID is set
-            assert resource.env["FLASH_MOTHERSHIP_ID"] == "mothership-123"
             assert resource.env["FLASH_RESOURCE_NAME"] == resource_name
 
     def test_create_resource_from_manifest_live_serverless(self):
