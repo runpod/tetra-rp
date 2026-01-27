@@ -270,7 +270,6 @@ def create_resource_from_manifest(
 
     env = {
         "FLASH_RESOURCE_NAME": resource_name,
-        "FLASH_MOTHERSHIP_ID": os.getenv("RUNPOD_ENDPOINT_ID"),
     }
 
     # Add "tmp-" prefix for test-mothership deployments

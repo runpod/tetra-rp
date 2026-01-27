@@ -463,7 +463,7 @@ class ServiceRegistry:
             manifest_path: Path to flash_manifest.json. Defaults to
                 FLASH_MANIFEST_PATH env var or auto-detection.
             manifest_client: Manifest service client for mothership API. If None,
-                creates one from FLASH_MOTHERSHIP_ID env var.
+                creates one using State Manager API.
             cache_ttl: Manifest cache lifetime in seconds (default: 300).
 
         Environment Variables (for local vs remote detection):
@@ -973,7 +973,6 @@ except Exception as e:
 ```python
 # Check environment variables
 import os
-print(f"FLASH_MOTHERSHIP_ID: {os.getenv('FLASH_MOTHERSHIP_ID')}")
 print(f"RUNPOD_ENDPOINT_ID: {os.getenv('RUNPOD_ENDPOINT_ID')}")
 
 # Check state manager client directly
