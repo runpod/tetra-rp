@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/runpod/tetra-rp/compare/v0.20.1...v0.21.0) (2026-01-26)
+
+
+### Features
+
+* add "live-" prefix to live serverless endpoints ([#150](https://github.com/runpod/tetra-rp/issues/150)) ([5c8fa33](https://github.com/runpod/tetra-rp/commit/5c8fa33326eb6f4d1bff4cc8d8e09d7eb97821dc))
+
 ## [0.20.1](https://github.com/runpod/tetra-rp/compare/v0.20.0...v0.20.1) (2026-01-22)
 
 
