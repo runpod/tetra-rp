@@ -153,7 +153,7 @@ def mock_env_vars(monkeypatch: pytest.MonkeyPatch) -> Dict[str, str]:
     """
     env_vars = {
         "RUNPOD_API_KEY": "test_api_key_123",
-        "RUNPOD_API_BASE_URL": "https://api.runpod.io/v2",
+        "RUNPOD_API_BASE_URL": "https://api.runpod.ai/v2",
         "LOG_LEVEL": "ERROR",  # Suppress logs during tests
     }
 
@@ -210,19 +210,24 @@ def sample_pod_template() -> Dict[str, Any]:
 
 
 @pytest.fixture(scope="session")
-def worker_temp_dir(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Path:
+def worker_temp_dir(
+    tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest
+) -> Path:
     """Provide worker-specific temporary directory for file system isolation.
 
     Each xdist worker gets its own isolated temp directory to prevent
-    file system conflicts when tests write to shared paths.
+    file system conflicts when tests write to shared paths. The worker ID
+    is extracted from the pytest-xdist request object.
 
     Args:
         tmp_path_factory: Pytest's temporary path factory.
-        worker_id: Worker ID from pytest-xdist ('master' for single worker).
+        request: Pytest request object used to extract worker ID.
 
     Returns:
         Path to worker-specific temporary directory.
     """
+    worker_id = getattr(request.config, "workerinput", {}).get("workerid", "master")
+
     if worker_id == "master":
         # Single worker (non-parallel)
         return tmp_path_factory.mktemp("test_data")

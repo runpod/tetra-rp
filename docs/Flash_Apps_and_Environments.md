@@ -6,7 +6,7 @@ Flash apps are the top-level packaging unit for Flash projects. Each app tracks 
 ## Key Concepts
 - **Flash App**: Logical container created once per project. It owns the ID used for uploads, holds references to environments/builds, and backs the `flash app` CLI.
 - **Flash Environment**: Named deployment target under an app. Environments point to the currently active build, maintain endpoint + network volume associations, and power the `flash deploy` CLI.
-- **Flash Build**: Tarball artifacts uploaded per app. Deployments reference builds by ID when promoting to an environment.
+- **Flash Build**: Tarball artifacts uploaded per app (.flash/archive.tar.gz). Used for extracting manifest and deploying to endpoints during resource provisioning.
 
 ## Lifecycle
 1. **App Discovery/Hydration**
@@ -15,8 +15,8 @@ Flash apps are the top-level packaging unit for Flash projects. Each app tracks 
 2. **Environment Creation**
    - `flash deploy new <env>` calls `FlashApp.create_environment_and_app` to ensure the parent app exists and to create the environment in a single async transaction.
    - Once created, the CLI prints both a confirmation panel and a table summarizing the environment metadata so operators can confirm IDs/states.
-3. **Build Upload & Promotion**
-   - `flash build` generates `.flash/archive.tar.gz` artifacts. `flash deploy send <env>` checks for that path, uploads via `deploy_to_environment`, and records the resulting build ID against the environment.
+3. **Build Upload & Resource Provisioning**
+   - `flash build` generates `.flash/archive.tar.gz` artifacts containing source code and flash_manifest.json. `flash deploy send <env>` uploads the archive and provisions all resources upfront before environment activation, extracting the manifest on each resource during boot.
 4. **Inspection & Operations**
    - `flash app list/get` surface app-level metadata: environment counts, build history, IDs.
    - `flash deploy list/info` zoom into environment state, showing associated endpoints and volumes, while `flash deploy delete` tears them down with confirmation prompts.

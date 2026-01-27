@@ -59,20 +59,20 @@ The manifest structure:
 
 #### 2. Set Environment Variables
 
-Configure the mothership manifest URL (required for remote routing):
+Configure State Manager access for peer-to-peer routing:
 
 ```bash
-# Required for cross-endpoint routing to work
-export FLASH_MOTHERSHIP_ID=mothership-endpoint-id
+# Required: API key for State Manager GraphQL access
+export RUNPOD_API_KEY=your-api-key
 
-# For child endpoints: Identifies which resource config this endpoint represents
+# Optional: Identifies which resource config this endpoint represents
 export FLASH_RESOURCE_NAME=gpu_config
 
-# Fallback: Used if FLASH_RESOURCE_NAME not set (for mothership identification)
+# Optional: Fallback endpoint ID
 export RUNPOD_ENDPOINT_ID=gpu-endpoint-123
 ```
 
-Note: Without `FLASH_MOTHERSHIP_ID`, all functions execute locally. The system gracefully falls back to local execution.
+**Architecture**: Cross-endpoint routing uses a peer-to-peer model where all endpoints query State Manager directly for service discovery. No single point of failure (no hub-and-spoke).
 
 #### 3. Define Functions
 
@@ -152,12 +152,10 @@ The manifest file (`flash_manifest.json`) defines function routing and resource 
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `FLASH_MOTHERSHIP_ID` | Yes* | Mothership endpoint ID for manifest service |
-| `FLASH_RESOURCE_NAME` | No | Resource config name for child endpoints (identifies which resource this endpoint represents) |
-| `RUNPOD_ENDPOINT_ID` | No | Fallback endpoint ID (used if FLASH_RESOURCE_NAME not set) |
+| `RUNPOD_API_KEY` | Yes | State Manager GraphQL authentication |
+| `FLASH_RESOURCE_NAME` | No | Resource config name for this endpoint |
+| `RUNPOD_ENDPOINT_ID` | No | Fallback endpoint ID |
 | `FLASH_MANIFEST_PATH` | No | Explicit path to manifest file |
-
-*Required for remote routing; without it, all functions execute locally
 
 ### Usage Patterns
 
@@ -275,12 +273,12 @@ async def helper_function(x: int) -> int:
 
 **Manifest Service Unavailable**
 
-If `FLASH_MOTHERSHIP_ID` is not set or unreachable:
+If `RUNPOD_API_KEY` is not set or State Manager is unreachable:
 ```
-WARNING: FLASH_MOTHERSHIP_ID not set, manifest service unavailable
+WARNING: State Manager unavailable, manifest service not available
 ```
 
-Functions default to local execution. Set the environment variable to enable routing.
+Functions default to local execution. Set `RUNPOD_API_KEY` to enable remote routing.
 
 **Manifest Not Found**
 
@@ -456,7 +454,7 @@ class ServiceRegistry:
     def __init__(
         self,
         manifest_path: Optional[Path] = None,
-        manifest_client: Optional[ManifestClient] = None,
+        state_manager_client: Optional[StateManagerClient] = None,
         cache_ttl: int = DEFAULT_CACHE_TTL,
     ):
         """Initialize service registry.
@@ -464,21 +462,22 @@ class ServiceRegistry:
         Args:
             manifest_path: Path to flash_manifest.json. Defaults to
                 FLASH_MANIFEST_PATH env var or auto-detection.
-            manifest_client: Manifest service client for mothership API. If None,
-                creates one from FLASH_MOTHERSHIP_ID env var.
+            state_manager_client: State Manager GraphQL client for peer-to-peer discovery.
+                If None, creates one from RUNPOD_API_KEY env var.
             cache_ttl: Manifest cache lifetime in seconds (default: 300).
 
         Environment Variables (for local vs remote detection):
+            RUNPOD_API_KEY: API key for State Manager GraphQL access (peer-to-peer).
             FLASH_RESOURCE_NAME: Resource config name for this endpoint (child endpoints).
                 Identifies which resource config this endpoint represents in the manifest.
-            RUNPOD_ENDPOINT_ID: Endpoint ID (used as fallback for mothership identification).
+            RUNPOD_ENDPOINT_ID: Endpoint ID (used as fallback for identification).
         """
         self._load_manifest(manifest_path)
-        self._manifest_client = manifest_client or ManifestClient()
+        self._state_manager_client = state_manager_client or StateManagerClient()
         self._endpoint_registry = {}  # Cached endpoint URLs
         self._endpoint_registry_lock = asyncio.Lock()
         # Child endpoints use FLASH_RESOURCE_NAME to identify which resource they represent
-        # Mothership doesn't have FLASH_RESOURCE_NAME, so falls back to RUNPOD_ENDPOINT_ID
+        # Falls back to RUNPOD_ENDPOINT_ID if not set
         self._current_endpoint = os.getenv("FLASH_RESOURCE_NAME") or os.getenv(
             "RUNPOD_ENDPOINT_ID"
         )
@@ -492,13 +491,15 @@ class ServiceRegistry:
         return self._resolve_resource(config)
 
     async def _ensure_manifest_loaded(self) -> None:
-        """Load manifest from mothership if cache expired or not loaded."""
+        """Load manifest from State Manager GraphQL API if cache expired or not loaded."""
         async with self._endpoint_registry_lock:
             now = time.time()
             cache_age = now - self._endpoint_registry_loaded_at
 
             if cache_age > self.cache_ttl:
-                self._endpoint_registry = await self._manifest_client.get_manifest()
+                # Query State Manager GraphQL API directly (peer-to-peer)
+                manifest = await self._state_manager_client.get_persisted_manifest()
+                self._endpoint_registry = manifest.get("resources_endpoints", {})
                 self._endpoint_registry_loaded_at = now
 ```
 
@@ -530,41 +531,7 @@ class ServiceRegistry:
 - Thread-safe with `asyncio.Lock()`
 - Graceful fallback if manifest service unavailable
 
-#### 3. ManifestClient
-
-**Location**: `src/tetra_rp/runtime/manifest_client.py`
-
-HTTP client for mothership manifest service:
-
-```python
-class ManifestClient:
-    """HTTP client for querying mothership manifest.
-
-    The manifest maps resource_config names to their endpoint URLs.
-    Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
-    """
-
-    async def get_manifest(self) -> Dict[str, str]:
-        """Fetch endpoint manifest from mothership.
-
-        Returns:
-            Dictionary mapping resource_config_name → endpoint_url.
-            Example: {"gpu_config": "https://api.runpod.io/v2/abc123"}
-
-        Raises:
-            ManifestServiceUnavailableError: If manifest service unavailable after retries.
-        """
-        # Queries {mothership_url}/manifest endpoint with retry logic
-```
-
-**Configuration**:
-- Mothership ID from `FLASH_MOTHERSHIP_ID` env var (constructs URL as https://{id}.api.runpod.ai)
-- HTTP timeout: 10 seconds (via `DEFAULT_REQUEST_TIMEOUT`)
-- Retry logic: Exponential backoff with `DEFAULT_MAX_RETRIES` attempts (default: 3)
-- Uses `httpx` library for async HTTP requests
-- Raises `ImportError` if httpx not installed (with helpful message)
-
-#### 4. StateManagerClient
+#### 3. StateManagerClient
 
 **Location**: `src/tetra_rp/runtime/state_manager_client.py`
 
@@ -684,7 +651,7 @@ Functions retrieve remote endpoint info from ResourceManager:
 # ServiceRegistry uses ResourceManager to find endpoint URLs
 resource_manager = ResourceManager()
 endpoint = resource_manager.get_resource_for_function("function_name")
-endpoint_url = endpoint.url  # e.g., "https://api.runpod.io/v2/abc123"
+endpoint_url = endpoint.url  # e.g., "https://api.runpod.ai/v2/abc123"
 ```
 
 ### Configuration
@@ -811,12 +778,12 @@ flowchart TD
 
 #### 4. Graceful Fallback
 
-**Decision**: Default to local execution if manifest service unavailable
+**Decision**: Default to local execution if State Manager unavailable
 
 **Rationale**:
 - Maintains application resilience
-- Doesn't fail if mothership unreachable
-- Allows local testing without manifest service
+- Doesn't fail if State Manager temporarily unavailable
+- Allows local testing without State Manager access
 - Gradual degradation vs catastrophic failure
 
 #### 5. Transparent Routing
@@ -1010,144 +977,69 @@ import os
 print(f"FLASH_MOTHERSHIP_ID: {os.getenv('FLASH_MOTHERSHIP_ID')}")
 print(f"RUNPOD_ENDPOINT_ID: {os.getenv('RUNPOD_ENDPOINT_ID')}")
 
-# Check manifest client directly
-client = ManifestClient(mothership_url=...)
-endpoints = await client.get_manifest()
+# Check state manager client directly
+client = StateManagerClient()
+manifest = await client.get_persisted_manifest(mothership_id)
 ```
 
-## Manifest Synchronization with RunPod GraphQL API
+## Peer-to-Peer Architecture with StateManagerClient
 
 ### Overview
 
-The Mothership's GET /manifest endpoint pulls configuration from RunPod's GraphQL API,
-which serves as the single source of truth for manifest data. This enables centralized
-configuration management and ensures all child endpoints receive consistent routing
-information.
+Cross-endpoint routing uses a **peer-to-peer architecture** where all endpoints query State Manager directly for service discovery. This eliminates single points of failure and simplifies the system architecture compared to previous hub-and-spoke models.
+
+**Key Difference**: No mothership endpoint exposing a `/manifest` HTTP endpoint. Instead, all endpoints use `StateManagerClient` to query the RunPod GraphQL API directly.
 
 ### Architecture
 
 ```mermaid
 flowchart TD
-    A["Child Endpoint<br/>GET /manifest"]
-    B["Mothership"]
-    C["ManifestFetcher"]
-    D{Cache Valid?}
-    E["Serve Cached<br/>Manifest"]
-    F["Fetch from RunPod<br/>GraphQL API"]
-    G["Update<br/>flash_manifest.json"]
-    H["Cache Result<br/>TTL: 300s"]
-    I["Serve Manifest"]
-    J["Fallback:<br/>Load Local File"]
+    A["Endpoint A"]
+    B["Endpoint B"]
+    C["Endpoint C"]
+    D["State Manager<br/>GraphQL API"]
+    E["RunPod API Key"]
 
-    A -->|Request| B
-    B --> C
-    C --> D
-    D -->|Yes| E
-    D -->|No| F
-    E --> I
-    F --> G
-    G --> H
-    H --> I
-    F -->|Fails| J
-    J --> I
+    A -->|Query Manifest| D
+    B -->|Query Manifest| D
+    C -->|Query Manifest| D
+    D -->|Requires| E
 
     style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
-    style B fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
-    style C fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
-    style D fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
-    style E fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
-    style F fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
-    style G fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
-    style H fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
-    style I fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
-    style J fill:#d32f2f,stroke:#b71c1c,stroke-width:3px,color:#fff
+    style B fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style C fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
+    style D fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style E fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#fff
 ```
 
 ### How It Works
 
-1. **Source of Truth**: RunPod GraphQL API holds the authoritative manifest configuration
-2. **Caching Proxy**: Mothership fetches from RunPod GQL, caches locally (5 min TTL)
-3. **Local Persistence**: Fetched manifest written to `flash_manifest.json`
-4. **Graceful Fallback**: If RunPod GQL unavailable, serves local file
-5. **Cache Invalidation**: Automatic expiry after TTL, manual invalidation supported
-
-### Implementation Status
-
-**Current (Placeholder)**:
-- `ManifestFetcher` class with caching infrastructure
-- Uses existing `RunpodGraphQLClient` for API communication
-- Falls back to local `flash_manifest.json` (GQL fetch raises `NotImplementedError`)
-- Cache TTL: 300 seconds (configurable)
-
-**Future (Full Implementation)**:
-- Implement `getManifest` query in `ManifestFetcher._fetch_from_gql()`
-- Add `saveManifest` mutation for updating manifest in RunPod
-- Real-time cache invalidation via webhooks
-- Health checks and retry logic
+1. **All Endpoints Equal**: Each endpoint is a peer, no master/slave relationship
+2. **Direct Query**: All endpoints query State Manager GraphQL API directly
+3. **No HTTP Endpoint**: No `/manifest` endpoint needed - endpoints communicate via GraphQL
+4. **Caching**: ServiceRegistry caches results locally (300s TTL) to reduce State Manager load
+5. **Graceful Fallback**: If State Manager unavailable, functions default to local execution
 
 ### Configuration
 
 ```bash
-# Enable Mothership mode (required for /manifest endpoint)
-export FLASH_IS_MOTHERSHIP=true
-
-# Optional: Identify this mothership instance
-export RUNPOD_ENDPOINT_ID=mothership-prod-1
-
-# Required for RunPod GraphQL API access
+# Required: API key for State Manager GraphQL access
 export RUNPOD_API_KEY=your-api-key-here
+
+# Optional: Identifies which resource config this endpoint represents
+export FLASH_RESOURCE_NAME=gpu_config
+
+# Optional: Fallback endpoint ID
+export RUNPOD_ENDPOINT_ID=gpu-endpoint-123
 ```
 
-### Cache Behavior
+### StateManagerClient Features
 
-- **Default TTL**: 300 seconds (5 minutes)
-- **Cache Key**: Per-mothership instance (no cross-instance cache)
-- **Thread-Safe**: Uses `asyncio.Lock` for concurrent request handling
-- **Manual Invalidation**: `fetcher.invalidate_cache()` for testing
-
-### Historical Context
-
-A previous `StateManagerClient` (commit b19bf7c) used REST API; the current
-implementation now reads and updates manifests through RunPod GraphQL mutations.
-
-### Migration Guide: REST to GraphQL (PR #144)
-
-#### Breaking Changes
-
-1. **get_flash_build() signature changed**:
-   ```python
-   # Before
-   await client.get_flash_build({"flashBuildId": build_id})
-
-   # After
-   await client.get_flash_build(build_id)
-   ```
-
-2. **StateManagerClient no longer uses httpx**:
-   - Remove `httpx` from dependencies if only used by StateManagerClient
-   - All operations now use RunpodGraphQLClient
-
-3. **Constructor parameters deprecated**:
-   - `base_url`: Ignored (GraphQL client manages URLs)
-   - `timeout`: Ignored (GraphQL client manages timeouts)
-   - Code continues to work but logs deprecation warnings
-
-#### Performance Considerations
-
-The new GraphQL implementation requires 3 sequential API calls per update:
-1. Fetch environment to get activeBuildId
-2. Fetch build to get current manifest
-3. Update manifest with changes
-
-For bulk resource updates (10+ resources), consider batching operations
-to reduce latency.
-
-#### Concurrency Safety
-
-StateManagerClient now uses `asyncio.Lock` to prevent race conditions
-during concurrent resource updates. This ensures manifest integrity
-during mothership auto-provisioning when multiple resources deploy
-simultaneously.
+- **GraphQL Query**: Queries RunPod GraphQL API for manifest persistence
+- **Caching**: 300-second TTL cache to minimize API calls
+- **Retry Logic**: Exponential backoff on failures (default 3 attempts)
+- **Thread-Safe**: Uses `asyncio.Lock` for concurrent operations
+- **Auto-Provisioning**: Used by mothership provisioner to update resource state
 
 ## Key Implementation Highlights
 

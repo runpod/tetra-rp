@@ -46,7 +46,7 @@ class TestProductionWrapper:
         self, wrapper, mock_registry, original_stub, sample_function
     ):
         """Test routing local function to original stub."""
-        mock_registry.get_resource_for_function.return_value = None
+        mock_registry.get_resource_for_function = AsyncMock(return_value=None)
 
         await wrapper.wrap_function_execution(
             original_stub,
@@ -74,7 +74,7 @@ class TestProductionWrapper:
         mock_resource.run_sync = AsyncMock()
         mock_resource.run_sync.return_value = MagicMock(error="", output=42)
 
-        mock_registry.get_resource_for_function.return_value = mock_resource
+        mock_registry.get_resource_for_function = AsyncMock(return_value=mock_resource)
 
         result = await wrapper.wrap_function_execution(
             original_stub,
@@ -97,8 +97,8 @@ class TestProductionWrapper:
         self, wrapper, mock_registry, original_stub, sample_function
     ):
         """Test function not found in manifest executes locally."""
-        mock_registry.get_resource_for_function.side_effect = ValueError(
-            "Function not found"
+        mock_registry.get_resource_for_function = AsyncMock(
+            side_effect=ValueError("Function not found")
         )
 
         await wrapper.wrap_function_execution(
@@ -123,7 +123,7 @@ class TestProductionWrapper:
         mock_resource.run_sync = AsyncMock()
         mock_resource.run_sync.return_value = MagicMock(error="Remote execution failed")
 
-        mock_registry.get_resource_for_function.return_value = mock_resource
+        mock_registry.get_resource_for_function = AsyncMock(return_value=mock_resource)
 
         with pytest.raises(Exception, match="Remote execution failed"):
             await wrapper.wrap_function_execution(
@@ -137,7 +137,7 @@ class TestProductionWrapper:
     @pytest.mark.asyncio
     async def test_wrap_function_loads_manifest(self, wrapper, mock_registry):
         """Test that manifest is loaded before routing decision."""
-        mock_registry.get_resource_for_function.return_value = None
+        mock_registry.get_resource_for_function = AsyncMock(return_value=None)
 
         async def sample_func():
             pass
@@ -156,7 +156,7 @@ class TestProductionWrapper:
         request = MagicMock()
         request.class_name = "MyClass"
 
-        mock_registry.get_resource_for_function.return_value = None
+        mock_registry.get_resource_for_function = AsyncMock(return_value=None)
 
         await wrapper.wrap_class_method_execution(original_stub, request)
 
@@ -184,7 +184,7 @@ class TestProductionWrapper:
         mock_resource.run_sync = AsyncMock()
         mock_resource.run_sync.return_value = MagicMock(error="", output="done")
 
-        mock_registry.get_resource_for_function.return_value = mock_resource
+        mock_registry.get_resource_for_function = AsyncMock(return_value=mock_resource)
 
         result = await wrapper.wrap_class_method_execution(original_stub, request)
 

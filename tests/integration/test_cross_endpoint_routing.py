@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tetra_rp.runtime.manifest_client import ManifestClient
 from tetra_rp.runtime.production_wrapper import (
     ProductionWrapper,
     create_production_wrapper,
     reset_wrapper,
 )
 from tetra_rp.runtime.service_registry import ServiceRegistry
+from tetra_rp.runtime.state_manager_client import StateManagerClient
 
 
 class TestCrossEndpointRoutingIntegration:
@@ -71,7 +71,6 @@ class TestCrossEndpointRoutingIntegration:
             "os.environ",
             {
                 "FLASH_RESOURCE_NAME": "gpu_config",
-                "FLASH_MOTHERSHIP_ID": "mothership-test",
             },
         ):
             endpoint_registry = {
@@ -88,10 +87,12 @@ class TestCrossEndpointRoutingIntegration:
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
 
-                mock_manifest_client = AsyncMock(spec=ManifestClient)
-                mock_manifest_client.get_manifest.return_value = endpoint_registry
+                mock_state_manager = AsyncMock(spec=StateManagerClient)
+                mock_state_manager.get_persisted_manifest.return_value = {
+                    "resources_endpoints": endpoint_registry
+                }
 
-                registry._manifest_client = mock_manifest_client
+                registry._manifest_client = mock_state_manager
                 registry._endpoint_registry = endpoint_registry
                 registry._endpoint_registry_loaded_at = float("inf")
 
@@ -125,7 +126,6 @@ class TestCrossEndpointRoutingIntegration:
             "os.environ",
             {
                 "FLASH_RESOURCE_NAME": "gpu_config",
-                "FLASH_MOTHERSHIP_ID": "mothership-test",
             },
         ):
             endpoint_registry = {
@@ -141,9 +141,11 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_manifest_client = AsyncMock(spec=ManifestClient)
-                mock_manifest_client.get_manifest.return_value = endpoint_registry
-                registry._manifest_client = mock_manifest_client
+                mock_state_manager = AsyncMock(spec=StateManagerClient)
+                mock_state_manager.get_persisted_manifest.return_value = {
+                    "resources_endpoints": endpoint_registry
+                }
+                registry._manifest_client = mock_state_manager
                 registry._endpoint_registry = endpoint_registry
                 registry._endpoint_registry_loaded_at = float("inf")
 
@@ -189,7 +191,7 @@ class TestCrossEndpointRoutingIntegration:
             "os.environ",
             {
                 "FLASH_RESOURCE_NAME": "gpu_config",
-                "FLASH_MOTHERSHIP_ID": "mothership-test",
+                "RUNPOD_ENDPOINT_ID": "mothership-id",
             },
         ):
             endpoint_registry = {
@@ -205,9 +207,11 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_manifest_client = AsyncMock(spec=ManifestClient)
-                mock_manifest_client.get_manifest.return_value = endpoint_registry
-                registry._manifest_client = mock_manifest_client
+                mock_state_manager = AsyncMock(spec=StateManagerClient)
+                mock_state_manager.get_persisted_manifest.return_value = {
+                    "resources_endpoints": endpoint_registry
+                }
+                registry._manifest_client = mock_state_manager
 
                 assert registry._endpoint_registry == {}
 
@@ -246,7 +250,6 @@ class TestCrossEndpointRoutingIntegration:
             "os.environ",
             {
                 "FLASH_RESOURCE_NAME": "gpu_config",
-                "FLASH_MOTHERSHIP_ID": "mothership-test",
             },
         ):
             endpoint_registry = {
@@ -262,9 +265,11 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_manifest_client = AsyncMock(spec=ManifestClient)
-                mock_manifest_client.get_manifest.return_value = endpoint_registry
-                registry._manifest_client = mock_manifest_client
+                mock_state_manager = AsyncMock(spec=StateManagerClient)
+                mock_state_manager.get_persisted_manifest.return_value = {
+                    "resources_endpoints": endpoint_registry
+                }
+                registry._manifest_client = mock_state_manager
                 registry._endpoint_registry = endpoint_registry
                 registry._endpoint_registry_loaded_at = float("inf")
 
@@ -316,7 +321,6 @@ class TestCrossEndpointRoutingIntegration:
                 "os.environ",
                 {
                     "RUNPOD_ENDPOINT_ID": "resource1",
-                    "FLASH_MOTHERSHIP_ID": "mothership-test",
                 },
             ):
                 wrapper = create_production_wrapper()

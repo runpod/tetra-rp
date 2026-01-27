@@ -27,6 +27,7 @@ from ..utils.ignore import get_file_tree, load_ignore_patterns
 from .build_utils.handler_generator import HandlerGenerator
 from .build_utils.lb_handler_generator import LBHandlerGenerator
 from .build_utils.manifest import ManifestBuilder
+from .build_utils.mothership_handler_generator import generate_mothership_handler
 from .build_utils.scanner import RemoteDecoratorScanner
 
 logger = logging.getLogger(__name__)
@@ -285,26 +286,35 @@ def build_command(
                     scanner = RemoteDecoratorScanner(build_dir)
                     remote_functions = scanner.discover_remote_functions()
 
-                    if remote_functions:
-                        # Build and write manifest
-                        manifest_builder = ManifestBuilder(app_name, remote_functions)
-                        manifest = manifest_builder.build()
-                        manifest_path = build_dir / "flash_manifest.json"
-                        manifest_path.write_text(json.dumps(manifest, indent=2))
+                    # Always build manifest (includes mothership even without @remote functions)
+                    manifest_builder = ManifestBuilder(
+                        app_name, remote_functions, scanner, build_dir=build_dir
+                    )
+                    manifest = manifest_builder.build()
+                    manifest_path = build_dir / "flash_manifest.json"
+                    manifest_path.write_text(json.dumps(manifest, indent=2))
 
-                        # Generate handler files based on resource type
-                        handler_paths = []
+                    # Copy manifest to .flash/ directory for deployment reference
+                    # This avoids needing to extract from tarball during deploy
+                    flash_dir = project_dir / ".flash"
+                    deployment_manifest_path = flash_dir / "flash_manifest.json"
+                    shutil.copy2(manifest_path, deployment_manifest_path)
 
+                    # Generate handler files if there are resources
+                    handler_paths = []
+                    manifest_resources = manifest.get("resources", {})
+
+                    if manifest_resources:
                         # Separate resources by type
                         # Use flag determined by isinstance() at scan time
                         lb_resources = {
                             name: data
-                            for name, data in manifest.get("resources", {}).items()
+                            for name, data in manifest_resources.items()
                             if data.get("is_load_balanced", False)
                         }
                         qb_resources = {
                             name: data
-                            for name, data in manifest.get("resources", {}).items()
+                            for name, data in manifest_resources.items()
                             if not data.get("is_load_balanced", False)
                         }
 
@@ -318,14 +328,43 @@ def build_command(
                             qb_gen = HandlerGenerator(manifest, build_dir)
                             handler_paths.extend(qb_gen.generate_handlers())
 
+                        # Generate mothership handler if present in manifest
+                        mothership_resources = {
+                            name: data
+                            for name, data in manifest_resources.items()
+                            if data.get("is_mothership", False)
+                        }
+                        if mothership_resources:
+                            for (
+                                resource_name,
+                                resource_data,
+                            ) in mothership_resources.items():
+                                mothership_handler_path = (
+                                    build_dir / "handlers" / "handler_mothership.py"
+                                )
+                                generate_mothership_handler(
+                                    main_file=resource_data.get("main_file", "main.py"),
+                                    app_variable=resource_data.get(
+                                        "app_variable", "app"
+                                    ),
+                                    output_path=mothership_handler_path,
+                                )
+                                handler_paths.append(str(mothership_handler_path))
+
+                    if handler_paths:
                         progress.update(
                             manifest_task,
                             description=f"[green]✓ Generated {len(handler_paths)} handlers and manifest",
                         )
+                    elif manifest_resources:
+                        progress.update(
+                            manifest_task,
+                            description=f"[green]✓ Generated manifest with {len(manifest_resources)} resources",
+                        )
                     else:
                         progress.update(
                             manifest_task,
-                            description="[yellow]⚠ No @remote functions found",
+                            description="[yellow]⚠ No resources detected",
                         )
 
                 except (ImportError, SyntaxError) as e:

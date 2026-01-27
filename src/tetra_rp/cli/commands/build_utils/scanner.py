@@ -132,8 +132,12 @@ class RemoteDecoratorScanner:
                             is_load_balanced = config_type in [
                                 "LoadBalancerSlsResource",
                                 "LiveLoadBalancer",
+                                "CpuLiveLoadBalancer",
                             ]
-                            is_live_resource = config_type == "LiveLoadBalancer"
+                            is_live_resource = config_type in [
+                                "LiveLoadBalancer",
+                                "CpuLiveLoadBalancer",
+                            ]
 
                             # Store flags for this resource
                             self.resource_flags[resource_name] = {
@@ -391,3 +395,202 @@ class RemoteDecoratorScanner:
             )
 
         return http_method, http_path
+
+
+def detect_main_app(
+    project_root: Path, explicit_mothership_exists: bool = False
+) -> Optional[dict]:
+    """Detect main.py FastAPI app and return mothership config.
+
+    Searches for main.py/app.py/server.py and parses AST to find FastAPI app.
+    Only returns config if app has custom routes (not just @remote calls).
+
+    Args:
+        project_root: Root directory of Flash project
+        explicit_mothership_exists: If True, skip auto-detection (explicit config takes precedence)
+
+    Returns:
+        Dict with app metadata: {
+            'file_path': Path,
+            'app_variable': str,
+            'has_routes': bool,
+        }
+        Returns None if no FastAPI app found with custom routes or explicit_mothership_exists is True.
+    """
+    if explicit_mothership_exists:
+        # Explicit mothership config exists, skip auto-detection
+        return None
+    for filename in ["main.py", "app.py", "server.py"]:
+        main_path = project_root / filename
+        if not main_path.exists():
+            continue
+
+        try:
+            content = main_path.read_text(encoding="utf-8")
+            tree = ast.parse(content)
+
+            # Find FastAPI app instantiation
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assign):
+                    if isinstance(node.value, ast.Call):
+                        call_type = None
+                        if isinstance(node.value.func, ast.Name):
+                            call_type = node.value.func.id
+                        elif isinstance(node.value.func, ast.Attribute):
+                            call_type = node.value.func.attr
+
+                        if call_type == "FastAPI":
+                            app_variable = None
+                            for target in node.targets:
+                                if isinstance(target, ast.Name):
+                                    app_variable = target.id
+                                    break
+
+                            if app_variable:
+                                # Check for custom routes (not just @remote)
+                                has_routes = _has_custom_routes(tree, app_variable)
+
+                                return {
+                                    "file_path": main_path,
+                                    "app_variable": app_variable,
+                                    "has_routes": has_routes,
+                                }
+        except UnicodeDecodeError:
+            logger.debug(f"Skipping non-UTF-8 file: {main_path}")
+        except SyntaxError as e:
+            logger.debug(f"Syntax error in {main_path}: {e}")
+        except Exception as e:
+            logger.debug(f"Failed to parse {main_path}: {e}")
+
+    return None
+
+
+def _has_custom_routes(tree: ast.AST, app_variable: str) -> bool:
+    """Check if FastAPI app has custom routes (beyond @remote).
+
+    Args:
+        tree: AST tree of the file
+        app_variable: Name of the FastAPI app variable
+
+    Returns:
+        True if app has route decorators (app.get, app.post, etc.)
+    """
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for decorator in node.decorator_list:
+                # Look for app.get(), app.post(), app.put(), etc.
+                if isinstance(decorator, ast.Call):
+                    if isinstance(decorator.func, ast.Attribute):
+                        if (
+                            isinstance(decorator.func.value, ast.Name)
+                            and decorator.func.value.id == app_variable
+                            and decorator.func.attr
+                            in ["get", "post", "put", "delete", "patch"]
+                        ):
+                            return True
+                # Also check for @app.get without parentheses (decorator without Call)
+                elif isinstance(decorator, ast.Attribute):
+                    if (
+                        isinstance(decorator.value, ast.Name)
+                        and decorator.value.id == app_variable
+                        and decorator.attr in ["get", "post", "put", "delete", "patch"]
+                    ):
+                        return True
+
+    return False
+
+
+def detect_explicit_mothership(project_root: Path) -> Optional[Dict]:
+    """Detect explicitly configured mothership resource in mothership.py.
+
+    Parses mothership.py to extract resource configuration.
+
+    Args:
+        project_root: Root directory of Flash project
+
+    Returns:
+        Dict with mothership config if found:
+            {
+                'resource_type': str (e.g., 'CpuLiveLoadBalancer'),
+                'name': str,
+                'workersMin': int,
+                'workersMax': int,
+                'is_explicit': bool,
+            }
+        Returns None if mothership.py doesn't exist or can't be parsed.
+    """
+    mothership_file = project_root / "mothership.py"
+
+    if not mothership_file.exists():
+        return None
+
+    try:
+        content = mothership_file.read_text(encoding="utf-8")
+        tree = ast.parse(content)
+
+        # Look for variable assignment: mothership = SomeResource(...)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "mothership":
+                        # Found mothership variable assignment
+                        if isinstance(node.value, ast.Call):
+                            resource_type = _extract_resource_type(node.value)
+                            kwargs = _extract_call_kwargs(node.value)
+
+                            return {
+                                "resource_type": resource_type,
+                                "name": kwargs.get("name", "mothership"),
+                                "workersMin": kwargs.get("workersMin", 1),
+                                "workersMax": kwargs.get("workersMax", 3),
+                                "is_explicit": True,
+                            }
+
+        return None
+
+    except UnicodeDecodeError:
+        logger.debug(f"Skipping non-UTF-8 file: {mothership_file}")
+        return None
+    except SyntaxError as e:
+        logger.debug(f"Syntax error in mothership.py: {e}")
+        return None
+    except Exception as e:
+        logger.debug(f"Failed to parse mothership.py: {e}")
+        return None
+
+
+def _extract_resource_type(call_node: ast.Call) -> str:
+    """Extract resource type from Call node.
+
+    Args:
+        call_node: AST Call node representing resource instantiation
+
+    Returns:
+        Resource type name (e.g., 'CpuLiveLoadBalancer'), or default if not found
+    """
+    if isinstance(call_node.func, ast.Name):
+        return call_node.func.id
+    elif isinstance(call_node.func, ast.Attribute):
+        return call_node.func.attr
+    return "CpuLiveLoadBalancer"  # Default
+
+
+def _extract_call_kwargs(call_node: ast.Call) -> Dict:
+    """Extract keyword arguments from Call node.
+
+    Args:
+        call_node: AST Call node
+
+    Returns:
+        Dict of keyword arguments with evaluated values (numbers, strings)
+    """
+    kwargs = {}
+    for keyword in call_node.keywords:
+        if keyword.arg:
+            try:
+                # Try to evaluate simple literal values
+                kwargs[keyword.arg] = ast.literal_eval(keyword.value)
+            except (ValueError, SyntaxError, TypeError):
+                # Skip non-literal arguments
+                pass
+    return kwargs
