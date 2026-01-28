@@ -38,6 +38,21 @@ security-scans: # Run security scans (informational)
 	uv pip install bandit[toml] --quiet
 	uv run bandit -r src/ -ll -x "**/tests/**" || echo "Security scan completed with issues (informational)"
 
+# Code intelligence targets
+index: # Generate code intelligence index
+	@echo "🔍 Indexing codebase..."
+	@uv run python scripts/ast_to_sqlite.py
+
+query: # Query symbols (usage: make query SYMBOL=name)
+	@test -n "$(SYMBOL)" || (echo "Usage: make query SYMBOL=<name>" && exit 1)
+	@uv run python scripts/code_intel.py find $(SYMBOL)
+
+query-classes: # List all classes in codebase
+	@uv run python scripts/code_intel.py list-all --kind class
+
+query-all: # List all symbols in codebase
+	@uv run python scripts/code_intel.py list-all
+
 # Test commands
 test: # Run all tests in parallel (auto-detect cores)
 	uv run pytest tests/ -v -n auto
