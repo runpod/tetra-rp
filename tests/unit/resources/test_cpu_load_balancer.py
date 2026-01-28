@@ -43,18 +43,15 @@ class TestCpuLoadBalancerDefaults:
 
         assert lb.instanceIds == [CpuInstanceType.CPU3G_1_4, CpuInstanceType.CPU3G_2_8]
 
-    def test_cpu_load_balancer_any_expansion(self):
-        """Test CpuInstanceType.ANY expansion."""
+    def test_cpu_load_balancer_default_instances(self):
+        """Test default CPU instance type."""
         lb = CpuLoadBalancerSlsResource(
             name="test-cpu-lb",
             imageName="test/image:latest",
-            instanceIds=[CpuInstanceType.ANY],
         )
 
-        # ANY should expand to all CPU types
-        assert lb.instanceIds == CpuInstanceType.all()
-        assert CpuInstanceType.ANY not in lb.instanceIds
-        assert len(lb.instanceIds) == 12
+        # Should default to CPU3G_2_8
+        assert lb.instanceIds == [CpuInstanceType.CPU3G_2_8]
 
 
 class TestCpuLoadBalancerGpuFieldOverride:

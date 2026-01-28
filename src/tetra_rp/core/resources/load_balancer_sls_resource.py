@@ -344,7 +344,7 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
         await mothership.deploy()
     """
 
-    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
+    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.CPU3G_2_8]
 
     # CPU endpoints exclude GPU-specific fields from API payload
     # This prevents the RunPod GraphQL API from rejecting CPU endpoints with GPU-specific fields
