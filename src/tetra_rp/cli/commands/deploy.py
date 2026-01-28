@@ -332,6 +332,7 @@ async def delete_flash_environment(app_name: str, env_name: str):
         typer.Exit: If deletion fails
     """
     app = await FlashApp.from_name(app_name)
+    env = await app.get_environment_by_name(env_name)
 
     await _undeploy_environment_resources(env_name, env)
 
