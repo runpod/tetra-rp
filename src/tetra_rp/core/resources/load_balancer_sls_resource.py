@@ -363,7 +363,7 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
     }
 
     def _setup_cpu_template(self) -> None:
-        """Setup template, validating and creating/configuring as needed."""
+        """Setup template with CPU-appropriate disk sizing."""
         if not any([self.imageName, self.template, self.templateId]):
             raise ValueError(
                 "Either imageName, template, or templateId must be provided"
@@ -373,6 +373,10 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
             self.template = self._create_new_template()
         elif self.template:
             self._configure_existing_template()
+
+        # Apply CPU-specific disk sizing
+        if self.template:
+            self._apply_cpu_disk_sizing(self.template)
 
     @model_validator(mode="after")
     def set_serverless_template(self):
