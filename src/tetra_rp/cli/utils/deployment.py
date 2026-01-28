@@ -176,6 +176,7 @@ async def reconcile_and_provision_resources(
     build_id: str,
     environment_name: str,
     local_manifest: Dict[str, Any],
+    environment_id: str | None = None,
     show_progress: bool = True,
 ) -> Dict[str, str]:
     """Reconcile local manifest with State Manager and provision resources.
@@ -190,6 +191,7 @@ async def reconcile_and_provision_resources(
         build_id: ID of the build
         environment_name: Name of environment (for logging)
         local_manifest: Local manifest dictionary
+        environment_id: Optional environment ID for endpoint provisioning
         show_progress: Whether to show CLI progress
 
     Returns:
@@ -227,7 +229,10 @@ async def reconcile_and_provision_resources(
     for resource_name in sorted(to_provision):
         resource_config = local_manifest["resources"][resource_name]
         resource = create_resource_from_manifest(
-            resource_name, resource_config, mothership_url=""
+            resource_name,
+            resource_config,
+            mothership_url="",
+            flash_environment_id=environment_id,
         )
         actions.append(
             ("provision", resource_name, manager.get_or_deploy_resource(resource))
@@ -248,7 +253,10 @@ async def reconcile_and_provision_resources(
         if local_json != state_json or not has_endpoint:
             # Config changed OR no endpoint - need to provision/update
             resource = create_resource_from_manifest(
-                resource_name, local_config, mothership_url=""
+                resource_name,
+                local_config,
+                mothership_url="",
+                flash_environment_id=environment_id,
             )
             actions.append(
                 ("update", resource_name, manager.get_or_deploy_resource(resource))
@@ -426,7 +434,7 @@ async def deploy_to_environment(
 
     app = await FlashApp.from_name(app_name)
     # Verify environment exists (will raise FlashEnvironmentNotFoundError if not)
-    await app.get_environment_by_name(env_name)
+    environment = await app.get_environment_by_name(env_name)
 
     build = await app.upload_build(build_path)
     build_id = build["id"]
@@ -434,7 +442,12 @@ async def deploy_to_environment(
     # Reconcile and provision resources upfront before environment activation
     try:
         resources_endpoints = await reconcile_and_provision_resources(
-            app, build_id, env_name, local_manifest, show_progress=True
+            app,
+            build_id,
+            env_name,
+            local_manifest,
+            environment_id=environment.get("id"),
+            show_progress=True,
         )
         log.info(f"Provisioned {len(resources_endpoints)} resources for {env_name}")
     except Exception as e:

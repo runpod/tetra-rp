@@ -137,6 +137,7 @@ class RunpodGraphQLClient:
                 locations
                 name
                 networkVolumeId
+                flashEnvironmentId
                 scalerType
                 scalerValue
                 templateId
