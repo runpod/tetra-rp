@@ -447,6 +447,7 @@ Claude Code shows available tools in the UI. If you don't see the code intellige
 2. Restart Claude Code to reload MCP servers
 
 3. Check that `.mcp.json` exists in the project root
+
 ### Troubleshooting
 
 **Error: "Index not found"**
