@@ -13,11 +13,7 @@ class CpuInstanceType(str, Enum):
     - cpu3g: 4.0 (1 vCPU = 4GB, 2 vCPU = 8GB, etc.)
     - cpu3c: 2.0 (1 vCPU = 2GB, 2 vCPU = 4GB, etc.)
     - cpu5c: 2.0 (1 vCPU = 2GB, 2 vCPU = 4GB, etc.)
-    - cpu5g: Not available
     """
-
-    ANY = "any"
-    """Any CPU"""
 
     # 3rd Generation General Purpose (RAM multiplier: 4.0)
 
@@ -60,11 +56,6 @@ class CpuInstanceType(str, Enum):
 
     CPU5C_8_16 = "cpu5c-8-16"
     """8 vCPU, 16GB RAM, max 120GB container disk"""
-
-    @classmethod
-    def all(cls) -> List["CpuInstanceType"]:
-        """Returns all CPU Instance Types."""
-        return [c for c in cls if c != cls.ANY]
 
 
 def calculate_max_disk_size(instance_type: CpuInstanceType) -> int:
@@ -112,7 +103,6 @@ def calculate_max_disk_size(instance_type: CpuInstanceType) -> int:
 CPU_INSTANCE_DISK_LIMITS = {
     instance_type: calculate_max_disk_size(instance_type)
     for instance_type in CpuInstanceType
-    if instance_type != CpuInstanceType.ANY
 }
 
 
