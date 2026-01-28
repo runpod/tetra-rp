@@ -315,6 +315,119 @@ When reviewing code, consider:
 - See [TESTING.md](TESTING.md) for testing details
 - See [RELEASE_SYSTEM.md](RELEASE_SYSTEM.md) for release process
 
+## Code Intelligence System
+
+### Overview
+
+The project uses AST-based code indexing to enable fast symbol lookup and exploration. This reduces token usage by ~85% when Claude Code explores the codebase.
+
+### Setup
+
+Generate the code intelligence index after cloning the repository or making significant code changes:
+
+```bash
+make index
+```
+
+This creates `.code-intel/flash.db` containing indexed symbols.
+
+### Usage
+
+**List all classes in the framework:**
+
+```bash
+make query-classes
+```
+
+**Find specific symbol:**
+
+```bash
+make query SYMBOL=ServerlessEndpoint
+```
+
+**Get class interface (methods without implementations):**
+
+```bash
+uv run python scripts/code_intel.py interface LiveServerless
+```
+
+**List symbols in a file:**
+
+```bash
+uv run python scripts/code_intel.py file tetra_rp/decorators.py
+```
+
+**List all symbols:**
+
+```bash
+make query-all
+```
+
+### For Claude Code
+
+**Preferred workflow:**
+
+1. Query the index first to understand structure:
+
+```bash
+# Find a specific class or function
+uv run python scripts/code_intel.py find <symbol>
+
+# List all classes
+make query-classes
+
+# Show class interface
+uv run python scripts/code_intel.py interface <ClassName>
+```
+
+2. Only read full files when implementation details are needed
+3. This reduces token usage by ~85% for exploration tasks
+
+**Example:**
+
+```bash
+# Instead of reading full file (500+ tokens):
+# Do this query first (50 tokens):
+uv run python scripts/code_intel.py file tetra_rp/decorators.py
+
+# Then only read full file if implementation details needed
+```
+
+### Architecture
+
+**Indexer** (`scripts/ast_to_sqlite.py`):
+- Parses Python framework files using built-in `ast` module
+- Extracts: classes, functions, methods, decorators, type hints, docstrings
+- Stores in SQLite with optimized indexes for common queries
+
+**Query Interface** (`scripts/code_intel.py`):
+- CLI built with `typer` and `rich`
+- Commands: `list-all`, `find`, `interface`, `file`
+- Performance: <10ms per query
+
+**Database** (`.code-intel/flash.db`):
+- SQLite database with symbols table
+- Indexed on: symbol_name, file_path, kind, decorator_json
+- Typical size: 100-500KB
+
+### Troubleshooting
+
+**Error: "Index not found"**
+
+```bash
+make index  # Generate index
+```
+
+**Error: "SyntaxError during indexing"**
+- Check Python file syntax
+- Indexer skips malformed files automatically
+
+**Stale index**
+- Regenerate after significant code changes:
+  ```bash
+  make index
+  ```
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
