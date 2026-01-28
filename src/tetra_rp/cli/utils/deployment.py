@@ -74,103 +74,6 @@ def remove_deployment_environment(name: str):
         save_deployment_environments(environments)
 
 
-async def provision_resources_for_build(
-    app: FlashApp, build_id: str, environment_name: str, show_progress: bool = True
-) -> Dict[str, str]:
-    """Provision all resources upfront before environment activation.
-
-    Args:
-        app: FlashApp instance
-        build_id: ID of the build to provision resources for
-        environment_name: Name of environment (for logging/context)
-        show_progress: Whether to show CLI progress
-
-    Returns:
-        Mapping of resource_name -> endpoint_url
-
-    Raises:
-        RuntimeError: If provisioning fails for any resource
-    """
-    # Load manifest from build
-    manifest = await app.get_build_manifest(build_id)
-
-    if not manifest or "resources" not in manifest:
-        log.warning(f"No resources in manifest for build {build_id}")
-        return {}
-
-    # Create resource manager
-    manager = ResourceManager()
-    resources_to_provision = []
-
-    # Create resource configs from manifest
-    for resource_name, resource_config in manifest["resources"].items():
-        resource = create_resource_from_manifest(
-            resource_name,
-            resource_config,
-            mothership_url="",  # Intentionally left empty during CLI provisioning
-        )
-        resources_to_provision.append((resource_name, resource))
-
-    if show_progress:
-        print(
-            f"Provisioning {len(resources_to_provision)} resources for environment '{environment_name}'..."
-        )
-
-    # Provision resources in parallel
-    resources_endpoints = {}
-    provisioning_results = []
-
-    try:
-        # Use asyncio.gather for parallel provisioning
-        tasks = [
-            manager.get_or_deploy_resource(resource)
-            for _, resource in resources_to_provision
-        ]
-        provisioning_results = await asyncio.gather(*tasks)
-
-    except Exception as e:
-        log.error(f"Provisioning failed: {e}")
-        raise RuntimeError(f"Failed to provision resources: {e}") from e
-
-    # Build resources_endpoints mapping
-    mothership_url = None
-    for (resource_name, _), deployed_resource in zip(
-        resources_to_provision, provisioning_results
-    ):
-        # Get endpoint URL (both LoadBalancer and Serverless have endpoint_url)
-        if hasattr(deployed_resource, "endpoint_url"):
-            endpoint_url = deployed_resource.endpoint_url
-        else:
-            log.warning(f"Resource {resource_name} has no endpoint_url attribute")
-            continue
-
-        resources_endpoints[resource_name] = endpoint_url
-
-        # Track mothership URL for prominent logging
-        if resource_name == "mothership" or manifest["resources"][resource_name].get(
-            "is_mothership"
-        ):
-            mothership_url = endpoint_url
-
-        if show_progress:
-            print(f"  ✓ {resource_name}: {endpoint_url}")
-
-    # Update manifest in FlashApp with resources_endpoints
-    manifest["resources_endpoints"] = resources_endpoints
-    await app.update_build_manifest(build_id, manifest)
-
-    if show_progress:
-        print("✓ All resources provisioned and manifest updated")
-        # Display mothership URL prominently if present
-        if mothership_url:
-            print()
-            print("=" * 60)
-            print(f"Mothership Endpoint: {mothership_url}")
-            print("=" * 60)
-
-    return resources_endpoints
-
-
 async def reconcile_and_provision_resources(
     app: FlashApp,
     build_id: str,
@@ -226,9 +129,7 @@ async def reconcile_and_provision_resources(
     # Provision new resources
     for resource_name in sorted(to_provision):
         resource_config = local_manifest["resources"][resource_name]
-        resource = create_resource_from_manifest(
-            resource_name, resource_config, mothership_url=""
-        )
+        resource = create_resource_from_manifest(resource_name, resource_config)
         actions.append(
             ("provision", resource_name, manager.get_or_deploy_resource(resource))
         )
@@ -353,23 +254,23 @@ async def reconcile_and_provision_resources(
 
             if is_mothership:
                 print()
-                print(f"  🚀 MOTHERSHIP: {resource_name}")
+                print(f"  🚀 PRIMARY: {resource_name}")
                 resource_type = resource_config.get("resource_type", "Unknown")
                 print(f"     Type: {resource_type}")
                 print(f"     URL:  {resources_endpoints[resource_name]}")
                 print()
                 break
 
-        # Display children
-        child_count = 0
+        # Display additional endpoints
+        additional_count = 0
         for resource_name in sorted(resources_endpoints.keys()):
             resource_config = resources.get(resource_name, {})
             is_mothership = resource_config.get("is_mothership", False)
 
             if not is_mothership:
-                if child_count == 0:
-                    print("  Child Endpoints:")
-                child_count += 1
+                if additional_count == 0:
+                    print("  Additional Endpoints:")
+                additional_count += 1
                 resource_type = resource_config.get("resource_type", "Unknown")
                 print(f"    • {resource_name:20s} ({resource_type})")
                 print(f"      {resources_endpoints[resource_name]}")

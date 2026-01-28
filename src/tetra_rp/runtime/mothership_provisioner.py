@@ -222,14 +222,12 @@ def reconcile_manifests(
 def create_resource_from_manifest(
     resource_name: str,
     resource_data: Dict[str, Any],
-    mothership_url: str = "",
 ) -> DeployableResource:
     """Create DeployableResource config from manifest entry.
 
     Args:
         resource_name: Name of the resource
         resource_data: Resource configuration from manifest
-        mothership_url: Optional mothership URL (for future use with child env vars)
 
     Returns:
         Configured DeployableResource ready for deployment
@@ -341,18 +339,16 @@ def create_resource_from_manifest(
     return resource
 
 
-async def reconcile_children(
+async def reconcile_resources(
     manifest_path: Path,
-    mothership_url: str,
     state_client: StateManagerClient,
 ) -> None:
-    """Reconcile all child resources based on manifest differences.
+    """Reconcile all resources based on manifest differences.
 
     Orchestrates deployment/update/delete of resources based on manifest differences.
 
     Args:
         manifest_path: Path to flash_manifest.json
-        mothership_url: Mothership endpoint URL to set on children
         state_client: State Manager API client
     """
     try:
@@ -398,9 +394,7 @@ async def reconcile_children(
         for resource_name in diff.new:
             try:
                 resource_data = local_manifest["resources"][resource_name]
-                config = create_resource_from_manifest(
-                    resource_name, resource_data, mothership_url
-                )
+                config = create_resource_from_manifest(resource_name, resource_data)
                 deployed = await manager.get_or_deploy_resource(config)
 
                 # Update State Manager
@@ -434,9 +428,7 @@ async def reconcile_children(
         for resource_name in diff.changed:
             try:
                 resource_data = local_manifest["resources"][resource_name]
-                config = create_resource_from_manifest(
-                    resource_name, resource_data, mothership_url
-                )
+                config = create_resource_from_manifest(resource_name, resource_data)
                 updated = await manager.get_or_deploy_resource(config)
 
                 await state_client.update_resource_state(
@@ -497,9 +489,9 @@ async def reconcile_children(
                 logger.error(f"Failed to delete {resource_name}: {e}")
 
         logger.info("=" * 60)
-        logger.info("Provisioning complete - All child endpoints deployed")
-        logger.info(f"Total endpoints: {len(local_manifest.get('resources', {}))}")
-        logger.info("Test phase: Manifest updated with child endpoint URLs")
+        logger.info("Provisioning complete - All resources deployed")
+        logger.info(f"Total resources: {len(local_manifest.get('resources', {}))}")
+        logger.info("Manifest updated with endpoint URLs")
         logger.info("=" * 60)
 
     except Exception as e:

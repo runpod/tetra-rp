@@ -8,7 +8,7 @@ import pytest
 
 from tetra_rp.runtime.mothership_provisioner import (
     compute_resource_hash,
-    reconcile_children,
+    reconcile_resources,
 )
 from tetra_rp.runtime.state_manager_client import StateManagerClient
 
@@ -17,7 +17,7 @@ class TestMothershipProvisioningFlow:
     """Integration tests for mothership provisioning workflow."""
 
     @pytest.mark.asyncio
-    async def test_reconcile_children_first_boot(self):
+    async def test_reconcile_resources_first_boot(self):
         """Test provisioning on first boot (no persisted manifest).
 
         Scenario:
@@ -72,11 +72,8 @@ class TestMothershipProvisioningFlow:
             # Execute
             with tempfile.TemporaryDirectory() as tmpdir:
                 manifest_path = Path(tmpdir) / "flash_manifest.json"
-                mothership_url = "https://mothership-123.api.runpod.ai"
 
-                await reconcile_children(
-                    manifest_path, mothership_url, mock_state_client
-                )
+                await reconcile_resources(manifest_path, mock_state_client)
 
             # Verify: Both resources deployed
             assert mock_manager.get_or_deploy_resource.call_count == 2
@@ -88,7 +85,7 @@ class TestMothershipProvisioningFlow:
             assert calls[1][0][1] == "cpu_worker"
 
     @pytest.mark.asyncio
-    async def test_reconcile_children_with_changes(self):
+    async def test_reconcile_resources_with_changes(self):
         """Test provisioning with changed resources.
 
         Scenario:
@@ -155,11 +152,8 @@ class TestMothershipProvisioningFlow:
             # Execute
             with tempfile.TemporaryDirectory() as tmpdir:
                 manifest_path = Path(tmpdir) / "flash_manifest.json"
-                mothership_url = "https://mothership-123.api.runpod.ai"
 
-                await reconcile_children(
-                    manifest_path, mothership_url, mock_state_client
-                )
+                await reconcile_resources(manifest_path, mock_state_client)
 
             # Verify: Only changed resource deployed
             assert mock_manager.get_or_deploy_resource.call_count == 1
@@ -171,7 +165,7 @@ class TestMothershipProvisioningFlow:
             )
 
     @pytest.mark.asyncio
-    async def test_reconcile_children_with_removed_resources(self):
+    async def test_reconcile_resources_with_removed_resources(self):
         """Test provisioning with removed resources.
 
         Scenario:
@@ -239,11 +233,8 @@ class TestMothershipProvisioningFlow:
             # Execute
             with tempfile.TemporaryDirectory() as tmpdir:
                 manifest_path = Path(tmpdir) / "flash_manifest.json"
-                mothership_url = "https://mothership-123.api.runpod.ai"
 
-                await reconcile_children(
-                    manifest_path, mothership_url, mock_state_client
-                )
+                await reconcile_resources(manifest_path, mock_state_client)
 
             # Verify: Removed resource undeployed
             assert mock_manager.undeploy_resource.call_count == 1
@@ -255,7 +246,7 @@ class TestMothershipProvisioningFlow:
             )
 
     @pytest.mark.asyncio
-    async def test_reconcile_children_deploys_load_balancer_resources(self):
+    async def test_reconcile_resources_deploys_load_balancer_resources(self):
         """Test that LoadBalancer resources are provisioned during provisioning.
 
         Scenario:
@@ -312,11 +303,8 @@ class TestMothershipProvisioningFlow:
             # Execute
             with tempfile.TemporaryDirectory() as tmpdir:
                 manifest_path = Path(tmpdir) / "flash_manifest.json"
-                mothership_url = "https://mothership-123.api.runpod.ai"
 
-                await reconcile_children(
-                    manifest_path, mothership_url, mock_state_client
-                )
+                await reconcile_resources(manifest_path, mock_state_client)
 
             # Verify: Both mothership LoadBalancer and gpu_worker deployed
             assert mock_manager.get_or_deploy_resource.call_count == 2
@@ -330,7 +318,7 @@ class TestMothershipProvisioningFlow:
             assert "gpu_worker" in resource_names
 
     @pytest.mark.asyncio
-    async def test_reconcile_children_handles_deployment_errors(self):
+    async def test_reconcile_resources_handles_deployment_errors(self):
         """Test that deployment errors don't block other resources.
 
         Scenario:
@@ -386,12 +374,9 @@ class TestMothershipProvisioningFlow:
             # Execute
             with tempfile.TemporaryDirectory() as tmpdir:
                 manifest_path = Path(tmpdir) / "flash_manifest.json"
-                mothership_url = "https://mothership-123.api.runpod.ai"
 
                 # Should not raise despite gpu_worker failure
-                await reconcile_children(
-                    manifest_path, mothership_url, mock_state_client
-                )
+                await reconcile_resources(manifest_path, mock_state_client)
 
             # Verify: Both resources attempted
             assert mock_manager.get_or_deploy_resource.call_count == 2
@@ -411,7 +396,7 @@ class TestMothershipProvisioningFlow:
             assert cpu_call[0][2]["status"] == "deployed"
 
     @pytest.mark.asyncio
-    async def test_idempotent_provisioning_on_second_boot(self):
+    async def test_reconcile_resources_idempotent_on_second_boot(self):
         """Test that second boot is idempotent (skips unchanged resources).
 
         Scenario:
@@ -466,11 +451,8 @@ class TestMothershipProvisioningFlow:
             # Execute
             with tempfile.TemporaryDirectory() as tmpdir:
                 manifest_path = Path(tmpdir) / "flash_manifest.json"
-                mothership_url = "https://mothership-123.api.runpod.ai"
 
-                await reconcile_children(
-                    manifest_path, mothership_url, mock_state_client
-                )
+                await reconcile_resources(manifest_path, mock_state_client)
 
             # Verify: No deployments (all unchanged)
             assert mock_manager.get_or_deploy_resource.call_count == 0

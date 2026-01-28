@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
     try:
         from tetra_rp.runtime.mothership_provisioner import (
             is_mothership,
-            reconcile_children,
+            reconcile_resources,
             get_mothership_url,
         )
         from tetra_rp.runtime.state_manager_client import StateManagerClient
@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
                 # This will verify all resources from manifest are deployed
                 manifest_path = Path(__file__).parent / "flash_manifest.json"
                 task = asyncio.create_task(
-                    reconcile_children(manifest_path, mothership_url, state_client)
+                    reconcile_resources(manifest_path, state_client)
                 )
                 # Add error callback to catch and log background task exceptions
                 task.add_done_callback(

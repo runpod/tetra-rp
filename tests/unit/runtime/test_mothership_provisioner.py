@@ -392,12 +392,9 @@ class TestCreateResourceFromManifest:
             "resource_type": "ServerlessResource",
             "imageName": "runpod/tetra-rp:latest",
         }
-        mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
-            resource = create_resource_from_manifest(
-                resource_name, resource_data, mothership_url
-            )
+            resource = create_resource_from_manifest(resource_name, resource_data)
 
             assert isinstance(resource, ServerlessResource)
             # ServerlessResource may append "-fb" suffix during initialization
@@ -418,13 +415,10 @@ class TestCreateResourceFromManifest:
             "resource_type": "LiveServerless",
             "imageName": "runpod/tetra-rp:latest",
         }
-        mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
             # Should not raise - LiveServerless is in supported types
-            resource = create_resource_from_manifest(
-                resource_name, resource_data, mothership_url
-            )
+            resource = create_resource_from_manifest(resource_name, resource_data)
 
             # Returns ServerlessResource (current limitation)
             assert isinstance(resource, ServerlessResource)
@@ -434,10 +428,9 @@ class TestCreateResourceFromManifest:
         """Test that ValueError is raised for unsupported resource types."""
         resource_name = "worker1"
         resource_data = {"resource_type": "UnsupportedResourceType"}
-        mothership_url = "https://test.api.runpod.ai"
 
         with pytest.raises(ValueError, match="Unsupported resource type"):
-            create_resource_from_manifest(resource_name, resource_data, mothership_url)
+            create_resource_from_manifest(resource_name, resource_data)
 
     def test_create_resource_from_manifest_default_type(self):
         """Test that default type is ServerlessResource when not specified."""
@@ -447,12 +440,9 @@ class TestCreateResourceFromManifest:
         resource_data = {
             "imageName": "runpod/tetra-rp:latest"
         }  # No resource_type specified
-        mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
-            resource = create_resource_from_manifest(
-                resource_name, resource_data, mothership_url
-            )
+            resource = create_resource_from_manifest(resource_name, resource_data)
 
             assert isinstance(resource, ServerlessResource)
             assert resource_name in resource.name
@@ -471,13 +461,10 @@ class TestCreateResourceFromManifest:
             "resource_type": "ServerlessResource",
             "imageName": "runpod/tetra-rp:latest",
         }
-        mothership_url = ""  # Empty URL indicates CLI context
 
         # Clear RUNPOD_ENDPOINT_ID to simulate CLI environment
         with patch.dict(os.environ, {}, clear=True):
-            resource = create_resource_from_manifest(
-                resource_name, resource_data, mothership_url
-            )
+            resource = create_resource_from_manifest(resource_name, resource_data)
 
             assert isinstance(resource, ServerlessResource)
             assert resource_name in resource.name
@@ -489,7 +476,7 @@ class TestCreateResourceFromManifest:
         """Test resource creation in mothership runtime context.
 
         When running inside a mothership endpoint, RUNPOD_ENDPOINT_ID is available.
-        FLASH_MOTHERSHIP_ID should be included in env so children can query
+        FLASH_MOTHERSHIP_ID should be included in env so resources can query
         the State Manager using the mothership's ID.
         """
         from tetra_rp.core.resources.serverless import ServerlessResource
@@ -499,12 +486,9 @@ class TestCreateResourceFromManifest:
             "resource_type": "ServerlessResource",
             "imageName": "runpod/tetra-rp:latest",
         }
-        mothership_url = "https://mothership.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-endpoint-456"}):
-            resource = create_resource_from_manifest(
-                resource_name, resource_data, mothership_url
-            )
+            resource = create_resource_from_manifest(resource_name, resource_data)
 
             assert isinstance(resource, ServerlessResource)
             assert resource_name in resource.name
@@ -518,12 +502,9 @@ class TestCreateResourceFromManifest:
 
         resource_name = "cpu_worker"
         resource_data = {"resource_type": "CpuLiveServerless"}
-        mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
-            resource = create_resource_from_manifest(
-                resource_name, resource_data, mothership_url
-            )
+            resource = create_resource_from_manifest(resource_name, resource_data)
 
             assert isinstance(resource, CpuLiveServerless)
             assert resource_name in resource.name
