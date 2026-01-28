@@ -11,9 +11,10 @@ class TestGpuIdsImports:
 class TestGpuIdsBehavior:
     def test_to_gpu_ids_str_groups_only_contains_pool_ids(self):
         gpu_ids = GpuGroup.to_gpu_ids_str([GpuGroup.AMPERE_48, GpuGroup.AMPERE_24])
-        # extra tokens (negations) can be present, but pools should always be included
+        # only pools should be present when selecting groups
         assert "AMPERE_48" in gpu_ids
         assert "AMPERE_24" in gpu_ids
+        assert all(not token.startswith("-") for token in gpu_ids.split(",") if token)
 
     def test_from_gpu_ids_str_pool_only_returns_group(self):
         parsed = GpuGroup.from_gpu_ids_str("AMPERE_24")

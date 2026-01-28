@@ -78,21 +78,29 @@ class GpuGroup(Enum):
         3. Join the pool IDs with a comma
         """
         pool_ids = set()
+        pool_ids_from_groups = set()
+        explicit_gpu_types = set()
 
         for gpu_type in gpu_types:
             if isinstance(gpu_type, GpuGroup):
                 pool_id = gpu_type
+                pool_ids_from_groups.add(pool_id)
             else:
                 pool_id = _pool_from_gpu_type(gpu_type)
+                explicit_gpu_types.add(gpu_type)
 
             if pool_id:
                 pool_ids.add(pool_id)
 
-        # iterate over a snapshot because we add negations into the same set
-        for pool_id in list(pool_ids):
-            for gpu_type in POOLS_TO_TYPES.get(pool_id, []):
-                if gpu_type not in gpu_types:
-                    pool_ids.add(f"-{gpu_type.value}")
+        # only add negations for pools selected via explicit gpu types
+        if explicit_gpu_types:
+            # iterate over a snapshot because we add negations into the same set
+            for pool_id in list(pool_ids):
+                if pool_id in pool_ids_from_groups:
+                    continue
+                for gpu_type in POOLS_TO_TYPES.get(pool_id, []):
+                    if gpu_type not in explicit_gpu_types:
+                        pool_ids.add(f"-{gpu_type.value}")
 
         # normalize to strings for the api
         out = []
