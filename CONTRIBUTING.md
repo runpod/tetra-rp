@@ -1,4 +1,4 @@
-# Contributing to tetra-rp
+# Contributing to runpod-flash
 
 ## Development Setup
 
@@ -12,8 +12,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/tetra-rp.git
-cd tetra-rp
+git clone https://github.com/your-org/runpod-flash.git
+cd runpod-flash
 
 # Install dependencies and package in editable mode
 make dev
@@ -278,7 +278,7 @@ make quality-check
 
 **Coverage threshold failures**
 - Use `--no-cov` flag: `uv run pytest tests/unit/test_file.py -v --no-cov`
-- Or test specific module: `uv run pytest --cov=src/tetra_rp/module`
+- Or test specific module: `uv run pytest --cov=src/runpod_flash/module`
 
 ## Release Process
 
@@ -373,7 +373,7 @@ Claude Code automatically uses the MCP code intelligence server when exploring t
 - **85% token reduction**: No need to read full files for structure queries
 - **Instant results**: Direct database queries instead of file parsing
 
-The MCP server is configured in `.mcp.json` and automatically activated when you open this project in Claude Code. Use the `/tetra-explorer` skill to get guidance on best exploration practices.
+The MCP server is configured in `.mcp.json` and automatically activated when you open this project in Claude Code. Use the `/flash-explorer` skill to get guidance on best exploration practices.
 
 Available MCP tools:
 - `find_symbol` - Search for classes, functions, methods
@@ -405,7 +405,7 @@ uv run python scripts/code_intel.py interface <ClassName>
 ```bash
 # Instead of reading full file (500+ tokens):
 # Do this query first (50 tokens):
-uv run python scripts/code_intel.py file tetra_rp/decorators.py
+uv run python scripts/code_intel.py file runpod_flash/decorators.py
 
 # Then only read full file if implementation details needed
 ```
@@ -447,7 +447,6 @@ Claude Code shows available tools in the UI. If you don't see the code intellige
 2. Restart Claude Code to reload MCP servers
 
 3. Check that `.mcp.json` exists in the project root
-
 ### Troubleshooting
 
 **Error: "Index not found"**
@@ -471,7 +470,6 @@ make index  # Generate index
 - Check `.mcp.json` file exists in project root
 - Restart Claude Code to reload MCP configuration
 - Try running the server manually: `uv run python scripts/mcp_code_intel_server.py`
-
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
