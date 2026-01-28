@@ -209,6 +209,30 @@ def sample_pod_template() -> Dict[str, Any]:
     }
 
 
+@pytest.fixture
+def sample_mothership_manifest() -> Dict[str, Any]:
+    """Provide sample manifest with mothership and worker resources.
+
+    Returns:
+        Dictionary with local manifest structure including resources.
+    """
+    return {
+        "version": "1.0",
+        "resources": {
+            "mothership": {
+                "is_mothership": True,
+                "resource_type": "CpuLiveLoadBalancer",
+                "config": {"workersMin": 1, "workersMax": 3},
+            },
+            "worker": {
+                "is_mothership": False,
+                "resource_type": "LiveServerless",
+                "config": {"workersMin": 0, "workersMax": 5},
+            },
+        },
+    }
+
+
 @pytest.fixture(scope="session")
 def worker_temp_dir(
     tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest
