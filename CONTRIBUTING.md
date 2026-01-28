@@ -365,9 +365,26 @@ make query-all
 
 ### For Claude Code
 
-**Preferred workflow:**
+**Automatic Integration (Recommended):**
 
-1. Query the index first to understand structure:
+Claude Code automatically uses the MCP code intelligence server when exploring the codebase. This provides:
+
+- **Automatic tool discovery**: 5 specialized tools for code exploration
+- **85% token reduction**: No need to read full files for structure queries
+- **Instant results**: Direct database queries instead of file parsing
+
+The MCP server is configured in `.mcp.json` and automatically activated when you open this project in Claude Code. Use the `/tetra-explorer` skill to get guidance on best exploration practices.
+
+Available MCP tools:
+- `find_symbol` - Search for classes, functions, methods
+- `list_classes` - Browse all framework classes
+- `get_class_interface` - View class methods without implementations
+- `list_file_symbols` - Explore file structure without full content
+- `find_by_decorator` - Find all symbols with specific decorators
+
+**Manual CLI Usage (for non-Claude-Code exploration):**
+
+1. Query the index to understand structure:
 
 ```bash
 # Find a specific class or function
@@ -410,6 +427,27 @@ uv run python scripts/code_intel.py file tetra_rp/decorators.py
 - Indexed on: symbol_name, file_path, kind, decorator_json
 - Typical size: 100-500KB
 
+### MCP Server Setup
+
+The MCP (Model Context Protocol) server automatically provides code intelligence tools to Claude Code without any setup. Simply open this project in Claude Code and the server will:
+
+1. Start automatically (configured in `.mcp.json`)
+2. Discover the 5 code intelligence tools
+3. Enable Claude to query the database instead of reading files
+
+**Verify MCP Server is Running:**
+
+Claude Code shows available tools in the UI. If you don't see the code intelligence tools, try:
+
+1. Ensure the code intelligence index is generated:
+   ```bash
+   make index
+   ```
+
+2. Restart Claude Code to reload MCP servers
+
+3. Check that `.mcp.json` exists in the project root
+
 ### Troubleshooting
 
 **Error: "Index not found"**
@@ -427,6 +465,12 @@ make index  # Generate index
   ```bash
   make index
   ```
+
+**MCP Server not connecting in Claude Code**
+- Ensure code intelligence index exists: `make index`
+- Check `.mcp.json` file exists in project root
+- Restart Claude Code to reload MCP configuration
+- Try running the server manually: `uv run python scripts/mcp_code_intel_server.py`
 
 ## License
 
