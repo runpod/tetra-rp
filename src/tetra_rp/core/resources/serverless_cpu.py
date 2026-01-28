@@ -130,6 +130,7 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
         "gpuCount",  # GPU-specific API field, exclude from payload
         "allowedCudaVersions",  # GPU-specific API field, exclude from payload
         "flashboot",
+        "flashEnvironmentId",
         "imageName",
         "networkVolume",
     }
@@ -151,6 +152,7 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
         cpu_fields = {
             "datacenter",
             "flashboot",
+            "flashEnvironmentId",
             "imageName",
             "gpus",
             "networkVolume",

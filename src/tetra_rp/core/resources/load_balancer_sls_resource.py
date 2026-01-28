@@ -354,6 +354,7 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
         "datacenter",
         "env",
         "flashboot",
+        "flashEnvironmentId",
         "gpus",
         "gpuIds",
         "gpuCount",
@@ -411,6 +412,7 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
             "datacenter",
             "env",
             "flashboot",
+            "flashEnvironmentId",
             "imageName",
             "networkVolume",
             "instanceIds",  # CPU-specific

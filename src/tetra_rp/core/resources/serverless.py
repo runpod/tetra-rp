@@ -92,6 +92,7 @@ class ServerlessResource(DeployableResource):
         "env",
         "gpus",
         "flashboot",
+        "flashEnvironmentId",
         "imageName",
         "networkVolume",
     }
@@ -150,6 +151,7 @@ class ServerlessResource(DeployableResource):
     locations: Optional[str] = None
     name: str
     networkVolumeId: Optional[str] = None
+    flashEnvironmentId: Optional[str] = None
     scalerType: Optional[ServerlessScalerType] = ServerlessScalerType.QUEUE_DELAY
     scalerValue: Optional[int] = 4
     templateId: Optional[str] = None
@@ -401,7 +403,7 @@ class ServerlessResource(DeployableResource):
     async def _sync_graphql_object_with_inputs(
         self, returned_endpoint: "ServerlessResource"
     ):
-        for _input_field in self._input_only:
+        for _input_field in self._input_only or set():
             if getattr(self, _input_field) is not None:
                 # sync input only fields stripped from gql request back to endpoint
                 setattr(returned_endpoint, _input_field, getattr(self, _input_field))
@@ -456,6 +458,12 @@ class ServerlessResource(DeployableResource):
             log.error(f"Error checking {self}: {e}")
             return False
 
+    def _payload_exclude(self) -> Set[str]:
+        # flashEnvironmentId is input-only but must be sent when provided
+        exclude_fields = set(self._input_only or set())
+        exclude_fields.discard("flashEnvironmentId")
+        return exclude_fields
+
     async def _do_deploy(self) -> "DeployableResource":
         """
         Deploys the serverless resource using the provided configuration.
@@ -472,7 +480,7 @@ class ServerlessResource(DeployableResource):
 
             async with RunpodGraphQLClient() as client:
                 payload = self.model_dump(
-                    exclude=self._input_only, exclude_none=True, mode="json"
+                    exclude=self._payload_exclude(), exclude_none=True, mode="json"
                 )
                 result = await client.save_endpoint(payload)
 
@@ -522,7 +530,9 @@ class ServerlessResource(DeployableResource):
             async with RunpodGraphQLClient() as client:
                 # Include the endpoint ID to trigger update
                 payload = new_config.model_dump(
-                    exclude=new_config._input_only, exclude_none=True, mode="json"
+                    exclude=new_config._payload_exclude(),
+                    exclude_none=True,
+                    mode="json",
                 )
                 payload["id"] = self.id  # Critical: include ID for update
 

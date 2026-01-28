@@ -223,6 +223,7 @@ def create_resource_from_manifest(
     resource_name: str,
     resource_data: Dict[str, Any],
     mothership_url: str = "",
+    flash_environment_id: Optional[str] = None,
 ) -> DeployableResource:
     """Create DeployableResource config from manifest entry.
 
@@ -230,6 +231,7 @@ def create_resource_from_manifest(
         resource_name: Name of the resource
         resource_data: Resource configuration from manifest
         mothership_url: Optional mothership URL (for future use with child env vars)
+        flash_environment_id: Optional flash environment ID to attach
 
     Returns:
         Configured DeployableResource ready for deployment
@@ -304,6 +306,9 @@ def create_resource_from_manifest(
 
     # Extract deployment config from manifest
     deployment_kwargs = {"name": prefixed_name, "env": env}
+
+    if flash_environment_id:
+        deployment_kwargs["flashEnvironmentId"] = flash_environment_id
 
     # Add imageName or templateId if present (required for validation)
     if "imageName" in resource_data:
