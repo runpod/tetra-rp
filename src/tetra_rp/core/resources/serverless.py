@@ -45,6 +45,14 @@ def get_env_vars() -> Dict[str, str]:
 log = logging.getLogger(__name__)
 
 
+def _is_prod_environment() -> bool:
+    env = os.getenv("RUNPOD_ENV")
+    if env:
+        return env.lower() == "prod"
+    api_base = os.getenv("RUNPOD_API_BASE_URL", "https://api.runpod.io")
+    return "api.runpod.io" in api_base or "api.runpod.ai" in api_base
+
+
 class ServerlessScalerType(Enum):
     QUEUE_DELAY = "QUEUE_DELAY"
     REQUEST_COUNT = "REQUEST_COUNT"
@@ -281,8 +289,19 @@ class ServerlessResource(DeployableResource):
             self.name += "-fb"
 
         # Sync datacenter to locations field for API (only if not already set)
-        if not self.locations:
-            self.locations = self.datacenter.value
+        # Allow overrides in non-prod via env
+        env_locations = os.getenv("RUNPOD_DEFAULT_LOCATIONS")
+        env_datacenter = os.getenv("RUNPOD_DEFAULT_DATACENTER")
+        if env_locations:
+            self.locations = env_locations
+        elif not self.locations:
+            if env_datacenter:
+                try:
+                    self.locations = DataCenter(env_datacenter).value
+                except ValueError:
+                    self.locations = env_datacenter
+            elif _is_prod_environment():
+                self.locations = self.datacenter.value
 
         # Validate datacenter consistency between endpoint and network volume
         if self.networkVolume and self.networkVolume.dataCenterId != self.datacenter:
