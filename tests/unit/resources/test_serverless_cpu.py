@@ -19,12 +19,10 @@ class TestCpuServerlessEndpoint:
             imageName="test/cpu-image:latest",
         )
 
-        # Should expand ANY to all CPU instance types
-        assert endpoint.instanceIds == CpuInstanceType.all()
+        # Should default to CPU3G_2_8
+        assert endpoint.instanceIds == [CpuInstanceType.CPU3G_2_8]
         assert endpoint.template is not None
-        assert (
-            endpoint.template.containerDiskInGb == 10
-        )  # Min disk size across all types
+        assert endpoint.template.containerDiskInGb == 20  # Max disk for CPU3G_2_8
 
     def test_cpu_serverless_endpoint_custom_instances(self):
         """Test CpuServerlessEndpoint with custom instance types."""
@@ -195,19 +193,6 @@ class TestCpuServerlessEndpointValidation:
 
 class TestCpuValidation:
     """Test CPU instance type validation."""
-
-    def test_validate_cpus_expands_any(self):
-        """Test that validate_cpus expands ANY to all instance types."""
-        endpoint = CpuServerlessEndpoint(
-            name="test-endpoint",
-            imageName="test/image:latest",
-            instanceIds=[CpuInstanceType.ANY],
-        )
-
-        # Should be expanded to all CPU instance types
-        assert endpoint.instanceIds == CpuInstanceType.all()
-        assert len(endpoint.instanceIds) == 12
-        assert CpuInstanceType.ANY not in endpoint.instanceIds
 
     def test_validate_cpus_preserves_explicit_list(self):
         """Test that validate_cpus preserves explicit instance type lists."""

@@ -206,13 +206,12 @@ class TestCpuLiveLoadBalancer:
         assert lb.template is not None
         assert lb.template.imageName == lb.imageName
 
-    def test_cpu_live_load_balancer_defaults_to_cpu_any(self):
-        """Test CpuLiveLoadBalancer expands CPU_ANY to all available types."""
+    def test_cpu_live_load_balancer_defaults(self):
+        """Test CpuLiveLoadBalancer defaults to CPU3G_2_8."""
         lb = CpuLiveLoadBalancer(name="test-lb")
 
-        # ANY should expand to all available CPU instance types
-        assert lb.instanceIds == CpuInstanceType.all()
-        assert len(lb.instanceIds) == 12  # 4 cpu3g + 4 cpu3c + 4 cpu5c
+        # Should default to CPU3G_2_8
+        assert lb.instanceIds == [CpuInstanceType.CPU3G_2_8]
 
     def test_cpu_live_load_balancer_with_specific_cpu_instances(self):
         """Test CpuLiveLoadBalancer with explicit CPU instances."""

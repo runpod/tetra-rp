@@ -259,7 +259,7 @@ class ServiceRegistry:
         if endpoint_url is None:
             return None  # Local function
 
-        # Extract endpoint ID from URL (format: https://api.runpod.ai/v2/{endpoint_id})
+        # Extract endpoint ID from URL (format: https://{endpoint_base_url}/v2/{endpoint_id})
         try:
             parsed = urlparse(endpoint_url)
             # Get the last path component (the endpoint ID)

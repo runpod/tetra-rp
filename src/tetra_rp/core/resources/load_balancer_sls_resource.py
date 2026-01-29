@@ -20,6 +20,7 @@ from typing import List, Optional
 from pydantic import model_validator
 
 from tetra_rp.core.utils.http import get_authenticated_httpx_client
+from .constants import ENDPOINT_DOMAIN
 from .cpu import CpuInstanceType
 from .serverless import ServerlessResource, ServerlessType, ServerlessScalerType
 from .serverless_cpu import CpuEndpointMixin
@@ -93,7 +94,7 @@ class LoadBalancerSlsResource(ServerlessResource):
         """Get the endpoint URL for load-balanced endpoints.
 
         Load-balanced endpoints use a different URL format than standard
-        serverless endpoints. They use: https://{endpoint_id}.api.runpod.ai
+        serverless endpoints. They use: https://{endpoint_id}.{ENDPOINT_DOMAIN}
 
         Returns:
             The endpoint URL for health checks and direct HTTP requests
@@ -103,7 +104,7 @@ class LoadBalancerSlsResource(ServerlessResource):
         """
         if not self.id:
             raise ValueError("Endpoint ID not set. Cannot determine endpoint URL.")
-        return f"https://{self.id}.api.runpod.ai"
+        return f"https://{self.id}.{ENDPOINT_DOMAIN}"
 
     def _validate_lb_configuration(self) -> None:
         """
@@ -344,7 +345,7 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
         await mothership.deploy()
     """
 
-    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
+    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.CPU3G_2_8]
 
     # CPU endpoints exclude GPU-specific fields from API payload
     # This prevents the RunPod GraphQL API from rejecting CPU endpoints with GPU-specific fields
@@ -363,7 +364,7 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
     }
 
     def _setup_cpu_template(self) -> None:
-        """Setup template, validating and creating/configuring as needed."""
+        """Setup template with CPU-appropriate disk sizing."""
         if not any([self.imageName, self.template, self.templateId]):
             raise ValueError(
                 "Either imageName, template, or templateId must be provided"
@@ -373,6 +374,10 @@ class CpuLoadBalancerSlsResource(CpuEndpointMixin, LoadBalancerSlsResource):
             self.template = self._create_new_template()
         elif self.template:
             self._configure_existing_template()
+
+        # Apply CPU-specific disk sizing
+        if self.template:
+            self._apply_cpu_disk_sizing(self.template)
 
     @model_validator(mode="after")
     def set_serverless_template(self):

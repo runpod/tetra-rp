@@ -43,18 +43,15 @@ class TestCpuLoadBalancerDefaults:
 
         assert lb.instanceIds == [CpuInstanceType.CPU3G_1_4, CpuInstanceType.CPU3G_2_8]
 
-    def test_cpu_load_balancer_any_expansion(self):
-        """Test CpuInstanceType.ANY expansion."""
+    def test_cpu_load_balancer_default_instances(self):
+        """Test default CPU instance type."""
         lb = CpuLoadBalancerSlsResource(
             name="test-cpu-lb",
             imageName="test/image:latest",
-            instanceIds=[CpuInstanceType.ANY],
         )
 
-        # ANY should expand to all CPU types
-        assert lb.instanceIds == CpuInstanceType.all()
-        assert CpuInstanceType.ANY not in lb.instanceIds
-        assert len(lb.instanceIds) == 12
+        # Should default to CPU3G_2_8
+        assert lb.instanceIds == [CpuInstanceType.CPU3G_2_8]
 
 
 class TestCpuLoadBalancerGpuFieldOverride:
@@ -258,6 +255,61 @@ class TestCpuLoadBalancerComparison:
         assert lb.gpuCount == serverless.gpuCount == 0
         assert lb.allowedCudaVersions == serverless.allowedCudaVersions == ""
         assert lb.gpuIds == serverless.gpuIds == ""
+
+
+class TestCpuLoadBalancerDiskSizing:
+    """Test CPU load balancer disk auto-sizing functionality."""
+
+    def test_cpu_load_balancer_auto_sizes_disk_default_instance(self):
+        """Test that CPU load balancer auto-sizes disk for default CPU3G_2_8."""
+        lb = CpuLoadBalancerSlsResource(
+            name="test-lb",
+            imageName="test/image:latest",
+        )
+
+        # CPU3G_2_8 should auto-size to 20GB
+        assert lb.template.containerDiskInGb == 20
+
+    def test_cpu_load_balancer_auto_sizes_disk_cpu3g_1_4(self):
+        """Test that CPU load balancer auto-sizes disk for CPU3G_1_4 to 10GB."""
+        lb = CpuLoadBalancerSlsResource(
+            name="test-lb",
+            imageName="test/image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4],
+        )
+
+        # CPU3G_1_4 should auto-size to 10GB
+        assert lb.template.containerDiskInGb == 10
+
+    def test_cpu_load_balancer_auto_sizes_disk_multiple_instances(self):
+        """Test that CPU load balancer uses minimum disk size for multiple instances."""
+        lb = CpuLoadBalancerSlsResource(
+            name="test-lb",
+            imageName="test/image:latest",
+            instanceIds=[CpuInstanceType.CPU3G_1_4, CpuInstanceType.CPU3G_2_8],
+        )
+
+        # Multiple instances should use minimum (CPU3G_1_4 has 10GB, CPU3G_2_8 has 20GB)
+        assert lb.template.containerDiskInGb == 10
+
+    def test_cpu_load_balancer_preserves_custom_disk_size(self):
+        """Test that explicit disk sizes are preserved during auto-sizing."""
+        from tetra_rp.core.resources.template import PodTemplate
+
+        template = PodTemplate(
+            name="custom",
+            imageName="test/image:latest",
+            containerDiskInGb=15,
+        )
+
+        lb = CpuLoadBalancerSlsResource(
+            name="test-lb",
+            template=template,
+            instanceIds=[CpuInstanceType.CPU3G_2_8],
+        )
+
+        # Custom disk size should be preserved
+        assert lb.template.containerDiskInGb == 15
 
 
 class TestCpuLoadBalancerIntegration:
