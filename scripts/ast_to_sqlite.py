@@ -185,6 +185,11 @@ class ASTIndexer(ast.NodeVisitor):
         return "Unknown"
 
 
+def _log_indexing_error(file_path: Path, error: Exception) -> None:
+    """Log an indexing error to stderr."""
+    print(f"⚠️  Error indexing {file_path}: {error}", file=sys.stderr)
+
+
 def create_database(db_path: Path) -> sqlite3.Connection:
     """Create SQLite database with schema."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -253,7 +258,7 @@ def index_python_files(project_root: Path, conn: sqlite3.Connection) -> int:
             errors += 1
             continue
         except Exception as e:
-            print(f"⚠️  Error indexing {py_file}: {e}", file=sys.stderr)
+            _log_indexing_error(py_file, e)
             errors += 1
             continue
 

@@ -18,6 +18,11 @@ from mcp.server.models import InitializationOptions
 CODE_INTEL_DIR = Path.cwd() / ".code-intel"
 DB_PATH = CODE_INTEL_DIR / "flash.db"
 
+# Query result limits
+MAX_SYMBOL_RESULTS = 50
+MAX_CLASS_RESULTS = 100
+MAX_DECORATOR_RESULTS = 100
+
 # Initialize MCP server
 server = Server("tetra-code-intel")
 
@@ -32,7 +37,7 @@ def get_db() -> sqlite3.Connection:
 
 
 @server.list_tools()
-async def handle_list_tools() -> list[types.Tool]:
+async def list_tools() -> list[types.Tool]:
     """List available code intelligence tools."""
     return [
         types.Tool(
@@ -117,12 +122,12 @@ async def handle_call_tool(
         symbol = arguments["symbol"]
         conn = get_db()
         cursor = conn.execute(
-            """
+            f"""
             SELECT file_path, symbol_name, kind, signature, start_line, docstring
             FROM symbols
             WHERE symbol_name LIKE ?
             ORDER BY symbol_name, file_path
-            LIMIT 50
+            LIMIT {MAX_SYMBOL_RESULTS}
             """,
             (f"%{symbol}%",),
         )
@@ -162,12 +167,12 @@ async def handle_call_tool(
     elif name == "list_classes":
         conn = get_db()
         cursor = conn.execute(
-            """
+            f"""
             SELECT file_path, symbol_name, signature, start_line, docstring
             FROM symbols
             WHERE kind = 'class'
             ORDER BY file_path, start_line
-            LIMIT 100
+            LIMIT {MAX_CLASS_RESULTS}
             """
         )
         results = cursor.fetchall()
@@ -313,12 +318,12 @@ async def handle_call_tool(
 
         conn = get_db()
         cursor = conn.execute(
-            """
+            f"""
             SELECT file_path, symbol_name, kind, signature, start_line, decorator_json
             FROM symbols
             WHERE decorator_json LIKE ?
             ORDER BY file_path, start_line
-            LIMIT 100
+            LIMIT {MAX_DECORATOR_RESULTS}
             """,
             (decorator_pattern,),
         )
