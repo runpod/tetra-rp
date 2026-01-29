@@ -10,8 +10,8 @@ These tests verify the caching behavior of remote class execution including:
 import tempfile
 from unittest.mock import patch
 
-from tetra_rp.core.resources import ServerlessResource
-from tetra_rp.execute_class import (
+from runpod_flash.core.resources import ServerlessResource
+from runpod_flash.execute_class import (
     _SERIALIZED_CLASS_CACHE,
     create_remote_class,
     get_class_cache_key,
@@ -34,7 +34,7 @@ class TestGetClassCacheKey:
 
         cache_key = get_class_cache_key(SimpleClass, (42,), {})
         # Extract class code separately for verification
-        from tetra_rp.execute_class import extract_class_code_simple
+        from runpod_flash.execute_class import extract_class_code_simple
 
         class_code = extract_class_code_simple(SimpleClass)
 
@@ -227,7 +227,9 @@ class TestClassCaching:
             OptimizationTestClass, self.mock_resource_config, [], [], True, {}
         )
 
-        with patch("tetra_rp.execute_class.extract_class_code_simple") as mock_extract:
+        with patch(
+            "runpod_flash.execute_class.extract_class_code_simple"
+        ) as mock_extract:
             mock_extract.return_value = "class OptimizationTestClass:\n    pass"
 
             # Create instance - should call extract_class_code_simple for caching

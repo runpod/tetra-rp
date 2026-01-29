@@ -3,7 +3,7 @@ Test that @remote decorator supports both sync and async function definitions.
 """
 
 import pytest
-from tetra_rp.stubs.live_serverless import get_function_source
+from runpod_flash.stubs.live_serverless import get_function_source
 
 
 class TestAsyncFunctionSupport:

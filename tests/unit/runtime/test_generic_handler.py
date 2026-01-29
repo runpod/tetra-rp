@@ -4,7 +4,7 @@ import base64
 
 import cloudpickle
 
-from tetra_rp.runtime.generic_handler import (
+from runpod_flash.runtime.generic_handler import (
     create_handler,
     deserialize_arguments,
     execute_function,

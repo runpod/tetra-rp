@@ -7,11 +7,14 @@ interact with the CPU utilities and template system.
 """
 
 import pytest
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.serverless import ServerlessEndpoint
-from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
-from tetra_rp.core.resources.live_serverless import LiveServerless, CpuLiveServerless
-from tetra_rp.core.resources.template import PodTemplate
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.serverless import ServerlessEndpoint
+from runpod_flash.core.resources.serverless_cpu import CpuServerlessEndpoint
+from runpod_flash.core.resources.live_serverless import (
+    LiveServerless,
+    CpuLiveServerless,
+)
+from runpod_flash.core.resources.template import PodTemplate
 
 
 class TestUniversalCpuDetectionIntegration:

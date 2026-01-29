@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock, patch
 
 import cloudpickle
 import pytest
-from tetra_rp.client import remote
-from tetra_rp.core.resources import ServerlessResource
-from tetra_rp.execute_class import create_remote_class
+from runpod_flash.client import remote
+from runpod_flash.core.resources import ServerlessResource
+from runpod_flash.execute_class import create_remote_class
 
 
 class TestRemoteClassDecoratorIntegration:
@@ -640,10 +640,10 @@ class TestErrorHandlingInRemoteClassExecution:
             ):
                 # The error should occur during method call when trying to serialize
                 # Mock cloudpickle.dumps to raise an error
-                from tetra_rp.runtime.exceptions import SerializationError
+                from runpod_flash.runtime.exceptions import SerializationError
 
                 with patch(
-                    "tetra_rp.runtime.serialization.cloudpickle.dumps",
+                    "runpod_flash.runtime.serialization.cloudpickle.dumps",
                     side_effect=TypeError("Can't pickle file objects"),
                 ):
                     with pytest.raises(

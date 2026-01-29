@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from tetra_rp.core.resources.resource_manager import ResourceManager
-from tetra_rp.core.utils.singleton import SingletonMixin
+from runpod_flash.core.resources.resource_manager import ResourceManager
+from runpod_flash.core.utils.singleton import SingletonMixin
 
 
 def pytest_configure(config):
@@ -267,7 +267,7 @@ def isolate_resource_state_file(
     Returns:
         Path to worker-specific state file.
     """
-    from tetra_rp.core.resources import resource_manager
+    from runpod_flash.core.resources import resource_manager
 
     worker_state_file = worker_runpod_dir / "resources.pkl"
     monkeypatch.setattr(resource_manager, "RESOURCE_STATE_FILE", worker_state_file)
@@ -328,8 +328,8 @@ def reset_singletons():
 
     # Clear module-level caches (worker-isolated due to process boundaries)
     try:
-        from tetra_rp.stubs.live_serverless import _SERIALIZED_FUNCTION_CACHE
-        from tetra_rp.execute_class import _SERIALIZED_CLASS_CACHE
+        from runpod_flash.stubs.live_serverless import _SERIALIZED_FUNCTION_CACHE
+        from runpod_flash.execute_class import _SERIALIZED_CLASS_CACHE
 
         _SERIALIZED_FUNCTION_CACHE.clear()
         _SERIALIZED_CLASS_CACHE.clear()
@@ -360,8 +360,8 @@ def reset_singletons():
 
     # Cleanup after test
     try:
-        from tetra_rp.stubs.live_serverless import _SERIALIZED_FUNCTION_CACHE
-        from tetra_rp.execute_class import _SERIALIZED_CLASS_CACHE
+        from runpod_flash.stubs.live_serverless import _SERIALIZED_FUNCTION_CACHE
+        from runpod_flash.execute_class import _SERIALIZED_CLASS_CACHE
 
         _SERIALIZED_FUNCTION_CACHE.clear()
         _SERIALIZED_CLASS_CACHE.clear()

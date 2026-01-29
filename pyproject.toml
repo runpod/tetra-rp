@@ -1,5 +1,5 @@
 [project]
-name = "tetra_rp"
+name = "runpod-flash"
 version = "0.23.1"
 description = "A Python library for distributed inference and serving of machine learning models"
 authors = [
@@ -45,7 +45,7 @@ test = [
 ]
 
 [project.scripts]
-flash = "tetra_rp.cli.main:app"
+flash = "runpod_flash.cli.main:app"
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
@@ -55,7 +55,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-tetra_rp = [
+runpod_flash = [
     "cli/utils/skeleton_template/**/*",
     "cli/utils/skeleton_template/**/.*",
 ]
@@ -68,7 +68,7 @@ python_functions = ["test_*"]
 addopts = [
     "-v",
     "--tb=short",
-    "--cov=tetra_rp",
+    "--cov=runpod_flash",
     "--cov-report=term-missing",
     "--cov-fail-under=65"
 ]
@@ -123,7 +123,7 @@ ignore_missing_imports = true
 [tool.coverage.run]
 parallel = true
 branch = false
-source = ["tetra_rp"]
+source = ["runpod_flash"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
@@ -147,8 +147,8 @@ exclude_lines = [
 
 [tool.coverage.paths]
 source = [
-    "src/tetra_rp",
-    "*/site-packages/tetra_rp",
+    "src/runpod_flash",
+    "*/site-packages/runpod_flash",
 ]
 
 [tool.uv.sources]

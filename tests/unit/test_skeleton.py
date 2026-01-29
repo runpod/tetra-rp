@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from tetra_rp.cli.utils.skeleton import (
+from runpod_flash.cli.utils.skeleton import (
     IGNORE_PATTERNS,
     _should_ignore,
     create_project_skeleton,
@@ -120,7 +120,7 @@ class TestDetectFileConflicts:
         """Test handling when template directory doesn't exist."""
         # Patch __file__ to point to a location where skeleton_template doesn't exist
         mock_file = str(tmp_path / "mock_skeleton.py")
-        monkeypatch.setattr("tetra_rp.cli.utils.skeleton.__file__", mock_file)
+        monkeypatch.setattr("runpod_flash.cli.utils.skeleton.__file__", mock_file)
 
         # Should return empty list, not raise exception
         conflicts = detect_file_conflicts(tmp_path)

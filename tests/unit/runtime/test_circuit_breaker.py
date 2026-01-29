@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from tetra_rp.runtime.circuit_breaker import (
+from runpod_flash.runtime.circuit_breaker import (
     CircuitBreakerOpenError,
     CircuitState,
     EndpointCircuitBreaker,

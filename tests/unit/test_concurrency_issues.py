@@ -1,5 +1,5 @@
 """
-Unit tests for concurrency issues in tetra_rp.
+Unit tests for concurrency issues in runpod_flash.
 
 This module tests race conditions and thread safety issues in:
 1. ResourceManager singleton and resource provisioning
@@ -21,17 +21,17 @@ from unittest.mock import patch
 
 import pytest
 
-from tetra_rp.core.resources.resource_manager import (
+from runpod_flash.core.resources.resource_manager import (
     ResourceManager,
     RESOURCE_STATE_FILE,
 )
-from tetra_rp.core.resources.base import DeployableResource
-from tetra_rp.core.utils.singleton import SingletonMixin
-from tetra_rp.stubs.live_serverless import (
+from runpod_flash.core.resources.base import DeployableResource
+from runpod_flash.core.utils.singleton import SingletonMixin
+from runpod_flash.stubs.live_serverless import (
     _SERIALIZED_FUNCTION_CACHE,
     _function_cache_lock,
 )
-from tetra_rp.execute_class import _SERIALIZED_CLASS_CACHE
+from runpod_flash.execute_class import _SERIALIZED_CLASS_CACHE
 
 
 class MockDeployableResource(DeployableResource):
@@ -154,14 +154,14 @@ class TestResourceManagerConcurrency:
         self.original_state_file = RESOURCE_STATE_FILE
 
         # Patch the state file location
-        import tetra_rp.core.resources.resource_manager as rm_module
+        import runpod_flash.core.resources.resource_manager as rm_module
 
         rm_module.RESOURCE_STATE_FILE = Path(self.temp_dir) / "test_resources.pkl"
 
     def teardown_method(self):
         """Clean up test environment."""
         # Restore original state file
-        import tetra_rp.core.resources.resource_manager as rm_module
+        import runpod_flash.core.resources.resource_manager as rm_module
 
         rm_module.RESOURCE_STATE_FILE = self.original_state_file
 
@@ -449,7 +449,7 @@ class TestEndToEndConcurrency:
 
         # Mock the entire remote execution pipeline
         with patch(
-            "tetra_rp.core.resources.resource_manager.ResourceManager.get_or_deploy_resource"
+            "runpod_flash.core.resources.resource_manager.ResourceManager.get_or_deploy_resource"
         ) as mock_deploy:
             # Configure mock to have deployment delay
             async def slow_deploy(config):
