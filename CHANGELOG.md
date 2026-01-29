@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/runpod/tetra-rp/compare/v0.23.0...v0.23.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* add flash env id to saveendpoint during flash deploy ([#161](https://github.com/runpod/tetra-rp/issues/161)) ([d5c000e](https://github.com/runpod/tetra-rp/commit/d5c000e861d81a68cdb5f2426a989ebc3ddfc174))
+
 ## [0.23.0](https://github.com/runpod/tetra-rp/compare/v0.22.0...v0.23.0) (2026-01-29)
 
 
