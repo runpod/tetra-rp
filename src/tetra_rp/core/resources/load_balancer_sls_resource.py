@@ -20,6 +20,7 @@ from typing import List, Optional
 from pydantic import model_validator
 
 from tetra_rp.core.utils.http import get_authenticated_httpx_client
+from .constants import ENDPOINT_DOMAIN
 from .cpu import CpuInstanceType
 from .serverless import ServerlessResource, ServerlessType, ServerlessScalerType
 from .serverless_cpu import CpuEndpointMixin
@@ -93,7 +94,7 @@ class LoadBalancerSlsResource(ServerlessResource):
         """Get the endpoint URL for load-balanced endpoints.
 
         Load-balanced endpoints use a different URL format than standard
-        serverless endpoints. They use: https://{endpoint_id}.api.runpod.ai
+        serverless endpoints. They use: https://{endpoint_id}.{ENDPOINT_DOMAIN}
 
         Returns:
             The endpoint URL for health checks and direct HTTP requests
@@ -103,7 +104,7 @@ class LoadBalancerSlsResource(ServerlessResource):
         """
         if not self.id:
             raise ValueError("Endpoint ID not set. Cannot determine endpoint URL.")
-        return f"https://{self.id}.api.runpod.ai"
+        return f"https://{self.id}.{ENDPOINT_DOMAIN}"
 
     def _validate_lb_configuration(self) -> None:
         """

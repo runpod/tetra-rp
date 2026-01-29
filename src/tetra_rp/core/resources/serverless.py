@@ -20,7 +20,7 @@ from .cloud import runpod
 from .constants import CONSOLE_URL
 from .environment import EnvironmentVars
 from .cpu import CpuInstanceType
-from .gpu import GpuGroup
+from .gpu import GpuGroup, GpuType
 from .network_volume import NetworkVolume, DataCenter
 from .template import KeyValuePair, PodTemplate
 from .resource_manager import ResourceManager
@@ -43,6 +43,14 @@ def get_env_vars() -> Dict[str, str]:
 
 
 log = logging.getLogger(__name__)
+
+
+def _is_prod_environment() -> bool:
+    env = os.getenv("RUNPOD_ENV")
+    if env:
+        return env.lower() == "prod"
+    api_base = os.getenv("RUNPOD_API_BASE_URL", "https://api.runpod.io")
+    return "api.runpod.io" in api_base or "api.runpod.ai" in api_base
 
 
 class ServerlessScalerType(Enum):
@@ -138,7 +146,7 @@ class ServerlessResource(DeployableResource):
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     flashboot: Optional[bool] = True
-    gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
+    gpus: Optional[List[GpuGroup | GpuType]] = [GpuGroup.ANY]  # for gpuIds
     imageName: Optional[str] = ""  # for template.imageName
     networkVolume: Optional[NetworkVolume] = None
     datacenter: DataCenter = Field(default=DataCenter.EU_RO_1)
@@ -221,9 +229,11 @@ class ServerlessResource(DeployableResource):
 
     @field_validator("gpus")
     @classmethod
-    def validate_gpus(cls, value: List[GpuGroup]) -> List[GpuGroup]:
+    def validate_gpus(cls, value: List[GpuGroup | GpuType]) -> List[GpuGroup | GpuType]:
         """Expand ANY to all GPU groups"""
-        if value == [GpuGroup.ANY]:
+        if not value:
+            return value
+        if GpuGroup.ANY in value or GpuType.ANY in value:
             return GpuGroup.all()
         return value
 
@@ -283,8 +293,19 @@ class ServerlessResource(DeployableResource):
             self.name += "-fb"
 
         # Sync datacenter to locations field for API (only if not already set)
-        if not self.locations:
-            self.locations = self.datacenter.value
+        # Allow overrides in non-prod via env
+        env_locations = os.getenv("RUNPOD_DEFAULT_LOCATIONS")
+        env_datacenter = os.getenv("RUNPOD_DEFAULT_DATACENTER")
+        if env_locations:
+            self.locations = env_locations
+        elif not self.locations:
+            if env_datacenter:
+                try:
+                    self.locations = DataCenter(env_datacenter).value
+                except ValueError:
+                    self.locations = env_datacenter
+            elif _is_prod_environment():
+                self.locations = self.datacenter.value
 
         # Validate datacenter consistency between endpoint and network volume
         if self.networkVolume and self.networkVolume.dataCenterId != self.datacenter:
@@ -414,11 +435,10 @@ class ServerlessResource(DeployableResource):
         # GPU-specific fields (idempotent - only set if not already set)
         if self.gpus and not self.gpuIds:
             # Convert gpus list to gpuIds string
-            self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
+            self.gpuIds = GpuGroup.to_gpu_ids_str(self.gpus)
         elif self.gpuIds and not self.gpus:
             # Convert gpuIds string to gpus list (from backend responses)
-            gpu_values = [v.strip() for v in self.gpuIds.split(",") if v.strip()]
-            self.gpus = [GpuGroup(value) for value in gpu_values]
+            self.gpus = GpuGroup.from_gpu_ids_str(self.gpuIds)
 
         if self.cudaVersions and not self.allowedCudaVersions:
             # Convert cudaVersions list to allowedCudaVersions string
