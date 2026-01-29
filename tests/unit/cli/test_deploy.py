@@ -272,7 +272,7 @@ class TestDeployDelete:
         flash_app.get_environment_by_name = AsyncMock(
             return_value={
                 "id": "env-1",
-                "endpoints": [{"name": "api"}],
+                "endpoints": [{"id": "endpoint-1", "name": "api"}],
                 "networkVolumes": [],
             }
         )
@@ -292,7 +292,7 @@ class TestDeployDelete:
         resource = MagicMock()
         resource.name = "api"
         manager = MagicMock()
-        manager.find_resources_by_name.return_value = [("resource-1", resource)]
+        manager.find_resources_by_provider_id.return_value = [("resource-1", resource)]
         manager.undeploy_resource = AsyncMock(return_value={"success": True})
         mock_get_manager.return_value = manager
 
@@ -305,6 +305,7 @@ class TestDeployDelete:
             )
 
         assert result.exit_code == 0
+        manager.find_resources_by_provider_id.assert_called_once_with("endpoint-1")
         manager.undeploy_resource.assert_awaited_once_with("resource-1", "api")
         flash_app.delete_environment.assert_awaited_once_with("dev")
 
@@ -315,6 +316,64 @@ class TestDeployDelete:
     @patch("tetra_rp.cli.commands.deploy.questionary")
     @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
     def test_delete_environment_aborts_on_undeploy_failure(
+        self,
+        mock_from_name,
+        mock_questionary,
+        mock_get_manager,
+        mock_fetch_env,
+        runner,
+        mock_asyncio_run_coro,
+    ):
+        flash_app = MagicMock()
+        flash_app.get_environment_by_name = AsyncMock(
+            return_value={
+                "id": "env-1",
+                "endpoints": [{"id": "endpoint-1", "name": "api"}],
+                "networkVolumes": [],
+            }
+        )
+        flash_app.delete_environment = AsyncMock(return_value=True)
+        mock_from_name.return_value = flash_app
+
+        confirm = MagicMock()
+        confirm.ask.return_value = True
+        mock_questionary.confirm.return_value = confirm
+
+        mock_fetch_env.return_value = {
+            "id": "env-1",
+            "name": "dev",
+            "activeBuildId": None,
+        }
+
+        resource = MagicMock()
+        resource.name = "api"
+        manager = MagicMock()
+        manager.find_resources_by_provider_id.return_value = [("resource-1", resource)]
+        manager.undeploy_resource = AsyncMock(
+            return_value={"success": False, "message": "undeploy failed"}
+        )
+        mock_get_manager.return_value = manager
+
+        with patch(
+            "tetra_rp.cli.commands.deploy.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
+        ):
+            result = runner.invoke(
+                app, ["deploy", "delete", "dev", "--app-name", "demo"]
+            )
+
+        assert result.exit_code == 1
+        manager.find_resources_by_provider_id.assert_called_once_with("endpoint-1")
+        manager.undeploy_resource.assert_awaited_once_with("resource-1", "api")
+        flash_app.delete_environment.assert_not_called()
+
+    @patch(
+        "tetra_rp.cli.commands.deploy._fetch_environment_info", new_callable=AsyncMock
+    )
+    @patch("tetra_rp.cli.commands.deploy._get_resource_manager")
+    @patch("tetra_rp.cli.commands.deploy.questionary")
+    @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    def test_delete_environment_aborts_when_endpoint_id_missing(
         self,
         mock_from_name,
         mock_questionary,
@@ -344,13 +403,7 @@ class TestDeployDelete:
             "activeBuildId": None,
         }
 
-        resource = MagicMock()
-        resource.name = "api"
         manager = MagicMock()
-        manager.find_resources_by_name.return_value = [("resource-1", resource)]
-        manager.undeploy_resource = AsyncMock(
-            return_value={"success": False, "message": "undeploy failed"}
-        )
         mock_get_manager.return_value = manager
 
         with patch(
@@ -362,7 +415,8 @@ class TestDeployDelete:
             )
 
         assert result.exit_code == 1
-        manager.undeploy_resource.assert_awaited_once_with("resource-1", "api")
+        manager.find_resources_by_provider_id.assert_not_called()
+        manager.undeploy_resource.assert_not_called()
         flash_app.delete_environment.assert_not_called()
 
     @patch(
@@ -409,12 +463,17 @@ class TestDeployDelete:
     @patch(
         "tetra_rp.cli.commands.deploy._fetch_environment_info", new_callable=AsyncMock
     )
+    @patch(
+        "tetra_rp.cli.commands.deploy._undeploy_environment_resources",
+        new_callable=AsyncMock,
+    )
     @patch("tetra_rp.cli.commands.deploy.questionary")
     @patch("tetra_rp.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
     def test_delete_environment_failure(
         self,
         mock_from_name,
         mock_questionary,
+        mock_undeploy_resources,
         mock_fetch_env,
         runner,
         mock_asyncio_run_coro,
@@ -430,16 +489,19 @@ class TestDeployDelete:
         flash_app.get_environment_by_name = AsyncMock(
             return_value={
                 "id": "env-1",
-                "endpoints": [],
+                "endpoints": [{"id": "endpoint-1", "name": "api"}],
                 "networkVolumes": [],
             }
         )
+
         flash_app.delete_environment = AsyncMock(return_value=False)
         mock_from_name.return_value = flash_app
 
         confirm = MagicMock()
         confirm.ask.return_value = True
         mock_questionary.confirm.return_value = confirm
+
+        mock_undeploy_resources.return_value = None
 
         with patch(
             "tetra_rp.cli.commands.deploy.asyncio.run",
@@ -450,6 +512,7 @@ class TestDeployDelete:
             )
 
         assert result.exit_code == 1
+        mock_undeploy_resources.assert_awaited_once()
         flash_app.delete_environment.assert_awaited_once_with("dev")
         patched_console.print.assert_any_call("❌ Failed to delete environment 'dev'")
 

@@ -49,21 +49,25 @@ async def _undeploy_environment_resources(env_name: str, env: dict) -> None:
             ("Network volume", network_volumes),
         ):
             for item in items:
+                provider_id = item.get("id") if isinstance(item, dict) else None
                 name = item.get("name") if isinstance(item, dict) else None
-                if not name:
-                    failures.append(f"{label} missing name in environment '{env_name}'")
+                if not provider_id:
+                    failures.append(f"{label} missing id in environment '{env_name}'")
                     continue
 
-                matches = manager.find_resources_by_name(name)
+                matches = manager.find_resources_by_provider_id(provider_id)
                 if not matches:
-                    failures.append(f"{label} '{name}' not found in local tracking")
+                    display_name = f"{name}" if name else provider_id
+                    failures.append(
+                        f"{label} '{display_name}' ({provider_id}) not found in local tracking"
+                    )
                     continue
 
                 for resource_id, resource in matches:
                     if resource_id in seen_resource_ids:
                         continue
                     seen_resource_ids.add(resource_id)
-                    resource_name = getattr(resource, "name", name)
+                    resource_name = getattr(resource, "name", name) or provider_id
                     result = await manager.undeploy_resource(resource_id, resource_name)
                     if result.get("success"):
                         undeployed += 1
@@ -71,7 +75,7 @@ async def _undeploy_environment_resources(env_name: str, env: dict) -> None:
                         failures.append(
                             result.get(
                                 "message",
-                                f"Failed to undeploy {label.lower()} '{name}'",
+                                f"Failed to undeploy {label.lower()} '{resource_name}'",
                             )
                         )
 
@@ -375,7 +379,7 @@ def delete_command(
     # Get user confirmation in sync context (BEFORE asyncio.run for deletion)
     try:
         confirmed = questionary.confirm(
-            f"Are you sure you want to delete environment '{env_name}'?"
+            f"Are you sure you want to delete environment '{env_name}'? This will delete all resources associated with this environment!"
         ).ask()
 
         if not confirmed:
