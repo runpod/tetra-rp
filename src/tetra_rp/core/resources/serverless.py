@@ -20,7 +20,7 @@ from .cloud import runpod
 from .constants import CONSOLE_URL
 from .environment import EnvironmentVars
 from .cpu import CpuInstanceType
-from .gpu import GpuGroup
+from .gpu import GpuGroup, GpuType
 from .network_volume import NetworkVolume, DataCenter
 from .template import KeyValuePair, PodTemplate
 from .resource_manager import ResourceManager
@@ -145,7 +145,7 @@ class ServerlessResource(DeployableResource):
     cudaVersions: Optional[List[CudaVersion]] = []  # for allowedCudaVersions
     env: Optional[Dict[str, str]] = Field(default_factory=get_env_vars)
     flashboot: Optional[bool] = True
-    gpus: Optional[List[GpuGroup]] = [GpuGroup.ANY]  # for gpuIds
+    gpus: Optional[List[GpuGroup | GpuType]] = [GpuGroup.ANY]  # for gpuIds
     imageName: Optional[str] = ""  # for template.imageName
     networkVolume: Optional[NetworkVolume] = None
     datacenter: DataCenter = Field(default=DataCenter.EU_RO_1)
@@ -227,9 +227,11 @@ class ServerlessResource(DeployableResource):
 
     @field_validator("gpus")
     @classmethod
-    def validate_gpus(cls, value: List[GpuGroup]) -> List[GpuGroup]:
+    def validate_gpus(cls, value: List[GpuGroup | GpuType]) -> List[GpuGroup | GpuType]:
         """Expand ANY to all GPU groups"""
-        if value == [GpuGroup.ANY]:
+        if not value:
+            return value
+        if GpuGroup.ANY in value or GpuType.ANY in value:
             return GpuGroup.all()
         return value
 
@@ -431,11 +433,10 @@ class ServerlessResource(DeployableResource):
         # GPU-specific fields (idempotent - only set if not already set)
         if self.gpus and not self.gpuIds:
             # Convert gpus list to gpuIds string
-            self.gpuIds = ",".join(gpu.value for gpu in self.gpus)
+            self.gpuIds = GpuGroup.to_gpu_ids_str(self.gpus)
         elif self.gpuIds and not self.gpus:
             # Convert gpuIds string to gpus list (from backend responses)
-            gpu_values = [v.strip() for v in self.gpuIds.split(",") if v.strip()]
-            self.gpus = [GpuGroup(value) for value in gpu_values]
+            self.gpus = GpuGroup.from_gpu_ids_str(self.gpuIds)
 
         if self.cudaVersions and not self.allowedCudaVersions:
             # Convert cudaVersions list to allowedCudaVersions string
