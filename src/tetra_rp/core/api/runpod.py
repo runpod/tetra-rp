@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, List
 import aiohttp
 from aiohttp.resolver import ThreadedResolver
 
+from tetra_rp.core.credentials import get_api_key
 from tetra_rp.core.exceptions import RunpodAPIKeyError
 from tetra_rp.runtime.exceptions import GraphQLMutationError, GraphQLQueryError
 
@@ -51,6 +52,104 @@ def _sanitize_for_logging(data: Any, redaction_text: str = "<REDACTED>") -> Any:
         return data
 
 
+class RunpodPublicGraphQLClient:
+    """Runpod GraphQL client without authentication."""
+
+    GRAPHQL_URL = f"{RUNPOD_API_BASE_URL}/graphql"
+
+    def __init__(self):
+        self.session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self.session is None or self.session.closed:
+            timeout = aiohttp.ClientTimeout(total=300)
+            self.session = aiohttp.ClientSession(
+                timeout=timeout,
+                headers={
+                    "Content-Type": "application/json",
+                },
+            )
+        return self.session
+
+    async def _execute_graphql(
+        self, query: str, variables: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        session = await self._get_session()
+
+        payload = {"query": query, "variables": variables or {}}
+
+        log.debug(f"GraphQL Query: {query}")
+        sanitized_vars = _sanitize_for_logging(variables)
+        log.debug(f"GraphQL Variables: {json.dumps(sanitized_vars, indent=2)}")
+
+        try:
+            async with session.post(self.GRAPHQL_URL, json=payload) as response:
+                response_data = await response.json()
+
+                log.debug(f"GraphQL Response Status: {response.status}")
+                sanitized_response = _sanitize_for_logging(response_data)
+                log.debug(
+                    f"GraphQL Response: {json.dumps(sanitized_response, indent=2)}"
+                )
+
+                if response.status >= 400:
+                    sanitized_err = _sanitize_for_logging(response_data)
+                    raise Exception(
+                        f"GraphQL request failed: {response.status} - {sanitized_err}"
+                    )
+
+                if "errors" in response_data:
+                    errors = response_data["errors"]
+                    sanitized_errors = _sanitize_for_logging(errors)
+                    error_msg = "; ".join(
+                        [e.get("message", str(e)) for e in sanitized_errors]
+                    )
+                    raise Exception(f"GraphQL errors: {error_msg}")
+
+                return response_data.get("data", {})
+
+        except aiohttp.ClientError as e:
+            log.error(f"HTTP client error: {e}")
+            raise Exception(f"HTTP request failed: {e}")
+
+    async def create_flash_auth_request(self) -> Dict[str, Any]:
+        mutation = """
+        mutation createFlashAuthRequest {
+            createFlashAuthRequest {
+                id
+                status
+                expiresAt
+            }
+        }
+        """
+        result = await self._execute_graphql(mutation)
+        return result.get("createFlashAuthRequest", {})
+
+    async def get_flash_auth_request_status(self, request_id: str) -> Dict[str, Any]:
+        query = """
+        query flashAuthRequestStatus($flashAuthRequestId: String!) {
+            flashAuthRequestStatus(flashAuthRequestId: $flashAuthRequestId) {
+                id
+                status
+                expiresAt
+                apiKey
+            }
+        }
+        """
+        result = await self._execute_graphql(query, {"flashAuthRequestId": request_id})
+        return result.get("flashAuthRequestStatus", {})
+
+    async def close(self):
+        if self.session and not self.session.closed:
+            await self.session.close()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+
 class RunpodGraphQLClient:
     """
     Runpod GraphQL client for Runpod API.
@@ -60,7 +159,7 @@ class RunpodGraphQLClient:
     GRAPHQL_URL = f"{RUNPOD_API_BASE_URL}/graphql"
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
+        self.api_key = api_key or get_api_key()
         if not self.api_key:
             raise RunpodAPIKeyError()
 
@@ -762,7 +861,7 @@ class RunpodRestClient:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
+        self.api_key = api_key or get_api_key()
         if not self.api_key:
             raise RunpodAPIKeyError()
 
