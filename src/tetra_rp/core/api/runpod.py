@@ -9,6 +9,7 @@ import os
 from typing import Any, Dict, Optional, List
 
 import aiohttp
+from aiohttp.resolver import ThreadedResolver
 
 from tetra_rp.core.exceptions import RunpodAPIKeyError
 from tetra_rp.runtime.exceptions import GraphQLMutationError, GraphQLQueryError
@@ -69,12 +70,14 @@ class RunpodGraphQLClient:
         """Get or create an aiohttp session."""
         if self.session is None or self.session.closed:
             timeout = aiohttp.ClientTimeout(total=300)  # 5 minute timeout
+            connector = aiohttp.TCPConnector(resolver=ThreadedResolver())
             self.session = aiohttp.ClientSession(
                 timeout=timeout,
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 },
+                connector=connector,
             )
         return self.session
 

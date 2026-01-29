@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from tetra_rp.core.resources.base import DeployableResource
+from tetra_rp.core.resources.constants import ENDPOINT_DOMAIN
 from tetra_rp.core.resources.resource_manager import ResourceManager
 
 from .state_manager_client import StateManagerClient
@@ -30,7 +31,7 @@ def get_mothership_url() -> str:
     """Construct mothership URL from RUNPOD_ENDPOINT_ID env var.
 
     Returns:
-        Mothership URL in format: https://{endpoint_id}.api.runpod.ai
+        Mothership URL in format: https://{endpoint_id}.{ENDPOINT_DOMAIN}
 
     Raises:
         RuntimeError: If RUNPOD_ENDPOINT_ID not set
@@ -38,7 +39,7 @@ def get_mothership_url() -> str:
     endpoint_id = os.getenv("RUNPOD_ENDPOINT_ID")
     if not endpoint_id:
         raise RuntimeError("RUNPOD_ENDPOINT_ID environment variable not set")
-    return f"https://{endpoint_id}.api.runpod.ai"
+    return f"https://{endpoint_id}.{ENDPOINT_DOMAIN}"
 
 
 def is_mothership() -> bool:
