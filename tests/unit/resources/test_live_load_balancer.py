@@ -6,12 +6,14 @@ import os
 
 import pytest
 
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.live_serverless import (
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.live_serverless import (
     CpuLiveLoadBalancer,
     LiveLoadBalancer,
 )
-from tetra_rp.core.resources.load_balancer_sls_resource import LoadBalancerSlsResource
+from runpod_flash.core.resources.load_balancer_sls_resource import (
+    LoadBalancerSlsResource,
+)
 
 
 class TestLiveLoadBalancer:
@@ -22,7 +24,7 @@ class TestLiveLoadBalancer:
         monkeypatch.setenv("TETRA_IMAGE_TAG", "local")
         # Need to reload the module to pick up new env var
         import importlib
-        import tetra_rp.core.resources.live_serverless as ls_module
+        import runpod_flash.core.resources.live_serverless as ls_module
 
         importlib.reload(ls_module)
 
@@ -186,7 +188,7 @@ class TestCpuLiveLoadBalancer:
         # Need to reload the module to pick up new env var
         import importlib
 
-        import tetra_rp.core.resources.live_serverless as ls_module
+        import runpod_flash.core.resources.live_serverless as ls_module
 
         importlib.reload(ls_module)
 

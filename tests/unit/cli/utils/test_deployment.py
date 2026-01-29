@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tetra_rp.cli.utils.deployment import (
+from runpod_flash.cli.utils.deployment import (
     provision_resources_for_build,
     deploy_to_environment,
     reconcile_and_provision_resources,
@@ -54,9 +54,9 @@ async def test_provision_resources_for_build_success(
     mock_flash_app.get_build_manifest.return_value = manifest
 
     with (
-        patch("tetra_rp.cli.utils.deployment.ResourceManager") as mock_manager_cls,
+        patch("runpod_flash.cli.utils.deployment.ResourceManager") as mock_manager_cls,
         patch(
-            "tetra_rp.cli.utils.deployment.create_resource_from_manifest"
+            "runpod_flash.cli.utils.deployment.create_resource_from_manifest"
         ) as mock_create_resource,
     ):
         mock_manager = MagicMock()
@@ -130,9 +130,9 @@ async def test_provision_resources_for_build_failure(
     mock_flash_app.get_build_manifest.return_value = manifest
 
     with (
-        patch("tetra_rp.cli.utils.deployment.ResourceManager") as mock_manager_cls,
+        patch("runpod_flash.cli.utils.deployment.ResourceManager") as mock_manager_cls,
         patch(
-            "tetra_rp.cli.utils.deployment.create_resource_from_manifest"
+            "runpod_flash.cli.utils.deployment.create_resource_from_manifest"
         ) as mock_create_resource,
     ):
         mock_manager = MagicMock()
@@ -178,9 +178,9 @@ async def test_provision_resources_for_build_parallel_execution(
         return resource_mock
 
     with (
-        patch("tetra_rp.cli.utils.deployment.ResourceManager") as mock_manager_cls,
+        patch("runpod_flash.cli.utils.deployment.ResourceManager") as mock_manager_cls,
         patch(
-            "tetra_rp.cli.utils.deployment.create_resource_from_manifest"
+            "runpod_flash.cli.utils.deployment.create_resource_from_manifest"
         ) as mock_create_resource,
     ):
         mock_manager = MagicMock()
@@ -240,10 +240,10 @@ async def test_deploy_to_environment_success(
 
     with (
         patch("pathlib.Path.cwd", return_value=tmp_path),
-        patch("tetra_rp.cli.utils.deployment.FlashApp.from_name") as mock_from_name,
-        patch("tetra_rp.cli.utils.deployment.ResourceManager") as mock_manager_cls,
+        patch("runpod_flash.cli.utils.deployment.FlashApp.from_name") as mock_from_name,
+        patch("runpod_flash.cli.utils.deployment.ResourceManager") as mock_manager_cls,
         patch(
-            "tetra_rp.cli.utils.deployment.create_resource_from_manifest"
+            "runpod_flash.cli.utils.deployment.create_resource_from_manifest"
         ) as mock_create_resource,
     ):
         mock_from_name.return_value = mock_flash_app
@@ -292,10 +292,10 @@ async def test_deploy_to_environment_provisioning_failure(mock_flash_app, tmp_pa
 
     with (
         patch("pathlib.Path.cwd", return_value=tmp_path),
-        patch("tetra_rp.cli.utils.deployment.FlashApp.from_name") as mock_from_name,
-        patch("tetra_rp.cli.utils.deployment.ResourceManager") as mock_manager_cls,
+        patch("runpod_flash.cli.utils.deployment.FlashApp.from_name") as mock_from_name,
+        patch("runpod_flash.cli.utils.deployment.ResourceManager") as mock_manager_cls,
         patch(
-            "tetra_rp.cli.utils.deployment.create_resource_from_manifest"
+            "runpod_flash.cli.utils.deployment.create_resource_from_manifest"
         ) as mock_create_resource,
     ):
         mock_from_name.return_value = mock_flash_app
@@ -362,9 +362,9 @@ async def test_reconciliation_reprovisions_resources_without_endpoints(tmp_path)
 
     with (
         patch("pathlib.Path.cwd", return_value=tmp_path),
-        patch("tetra_rp.cli.utils.deployment.ResourceManager") as mock_manager_cls,
+        patch("runpod_flash.cli.utils.deployment.ResourceManager") as mock_manager_cls,
         patch(
-            "tetra_rp.cli.utils.deployment.create_resource_from_manifest"
+            "runpod_flash.cli.utils.deployment.create_resource_from_manifest"
         ) as mock_create_resource,
     ):
         # Both resources should be re-provisioned (marked as "update" action)

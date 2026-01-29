@@ -5,8 +5,8 @@ import tempfile
 from pathlib import Path
 
 
-from tetra_rp.cli.commands.build_utils.manifest import ManifestBuilder
-from tetra_rp.cli.commands.build_utils.scanner import RemoteFunctionMetadata
+from runpod_flash.cli.commands.build_utils.manifest import ManifestBuilder
+from runpod_flash.cli.commands.build_utils.scanner import RemoteFunctionMetadata
 
 
 def test_build_manifest_single_resource():

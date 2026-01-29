@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any, Dict
 
-from tetra_rp.core.resources.serverless import (
+from runpod_flash.core.resources.serverless import (
     ServerlessResource,
     ServerlessEndpoint,
     ServerlessScalerType,
@@ -18,10 +18,10 @@ from tetra_rp.core.resources.serverless import (
     ServerlessHealth,
     Status,
 )
-from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
-from tetra_rp.core.resources.gpu import GpuGroup
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.network_volume import NetworkVolume, DataCenter
+from runpod_flash.core.resources.serverless_cpu import CpuServerlessEndpoint
+from runpod_flash.core.resources.gpu import GpuGroup
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.network_volume import NetworkVolume, DataCenter
 
 
 class TestServerlessResource:
@@ -490,7 +490,7 @@ class TestServerlessResourceDeployment:
         mock_runpod_client.save_endpoint.return_value = deployment_response
 
         with patch(
-            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+            "runpod_flash.core.resources.serverless.RunpodGraphQLClient"
         ) as mock_client_class:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__.return_value = None
@@ -538,7 +538,7 @@ class TestServerlessResourceDeployment:
         mock_runpod_client.save_endpoint = AsyncMock(return_value=deployment_response)
 
         with patch(
-            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+            "runpod_flash.core.resources.serverless.RunpodGraphQLClient"
         ) as mock_client_class:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__.return_value = None
@@ -565,7 +565,7 @@ class TestServerlessResourceDeployment:
         mock_runpod_client.save_endpoint.side_effect = Exception("API Error")
 
         with patch(
-            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+            "runpod_flash.core.resources.serverless.RunpodGraphQLClient"
         ) as mock_client_class:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__.return_value = None
@@ -715,7 +715,7 @@ class TestServerlessEndpoint:
 
     def test_serverless_endpoint_with_existing_template(self):
         """Test ServerlessEndpoint with existing template."""
-        from tetra_rp.core.resources.template import PodTemplate
+        from runpod_flash.core.resources.template import PodTemplate
 
         template = PodTemplate(name="existing-template", imageName="test/image:v1")
         endpoint = ServerlessEndpoint(
@@ -732,7 +732,7 @@ class TestServerlessEndpoint:
 
     def test_serverless_endpoint_template_env_override(self):
         """Test ServerlessEndpoint overrides template env vars."""
-        from tetra_rp.core.resources.template import PodTemplate, KeyValuePair
+        from runpod_flash.core.resources.template import PodTemplate, KeyValuePair
 
         template = PodTemplate(
             name="existing-template",
@@ -929,12 +929,12 @@ class TestServerlessResourceUndeploy:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch(
-            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+            "runpod_flash.core.resources.serverless.RunpodGraphQLClient"
         ) as MockClient:
             MockClient.return_value = mock_client
             # undeploy() now goes through resource_manager and returns a dict
             with patch(
-                "tetra_rp.core.resources.serverless.ResourceManager"
+                "runpod_flash.core.resources.serverless.ResourceManager"
             ) as MockManager:
                 manager_instance = AsyncMock()
                 manager_instance.undeploy_resource = AsyncMock(
@@ -967,12 +967,12 @@ class TestServerlessResourceUndeploy:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch(
-            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+            "runpod_flash.core.resources.serverless.RunpodGraphQLClient"
         ) as MockClient:
             MockClient.return_value = mock_client
             # undeploy() now goes through resource_manager and returns a dict
             with patch(
-                "tetra_rp.core.resources.serverless.ResourceManager"
+                "runpod_flash.core.resources.serverless.ResourceManager"
             ) as MockManager:
                 manager_instance = AsyncMock()
                 manager_instance.undeploy_resource = AsyncMock(
@@ -1006,12 +1006,12 @@ class TestServerlessResourceUndeploy:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch(
-            "tetra_rp.core.resources.serverless.RunpodGraphQLClient"
+            "runpod_flash.core.resources.serverless.RunpodGraphQLClient"
         ) as MockClient:
             MockClient.return_value = mock_client
             # undeploy() now goes through resource_manager and returns a dict
             with patch(
-                "tetra_rp.core.resources.serverless.ResourceManager"
+                "runpod_flash.core.resources.serverless.ResourceManager"
             ) as MockManager:
                 manager_instance = AsyncMock()
                 manager_instance.undeploy_resource = AsyncMock(
@@ -1035,7 +1035,9 @@ class TestServerlessResourceUndeploy:
         # No ID set
 
         # undeploy() now goes through resource_manager and returns a dict
-        with patch("tetra_rp.core.resources.serverless.ResourceManager") as MockManager:
+        with patch(
+            "runpod_flash.core.resources.serverless.ResourceManager"
+        ) as MockManager:
             manager_instance = AsyncMock()
             manager_instance.undeploy_resource = AsyncMock(
                 return_value={

@@ -7,12 +7,12 @@ and override GPU defaults to CPU-appropriate values.
 
 import os
 
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.load_balancer_sls_resource import (
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.load_balancer_sls_resource import (
     CpuLoadBalancerSlsResource,
 )
-from tetra_rp.core.resources.serverless import ServerlessType, ServerlessScalerType
-from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
+from runpod_flash.core.resources.serverless import ServerlessType, ServerlessScalerType
+from runpod_flash.core.resources.serverless_cpu import CpuServerlessEndpoint
 
 # Set a dummy API key for tests that create ResourceManager instances
 os.environ.setdefault("RUNPOD_API_KEY", "test-key-for-unit-tests")
@@ -294,7 +294,7 @@ class TestCpuLoadBalancerDiskSizing:
 
     def test_cpu_load_balancer_preserves_custom_disk_size(self):
         """Test that explicit disk sizes are preserved during auto-sizing."""
-        from tetra_rp.core.resources.template import PodTemplate
+        from runpod_flash.core.resources.template import PodTemplate
 
         template = PodTemplate(
             name="custom",

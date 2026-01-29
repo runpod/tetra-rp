@@ -4,8 +4,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from tetra_rp.cli.commands.build_utils.manifest import ManifestBuilder
-from tetra_rp.cli.commands.build_utils.scanner import RemoteFunctionMetadata
+from runpod_flash.cli.commands.build_utils.manifest import ManifestBuilder
+from runpod_flash.cli.commands.build_utils.scanner import RemoteFunctionMetadata
 
 
 class TestManifestMothership:
@@ -33,8 +33,8 @@ def root():
             func_file = project_root / "functions.py"
             func_file.write_text(
                 """
-from tetra_rp import remote
-from tetra_rp import LiveServerless
+from runpod_flash import remote
+from runpod_flash import LiveServerless
 
 gpu_config = LiveServerless(name="gpu_worker")
 
@@ -46,7 +46,7 @@ def process(data):
 
             # Change to project directory for detection
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(
@@ -80,7 +80,7 @@ app = FastAPI()
             )
 
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(project_name="test", remote_functions=[])
@@ -95,7 +95,7 @@ app = FastAPI()
             project_root = Path(tmpdir)
 
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(project_name="test", remote_functions=[])
@@ -126,8 +126,8 @@ def root():
             func_file = project_root / "functions.py"
             func_file.write_text(
                 """
-from tetra_rp import remote
-from tetra_rp import LiveServerless
+from runpod_flash import remote
+from runpod_flash import LiveServerless
 
 mothership_config = LiveServerless(name="mothership")
 
@@ -149,7 +149,7 @@ def process(data):
             )
 
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(
@@ -182,7 +182,7 @@ def root():
             )
 
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(project_name="test", remote_functions=[])
@@ -222,7 +222,7 @@ def root():
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 mothership = CpuLiveLoadBalancer(
     name="my-api",
@@ -233,7 +233,7 @@ mothership = CpuLiveLoadBalancer(
             )
 
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(project_name="test", remote_functions=[])
@@ -268,7 +268,7 @@ def root():
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 mothership = CpuLiveLoadBalancer(
     name="explicit-mothership",
@@ -279,7 +279,7 @@ mothership = CpuLiveLoadBalancer(
             )
 
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(project_name="test", remote_functions=[])
@@ -301,7 +301,7 @@ mothership = CpuLiveLoadBalancer(
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 mothership = CpuLiveLoadBalancer(
     name="api",  # Will conflict with @remote resource named "api"
@@ -315,8 +315,8 @@ mothership = CpuLiveLoadBalancer(
             func_file = project_root / "functions.py"
             func_file.write_text(
                 """
-from tetra_rp import remote
-from tetra_rp import LiveServerless
+from runpod_flash import remote
+from runpod_flash import LiveServerless
 
 api_config = LiveServerless(name="api")
 
@@ -337,7 +337,7 @@ def process(data):
             )
 
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(
@@ -361,7 +361,7 @@ def process(data):
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import LiveLoadBalancer
+from runpod_flash import LiveLoadBalancer
 
 mothership = LiveLoadBalancer(
     name="gpu-mothership",
@@ -385,7 +385,7 @@ def root():
             )
 
             with patch(
-                "tetra_rp.cli.commands.build_utils.manifest.Path.cwd",
+                "runpod_flash.cli.commands.build_utils.manifest.Path.cwd",
                 return_value=project_root,
             ):
                 builder = ManifestBuilder(project_name="test", remote_functions=[])

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tetra_rp.runtime.manifest_fetcher import ManifestFetcher
+from runpod_flash.runtime.manifest_fetcher import ManifestFetcher
 
 
 class TestManifestFetcher:

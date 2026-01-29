@@ -1,6 +1,6 @@
 """Tests for reliability configuration module."""
 
-from tetra_rp.runtime.reliability_config import (
+from runpod_flash.runtime.reliability_config import (
     CircuitBreakerConfig,
     LoadBalancerConfig,
     LoadBalancerStrategy,

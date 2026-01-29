@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import cloudpickle
 
-from tetra_rp import remote, LiveLoadBalancer, LoadBalancerSlsResource
+from runpod_flash import remote, LiveLoadBalancer, LoadBalancerSlsResource
 
 
 class TestRemoteWithLoadBalancerIntegration:
@@ -62,7 +62,7 @@ class TestRemoteWithLoadBalancerIntegration:
     @pytest.mark.asyncio
     async def test_remote_function_serialization_roundtrip(self):
         """Test that function code and args serialize/deserialize correctly."""
-        from tetra_rp.stubs.load_balancer_sls import LoadBalancerSlsStub
+        from runpod_flash.stubs.load_balancer_sls import LoadBalancerSlsStub
 
         mock_resource = MagicMock()
         stub = LoadBalancerSlsStub(mock_resource)
@@ -88,7 +88,7 @@ class TestRemoteWithLoadBalancerIntegration:
     @pytest.mark.asyncio
     async def test_stub_response_deserialization(self):
         """Test that response deserialization works correctly."""
-        from tetra_rp.stubs.load_balancer_sls import LoadBalancerSlsStub
+        from runpod_flash.stubs.load_balancer_sls import LoadBalancerSlsStub
 
         mock_resource = MagicMock()
         stub = LoadBalancerSlsStub(mock_resource)
@@ -133,7 +133,7 @@ class TestRemoteWithLoadBalancerIntegration:
 
     def test_load_balancer_vs_queue_based_endpoints(self):
         """Test that LB and QB endpoints have different characteristics."""
-        from tetra_rp import ServerlessEndpoint
+        from runpod_flash import ServerlessEndpoint
 
         lb = LoadBalancerSlsResource(name="lb-api", imageName="test:latest")
         qb = ServerlessEndpoint(name="qb-api", imageName="test:latest")
@@ -160,7 +160,7 @@ class TestRemoteWithLoadBalancerIntegration:
 
     def test_live_load_balancer_handler_includes_execute_endpoint(self):
         """Test that generated handler for LiveLoadBalancer includes /execute endpoint."""
-        from tetra_rp.cli.commands.build_utils.lb_handler_generator import (
+        from runpod_flash.cli.commands.build_utils.lb_handler_generator import (
             LBHandlerGenerator,
         )
         from datetime import datetime, timezone
@@ -214,7 +214,7 @@ class TestRemoteWithLoadBalancerIntegration:
 
     def test_deployed_load_balancer_handler_excludes_execute_endpoint(self):
         """Test that generated handler for deployed LoadBalancerSlsResource excludes /execute endpoint."""
-        from tetra_rp.cli.commands.build_utils.lb_handler_generator import (
+        from runpod_flash.cli.commands.build_utils.lb_handler_generator import (
             LBHandlerGenerator,
         )
         from datetime import datetime, timezone
@@ -268,13 +268,13 @@ class TestRemoteWithLoadBalancerIntegration:
 
     def test_scanner_discovers_load_balancer_resources(self):
         """Test that scanner can discover LiveLoadBalancer and LoadBalancerSlsResource."""
-        from tetra_rp.cli.commands.build_utils.scanner import RemoteDecoratorScanner
+        from runpod_flash.cli.commands.build_utils.scanner import RemoteDecoratorScanner
         from pathlib import Path
         import tempfile
 
         # Create temporary Python file with LoadBalancer resource
         code = """
-from tetra_rp import LiveLoadBalancer, LoadBalancerSlsResource, remote
+from runpod_flash import LiveLoadBalancer, LoadBalancerSlsResource, remote
 
 # Test LiveLoadBalancer discovery
 api = LiveLoadBalancer(name="test-api")
@@ -315,7 +315,7 @@ def get_status():
 
     def test_handler_generation_with_numeric_module_paths(self):
         """Test that LB handlers use importlib for numeric module paths."""
-        from tetra_rp.cli.commands.build_utils.lb_handler_generator import (
+        from runpod_flash.cli.commands.build_utils.lb_handler_generator import (
             LBHandlerGenerator,
         )
         from datetime import datetime, timezone

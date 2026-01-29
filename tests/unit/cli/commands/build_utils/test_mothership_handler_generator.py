@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tetra_rp.cli.commands.build_utils.mothership_handler_generator import (
+from runpod_flash.cli.commands.build_utils.mothership_handler_generator import (
     generate_mothership_handler,
 )
 
