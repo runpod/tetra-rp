@@ -60,14 +60,14 @@ UV_COMMAND = "uv"
 PIP_MODULE = "pip"
 
 
-def _find_local_tetra_rp() -> Optional[Path]:
-    """Find local tetra_rp source directory if available.
+def _find_local_runpod_flash() -> Optional[Path]:
+    """Find local runpod_flash source directory if available.
 
     Returns:
-        Path to tetra_rp package directory, or None if not found or installed from PyPI
+        Path to runpod_flash package directory, or None if not found or installed from PyPI
     """
     try:
-        spec = importlib.util.find_spec("tetra_rp")
+        spec = importlib.util.find_spec("runpod_flash")
 
         if not spec or not spec.origin:
             return None
@@ -86,8 +86,8 @@ def _find_local_tetra_rp() -> Optional[Path]:
         return None
 
 
-def _bundle_local_tetra_rp(build_dir: Path) -> bool:
-    """Copy local tetra_rp source into build directory.
+def _bundle_local_runpod_flash(build_dir: Path) -> bool:
+    """Copy local runpod_flash source into build directory.
 
     Args:
         build_dir: Target build directory
@@ -95,50 +95,50 @@ def _bundle_local_tetra_rp(build_dir: Path) -> bool:
     Returns:
         True if bundled successfully, False otherwise
     """
-    tetra_pkg = _find_local_tetra_rp()
+    flash_pkg = _find_local_runpod_flash()
 
-    if not tetra_pkg:
+    if not flash_pkg:
         console.print(
-            "[yellow]⚠ Local tetra_rp not found or using PyPI install[/yellow]"
+            "[yellow]⚠ Local runpod_flash not found or using PyPI install[/yellow]"
         )
         return False
 
-    # Copy tetra_rp to build
-    dest = build_dir / "tetra_rp"
+    # Copy runpod_flash to build
+    dest = build_dir / "runpod_flash"
     if dest.exists():
         shutil.rmtree(dest)
 
     shutil.copytree(
-        tetra_pkg,
+        flash_pkg,
         dest,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache"),
     )
 
-    console.print(f"[cyan]✓ Bundled local tetra_rp from {tetra_pkg}[/cyan]")
+    console.print(f"[cyan]✓ Bundled local runpod_flash from {flash_pkg}[/cyan]")
     return True
 
 
-def _extract_tetra_rp_dependencies(tetra_pkg_dir: Path) -> list[str]:
+def _extract_runpod_flash_dependencies(flash_pkg_dir: Path) -> list[str]:
     """Extract runtime dependencies from runpod_flash's pyproject.toml.
 
-    When bundling local tetra_rp source, we need to also install its dependencies
+    When bundling local runpod_flash source, we need to also install its dependencies
     so they're available in the build environment.
 
     Args:
-        tetra_pkg_dir: Path to tetra_rp package directory (src/tetra_rp)
+        flash_pkg_dir: Path to runpod_flash package directory (src/runpod_flash)
 
     Returns:
         List of dependency strings, empty list if parsing fails
     """
     try:
         # Navigate from runpod_flash package to project root
-        # tetra_pkg_dir is src/tetra_rp, need to go up 2 levels to reach project root
-        project_root = tetra_pkg_dir.parent.parent
+        # flash_pkg_dir is src/runpod_flash, need to go up 2 levels to reach project root
+        project_root = flash_pkg_dir.parent.parent
         pyproject_path = project_root / "pyproject.toml"
 
         if not pyproject_path.exists():
             console.print(
-                "[yellow]⚠ tetra_rp pyproject.toml not found, "
+                "[yellow]⚠ runpod_flash pyproject.toml not found, "
                 "dependencies may be missing[/yellow]"
             )
             return []
@@ -158,12 +158,14 @@ def _extract_tetra_rp_dependencies(tetra_pkg_dir: Path) -> list[str]:
         return dependencies
 
     except Exception as e:
-        console.print(f"[yellow]⚠ Failed to parse tetra_rp dependencies: {e}[/yellow]")
+        console.print(
+            f"[yellow]⚠ Failed to parse runpod_flash dependencies: {e}[/yellow]"
+        )
         return []
 
 
-def _remove_tetra_from_requirements(build_dir: Path) -> None:
-    """Remove tetra_rp from requirements.txt and clean up dist-info since we bundled source."""
+def _remove_runpod_flash_from_requirements(build_dir: Path) -> None:
+    """Remove runpod_flash from requirements.txt and clean up dist-info since we bundled source."""
     req_file = build_dir / "requirements.txt"
 
     if not req_file.exists():
@@ -173,15 +175,15 @@ def _remove_tetra_from_requirements(build_dir: Path) -> None:
     filtered = [
         line
         for line in lines
-        if not line.strip().startswith("tetra_rp")
-        and not line.strip().startswith("tetra-rp")
+        if not line.strip().startswith("runpod_flash")
+        and not line.strip().startswith("runpod-flash")
     ]
 
     req_file.write_text("\n".join(filtered) + "\n")
 
-    # Remove tetra_rp dist-info directory to avoid conflicts with bundled source
+    # Remove runpod_flash dist-info directory to avoid conflicts with bundled source
     # dist-info is created by pip install and can confuse Python's import system
-    for dist_info in build_dir.glob("tetra_rp-*.dist-info"):
+    for dist_info in build_dir.glob("runpod_flash-*.dist-info"):
         if dist_info.is_dir():
             shutil.rmtree(dist_info)
 
@@ -399,20 +401,20 @@ def build_command(
                 logger.exception("Build failed")
                 raise typer.Exit(1)
 
-            # Extract tetra_rp dependencies if bundling local version
-            tetra_deps = []
+            # Extract runpod_flash dependencies if bundling local version
+            flash_deps = []
             if use_local_tetra:
-                tetra_pkg = _find_local_tetra_rp()
-                if tetra_pkg:
-                    tetra_deps = _extract_tetra_rp_dependencies(tetra_pkg)
+                flash_pkg = _find_local_runpod_flash()
+                if flash_pkg:
+                    flash_deps = _extract_runpod_flash_dependencies(flash_pkg)
 
             # Install dependencies
             deps_task = progress.add_task("Installing dependencies...")
             requirements = collect_requirements(project_dir, build_dir)
 
-            # Add tetra_rp dependencies if bundling local version
-            # This ensures all tetra_rp runtime dependencies are available in the build
-            requirements.extend(tetra_deps)
+            # Add runpod_flash dependencies if bundling local version
+            # This ensures all runpod_flash runtime dependencies are available in the build
+            requirements.extend(flash_deps)
 
             # Filter out excluded packages
             if excluded_packages:
@@ -471,21 +473,21 @@ def build_command(
 
             progress.stop_task(deps_task)
 
-            # Bundle local tetra_rp if requested
+            # Bundle local runpod_flash if requested
             if use_local_tetra:
-                tetra_task = progress.add_task("Bundling local tetra_rp...")
-                if _bundle_local_tetra_rp(build_dir):
-                    _remove_tetra_from_requirements(build_dir)
+                flash_task = progress.add_task("Bundling local runpod_flash...")
+                if _bundle_local_runpod_flash(build_dir):
+                    _remove_runpod_flash_from_requirements(build_dir)
                     progress.update(
-                        tetra_task,
-                        description="[green]✓ Bundled local tetra_rp",
+                        flash_task,
+                        description="[green]✓ Bundled local runpod_flash",
                     )
                 else:
                     progress.update(
-                        tetra_task,
+                        flash_task,
                         description="[yellow]⚠ Using PyPI tetra_rp",
                     )
-                progress.stop_task(tetra_task)
+                progress.stop_task(flash_task)
 
             # Clean up Python bytecode before archiving
             cleanup_python_bytecode(build_dir)
