@@ -85,6 +85,7 @@ class MockDeployableResource(DeployableResource):
         return result
 
 
+@pytest.mark.serial
 class TestSingleton:
     """Test thread safety of SingletonMixin."""
 
@@ -139,6 +140,7 @@ class TestSingleton:
         assert exception_count == 0  # No exceptions should occur
 
 
+@pytest.mark.serial
 class TestResourceManagerConcurrency:
     """Test ResourceManager concurrency issues."""
 
@@ -291,6 +293,7 @@ class TestResourceManagerConcurrency:
             print(f"State loading error: {e}")
 
 
+@pytest.mark.serial
 class TestFunctionCacheConcurrency:
     """Test global function cache thread safety."""
 
@@ -360,6 +363,7 @@ class TestFunctionCacheConcurrency:
         assert len(_SERIALIZED_FUNCTION_CACHE) > 0
 
 
+@pytest.mark.serial
 class TestClassCacheConcurrency:
     """Test class serialization cache thread safety."""
 
@@ -423,6 +427,7 @@ class TestClassCacheConcurrency:
         assert len(cache_operations) > 0
 
 
+@pytest.mark.serial
 class TestEndToEndConcurrency:
     """End-to-end tests for concurrent remote function execution."""
 

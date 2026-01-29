@@ -1,56 +1,54 @@
-"""HTTP client for State Manager API to persist and reconcile manifests."""
+"""GraphQL client for State Manager API to persist and reconcile manifests."""
 
 import asyncio
 import logging
-import os
 from typing import Any, Dict, Optional
 
-try:
-    import httpx
-except ImportError:
-    httpx = None
+from tetra_rp.core.api.runpod import RunpodGraphQLClient
 
-from .config import DEFAULT_MAX_RETRIES, DEFAULT_REQUEST_TIMEOUT
-from .exceptions import ManifestServiceUnavailableError
+from .config import DEFAULT_MAX_RETRIES
+from .exceptions import GraphQLError, ManifestServiceUnavailableError
 
 logger = logging.getLogger(__name__)
 
 
 class StateManagerClient:
-    """HTTP client for State Manager API.
+    """GraphQL client for State Manager manifest persistence.
 
-    The State Manager persists manifest state and provides reconciliation
-    capabilities for the mothership to track deployed resources across boots.
+    The State Manager persists manifest state via RunPod GraphQL API,
+    providing reconciliation capabilities for the mothership to track
+    deployed resources across boots.
+
+    Thread Safety:
+        Uses asyncio.Lock to serialize read-modify-write operations,
+        preventing race conditions during concurrent resource updates.
+
+    Architecture:
+        Manifest updates follow a read-modify-write pattern:
+        1. Fetch environment -> activeBuildId
+        2. Fetch build -> manifest
+        3. Merge changes into manifest
+        4. Call updateFlashBuildManifest mutation
+
+    Performance:
+        Each update requires 3 GraphQL roundtrips. Consider batching
+        updates when provisioning multiple resources.
     """
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        base_url: str = "https://api.runpod.io",
-        timeout: int = DEFAULT_REQUEST_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
     ):
         """Initialize State Manager client.
 
         Args:
-            api_key: RunPod API key. Defaults to RUNPOD_API_KEY env var.
-            base_url: Base URL for State Manager API.
-            timeout: Request timeout in seconds.
-            max_retries: Maximum retry attempts.
+            max_retries: Maximum retry attempts for operations.
 
         Raises:
-            ValueError: If api_key not provided and env var not set.
+            RunpodAPIKeyError: If RUNPOD_API_KEY environment variable is not set (raised by RunpodGraphQLClient).
         """
-        self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
-        if not self.api_key:
-            raise ValueError(
-                "api_key required: pass api_key or set RUNPOD_API_KEY environment variable"
-            )
-
-        self.base_url = base_url
-        self.timeout = timeout
         self.max_retries = max_retries
-        self._client: Optional[httpx.AsyncClient] = None
+        self._manifest_lock = asyncio.Lock()
 
     async def get_persisted_manifest(
         self, mothership_id: str
@@ -61,47 +59,28 @@ class StateManagerClient:
             mothership_id: ID of the mothership endpoint.
 
         Returns:
-            Manifest dict or None if not found (first boot).
+            Manifest dict.
 
         Raises:
             ManifestServiceUnavailableError: If State Manager unavailable after retries.
         """
-        if httpx is None:
-            raise ImportError(
-                "httpx required for StateManagerClient. Install with: pip install httpx"
-            )
-
         last_exception: Optional[Exception] = None
 
         for attempt in range(self.max_retries):
             try:
-                client = await self._get_client()
-                response = await client.get(
-                    f"{self.base_url}/api/v1/flash/manifests/{mothership_id}",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                    timeout=self.timeout,
-                )
-
-                if response.status_code == 404:
-                    logger.debug(
-                        f"No persisted manifest found for {mothership_id} (first boot)"
-                    )
-                    return None
-
-                if response.status_code >= 400:
-                    raise ManifestServiceUnavailableError(
-                        f"State Manager returned {response.status_code}: "
-                        f"{response.text[:200]}"
+                async with RunpodGraphQLClient() as client:
+                    _, manifest = await self._fetch_build_and_manifest(
+                        client, mothership_id
                     )
 
-                data = response.json()
                 logger.debug(f"Persisted manifest loaded for {mothership_id}")
-                return data
+                return manifest
 
             except (
                 asyncio.TimeoutError,
                 ManifestServiceUnavailableError,
-                Exception,
+                GraphQLError,
+                ConnectionError,
             ) as e:
                 last_exception = e
                 if attempt < self.max_retries - 1:
@@ -126,6 +105,9 @@ class StateManagerClient:
     ) -> None:
         """Update single resource entry in State Manager.
 
+        Uses locking to prevent race conditions when multiple resources
+        are deployed concurrently.
+
         Args:
             mothership_id: ID of the mothership endpoint.
             resource_name: Name of the resource.
@@ -134,28 +116,21 @@ class StateManagerClient:
         Raises:
             ManifestServiceUnavailableError: If State Manager unavailable.
         """
-        if httpx is None:
-            raise ImportError(
-                "httpx required for StateManagerClient. Install with: pip install httpx"
-            )
-
         last_exception: Optional[Exception] = None
 
         for attempt in range(self.max_retries):
             try:
-                client = await self._get_client()
-                response = await client.put(
-                    f"{self.base_url}/api/v1/flash/manifests/{mothership_id}/resources/{resource_name}",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                    json=resource_data,
-                    timeout=self.timeout,
-                )
-
-                if response.status_code >= 400:
-                    raise ManifestServiceUnavailableError(
-                        f"State Manager returned {response.status_code}: "
-                        f"{response.text[:200]}"
-                    )
+                async with self._manifest_lock:
+                    async with RunpodGraphQLClient() as client:
+                        build_id, manifest = await self._fetch_build_and_manifest(
+                            client, mothership_id
+                        )
+                        resources = manifest.setdefault("resources", {})
+                        existing = resources.get(resource_name)
+                        if not isinstance(existing, dict):
+                            existing = {}
+                        resources[resource_name] = {**existing, **resource_data}
+                        await client.update_build_manifest(build_id, manifest)
 
                 logger.debug(
                     f"Updated resource state in State Manager: {mothership_id}/{resource_name}"
@@ -165,7 +140,8 @@ class StateManagerClient:
             except (
                 asyncio.TimeoutError,
                 ManifestServiceUnavailableError,
-                Exception,
+                GraphQLError,
+                ConnectionError,
             ) as e:
                 last_exception = e
                 if attempt < self.max_retries - 1:
@@ -187,6 +163,9 @@ class StateManagerClient:
     ) -> None:
         """Remove resource entry from State Manager.
 
+        Uses locking to prevent race conditions when multiple resources
+        are deployed concurrently.
+
         Args:
             mothership_id: ID of the mothership endpoint.
             resource_name: Name of the resource.
@@ -194,27 +173,18 @@ class StateManagerClient:
         Raises:
             ManifestServiceUnavailableError: If State Manager unavailable.
         """
-        if httpx is None:
-            raise ImportError(
-                "httpx required for StateManagerClient. Install with: pip install httpx"
-            )
-
         last_exception: Optional[Exception] = None
 
         for attempt in range(self.max_retries):
             try:
-                client = await self._get_client()
-                response = await client.delete(
-                    f"{self.base_url}/api/v1/flash/manifests/{mothership_id}/resources/{resource_name}",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                    timeout=self.timeout,
-                )
-
-                if response.status_code >= 400:
-                    raise ManifestServiceUnavailableError(
-                        f"State Manager returned {response.status_code}: "
-                        f"{response.text[:200]}"
-                    )
+                async with self._manifest_lock:
+                    async with RunpodGraphQLClient() as client:
+                        build_id, manifest = await self._fetch_build_and_manifest(
+                            client, mothership_id
+                        )
+                        resources = manifest.setdefault("resources", {})
+                        resources.pop(resource_name, None)
+                        await client.update_build_manifest(build_id, manifest)
 
                 logger.debug(
                     f"Removed resource state from State Manager: {mothership_id}/{resource_name}"
@@ -224,7 +194,8 @@ class StateManagerClient:
             except (
                 asyncio.TimeoutError,
                 ManifestServiceUnavailableError,
-                Exception,
+                GraphQLError,
+                ConnectionError,
             ) as e:
                 last_exception = e
                 if attempt < self.max_retries - 1:
@@ -241,23 +212,37 @@ class StateManagerClient:
             f"{last_exception}"
         )
 
-    async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create HTTP client with proper configuration."""
-        if self._client is None or self._client.is_closed:
-            timeout = httpx.Timeout(self.timeout)
-            self._client = httpx.AsyncClient(timeout=timeout)
+    async def _fetch_build_and_manifest(
+        self, client: RunpodGraphQLClient, mothership_id: str
+    ) -> tuple[str, Dict[str, Any]]:
+        """Fetch active build ID and manifest for an environment.
 
-        return self._client
+        Args:
+            client: Authenticated GraphQL client.
+            mothership_id: Flash environment ID.
 
-    async def close(self) -> None:
-        """Close HTTP session."""
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
+        Returns:
+            Tuple of (build_id, manifest_dict).
 
-    async def __aenter__(self):
-        """Async context manager entry."""
-        return self
+        Raises:
+            ManifestServiceUnavailableError: If environment, build, or manifest not found.
+        """
+        environment = await client.get_flash_environment(
+            {"flashEnvironmentId": mothership_id}
+        )
+        build_id = environment.get("activeBuildId")
+        if not build_id:
+            raise ManifestServiceUnavailableError(
+                f"Active build not found for environment {mothership_id}. "
+                f"Environment may not be fully initialized or has no deployed build."
+            )
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
-        await self.close()
+        build = await client.get_flash_build(build_id)
+        manifest = build.get("manifest")
+        if not manifest:
+            raise ManifestServiceUnavailableError(
+                f"Manifest not found for build {build.get('id', build_id)}. "
+                f"Build may be corrupted, not yet published, or manifest was not generated."
+            )
+
+        return build_id, manifest

@@ -4,7 +4,7 @@
 
 The `LoadBalancerSlsResource` class enables provisioning and management of RunPod load-balanced serverless endpoints. Unlike queue-based endpoints that process requests sequentially, load-balanced endpoints expose HTTP servers directly to clients, enabling REST APIs, webhooks, and real-time communication patterns.
 
-This resource type forms the foundation for the Mothership architecture, which requires HTTP-based endpoint discovery and cross-endpoint communication.
+This resource type is used for specialized endpoints like the Mothership. Cross-endpoint service discovery now uses State Manager GraphQL API (peer-to-peer) rather than HTTP endpoints.
 
 ## Design Context
 
@@ -35,9 +35,9 @@ Load-balanced endpoints require different provisioning and health check logic th
 
 ### Why This Matters
 
-The Mothership needs to serve as a directory server for child endpoints. This requires:
-- HTTP-based service discovery (not queue-based)
-- Ability to expose custom endpoints (`/directory`, `/ping`)
+The Mothership coordinates resource deployment and reconciliation. This requires:
+- Peer-to-peer service discovery via State Manager GraphQL API (not HTTP-based)
+- Ability to expose custom endpoints (HTTP routes like `/ping`, user-defined routes)
 - Health checking to verify children are ready before routing traffic
 
 ## Architecture
@@ -401,6 +401,6 @@ endpoint = LoadBalancerSlsResource(
 ## Next Steps
 
 - **Mothership integration**: Use LoadBalancerSlsResource for Mothership endpoints
-- **Service discovery**: Implement `/directory` endpoint for child endpoint discovery
-- **Auto-provisioning**: Automatic child endpoint deployment on Mothership startup
-- **Cross-endpoint routing**: Route requests between endpoints using service discovery
+- **Upfront provisioning**: CLI provisions all resources before environment activation
+- **Reconciliation**: Mothership performs reconcile_children() on boot
+- **Cross-endpoint routing**: Route requests using State Manager GraphQL API (peer-to-peer)

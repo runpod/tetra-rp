@@ -8,7 +8,7 @@ import hashlib
 import json
 from typing import List, Optional
 
-from pydantic import field_serializer, model_validator, field_validator
+from pydantic import field_serializer, model_validator
 
 from .cpu import (
     CpuInstanceType,
@@ -23,16 +23,6 @@ class CpuEndpointMixin:
     """Mixin class that provides CPU-specific functionality for serverless endpoints."""
 
     instanceIds: Optional[List[CpuInstanceType]]
-
-    @field_validator("instanceIds")
-    @classmethod
-    def validate_instance_ids(
-        cls, value: List[CpuInstanceType]
-    ) -> List[CpuInstanceType]:
-        """Expand ANY to all available CPU instance types."""
-        if value == [CpuInstanceType.ANY]:
-            return CpuInstanceType.all()
-        return value
 
     def _is_cpu_endpoint(self) -> bool:
         """Check if this is a CPU endpoint (has instanceIds)."""
@@ -136,7 +126,7 @@ class CpuServerlessEndpoint(CpuEndpointMixin, ServerlessEndpoint):
 
     # Override GPU field from parent to None for CPU endpoints
     gpus: Optional[List] = None
-    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.ANY]
+    instanceIds: Optional[List[CpuInstanceType]] = [CpuInstanceType.CPU3G_2_8]
 
     @property
     def config_hash(self) -> str:

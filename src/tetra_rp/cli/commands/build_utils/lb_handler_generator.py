@@ -40,9 +40,6 @@ ROUTE_REGISTRY = {{
 {registry}
 }}
 
-# Module-level state for /manifest endpoint
-_state_client: Optional[StateManagerClient] = None
-
 
 # Lifespan context manager for startup/shutdown
 @asynccontextmanager
@@ -51,43 +48,46 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting {resource_name} endpoint")
 
-    # Check if this is the mothership and initiate provisioning
+    # Check if this is the mothership and run reconciliation
+    # Note: Resources are now provisioned upfront by the CLI during deployment.
+    # This background task runs reconciliation on mothership startup to ensure
+    # all resources are still deployed and in sync with the manifest.
     try:
         from tetra_rp.runtime.mothership_provisioner import (
             is_mothership,
-            provision_children,
+            reconcile_children,
             get_mothership_url,
         )
         from tetra_rp.runtime.state_manager_client import StateManagerClient
 
         if is_mothership():
             logger.info("=" * 60)
-            logger.info("Mothership detected - Starting auto-provisioning")
-            logger.info("Test phase: Deploying child endpoints with 'tmp-' prefix")
+            logger.info("Mothership detected - Starting reconciliation task")
+            logger.info("Resources are provisioned upfront by the CLI")
+            logger.info("This task ensures all resources remain in sync")
             logger.info("=" * 60)
             try:
                 mothership_url = get_mothership_url()
                 logger.info(f"Mothership URL: {{mothership_url}}")
 
-                # Initialize State Manager client and store in module-level state
+                # Initialize State Manager client for reconciliation
                 state_client = StateManagerClient()
-                global _state_client
-                _state_client = state_client
 
-                # Spawn background provisioning task (non-blocking)
+                # Spawn background reconciliation task (non-blocking)
+                # This will verify all resources from manifest are deployed
                 manifest_path = Path(__file__).parent / "flash_manifest.json"
                 task = asyncio.create_task(
-                    provision_children(manifest_path, mothership_url, state_client)
+                    reconcile_children(manifest_path, mothership_url, state_client)
                 )
                 # Add error callback to catch and log background task exceptions
                 task.add_done_callback(
-                    lambda t: logger.error(f"Background provisioning failed: {{t.exception()}}")
+                    lambda t: logger.error(f"Reconciliation task failed: {{t.exception()}}")
                     if t.exception()
                     else None
                 )
 
             except Exception as e:
-                logger.error(f"Failed to start mothership provisioning: {{e}}")
+                logger.error(f"Failed to start reconciliation task: {{e}}")
                 # Don't fail startup - continue serving traffic
 
     except ImportError:
@@ -115,58 +115,6 @@ def ping():
         dict: Status response
     """
     return {{"status": "healthy"}}
-
-
-# Manifest endpoint for service discovery
-@app.get("/manifest")
-async def manifest():
-    """Return complete authoritative manifest for service discovery.
-
-    Fetches the full manifest from State Manager, allowing child endpoints
-    to synchronize their configuration.
-
-    Returns:
-        dict: Complete manifest with version, generated_at, project_name,
-              function_registry, resources, and routes
-    """
-    try:
-        import os
-        from tetra_rp.runtime.mothership_provisioner import is_mothership
-
-        # Only mothership serves manifest
-        if not is_mothership():
-            return {{"error": "Only mothership serves manifest"}}, 403
-
-        # Check state client initialized
-        global _state_client
-        if _state_client is None:
-            return {{"error": "State Manager not initialized"}}, 500
-
-        # Get mothership ID
-        mothership_id = os.getenv("RUNPOD_ENDPOINT_ID")
-        if not mothership_id:
-            return {{"error": "RUNPOD_ENDPOINT_ID not set"}}, 500
-
-        # Fetch persisted manifest from State Manager (single source of truth)
-        persisted_manifest = await _state_client.get_persisted_manifest(mothership_id)
-
-        # First boot: no manifest yet, return minimal structure
-        if persisted_manifest is None:
-            return {{
-                "version": "1.0",
-                "generated_at": "",
-                "project_name": "",
-                "function_registry": {{}},
-                "resources": {{}},
-                "routes": {{}}
-            }}
-
-        # Return complete manifest
-        return persisted_manifest
-
-    except Exception as e:
-        logger.error(f"Failed to get manifest: {{e}}")
-        return {{"error": str(e)}}, 500
 
 
 if __name__ == "__main__":

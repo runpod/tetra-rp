@@ -26,7 +26,6 @@ class ProductionWrapper:
             service_registry: Service registry for routing decisions.
         """
         self.service_registry = service_registry
-        self._directory_loaded = False
 
     async def wrap_function_execution(
         self,
@@ -57,12 +56,14 @@ class ProductionWrapper:
         """
         function_name = func.__name__
 
-        # Ensure directory is loaded
-        await self.service_registry._ensure_directory_loaded()
+        # Ensure manifest is loaded
+        await self.service_registry._ensure_manifest_loaded()
 
         # Determine routing
         try:
-            resource = self.service_registry.get_resource_for_function(function_name)
+            resource = await self.service_registry.get_resource_for_function(
+                function_name
+            )
         except ValueError as e:
             # Function not in manifest, execute locally
             logger.debug(
@@ -116,8 +117,8 @@ class ProductionWrapper:
         Raises:
             Exception: If execution fails.
         """
-        # Ensure directory is loaded
-        await self.service_registry._ensure_directory_loaded()
+        # Ensure manifest is loaded
+        await self.service_registry._ensure_manifest_loaded()
 
         class_name = getattr(request, "class_name", None)
 
@@ -127,7 +128,7 @@ class ProductionWrapper:
 
         # Determine routing
         try:
-            resource = self.service_registry.get_resource_for_function(class_name)
+            resource = await self.service_registry.get_resource_for_function(class_name)
         except ValueError:
             # Class not in manifest, execute locally
             logger.debug(f"Class {class_name} not in manifest, executing locally")

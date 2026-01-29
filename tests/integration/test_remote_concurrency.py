@@ -28,6 +28,7 @@ from tetra_rp.core.utils.singleton import SingletonMixin
 from tetra_rp.protos.remote_execution import FunctionResponse
 
 
+@pytest.mark.serial
 @pytest.mark.asyncio
 class TestRemoteConcurrency:
     """Test concurrency behavior of @remote decorated functions."""

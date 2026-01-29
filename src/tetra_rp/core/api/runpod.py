@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, List
 import aiohttp
 
 from tetra_rp.core.exceptions import RunpodAPIKeyError
+from tetra_rp.runtime.exceptions import GraphQLMutationError, GraphQLQueryError
 
 log = logging.getLogger(__name__)
 
@@ -304,7 +305,7 @@ class RunpodGraphQLClient:
         mutation FinalizeArtifactUpload($input: FinalizeFlashArtifactUploadInput!) {
                 finalizeFlashArtifactUpload(input: $input) {
                     id
-                    resourceSpec
+                    manifest
                     }
                 }
         """
@@ -416,6 +417,28 @@ class RunpodGraphQLClient:
         result = await self._execute_graphql(query, variables)
 
         return result["flashEnvironmentByName"]
+
+    async def update_build_manifest(
+        self,
+        build_id: str,
+        manifest: Dict[str, Any],
+    ) -> None:
+        mutation = """
+        mutation updateFlashBuildManifest($input: UpdateFlashBuildManifestInput!) {
+            updateFlashBuildManifest(input: $input) {
+                id
+                manifest
+            }
+        }
+        """
+        variables = {"input": {"flashBuildId": build_id, "manifest": manifest}}
+        result = await self._execute_graphql(mutation, variables)
+
+        if "updateFlashBuildManifest" not in result:
+            raise GraphQLMutationError(
+                f"updateFlashBuildManifest mutation failed for build {build_id}. "
+                f"Expected 'updateFlashBuildManifest' in response, got: {list(result.keys())}"
+            )
 
     async def get_flash_artifact_url(self, environment_id: str) -> Dict[str, Any]:
         result = await self.get_flash_environment(
@@ -565,19 +588,49 @@ class RunpodGraphQLClient:
 
         return result["updateFlashEnvironment"]
 
-    async def get_flash_build(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_flash_build(self, build_id: str) -> Dict[str, Any]:
+        """Fetch flash build by ID.
+
+        Args:
+            build_id: Build ID string (UUID format).
+
+        Returns:
+            Build data including id and manifest.
+
+        Raises:
+            TypeError: If build_id is not a string.
+            GraphQLQueryError: If build not found or query fails.
+
+        Note:
+            API changed in PR #144:
+            - Previously accepted Dict[str, Any], now requires string build_id directly
+            - Query now requests 'manifest' field instead of 'name' field
+        """
+        if not isinstance(build_id, str):
+            raise TypeError(
+                f"get_flash_build() expects build_id as str, got {type(build_id).__name__}. "
+                f"API changed in PR #144 - update caller to pass build_id string directly."
+            )
+
         query = """
         query getFlashBuild($input: String!) {
                 flashBuild(flashBuildId: $input) {
                     id
-                    name
+                    manifest
             }
         }
         """
-        variables = {"input": input_data}
+        variables = {"input": build_id}
 
-        log.debug(f"Fetching flash build for input: {input_data}")
+        log.debug(f"Fetching flash build for input: {build_id}")
         result = await self._execute_graphql(query, variables)
+
+        if "flashBuild" not in result:
+            raise GraphQLQueryError(
+                f"get_flash_build query failed for build {build_id}. "
+                f"Expected 'flashBuild' in response, got: {list(result.keys())}"
+            )
+
         return result["flashBuild"]
 
     async def list_flash_builds_by_app_id(self, app_id: str) -> List[Dict[str, Any]]:

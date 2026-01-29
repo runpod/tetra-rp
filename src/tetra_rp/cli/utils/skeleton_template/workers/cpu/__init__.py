@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 from .endpoint import cpu_hello
 
-
 cpu_router = APIRouter()
 
 

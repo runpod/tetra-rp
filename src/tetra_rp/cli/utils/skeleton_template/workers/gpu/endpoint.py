@@ -1,5 +1,4 @@
-from tetra_rp import remote, LiveServerless, GpuGroup
-
+from tetra_rp import GpuGroup, LiveServerless, remote
 
 gpu_config = LiveServerless(
     name="gpu_worker",

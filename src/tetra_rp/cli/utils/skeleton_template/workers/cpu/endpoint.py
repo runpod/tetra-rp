@@ -1,9 +1,7 @@
-from tetra_rp import remote, CpuLiveServerless, CpuInstanceType
-
+from tetra_rp import CpuLiveServerless, remote
 
 cpu_config = CpuLiveServerless(
     name="cpu_worker",
-    instanceIds=[CpuInstanceType.ANY],
     workersMin=0,
     workersMax=5,
     idleTimeout=5,

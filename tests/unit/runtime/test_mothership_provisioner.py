@@ -388,7 +388,10 @@ class TestCreateResourceFromManifest:
         from tetra_rp.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
-        resource_data = {"resource_type": "ServerlessResource"}
+        resource_data = {
+            "resource_type": "ServerlessResource",
+            "imageName": "runpod/tetra-rp:latest",
+        }
         mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
@@ -399,7 +402,6 @@ class TestCreateResourceFromManifest:
             assert isinstance(resource, ServerlessResource)
             # ServerlessResource may append "-fb" suffix during initialization
             assert resource_name in resource.name
-            assert resource.env["FLASH_MOTHERSHIP_ID"] == "mothership-123"
             assert resource.env["FLASH_RESOURCE_NAME"] == resource_name
 
     def test_create_resource_from_manifest_live_serverless(self):
@@ -412,7 +414,10 @@ class TestCreateResourceFromManifest:
         from tetra_rp.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
-        resource_data = {"resource_type": "LiveServerless"}
+        resource_data = {
+            "resource_type": "LiveServerless",
+            "imageName": "runpod/tetra-rp:latest",
+        }
         mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
@@ -439,7 +444,9 @@ class TestCreateResourceFromManifest:
         from tetra_rp.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
-        resource_data = {}  # No resource_type specified
+        resource_data = {
+            "imageName": "runpod/tetra-rp:latest"
+        }  # No resource_type specified
         mothership_url = "https://test.api.runpod.ai"
 
         with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
@@ -449,3 +456,76 @@ class TestCreateResourceFromManifest:
 
             assert isinstance(resource, ServerlessResource)
             assert resource_name in resource.name
+
+    def test_create_resource_from_manifest_cli_context_no_runpod_endpoint_id(self):
+        """Test resource creation in CLI context without RUNPOD_ENDPOINT_ID.
+
+        During CLI provisioning, RUNPOD_ENDPOINT_ID is not available.
+        FLASH_MOTHERSHIP_ID should not be included in env to avoid
+        Pydantic validation errors (None values are not allowed).
+        """
+        from tetra_rp.core.resources.serverless import ServerlessResource
+
+        resource_name = "worker1"
+        resource_data = {
+            "resource_type": "ServerlessResource",
+            "imageName": "runpod/tetra-rp:latest",
+        }
+        mothership_url = ""  # Empty URL indicates CLI context
+
+        # Clear RUNPOD_ENDPOINT_ID to simulate CLI environment
+        with patch.dict(os.environ, {}, clear=True):
+            resource = create_resource_from_manifest(
+                resource_name, resource_data, mothership_url
+            )
+
+            assert isinstance(resource, ServerlessResource)
+            assert resource_name in resource.name
+            # FLASH_MOTHERSHIP_ID should NOT be present when RUNPOD_ENDPOINT_ID is not set
+            assert "FLASH_MOTHERSHIP_ID" not in resource.env
+            assert resource.env["FLASH_RESOURCE_NAME"] == resource_name
+
+    def test_create_resource_from_manifest_mothership_context_with_endpoint_id(self):
+        """Test resource creation in mothership runtime context.
+
+        When running inside a mothership endpoint, RUNPOD_ENDPOINT_ID is available.
+        FLASH_MOTHERSHIP_ID should be included in env so children can query
+        the State Manager using the mothership's ID.
+        """
+        from tetra_rp.core.resources.serverless import ServerlessResource
+
+        resource_name = "worker1"
+        resource_data = {
+            "resource_type": "ServerlessResource",
+            "imageName": "runpod/tetra-rp:latest",
+        }
+        mothership_url = "https://mothership.api.runpod.ai"
+
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-endpoint-456"}):
+            resource = create_resource_from_manifest(
+                resource_name, resource_data, mothership_url
+            )
+
+            assert isinstance(resource, ServerlessResource)
+            assert resource_name in resource.name
+            # FLASH_MOTHERSHIP_ID should be present when RUNPOD_ENDPOINT_ID is set
+            assert resource.env["FLASH_MOTHERSHIP_ID"] == "mothership-endpoint-456"
+            assert resource.env["FLASH_RESOURCE_NAME"] == resource_name
+
+    def test_create_resource_from_manifest_cpu_live_serverless(self):
+        """Test creating CpuLiveServerless from manifest."""
+        from tetra_rp.core.resources.live_serverless import CpuLiveServerless
+
+        resource_name = "cpu_worker"
+        resource_data = {"resource_type": "CpuLiveServerless"}
+        mothership_url = "https://test.api.runpod.ai"
+
+        with patch.dict(os.environ, {"RUNPOD_ENDPOINT_ID": "mothership-123"}):
+            resource = create_resource_from_manifest(
+                resource_name, resource_data, mothership_url
+            )
+
+            assert isinstance(resource, CpuLiveServerless)
+            assert resource_name in resource.name
+            assert resource.env["FLASH_MOTHERSHIP_ID"] == "mothership-123"
+            assert resource.env["FLASH_RESOURCE_NAME"] == resource_name

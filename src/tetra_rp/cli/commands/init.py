@@ -82,6 +82,8 @@ def init_command(
         panel_content += f"  {actual_project_name}/\n"
 
     panel_content += "  ├── main.py              # Flash Server (FastAPI)\n"
+    panel_content += "  ├── mothership.py        # Mothership endpoint config\n"
+    panel_content += "  ├── pyproject.toml       # Python project config\n"
     panel_content += "  ├── workers/\n"
     panel_content += "  │   ├── gpu/             # GPU worker\n"
     panel_content += "  │   └── cpu/             # CPU worker\n"
@@ -103,6 +105,8 @@ def init_command(
         steps_table.add_row(f"{step_num}.", f"cd {actual_project_name}")
         step_num += 1
 
+    steps_table.add_row(f"{step_num}.", "Review and customize mothership.py (optional)")
+    step_num += 1
     steps_table.add_row(f"{step_num}.", "pip install -r requirements.txt")
     step_num += 1
     steps_table.add_row(f"{step_num}.", "cp .env.example .env")

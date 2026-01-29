@@ -1,6 +1,7 @@
 from pathlib import Path
 import requests
 import asyncio
+import json
 from typing import Dict, Optional, Union, Tuple, TYPE_CHECKING, Any, List
 import logging
 
@@ -346,7 +347,9 @@ class FlashApp:
                     if chunk:
                         stream.write(chunk)
 
-    async def _finalize_upload_build(self, object_key: str) -> Dict[str, Any]:
+    async def _finalize_upload_build(
+        self, object_key: str, manifest: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Finalize the upload of a build tarball.
 
         After uploading the tarball to the pre-signed URL, this method
@@ -354,6 +357,7 @@ class FlashApp:
 
         Args:
             object_key: The object key returned by _get_tarball_upload_url
+            manifest: The manifest dictionary (read from .flash/flash_manifest.json)
 
         Returns:
             Dictionary containing build information including the build ID
@@ -364,7 +368,7 @@ class FlashApp:
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             result = await client.finalize_artifact_upload(
-                {"flashAppId": self.id, "objectKey": object_key}
+                {"flashAppId": self.id, "objectKey": object_key, "manifest": manifest}
             )
             return result
 
@@ -419,6 +423,8 @@ class FlashApp:
         """Upload a build tarball to the server.
 
         Validates the tarball file before upload (extension, magic bytes, size limits).
+        Manifest is read from .flash/flash_manifest.json during deployment, not extracted
+        from tarball.
 
         Args:
             tar_path: Path to the tarball file (string or Path object)
@@ -444,6 +450,18 @@ class FlashApp:
             tar_path = Path(tar_path)
         _validate_tarball_file(tar_path)
 
+        # Read manifest from .flash/flash_manifest.json
+        manifest_path = Path.cwd() / ".flash" / "flash_manifest.json"
+        try:
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"Manifest not found at {manifest_path}. Run 'flash build' first."
+            ) from e
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid manifest JSON at {manifest_path}: {e}") from e
+
         await self._hydrate()
         tarball_size = tar_path.stat().st_size
 
@@ -457,7 +475,7 @@ class FlashApp:
             resp = requests.put(url, data=fh, headers=headers)
 
         resp.raise_for_status()
-        resp = await self._finalize_upload_build(object_key)
+        resp = await self._finalize_upload_build(object_key, manifest)
         return resp
 
     async def _set_environment_state(self, environment_id: str, status: str) -> None:
@@ -626,7 +644,7 @@ class FlashApp:
         """
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
-            return await client.get_flash_build({"flashBuildId": build_id})
+            return await client.get_flash_build(build_id)
 
     async def list_builds(self) -> List[Dict[str, Any]]:
         """List all builds for this app.
@@ -685,3 +703,36 @@ class FlashApp:
         await self._hydrate()
         async with RunpodGraphQLClient() as client:
             return await client.list_flash_environments_by_app_id(self.id)
+
+    async def get_build_manifest(self, build_id: str) -> Dict[str, Any]:
+        """Retrieve manifest for a specific build.
+
+        Args:
+            build_id: ID of the build
+
+        Returns:
+            Manifest dictionary (empty dict if manifest is not present)
+
+        Raises:
+            RuntimeError: If app is not hydrated
+        """
+        await self._hydrate()
+        async with RunpodGraphQLClient() as client:
+            build = await client.get_flash_build(build_id)
+            return build.get("manifest", {})
+
+    async def update_build_manifest(
+        self, build_id: str, manifest: Dict[str, Any]
+    ) -> None:
+        """Update manifest for a specific build.
+
+        Args:
+            build_id: ID of the build
+            manifest: Complete manifest dictionary
+
+        Raises:
+            RuntimeError: If app is not hydrated
+        """
+        await self._hydrate()
+        async with RunpodGraphQLClient() as client:
+            await client.update_build_manifest(build_id, manifest)

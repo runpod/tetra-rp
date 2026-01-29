@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tetra_rp.runtime.manifest_client import ManifestClient
 from tetra_rp.runtime.production_wrapper import (
     ProductionWrapper,
     create_production_wrapper,
     reset_wrapper,
 )
 from tetra_rp.runtime.service_registry import ServiceRegistry
+from tetra_rp.runtime.state_manager_client import StateManagerClient
 
 
 class TestCrossEndpointRoutingIntegration:
@@ -70,11 +70,10 @@ class TestCrossEndpointRoutingIntegration:
         with patch.dict(
             "os.environ",
             {
-                "RUNPOD_ENDPOINT_ID": "gpu_config",
-                "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                "FLASH_RESOURCE_NAME": "gpu_config",
             },
         ):
-            directory = {
+            endpoint_registry = {
                 "gpu_config": "https://gpu.example.com",
                 "cpu_config": "https://cpu.example.com",
             }
@@ -88,12 +87,14 @@ class TestCrossEndpointRoutingIntegration:
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
 
-                mock_dir_client = AsyncMock(spec=ManifestClient)
-                mock_dir_client.get_directory.return_value = directory
+                mock_state_manager = AsyncMock(spec=StateManagerClient)
+                mock_state_manager.get_persisted_manifest.return_value = {
+                    "resources_endpoints": endpoint_registry
+                }
 
-                registry._directory_client = mock_dir_client
-                registry._directory = directory
-                registry._directory_loaded_at = float("inf")
+                registry._manifest_client = mock_state_manager
+                registry._endpoint_registry = endpoint_registry
+                registry._endpoint_registry_loaded_at = float("inf")
 
                 wrapper = ProductionWrapper(registry)
 
@@ -124,11 +125,10 @@ class TestCrossEndpointRoutingIntegration:
         with patch.dict(
             "os.environ",
             {
-                "RUNPOD_ENDPOINT_ID": "gpu_config",
-                "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                "FLASH_RESOURCE_NAME": "gpu_config",
             },
         ):
-            directory = {
+            endpoint_registry = {
                 "gpu_config": "https://gpu.example.com",
                 "cpu_config": "https://cpu.example.com",
             }
@@ -141,11 +141,13 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_dir_client = AsyncMock(spec=ManifestClient)
-                mock_dir_client.get_directory.return_value = directory
-                registry._directory_client = mock_dir_client
-                registry._directory = directory
-                registry._directory_loaded_at = float("inf")
+                mock_state_manager = AsyncMock(spec=StateManagerClient)
+                mock_state_manager.get_persisted_manifest.return_value = {
+                    "resources_endpoints": endpoint_registry
+                }
+                registry._manifest_client = mock_state_manager
+                registry._endpoint_registry = endpoint_registry
+                registry._endpoint_registry_loaded_at = float("inf")
 
                 # Mock ServerlessResource
                 mock_resource = AsyncMock()
@@ -183,16 +185,16 @@ class TestCrossEndpointRoutingIntegration:
                 manifest_path.unlink()
 
     @pytest.mark.asyncio
-    async def test_directory_loading_on_demand(self, manifest):
-        """Test that directory is loaded on-demand before routing decision."""
+    async def test_manifest_loading_on_demand(self, manifest):
+        """Test that manifest is loaded on-demand before routing decision."""
         with patch.dict(
             "os.environ",
             {
-                "RUNPOD_ENDPOINT_ID": "gpu_config",
-                "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                "FLASH_RESOURCE_NAME": "gpu_config",
+                "RUNPOD_ENDPOINT_ID": "mothership-id",
             },
         ):
-            directory = {
+            endpoint_registry = {
                 "gpu_config": "https://gpu.example.com",
                 "cpu_config": "https://cpu.example.com",
             }
@@ -205,11 +207,13 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_dir_client = AsyncMock(spec=ManifestClient)
-                mock_dir_client.get_directory.return_value = directory
-                registry._directory_client = mock_dir_client
+                mock_state_manager = AsyncMock(spec=StateManagerClient)
+                mock_state_manager.get_persisted_manifest.return_value = {
+                    "resources_endpoints": endpoint_registry
+                }
+                registry._manifest_client = mock_state_manager
 
-                assert registry._directory == {}
+                assert registry._endpoint_registry == {}
 
                 wrapper = ProductionWrapper(registry)
 
@@ -230,8 +234,11 @@ class TestCrossEndpointRoutingIntegration:
                         original_stub, cpu_task, None, None, True
                     )
 
-                assert len(registry._directory) > 0
-                assert registry._directory["gpu_config"] == "https://gpu.example.com"
+                assert len(registry._endpoint_registry) > 0
+                assert (
+                    registry._endpoint_registry["gpu_config"]
+                    == "https://gpu.example.com"
+                )
 
             finally:
                 manifest_path.unlink()
@@ -242,11 +249,10 @@ class TestCrossEndpointRoutingIntegration:
         with patch.dict(
             "os.environ",
             {
-                "RUNPOD_ENDPOINT_ID": "gpu_config",
-                "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
+                "FLASH_RESOURCE_NAME": "gpu_config",
             },
         ):
-            directory = {
+            endpoint_registry = {
                 "gpu_config": "https://gpu.example.com",
                 "cpu_config": "https://cpu.example.com",
             }
@@ -259,11 +265,13 @@ class TestCrossEndpointRoutingIntegration:
 
             try:
                 registry = ServiceRegistry(manifest_path=manifest_path)
-                mock_dir_client = AsyncMock(spec=ManifestClient)
-                mock_dir_client.get_directory.return_value = directory
-                registry._directory_client = mock_dir_client
-                registry._directory = directory
-                registry._directory_loaded_at = float("inf")
+                mock_state_manager = AsyncMock(spec=StateManagerClient)
+                mock_state_manager.get_persisted_manifest.return_value = {
+                    "resources_endpoints": endpoint_registry
+                }
+                registry._manifest_client = mock_state_manager
+                registry._endpoint_registry = endpoint_registry
+                registry._endpoint_registry_loaded_at = float("inf")
 
                 # Mock ServerlessResource that returns error
                 mock_resource = AsyncMock()
@@ -313,7 +321,6 @@ class TestCrossEndpointRoutingIntegration:
                 "os.environ",
                 {
                     "RUNPOD_ENDPOINT_ID": "resource1",
-                    "FLASH_MOTHERSHIP_URL": "https://mothership.example.com",
                 },
             ):
                 wrapper = create_production_wrapper()

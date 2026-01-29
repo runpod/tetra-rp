@@ -1,14 +1,19 @@
 """Builder for flash_manifest.json."""
 
+import importlib.util
 import json
+import logging
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .scanner import RemoteFunctionMetadata
+from .scanner import RemoteFunctionMetadata, detect_explicit_mothership, detect_main_app
 
-RESERVED_PATHS = ["/execute", "/ping", "/manifest"]
+logger = logging.getLogger(__name__)
+
+RESERVED_PATHS = ["/execute", "/ping"]
 
 
 @dataclass
@@ -36,16 +41,214 @@ class ManifestResource:
     is_load_balanced: bool = False  # Determined by isinstance() at scan time
     is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
     config_variable: Optional[str] = None  # Variable name for test-mothership
+    is_mothership: bool = False  # Special flag for mothership endpoint
+    is_explicit: bool = False  # Flag indicating explicit mothership.py configuration
+    main_file: Optional[str] = None  # Filename of main.py for mothership
+    app_variable: Optional[str] = None  # Variable name of FastAPI app
+    imageName: Optional[str] = None  # Docker image name for auto-provisioning
+    templateId: Optional[str] = None  # RunPod template ID for auto-provisioning
+    gpuIds: Optional[list] = None  # GPU types/IDs for auto-provisioning
+    workersMin: Optional[int] = None  # Min worker count for auto-provisioning
+    workersMax: Optional[int] = None  # Max worker count for auto-provisioning
 
 
 class ManifestBuilder:
     """Builds flash_manifest.json from discovered remote functions."""
 
     def __init__(
-        self, project_name: str, remote_functions: List[RemoteFunctionMetadata]
+        self,
+        project_name: str,
+        remote_functions: List[RemoteFunctionMetadata],
+        scanner=None,
+        build_dir: Optional[Path] = None,
     ):
         self.project_name = project_name
         self.remote_functions = remote_functions
+        self.scanner = (
+            scanner  # Optional: RemoteDecoratorScanner with resource config info
+        )
+        self.build_dir = build_dir
+
+    def _extract_deployment_config(
+        self, resource_name: str, config_variable: Optional[str], resource_type: str
+    ) -> Dict[str, Any]:
+        """Extract deployment config (imageName, templateId, etc.) from resource object.
+
+        Args:
+            resource_name: Name of the resource
+            config_variable: Variable name of the resource config (e.g., "gpu_config")
+            resource_type: Type of the resource (e.g., "LiveServerless")
+
+        Returns:
+            Dictionary with deployment config (may be empty if resource not found)
+        """
+        config = {}
+
+        # If no scanner or config variable, can't extract deployment config
+        if not self.scanner or not config_variable:
+            return config
+
+        try:
+            # Get the module where this resource is defined
+            # Try to find it in the scanner's discovered files
+            resource_file = None
+            for func in self.remote_functions:
+                if func.config_variable == config_variable:
+                    resource_file = func.file_path
+                    break
+
+            if not resource_file or not resource_file.exists():
+                return config
+
+            # Dynamically import the module and extract the resource config
+            spec = importlib.util.spec_from_file_location(
+                resource_file.stem, resource_file
+            )
+            if not spec or not spec.loader:
+                return config
+
+            module = importlib.util.module_from_spec(spec)
+            # Add module to sys.modules temporarily to allow relative imports
+            sys.modules[spec.name] = module
+
+            try:
+                spec.loader.exec_module(module)
+
+                # Get the resource config object
+                if hasattr(module, config_variable):
+                    resource_config = getattr(module, config_variable)
+
+                    # Extract deployment config properties
+                    if (
+                        hasattr(resource_config, "imageName")
+                        and resource_config.imageName
+                    ):
+                        config["imageName"] = resource_config.imageName
+
+                    if (
+                        hasattr(resource_config, "templateId")
+                        and resource_config.templateId
+                    ):
+                        config["templateId"] = resource_config.templateId
+
+                    if hasattr(resource_config, "gpuIds") and resource_config.gpuIds:
+                        config["gpuIds"] = resource_config.gpuIds
+
+                    if hasattr(resource_config, "workersMin"):
+                        config["workersMin"] = resource_config.workersMin
+
+                    if hasattr(resource_config, "workersMax"):
+                        config["workersMax"] = resource_config.workersMax
+
+                    # Extract template configuration if present
+                    if (
+                        hasattr(resource_config, "template")
+                        and resource_config.template
+                    ):
+                        template_obj = resource_config.template
+                        template_config = {}
+
+                        # Extract only the configurable template fields
+                        if hasattr(template_obj, "containerDiskInGb"):
+                            template_config["containerDiskInGb"] = (
+                                template_obj.containerDiskInGb
+                            )
+                        if hasattr(template_obj, "dockerArgs"):
+                            template_config["dockerArgs"] = template_obj.dockerArgs
+                        if hasattr(template_obj, "startScript"):
+                            template_config["startScript"] = template_obj.startScript
+                        if hasattr(template_obj, "advancedStart"):
+                            template_config["advancedStart"] = (
+                                template_obj.advancedStart
+                            )
+                        if hasattr(template_obj, "containerRegistryAuthId"):
+                            template_config["containerRegistryAuthId"] = (
+                                template_obj.containerRegistryAuthId
+                            )
+
+                        if template_config:
+                            config["template"] = template_config
+
+            finally:
+                # Clean up module from sys.modules to avoid conflicts
+                if spec.name in sys.modules:
+                    del sys.modules[spec.name]
+
+        except Exception as e:
+            # Log warning but don't fail - deployment config is optional
+            logger.debug(
+                f"Failed to extract deployment config for {resource_name}: {e}"
+            )
+
+        return config
+
+    def _create_mothership_resource(self, main_app_config: dict) -> Dict[str, Any]:
+        """Create implicit mothership resource from main.py.
+
+        Args:
+            main_app_config: Dict with 'file_path', 'app_variable', 'has_routes' keys
+
+        Returns:
+            Dictionary representing the mothership resource for the manifest
+        """
+        return {
+            "resource_type": "CpuLiveLoadBalancer",
+            "handler_file": "handler_mothership.py",
+            "functions": [],
+            "is_load_balanced": True,
+            "is_live_resource": True,
+            "is_mothership": True,
+            "main_file": main_app_config["file_path"].name,
+            "app_variable": main_app_config["app_variable"],
+            "imageName": "runpod/tetra-rp-lb-cpu:latest",
+            "workersMin": 1,
+            "workersMax": 3,
+        }
+
+    def _create_mothership_from_explicit(
+        self, explicit_config: dict, search_dir: Path
+    ) -> Dict[str, Any]:
+        """Create mothership resource from explicit mothership.py configuration.
+
+        Args:
+            explicit_config: Configuration dict from detect_explicit_mothership()
+            search_dir: Project directory
+
+        Returns:
+            Dictionary representing the mothership resource for the manifest
+        """
+        # Detect FastAPI app details for handler generation
+        main_app_config = detect_main_app(search_dir, explicit_mothership_exists=False)
+
+        if not main_app_config:
+            # No FastAPI app found, use defaults
+            main_file = "main.py"
+            app_variable = "app"
+        else:
+            main_file = main_app_config["file_path"].name
+            app_variable = main_app_config["app_variable"]
+
+        # Map resource type to image name
+        resource_type = explicit_config.get("resource_type", "CpuLiveLoadBalancer")
+        if resource_type == "LiveLoadBalancer":
+            image_name = "runpod/tetra-rp-lb:latest"  # GPU load balancer
+        else:
+            image_name = "runpod/tetra-rp-lb-cpu:latest"  # CPU load balancer
+
+        return {
+            "resource_type": resource_type,
+            "handler_file": "handler_mothership.py",
+            "functions": [],
+            "is_load_balanced": True,
+            "is_live_resource": True,
+            "is_mothership": True,
+            "is_explicit": True,  # Flag to indicate explicit configuration
+            "main_file": main_file,
+            "app_variable": app_variable,
+            "imageName": image_name,
+            "workersMin": explicit_config.get("workersMin", 1),
+            "workersMax": explicit_config.get("workersMax", 3),
+        }
 
     def build(self) -> Dict[str, Any]:
         """Build the manifest dictionary."""
@@ -125,6 +328,11 @@ class ManifestBuilder:
                 for f in functions
             ]
 
+            # Extract deployment config (imageName, templateId, etc.) for auto-provisioning
+            deployment_config = self._extract_deployment_config(
+                resource_name, config_variable, resource_type
+            )
+
             resources_dict[resource_name] = {
                 "resource_type": resource_type,
                 "handler_file": handler_file,
@@ -132,6 +340,7 @@ class ManifestBuilder:
                 "is_load_balanced": is_load_balanced,
                 "is_live_resource": is_live_resource,
                 "config_variable": config_variable,
+                **deployment_config,  # Include imageName, templateId, gpuIds, workers config
             }
 
             # Store routes for LB endpoints
@@ -146,6 +355,57 @@ class ManifestBuilder:
                         f"resources '{function_registry[f.function_name]}' and '{resource_name}'"
                     )
                 function_registry[f.function_name] = resource_name
+
+        # === MOTHERSHIP DETECTION (EXPLICIT THEN FALLBACK) ===
+        search_dir = self.build_dir if self.build_dir else Path.cwd()
+
+        # Step 1: Check for explicit mothership.py
+        explicit_mothership = detect_explicit_mothership(search_dir)
+
+        if explicit_mothership:
+            # Use explicit configuration
+            logger.info("Found explicit mothership configuration in mothership.py")
+
+            # Check for name conflict
+            mothership_name = explicit_mothership.get("name", "mothership")
+            if mothership_name in resources_dict:
+                logger.warning(
+                    f"Project has a @remote resource named '{mothership_name}'. "
+                    f"Using 'mothership-entrypoint' for explicit mothership endpoint."
+                )
+                mothership_name = "mothership-entrypoint"
+
+            # Create mothership resource from explicit config
+            mothership_resource = self._create_mothership_from_explicit(
+                explicit_mothership, search_dir
+            )
+            resources_dict[mothership_name] = mothership_resource
+
+        else:
+            # Step 2: Fallback to auto-detection
+            main_app_config = detect_main_app(
+                search_dir, explicit_mothership_exists=False
+            )
+
+            if main_app_config and main_app_config["has_routes"]:
+                logger.warning(
+                    "Auto-detected FastAPI app in main.py (no mothership.py found). "
+                    "Consider running 'flash init' to create explicit mothership configuration."
+                )
+
+                # Check for name conflict
+                if "mothership" in resources_dict:
+                    logger.warning(
+                        "Project has a @remote resource named 'mothership'. "
+                        "Using 'mothership-entrypoint' for auto-generated mothership endpoint."
+                    )
+                    mothership_name = "mothership-entrypoint"
+                else:
+                    mothership_name = "mothership"
+
+                # Create mothership resource from auto-detection (legacy behavior)
+                mothership_resource = self._create_mothership_resource(main_app_config)
+                resources_dict[mothership_name] = mothership_resource
 
         manifest = {
             "version": "1.0",

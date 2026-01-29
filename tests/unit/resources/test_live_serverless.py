@@ -17,8 +17,8 @@ class TestLiveServerless:
             name="example_gpu_live_serverless",
         )
 
-        # Should not have CPU functionality, uses default 64GB
-        assert not hasattr(live_serverless, "instanceIds")
+        # Should not have CPU instances, uses default 64GB
+        assert live_serverless.instanceIds is None
         assert live_serverless.template is not None
         assert live_serverless.template.containerDiskInGb == 64
         assert "tetra-rp:" in live_serverless.imageName  # GPU image
@@ -63,13 +63,11 @@ class TestCpuLiveServerless:
             name="example_cpu_live_serverless",
         )
 
-        # Should expand ANY to all CPU instance types
-        assert live_serverless.instanceIds == CpuInstanceType.all()
+        # Should default to CPU3G_2_8
+        assert live_serverless.instanceIds == [CpuInstanceType.CPU3G_2_8]
         assert live_serverless.template is not None
-        # When using ANY (all instances), disk size should be minimum of all limits
-        assert (
-            live_serverless.template.containerDiskInGb == 10
-        )  # Min disk size across all types
+        # Default disk size should be 20GB for CPU3G_2_8
+        assert live_serverless.template.containerDiskInGb == 20
         assert "tetra-rp-cpu:" in live_serverless.imageName  # CPU image
 
     def test_cpu_live_serverless_custom_instances(self):

@@ -13,39 +13,31 @@ from tetra_rp.core.resources.cpu import (
 class TestCpuInstanceType:
     """Test CpuInstanceType enum behavior."""
 
-    def test_any_enum_exists(self):
-        """Test that CpuInstanceType.ANY enum exists."""
-        assert CpuInstanceType.ANY == "any"
-
-    def test_all_returns_all_except_any(self):
-        """Test that all() returns all CPU instance types except ANY."""
-        all_types = CpuInstanceType.all()
-
-        # Should not include ANY
-        assert CpuInstanceType.ANY not in all_types
-
-        # Should include all other types (12 total)
-        assert len(all_types) == 12
-        assert CpuInstanceType.CPU3G_1_4 in all_types
-        assert CpuInstanceType.CPU3G_2_8 in all_types
-        assert CpuInstanceType.CPU3G_4_16 in all_types
-        assert CpuInstanceType.CPU3G_8_32 in all_types
-        assert CpuInstanceType.CPU3C_1_2 in all_types
-        assert CpuInstanceType.CPU3C_2_4 in all_types
-        assert CpuInstanceType.CPU3C_4_8 in all_types
-        assert CpuInstanceType.CPU3C_8_16 in all_types
-        assert CpuInstanceType.CPU5C_1_2 in all_types
-        assert CpuInstanceType.CPU5C_2_4 in all_types
-        assert CpuInstanceType.CPU5C_4_8 in all_types
-        assert CpuInstanceType.CPU5C_8_16 in all_types
+    def test_cpu_instance_types_exist(self):
+        """Test that all CPU instance types exist."""
+        # All 12 instance types should exist
+        assert CpuInstanceType.CPU3G_1_4 in CpuInstanceType
+        assert CpuInstanceType.CPU3G_2_8 in CpuInstanceType
+        assert CpuInstanceType.CPU3G_4_16 in CpuInstanceType
+        assert CpuInstanceType.CPU3G_8_32 in CpuInstanceType
+        assert CpuInstanceType.CPU3C_1_2 in CpuInstanceType
+        assert CpuInstanceType.CPU3C_2_4 in CpuInstanceType
+        assert CpuInstanceType.CPU3C_4_8 in CpuInstanceType
+        assert CpuInstanceType.CPU3C_8_16 in CpuInstanceType
+        assert CpuInstanceType.CPU5C_1_2 in CpuInstanceType
+        assert CpuInstanceType.CPU5C_2_4 in CpuInstanceType
+        assert CpuInstanceType.CPU5C_4_8 in CpuInstanceType
+        assert CpuInstanceType.CPU5C_8_16 in CpuInstanceType
+        # Exactly 12 instance types
+        assert len(list(CpuInstanceType)) == 12
 
 
 class TestCpuInstanceDiskLimits:
     """Test CPU instance disk limits constants and utilities."""
 
-    def test_cpu_instance_disk_limits_excludes_any(self):
-        """Test that CPU_INSTANCE_DISK_LIMITS excludes ANY."""
-        assert CpuInstanceType.ANY not in CPU_INSTANCE_DISK_LIMITS
+    def test_cpu_instance_disk_limits_count(self):
+        """Test that CPU_INSTANCE_DISK_LIMITS has exactly 12 entries."""
+        assert len(CPU_INSTANCE_DISK_LIMITS) == 12
 
     def test_cpu_instance_disk_limits_mapping(self):
         """Test that all CPU instance types have disk limits defined."""
@@ -125,10 +117,6 @@ class TestCpuInstanceDiskLimits:
     def test_programmatic_limits_match_dictionary(self):
         """Test that programmatically calculated limits match the generated dictionary."""
         for instance_type in CpuInstanceType:
-            # Skip ANY since it doesn't have a disk limit
-            if instance_type == CpuInstanceType.ANY:
-                continue
-
             calculated = calculate_max_disk_size(instance_type)
             from_dict = CPU_INSTANCE_DISK_LIMITS[instance_type]
             assert calculated == from_dict, (

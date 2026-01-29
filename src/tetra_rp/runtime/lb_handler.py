@@ -4,7 +4,6 @@ This module provides the factory function for generating FastAPI applications
 that handle load-balanced serverless endpoints. It supports:
 - User-defined HTTP routes
 - /execute endpoint for @remote function execution (LiveLoadBalancer only)
-- /manifest endpoint for mothership service discovery (when FLASH_IS_MOTHERSHIP=true)
 
 Security Model:
     The /execute endpoint accepts and executes serialized function code. This is
@@ -15,20 +14,14 @@ Security Model:
     4. In production, API authentication should protect the /execute endpoint
 
     Users should NOT expose the /execute endpoint to untrusted clients.
-
-    The /manifest endpoint returns deployment metadata and is safe to expose
-    publicly as it contains only structural information about deployed functions.
 """
 
 import inspect
 import logging
-import os
 from typing import Any, Callable, Dict
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 
-from .generic_handler import load_manifest
 from .serialization import (
     deserialize_args,
     deserialize_kwargs,
@@ -173,32 +166,6 @@ def create_lb_handler(
             except Exception as e:
                 logger.error(f"Unexpected error in /execute endpoint: {e}")
                 return {"success": False, "error": f"Unexpected error: {e}"}
-
-    # Register /manifest endpoint for mothership discovery (if enabled)
-    if os.getenv("FLASH_IS_MOTHERSHIP", "").lower() == "true":
-
-        @app.get("/manifest")
-        async def get_manifest() -> JSONResponse:
-            """Mothership discovery endpoint.
-
-            Returns the flash_manifest.json content for service discovery.
-            Only available when FLASH_IS_MOTHERSHIP=true environment variable is set.
-
-            Returns:
-                JSONResponse with manifest content or 404 if not found
-            """
-            manifest_dict = load_manifest()
-
-            if not manifest_dict or not manifest_dict.get("resources"):
-                return JSONResponse(
-                    status_code=404,
-                    content={
-                        "error": "Manifest not found",
-                        "detail": "flash_manifest.json could not be loaded",
-                    },
-                )
-
-            return JSONResponse(status_code=200, content=manifest_dict)
 
     # Register user-defined routes from registry
     for (method, path), handler in route_registry.items():
