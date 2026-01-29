@@ -6,7 +6,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from tetra_rp.core.api.runpod import RunpodPublicGraphQLClient
+from tetra_rp.core.api.runpod import RunpodGraphQLClient
 from tetra_rp.core.credentials import save_api_key
 from tetra_rp.core.resources.constants import CONSOLE_BASE_URL
 
@@ -26,7 +26,7 @@ def _parse_expires_at(value: Optional[str]) -> Optional[dt.datetime]:
 
 
 async def _login_async(open_browser: bool, timeout_seconds: float) -> None:
-    async with RunpodPublicGraphQLClient() as client:
+    async with RunpodGraphQLClient(require_api_key=False) as client:
         request = await client.create_flash_auth_request()
         request_id = request.get("id")
         if not request_id:
