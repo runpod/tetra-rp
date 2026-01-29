@@ -29,6 +29,11 @@ MAX_SYMBOL_RESULTS = 50
 MAX_CLASS_RESULTS = 100
 MAX_DECORATOR_RESULTS = 100
 
+# Query result limits
+MAX_SYMBOL_RESULTS = 50
+MAX_CLASS_RESULTS = 100
+MAX_DECORATOR_RESULTS = 100
+
 # Initialize MCP server
 server = Server("tetra-code-intel")
 
