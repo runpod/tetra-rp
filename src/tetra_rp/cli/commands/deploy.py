@@ -57,7 +57,7 @@ async def _undeploy_environment_resources(env_name: str, env: dict) -> None:
 
                 matches = manager.find_resources_by_provider_id(provider_id)
                 if not matches:
-                    display_name = f"{name}" if name else provider_id
+                    display_name = name if name else provider_id
                     failures.append(
                         f"{label} '{display_name}' ({provider_id}) not found in local tracking"
                     )
