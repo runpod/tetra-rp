@@ -19,7 +19,7 @@ Flash apps are the top-level packaging unit for Flash projects. Each app tracks 
    - `flash build` generates `.flash/archive.tar.gz` artifacts containing source code and flash_manifest.json. `flash deploy send <env>` uploads the archive and provisions all resources upfront before environment activation, extracting the manifest on each resource during boot.
 4. **Inspection & Operations**
    - `flash app list/get` surface app-level metadata: environment counts, build history, IDs.
-   - `flash deploy list/info` zoom into environment state, showing associated endpoints and volumes, while `flash deploy delete` tears them down with confirmation prompts.
+   - `flash deploy list/info` zoom into environment state, showing associated endpoints and volumes, while `flash deploy delete` undeploys associated resources before deleting the environment (aborting on failures) with confirmation prompts.
 
 ## Operational Notes
 - Flash app CLI entrypoint wraps async helpers with `asyncio.run`, so tests patch that boundary and the shared Rich `console` to keep assertions deterministic.

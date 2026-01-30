@@ -379,6 +379,23 @@ class ResourceManager(SingletonMixin):
                 matches.append((uid, resource))
         return matches
 
+    def find_resources_by_provider_id(
+        self, provider_id: str
+    ) -> List[Tuple[str, DeployableResource]]:
+        """Find resources matching the provider-assigned ID.
+
+        Args:
+            provider_id: The provider resource ID to search for (exact match)
+
+        Returns:
+            List of (resource_id, resource) tuples matching the provider ID
+        """
+        matches = []
+        for uid, resource in self._resources.items():
+            if getattr(resource, "id", None) == provider_id:
+                matches.append((uid, resource))
+        return matches
+
     async def undeploy_resource(
         self,
         resource_id: str,

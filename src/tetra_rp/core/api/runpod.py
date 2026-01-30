@@ -382,9 +382,11 @@ class RunpodGraphQLClient:
                     activeBuildId
                     createdAt
                     endpoints {
+                        id
                         name
                     }
                     networkVolumes {
+                        id
                         name
                     }
                 }
@@ -407,9 +409,11 @@ class RunpodGraphQLClient:
                     state
                     activeBuildId
                     endpoints {
+                        id
                         name
                     }
                     networkVolumes {
+                        id
                         name
                     }
                 }
