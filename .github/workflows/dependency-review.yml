@@ -22,5 +22,6 @@ jobs:
           # Fail the action if any vulnerable dependencies are found
           fail-on-severity: moderate
           # Allow licenses (customize as needed)
-          # Development and transitive dependencies may have varied licenses
+          # PSF-2.0, Python-2.0: Python standard library and mcp dependencies
+          # Unlicense, MPL-2.0: Development tooling (ruff, mypy, pytest)
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, PSF-2.0, Python-2.0, Unlicense, MPL-2.0
