@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.23.1](https://github.com/runpod/tetra-rp/compare/v0.23.0...v0.23.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* add flash env id to saveendpoint during flash deploy ([#161](https://github.com/runpod/tetra-rp/issues/161)) ([d5c000e](https://github.com/runpod/tetra-rp/commit/d5c000e861d81a68cdb5f2426a989ebc3ddfc174))
+
+## [0.23.0](https://github.com/runpod/tetra-rp/compare/v0.22.0...v0.23.0) (2026-01-29)
+
+
+### Features
+
+* disable EU-RO-1 lock in non production environments ([5f4772d](https://github.com/runpod/tetra-rp/commit/5f4772df988da5db54476cc9f14f71cb6727f516))
+* pull in endpoint base from runpod-python ([a970406](https://github.com/runpod/tetra-rp/commit/a970406444af3db4a8232a4903d87332a2fd12ab))
+* support specific GPU ids in serverless resource config ([#143](https://github.com/runpod/tetra-rp/issues/143)) ([86fde45](https://github.com/runpod/tetra-rp/commit/86fde45d64e3936a79d41be19321088f0e4f4c96))
+
+
+### Bug Fixes
+
+* **deploy:** apply CPU disk auto-sizing to load balancers ([#156](https://github.com/runpod/tetra-rp/issues/156)) ([334d582](https://github.com/runpod/tetra-rp/commit/334d5825592f514482c95c4b6f15a4f25ce03ba5))
+* fix usage on VPNs because aiodns is flaky ([c55c97b](https://github.com/runpod/tetra-rp/commit/c55c97b0696aeb3632ce8623d1a1b8c9058831cf))
+
 ## [0.22.0](https://github.com/runpod/tetra-rp/compare/v0.21.0...v0.22.0) (2026-01-27)
 
 
