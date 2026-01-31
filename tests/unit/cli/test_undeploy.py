@@ -75,18 +75,18 @@ class TestUndeployList:
 
     def test_list_with_endpoints(self, runner):
         """Test list command with endpoints."""
-        # Create mock resources instead of real ones to avoid Pydantic issues
-        mock_resource1 = MagicMock()
+        from tetra_rp.core.resources.serverless import ServerlessResource
+
+        # Create mock resources that are instances of ServerlessResource
+        mock_resource1 = MagicMock(spec=ServerlessResource)
         mock_resource1.name = "test-api-1"
         mock_resource1.id = "endpoint-id-1"
         mock_resource1.is_deployed.return_value = True
-        mock_resource1.__class__.__name__ = "ServerlessResource"
 
-        mock_resource2 = MagicMock()
+        mock_resource2 = MagicMock(spec=ServerlessResource)
         mock_resource2.name = "test-api-2"
         mock_resource2.id = "endpoint-id-2"
         mock_resource2.is_deployed.return_value = True
-        mock_resource2.__class__.__name__ = "ServerlessResource"
 
         mock_resources = {
             "resource-id-1": mock_resource1,

@@ -32,6 +32,29 @@ def _get_resource_manager():
     return ResourceManager()
 
 
+def _get_serverless_resources(
+    resources: Dict[str, DeployableResource],
+) -> Dict[str, DeployableResource]:
+    """Filter resources to only include serverless endpoints.
+
+    Excludes other resource types like NetworkVolume that shouldn't be undeployed
+    through this command.
+
+    Args:
+        resources: Dictionary of resource_id -> DeployableResource
+
+    Returns:
+        Filtered dictionary containing only serverless endpoints
+    """
+    from ...core.resources.serverless import ServerlessResource
+
+    return {
+        resource_id: resource
+        for resource_id, resource in resources.items()
+        if isinstance(resource, ServerlessResource)
+    }
+
+
 def _get_resource_status(resource) -> Tuple[str, str]:
     """Get resource status with icon and text.
 
@@ -67,7 +90,8 @@ def _get_resource_type(resource) -> str:
 def list_command():
     """List all deployed endpoints tracked in .tetra_resources.pkl."""
     manager = _get_resource_manager()
-    resources = manager.list_all_resources()
+    all_resources = manager.list_all_resources()
+    resources = _get_serverless_resources(all_resources)
 
     if not resources:
         console.print(
