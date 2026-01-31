@@ -94,7 +94,7 @@ def init_command(
     title = "Project Initialized" if is_current_dir else "Project Created"
     console.print(Panel(panel_content, title=title, expand=False))
 
-    # Next steps
+    # next steps
     console.print("\n[bold]Next steps:[/bold]")
     steps_table = Table(show_header=False, box=None, padding=(0, 1))
     steps_table.add_column("Step", style="bold cyan")
@@ -111,7 +111,9 @@ def init_command(
     step_num += 1
     steps_table.add_row(f"{step_num}.", "cp .env.example .env")
     step_num += 1
-    steps_table.add_row(f"{step_num}.", "Add your RUNPOD_API_KEY to .env")
+    steps_table.add_row(
+        f"{step_num}.", "Add your RUNPOD_API_KEY to .env (or run flash login)"
+    )
     step_num += 1
     steps_table.add_row(f"{step_num}.", "flash run")
 
@@ -119,5 +121,7 @@ def init_command(
 
     console.print("\n[bold]Get your API key:[/bold]")
     console.print("  https://docs.runpod.io/get-started/api-keys")
+    console.print("\n[bold]Or authenticate with flash:[/bold]")
+    console.print("  flash login")
     console.print("\nVisit http://localhost:8888/docs after running")
     console.print("\nCheck out the README.md for more")

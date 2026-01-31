@@ -1,10 +1,11 @@
 """HTTP utilities for RunPod API communication."""
 
-import os
 from typing import Optional
 
 import httpx
 import requests
+
+from tetra_rp.core.credentials import get_api_key
 
 
 def get_authenticated_httpx_client(
@@ -12,7 +13,7 @@ def get_authenticated_httpx_client(
 ) -> httpx.AsyncClient:
     """Create httpx AsyncClient with RunPod authentication.
 
-    Automatically includes Authorization header if RUNPOD_API_KEY is set.
+    Automatically includes Authorization header if an api key is available.
     This provides a centralized place to manage authentication headers for
     all RunPod HTTP requests, avoiding repetitive manual header addition.
 
@@ -31,7 +32,7 @@ def get_authenticated_httpx_client(
             response = await client.get(url)
     """
     headers = {}
-    api_key = os.environ.get("RUNPOD_API_KEY")
+    api_key = get_api_key()
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -42,7 +43,7 @@ def get_authenticated_httpx_client(
 def get_authenticated_requests_session() -> requests.Session:
     """Create requests Session with RunPod authentication.
 
-    Automatically includes Authorization header if RUNPOD_API_KEY is set.
+    Automatically includes Authorization header if an api key is available.
     Provides a centralized place to manage authentication headers for
     synchronous RunPod HTTP requests.
 
@@ -60,7 +61,7 @@ def get_authenticated_requests_session() -> requests.Session:
             response = session.post(url, json=data)
     """
     session = requests.Session()
-    api_key = os.environ.get("RUNPOD_API_KEY")
+    api_key = get_api_key()
     if api_key:
         session.headers["Authorization"] = f"Bearer {api_key}"
 
