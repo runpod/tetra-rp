@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/runpod/tetra-rp/compare/v0.23.1...v0.24.0) (2026-01-30)
+
+
+### Features
+
+* undeploy resources during flash deploy delete ([#155](https://github.com/runpod/tetra-rp/issues/155)) ([5256821](https://github.com/runpod/tetra-rp/commit/5256821c8698116b6b05c8f7b836cecfccf0d22f))
+
 ## [0.23.1](https://github.com/runpod/tetra-rp/compare/v0.23.0...v0.23.1) (2026-01-29)
 
 
