@@ -24,4 +24,4 @@ jobs:
           # Allow licenses (customize as needed)
           # PSF-2.0, Python-2.0: Python standard library and mcp dependencies
           # Unlicense, MPL-2.0: Development tooling (ruff, mypy, pytest)
-          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, PSF-2.0, Python-2.0, Python-2.0.1, Unlicense, MPL-2.0, CC-PDDC
+          allow-licenses: BSD, MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, PSF-2.0, Python-2.0, Python-2.0.1, Unlicense, MPL-2.0, CC-PDDC
