@@ -93,7 +93,7 @@ Write tests before implementation (TDD approach):
 All new features require:
 - Unit tests in [tests/unit/](tests/unit/)
 - Integration tests if external dependencies involved
-- Minimum 35% code coverage (aim for 70% on critical paths)
+- Minimum 65% code coverage (aim for 70% on critical paths)
 
 Test structure follows Arrange-Act-Assert pattern:
 
