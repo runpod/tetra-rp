@@ -7,8 +7,12 @@ Claude Code automatically discovers and uses these tools.
 
 import asyncio
 import json
+import re
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
+from typing import Any
 
 import mcp.server.stdio
 import mcp.types as types
@@ -17,6 +21,8 @@ from mcp.server.models import InitializationOptions
 
 CODE_INTEL_DIR = Path.cwd() / ".code-intel"
 DB_PATH = CODE_INTEL_DIR / "flash.db"
+INDEXER_SCRIPT = Path.cwd() / "scripts" / "ast_to_sqlite.py"
+SRC_DIR = Path.cwd() / "src"
 
 # Query result limits
 MAX_SYMBOL_RESULTS = 50
@@ -25,6 +31,189 @@ MAX_DECORATOR_RESULTS = 100
 
 # Initialize MCP server
 server = Server("tetra-code-intel")
+
+
+def should_reindex() -> bool:
+    """Check if code index is stale and needs rebuilding.
+
+    Returns True if:
+    1. Database doesn't exist
+    2. Any Python file in src/**/*.py is newer than index timestamp
+    3. The indexer script itself has been modified after indexing
+
+    Returns:
+        True if index should be rebuilt, False otherwise.
+    """
+    # Database doesn't exist
+    if not DB_PATH.exists():
+        return True
+
+    # Get index timestamp from database
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.execute(
+            "SELECT value FROM metadata WHERE key = 'index_timestamp'"
+        )
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
+            return True
+
+        index_timestamp = int(result[0])
+    except (sqlite3.Error, ValueError, TypeError):
+        return True
+
+    # Check if any Python file in src/ is newer than index timestamp
+    if SRC_DIR.exists():
+        try:
+            python_files = list(SRC_DIR.glob("**/*.py"))
+            for py_file in python_files:
+                if py_file.stat().st_mtime > index_timestamp:
+                    return True
+        except (OSError, IOError):
+            return True
+
+    # Check if indexer script itself has changed
+    try:
+        if INDEXER_SCRIPT.exists():
+            if INDEXER_SCRIPT.stat().st_mtime > index_timestamp:
+                return True
+    except (OSError, IOError):
+        return True
+
+    return False
+
+
+def parse_test_output(output: str) -> dict[str, Any]:
+    """Parse pytest output and extract failures, errors, and summary.
+
+    Args:
+        output: Raw pytest output text.
+
+    Returns:
+        Dictionary with test summary, failed tests list, and coverage stats.
+    """
+    result: dict[str, Any] = {
+        "summary": {
+            "passed": 0,
+            "failed": 0,
+            "errors": 0,
+            "deselected": 0,
+            "skipped": 0,
+            "total": 0,
+        },
+        "failed_tests": [],
+        "coverage": {"total_pct": None, "threshold": None, "passed": None},
+    }
+
+    # Parse summary line: "X passed, Y failed, Z errors" etc.
+    # Handle various formats: "123 passed", "1 failed in 5.23s", "456 deselected, 78 passed in 10.45s"
+    summary_patterns = [
+        (r"(\d+)\s+passed", "passed"),
+        (r"(\d+)\s+failed", "failed"),
+        (r"(\d+)\s+error", "errors"),
+        (r"(\d+)\s+deselected", "deselected"),
+        (r"(\d+)\s+skipped", "skipped"),
+    ]
+
+    for pattern, key in summary_patterns:
+        match = re.search(pattern, output)
+        if match:
+            result["summary"][key] = int(match.group(1))
+
+    # Calculate total
+    result["summary"]["total"] = sum(
+        result["summary"][k]
+        for k in ["passed", "failed", "errors", "deselected", "skipped"]
+    )
+
+    # Extract failed tests: look for "FAILED" or "ERROR" lines with file paths
+    # Pattern: "FAILED tests/unit/... - error message"
+    # or: "ERROR tests/unit/..."
+    failed_pattern = r"(FAILED|ERROR)\s+([\w/\-\.]+::\w+)\s*(?:-\s+(.+))?$"
+    for match in re.finditer(failed_pattern, output, re.MULTILINE):
+        test_type, test_id, error_msg = match.groups()
+        result["failed_tests"].append(
+            {
+                "test_id": test_id,
+                "type": test_type.lower(),
+                "error": (error_msg or "").strip(),
+            }
+        )
+
+    # Extract coverage info from the coverage summary line
+    # Look for "TOTAL ... XY.ZZ%" pattern
+    coverage_match = re.search(r"^TOTAL\s+.*?(\d+\.\d+)%", output, re.MULTILINE)
+    if not coverage_match:
+        # Fallback: look for "coverage: XY.ZZ%" pattern
+        coverage_match = re.search(r"coverage:\s*(\d+\.\d+)%", output)
+    if coverage_match:
+        result["coverage"]["total_pct"] = float(coverage_match.group(1))
+
+    # Check for coverage threshold failure: "FAILED Required test coverage of X.XX%"
+    threshold_match = re.search(r"Required test coverage of (\d+\.\d+)%", output)
+    if threshold_match:
+        result["coverage"]["threshold"] = float(threshold_match.group(1))
+        if result["coverage"]["total_pct"] is not None:
+            result["coverage"]["passed"] = (
+                result["coverage"]["total_pct"] >= result["coverage"]["threshold"]
+            )
+
+    return result
+
+
+def format_test_summary(parsed: dict[str, Any]) -> str:
+    """Format parsed test output as markdown.
+
+    Args:
+        parsed: Parsed test output dictionary.
+
+    Returns:
+        Markdown-formatted summary.
+    """
+    output = "# Test Results Summary\n\n"
+
+    # Test summary
+    summary = parsed["summary"]
+    total = summary["total"]
+    if total > 0:
+        output += "## Test Summary\n"
+        output += f"- **Passed**: {summary['passed']}\n"
+        if summary["failed"] > 0:
+            output += f"- **Failed**: {summary['failed']} ❌\n"
+        if summary["errors"] > 0:
+            output += f"- **Errors**: {summary['errors']} ⚠️\n"
+        if summary["deselected"] > 0:
+            output += f"- **Deselected**: {summary['deselected']}\n"
+        if summary["skipped"] > 0:
+            output += f"- **Skipped**: {summary['skipped']}\n"
+        output += f"- **Total**: {total}\n\n"
+    else:
+        output += "No tests found in output.\n\n"
+
+    # Failed tests
+    if parsed["failed_tests"]:
+        output += "## Failed Tests\n\n"
+        for test in parsed["failed_tests"]:
+            output += f"### {test['test_id']}\n"
+            output += f"**Type**: {test['type'].upper()}\n"
+            if test["error"]:
+                output += f"**Error**: {test['error']}\n"
+            output += "\n"
+
+    # Coverage
+    if parsed["coverage"]["total_pct"] is not None:
+        output += "## Coverage\n"
+        output += f"- **Coverage**: {parsed['coverage']['total_pct']:.2f}%\n"
+        if parsed["coverage"]["threshold"] is not None:
+            status = "✅" if parsed["coverage"]["passed"] else "❌"
+            output += (
+                f"- **Threshold**: {parsed['coverage']['threshold']:.2f}% {status}\n"
+            )
+        output += "\n"
+
+    return output
 
 
 def get_db() -> sqlite3.Connection:
@@ -107,6 +296,43 @@ async def list_tools() -> list[types.Tool]:
                     }
                 },
                 "required": ["decorator"],
+            },
+        ),
+        types.Tool(
+            name="parse_test_output",
+            description=(
+                "Parse pytest test output to extract failures, errors, and summary statistics. "
+                "Use this INSTEAD of manually reading test output with tail/grep/head. "
+                "\n\n"
+                "When to use:\n"
+                "- After running pytest commands (make test, make test-unit, pytest tests/, etc.)\n"
+                "- When you need to analyze test failures or check coverage status\n"
+                "- Instead of using 'tail -n 100' or grepping through test results\n"
+                "\n"
+                "What it returns:\n"
+                "- Test summary (passed/failed/errors/deselected counts)\n"
+                "- List of failed tests with file locations and error messages\n"
+                "- Coverage statistics if present in output\n"
+                "- Formatted as concise markdown for easy reading\n"
+                "\n"
+                "Benefits:\n"
+                "- Saves tokens: returns only actionable info, not full output\n"
+                "- Structured: easy to identify which tests failed and why\n"
+                "- Fast: no need to tail/grep large output files\n"
+                "\n"
+                "Example:\n"
+                "After running: pytest tests/unit/ -v\n"
+                "Pass the output to this tool to get which tests failed, why, and coverage status."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "output": {
+                        "type": "string",
+                        "description": "Raw pytest output text (from stdout/stderr or file)",
+                    }
+                },
+                "required": ["output"],
             },
         ),
     ]
@@ -357,12 +583,40 @@ async def handle_call_tool(
 
         return [types.TextContent(type="text", text=output)]
 
+    elif name == "parse_test_output":
+        output_text = arguments["output"]
+        parsed = parse_test_output(output_text)
+        formatted = format_test_summary(parsed)
+        return [types.TextContent(type="text", text=formatted)]
+
     else:
         raise ValueError(f"Unknown tool: {name}")
 
 
 async def main() -> None:
     """Run the MCP server using stdio transport."""
+    # Check if code index needs rebuilding
+    if should_reindex():
+        print("🔄 Code index stale, rebuilding...", file=sys.stderr)
+        try:
+            result = subprocess.run(
+                ["uv", "run", "python", "scripts/ast_to_sqlite.py"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode != 0:
+                print(
+                    f"⚠️  Code index rebuild failed: {result.stderr}",
+                    file=sys.stderr,
+                )
+            else:
+                print("✅ Code index updated", file=sys.stderr)
+        except subprocess.TimeoutExpired:
+            print("⚠️  Code index rebuild timed out", file=sys.stderr)
+        except Exception as e:
+            print(f"⚠️  Code index rebuild error: {e}", file=sys.stderr)
+
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,

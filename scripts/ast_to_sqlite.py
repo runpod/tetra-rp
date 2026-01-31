@@ -219,6 +219,7 @@ def index_python_files(project_root: Path, conn: sqlite3.Connection) -> int:
 
     total_symbols = 0
     errors = 0
+    latest_file_mtime: float = 0.0
 
     for py_file in python_files:
         try:
@@ -253,6 +254,11 @@ def index_python_files(project_root: Path, conn: sqlite3.Connection) -> int:
                 )
                 total_symbols += 1
 
+            # Track the latest file modification time
+            file_mtime = py_file.stat().st_mtime
+            if file_mtime > latest_file_mtime:
+                latest_file_mtime = file_mtime
+
         except SyntaxError as e:
             print(f"⚠️  Skipping {py_file}: {e}", file=sys.stderr)
             errors += 1
@@ -262,6 +268,15 @@ def index_python_files(project_root: Path, conn: sqlite3.Connection) -> int:
             errors += 1
             continue
 
+    # Update metadata with indexing stats
+    conn.execute(
+        "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+        ("file_count", str(len(python_files))),
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+        ("latest_file_mtime", str(int(latest_file_mtime))),
+    )
     conn.commit()
     return total_symbols
 
