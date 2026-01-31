@@ -3,9 +3,7 @@ name = "tetra_rp"
 version = "0.24.0"
 description = "A Python library for distributed inference and serving of machine learning models"
 authors = [
-    { name = "Marut Pandya", email = "pandyamarut@gmail.com" },
-    { name = "Patrick Rachford", email = "prachford@icloud.com" },
-    { name = "Dean Quinanola", email = "dean.quinanola@runpod.io" },
+    { name = "Runpod", email = "engineer@runpod.io" },
 ]
 readme = "README.md"
 license = { text = "MIT" }
@@ -33,6 +31,7 @@ dependencies = [
 dev = [
     "mypy>=1.16.1",
     "ruff>=0.11.9",
+    "mcp>=1.0.0",
 ]
 test = [
     "pytest>=8.4.1",
@@ -85,8 +84,6 @@ filterwarnings = [
     "ignore::pytest.PytestDeprecationWarning",
     "ignore::pytest.PytestUnknownMarkWarning"
 ]
-
-[tool.ruff]
 
 [tool.mypy]
 # Basic configuration

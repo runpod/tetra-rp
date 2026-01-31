@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "tetra-code-intel": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "scripts/mcp_code_intel_server.py"
+      ],
+      "disabled": false
+    }
+  }
+}
