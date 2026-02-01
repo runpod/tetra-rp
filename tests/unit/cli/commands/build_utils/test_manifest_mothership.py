@@ -370,7 +370,7 @@ mothership = LiveLoadBalancer(
 """
             )
 
-            # Create main.py for handler generation
+            # Create main.py for FastAPI app
             main_file = project_root / "main.py"
             main_file.write_text(
                 """
