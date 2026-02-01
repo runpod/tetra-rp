@@ -6,8 +6,8 @@ with documentation URLs and setup instructions.
 
 import pytest
 
-from tetra_rp.core.exceptions import RunpodAPIKeyError
-from tetra_rp.core.validation import validate_api_key, validate_api_key_with_context
+from runpod_flash.core.exceptions import RunpodAPIKeyError
+from runpod_flash.core.validation import validate_api_key, validate_api_key_with_context
 
 
 class TestRunpodAPIKeyError:
@@ -125,7 +125,7 @@ class TestAPIClientValidation:
         self, monkeypatch: pytest.MonkeyPatch
     ):
         """Test that RunpodGraphQLClient raises RunpodAPIKeyError."""
-        from tetra_rp.core.api.runpod import RunpodGraphQLClient
+        from runpod_flash.core.api.runpod import RunpodGraphQLClient
 
         monkeypatch.delenv("RUNPOD_API_KEY", raising=False)
 
@@ -136,7 +136,7 @@ class TestAPIClientValidation:
 
     def test_rest_client_raises_on_missing_key(self, monkeypatch: pytest.MonkeyPatch):
         """Test that RunpodRestClient raises RunpodAPIKeyError."""
-        from tetra_rp.core.api.runpod import RunpodRestClient
+        from runpod_flash.core.api.runpod import RunpodRestClient
 
         monkeypatch.delenv("RUNPOD_API_KEY", raising=False)
 
@@ -147,7 +147,7 @@ class TestAPIClientValidation:
 
     def test_graphql_client_accepts_explicit_key(self):
         """Test that RunpodGraphQLClient accepts API key parameter."""
-        from tetra_rp.core.api.runpod import RunpodGraphQLClient
+        from runpod_flash.core.api.runpod import RunpodGraphQLClient
 
         client = RunpodGraphQLClient(api_key="explicit_test_key")
 
@@ -155,7 +155,7 @@ class TestAPIClientValidation:
 
     def test_rest_client_accepts_explicit_key(self):
         """Test that RunpodRestClient accepts API key parameter."""
-        from tetra_rp.core.api.runpod import RunpodRestClient
+        from runpod_flash.core.api.runpod import RunpodRestClient
 
         client = RunpodRestClient(api_key="explicit_test_key")
 

@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 from textwrap import dedent
 from typer.testing import CliRunner
 
-from tetra_rp.cli.main import app
+from runpod_flash.cli.main import app
 
 runner = CliRunner()
 
@@ -22,8 +22,8 @@ class TestRunAutoProvision:
             dedent(
                 """
                 from fastapi import FastAPI
-                from tetra_rp.client import remote
-                from tetra_rp.core.resources.serverless import ServerlessResource
+                from runpod_flash.client import remote
+                from runpod_flash.core.resources.serverless import ServerlessResource
 
                 app = FastAPI()
 
@@ -56,8 +56,8 @@ class TestRunAutoProvision:
             dedent(
                 """
                 from fastapi import FastAPI
-                from tetra_rp.client import remote
-                from tetra_rp.core.resources.serverless import ServerlessResource
+                from runpod_flash.client import remote
+                from runpod_flash.core.resources.serverless import ServerlessResource
 
                 app = FastAPI()
 
@@ -105,20 +105,20 @@ class TestRunAutoProvision:
         monkeypatch.chdir(temp_project)
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level process group operations to prevent hanging
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     # Mock discovery to track if it was called
                     with patch(
-                        "tetra_rp.cli.commands.run._discover_resources"
+                        "runpod_flash.cli.commands.run._discover_resources"
                     ) as mock_discover:
                         runner.invoke(app, ["run"])
 
@@ -130,20 +130,20 @@ class TestRunAutoProvision:
         monkeypatch.chdir(temp_project)
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level process group operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     # Mock deployment orchestrator
                     with patch(
-                        "tetra_rp.cli.commands.run._provision_resources"
+                        "runpod_flash.cli.commands.run._provision_resources"
                     ) as mock_provision:
                         runner.invoke(app, ["run", "--auto-provision"])
 
@@ -158,20 +158,20 @@ class TestRunAutoProvision:
         monkeypatch.setenv("UVICORN_RELOADER_PID", "12345")
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level process group operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     # Mock provisioning
                     with patch(
-                        "tetra_rp.cli.commands.run._provision_resources"
+                        "runpod_flash.cli.commands.run._provision_resources"
                     ) as mock_provision:
                         runner.invoke(app, ["run", "--auto-provision"])
 
@@ -188,31 +188,31 @@ class TestRunAutoProvision:
         mock_resources = [MagicMock(name=f"endpoint-{i}") for i in range(6)]
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level process group operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     # Mock discovery to return > 5 resources
                     with patch(
-                        "tetra_rp.cli.commands.run._discover_resources"
+                        "runpod_flash.cli.commands.run._discover_resources"
                     ) as mock_discover:
                         mock_discover.return_value = mock_resources
 
                         # Mock questionary to simulate user confirmation
                         with patch(
-                            "tetra_rp.cli.commands.run.questionary.confirm"
+                            "runpod_flash.cli.commands.run.questionary.confirm"
                         ) as mock_confirm:
                             mock_confirm.return_value.ask.return_value = True
 
                             with patch(
-                                "tetra_rp.cli.commands.run._provision_resources"
+                                "runpod_flash.cli.commands.run._provision_resources"
                             ) as mock_provision:
                                 runner.invoke(app, ["run", "--auto-provision"])
 
@@ -232,31 +232,31 @@ class TestRunAutoProvision:
         mock_resources = [MagicMock(name=f"endpoint-{i}") for i in range(6)]
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level process group operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     # Mock discovery to return > 5 resources
                     with patch(
-                        "tetra_rp.cli.commands.run._discover_resources"
+                        "runpod_flash.cli.commands.run._discover_resources"
                     ) as mock_discover:
                         mock_discover.return_value = mock_resources
 
                         # Mock questionary to simulate user cancellation
                         with patch(
-                            "tetra_rp.cli.commands.run.questionary.confirm"
+                            "runpod_flash.cli.commands.run.questionary.confirm"
                         ) as mock_confirm:
                             mock_confirm.return_value.ask.return_value = False
 
                             with patch(
-                                "tetra_rp.cli.commands.run._provision_resources"
+                                "runpod_flash.cli.commands.run._provision_resources"
                             ) as mock_provision:
                                 runner.invoke(app, ["run", "--auto-provision"])
 
@@ -271,20 +271,20 @@ class TestRunAutoProvision:
         monkeypatch.chdir(temp_project)
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level process group operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     # Mock discovery to raise exception
                     with patch(
-                        "tetra_rp.cli.commands.run._discover_resources"
+                        "runpod_flash.cli.commands.run._discover_resources"
                     ) as mock_discover:
                         mock_discover.return_value = []
 
@@ -314,19 +314,19 @@ class TestRunAutoProvision:
         )
 
         # Mock subprocess to prevent actual uvicorn start
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level process group operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
 
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     with patch(
-                        "tetra_rp.cli.commands.run._provision_resources"
+                        "runpod_flash.cli.commands.run._provision_resources"
                     ) as mock_provision:
                         runner.invoke(app, ["run", "--auto-provision"])
 

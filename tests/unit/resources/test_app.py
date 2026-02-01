@@ -4,12 +4,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tetra_rp.core.resources.app import FlashApp
+from runpod_flash.core.resources.app import FlashApp
 
 
 @pytest.fixture
 def mock_graphql_client():
-    with patch("tetra_rp.core.resources.app.RunpodGraphQLClient") as mock_cls:
+    with patch("runpod_flash.core.resources.app.RunpodGraphQLClient") as mock_cls:
         client = AsyncMock()
         client.__aenter__.return_value = client
         client.__aexit__.return_value = False

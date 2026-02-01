@@ -6,9 +6,9 @@ universally across all endpoint types when CPU instances are detected.
 """
 
 import pytest
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.serverless import ServerlessEndpoint
-from tetra_rp.core.resources.template import PodTemplate
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.serverless import ServerlessEndpoint
+from runpod_flash.core.resources.template import PodTemplate
 
 
 class TestServerlessEndpointUniversalCpuDetection:

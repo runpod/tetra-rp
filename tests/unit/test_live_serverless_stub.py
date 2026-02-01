@@ -1,8 +1,8 @@
 """Unit tests for live_serverless stub functionality."""
 
 import ast
-from tetra_rp.stubs.live_serverless import get_function_source
-from tetra_rp import remote, LiveServerless
+from runpod_flash.stubs.live_serverless import get_function_source
+from runpod_flash import remote, LiveServerless
 
 
 # Create a dummy config for testing

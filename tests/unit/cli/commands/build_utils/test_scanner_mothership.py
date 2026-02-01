@@ -3,7 +3,7 @@
 import tempfile
 from pathlib import Path
 
-from tetra_rp.cli.commands.build_utils.scanner import (
+from runpod_flash.cli.commands.build_utils.scanner import (
     detect_explicit_mothership,
     detect_main_app,
 )
@@ -90,7 +90,7 @@ def health():
             main_file.write_text(
                 """
 from fastapi import FastAPI
-from tetra_rp import remote
+from runpod_flash import remote
 
 app = FastAPI()
 
@@ -277,7 +277,7 @@ class TestDetectExplicitMothership:
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 mothership = CpuLiveLoadBalancer(
     name="mothership",
@@ -303,7 +303,7 @@ mothership = CpuLiveLoadBalancer(
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 mothership = CpuLiveLoadBalancer(
     name="my-api-gateway",
@@ -325,7 +325,7 @@ mothership = CpuLiveLoadBalancer(
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import LiveLoadBalancer
+from runpod_flash import LiveLoadBalancer
 
 mothership = LiveLoadBalancer(
     name="gpu-mothership",
@@ -357,7 +357,7 @@ mothership = LiveLoadBalancer(
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 # No mothership variable defined
 some_config = CpuLiveLoadBalancer(name="other")
@@ -375,7 +375,7 @@ some_config = CpuLiveLoadBalancer(name="other")
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 mothership = CpuLiveLoadBalancer(
     name="mothership"
@@ -394,7 +394,7 @@ mothership = CpuLiveLoadBalancer(
             mothership_file = project_root / "mothership.py"
             mothership_file.write_text(
                 """
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 mothership = CpuLiveLoadBalancer()
 """
@@ -415,7 +415,7 @@ mothership = CpuLiveLoadBalancer()
             mothership_file.write_text(
                 """
 # Mothership configuration
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 # Use CPU load balancer for cost efficiency
 mothership = CpuLiveLoadBalancer(
@@ -425,7 +425,7 @@ mothership = CpuLiveLoadBalancer(
 )
 
 # Could also use GPU:
-# from tetra_rp import LiveLoadBalancer
+# from runpod_flash import LiveLoadBalancer
 # mothership = LiveLoadBalancer(name="gpu-mothership")
 """
             )

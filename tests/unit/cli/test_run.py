@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from typer.testing import CliRunner
 
-from tetra_rp.cli.main import app
+from runpod_flash.cli.main import app
 
 
 @pytest.fixture
@@ -32,16 +32,16 @@ class TestRunCommandEnvironmentVariables:
         monkeypatch.setenv("FLASH_PORT", "8080")
 
         # Mock subprocess to capture command and prevent actual server start
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level process group operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     runner.invoke(app, ["run"])
 
                     # Verify port 8080 was used in uvicorn command
@@ -58,16 +58,16 @@ class TestRunCommandEnvironmentVariables:
         monkeypatch.setenv("FLASH_HOST", "0.0.0.0")
 
         # Mock subprocess to capture command
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     runner.invoke(app, ["run"])
 
                     # Verify host 0.0.0.0 was used
@@ -84,16 +84,16 @@ class TestRunCommandEnvironmentVariables:
         monkeypatch.setenv("FLASH_PORT", "8080")
 
         # Mock subprocess to capture command
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     # Use --port flag to override env var
                     runner.invoke(app, ["run", "--port", "9000"])
 
@@ -112,16 +112,16 @@ class TestRunCommandEnvironmentVariables:
         monkeypatch.delenv("FLASH_PORT", raising=False)
 
         # Mock subprocess to capture command
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     runner.invoke(app, ["run"])
 
                     # Verify default port 8888 was used
@@ -139,16 +139,16 @@ class TestRunCommandEnvironmentVariables:
         monkeypatch.delenv("FLASH_HOST", raising=False)
 
         # Mock subprocess to capture command
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     runner.invoke(app, ["run"])
 
                     # Verify default host localhost was used
@@ -166,16 +166,16 @@ class TestRunCommandEnvironmentVariables:
         monkeypatch.setenv("FLASH_PORT", "3000")
 
         # Mock subprocess to capture command
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     runner.invoke(app, ["run"])
 
                     # Verify both host and port were used
@@ -197,16 +197,16 @@ class TestRunCommandEnvironmentVariables:
         monkeypatch.setenv("FLASH_PORT", "8080")
 
         # Mock subprocess to capture command
-        with patch("tetra_rp.cli.commands.run.subprocess.Popen") as mock_popen:
+        with patch("runpod_flash.cli.commands.run.subprocess.Popen") as mock_popen:
             mock_process = MagicMock()
             mock_process.pid = 12345
             mock_process.wait.side_effect = KeyboardInterrupt()
             mock_popen.return_value = mock_process
 
             # Mock OS-level operations
-            with patch("tetra_rp.cli.commands.run.os.getpgid") as mock_getpgid:
+            with patch("runpod_flash.cli.commands.run.os.getpgid") as mock_getpgid:
                 mock_getpgid.return_value = 12345
-                with patch("tetra_rp.cli.commands.run.os.killpg"):
+                with patch("runpod_flash.cli.commands.run.os.killpg"):
                     # Use -p short flag
                     runner.invoke(app, ["run", "-p", "7000"])
 

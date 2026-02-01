@@ -4,13 +4,13 @@ This section documents the complete Flash SDK API. Reference this section when b
 
 ### Overview
 
-**tetra-rp** is the underlying SDK powering the Flash framework. It provides:
+**runpod-flash** is the underlying SDK powering the Flash framework. It provides:
 - The `@remote` decorator for marking functions as distributed workers
 - Resource configuration classes for defining compute requirements
 - GPU/CPU specifications and pricing models
 - Queue-based (reliable, retry-enabled) and load-balanced (low-latency HTTP) execution models
 
-**Import from `tetra_rp`, not `flash`.** The Flash CLI wraps tetra-rp functionality.
+**Import from `runpod_flash`, not `flash`.** The Flash CLI wraps runpod-flash functionality.
 
 ### Main Exports
 
@@ -18,26 +18,26 @@ Core imports for Flash Examples:
 
 ```python
 # Main decorator
-from tetra_rp import remote
+from runpod_flash import remote
 
 # Resource configuration classes (queue-based)
-from tetra_rp import LiveServerless, CpuLiveServerless  # Development
-from tetra_rp import ServerlessEndpoint, CpuServerlessEndpoint  # Production
+from runpod_flash import LiveServerless, CpuLiveServerless  # Development
+from runpod_flash import ServerlessEndpoint, CpuServerlessEndpoint  # Production
 
 # Resource configuration classes (load-balanced, HTTP)
-from tetra_rp import LiveLoadBalancer, CpuLiveLoadBalancer  # Development
-from tetra_rp import LoadBalancerSlsResource, CpuLoadBalancerSlsResource  # Production
+from runpod_flash import LiveLoadBalancer, CpuLiveLoadBalancer  # Development
+from runpod_flash import LoadBalancerSlsResource, CpuLoadBalancerSlsResource  # Production
 
 # GPU and CPU specifications
-from tetra_rp import GpuGroup, CpuInstanceType
+from runpod_flash import GpuGroup, CpuInstanceType
 
 # Advanced features
-from tetra_rp import NetworkVolume, PodTemplate, CudaVersion, DataCenter
+from runpod_flash import NetworkVolume, PodTemplate, CudaVersion, DataCenter
 ```
 
 ### The @remote Decorator
 
-The `@remote` decorator marks a function for distributed execution. It's the core of tetra-rp.
+The `@remote` decorator marks a function for distributed execution. It's the core of runpod-flash.
 
 #### Complete Signature
 
@@ -144,7 +144,7 @@ class ResourceConfig:
 
 **LiveServerless - Development GPU**
 ```python
-from tetra_rp import remote, LiveServerless, GpuGroup
+from runpod_flash import remote, LiveServerless, GpuGroup
 
 gpu_config = LiveServerless(
     name="02_ml_inference_gpu_worker",
@@ -174,7 +174,7 @@ else:
 
 **CpuLiveServerless - Development CPU**
 ```python
-from tetra_rp import remote, CpuLiveServerless
+from runpod_flash import remote, CpuLiveServerless
 
 cpu_config = CpuLiveServerless(
     name="01_getting_started_cpu_worker",
@@ -197,7 +197,7 @@ async def process_data(items: list) -> dict:
 
 **ServerlessEndpoint - Production GPU**
 ```python
-from tetra_rp import remote, ServerlessEndpoint, GpuGroup
+from runpod_flash import remote, ServerlessEndpoint, GpuGroup
 
 prod_config = ServerlessEndpoint(
     name="02_ml_inference_gpu_prod",
@@ -216,7 +216,7 @@ async def production_inference(data: dict) -> dict:
 
 **LiveLoadBalancer - Development GPU**
 ```python
-from tetra_rp import remote, LiveLoadBalancer, GpuGroup
+from runpod_flash import remote, LiveLoadBalancer, GpuGroup
 
 lb_config = LiveLoadBalancer(
     name="03_load_balanced_gpu",
@@ -234,7 +234,7 @@ async def real_time_inference(data: dict) -> dict:
 
 **LoadBalancerSlsResource - Production GPU**
 ```python
-from tetra_rp import remote, LoadBalancerSlsResource, GpuGroup
+from runpod_flash import remote, LoadBalancerSlsResource, GpuGroup
 
 prod_lb_config = LoadBalancerSlsResource(
     name="03_load_balanced_prod",
@@ -253,7 +253,7 @@ async def production_realtime(data: dict) -> dict:
 Complete `GpuGroup` enum with VRAM specifications:
 
 ```python
-from tetra_rp import GpuGroup
+from runpod_flash import GpuGroup
 
 # Ampere GPUs (Previous generation, lower cost)
 GpuGroup.AMPERE_16    # RTX A4000, 16GB VRAM
@@ -277,7 +277,7 @@ GpuGroup.ANY          # Any available GPU (not recommended for production)
 **Multiple GPU Selection:**
 
 ```python
-from tetra_rp import GpuGroup
+from runpod_flash import GpuGroup
 
 config = LiveServerless(
     name="multi_gpu_example",
@@ -290,7 +290,7 @@ config = LiveServerless(
 CPU configurations using `CpuInstanceType` enum:
 
 ```python
-from tetra_rp import CpuInstanceType
+from runpod_flash import CpuInstanceType
 
 # CPU instances (vCPU count)
 CpuInstanceType.CPU_2      # 2 vCPU, ~2GB RAM
@@ -303,7 +303,7 @@ CpuInstanceType.CPU_32     # 32 vCPU, ~32GB RAM
 **Usage:**
 
 ```python
-from tetra_rp import CpuLiveServerless, CpuInstanceType
+from runpod_flash import CpuLiveServerless, CpuInstanceType
 
 config = CpuLiveServerless(
     name="cpu_processing",
@@ -396,7 +396,7 @@ def my_function(data: dict) -> dict:  # No async!
 
 #### Arguments Must Be Serializable
 
-tetra-rp uses **cloudpickle** to serialize function arguments. Standard types work:
+runpod-flash uses **cloudpickle** to serialize function arguments. Standard types work:
 
 ```python
 # ✅ Serializable types
@@ -552,7 +552,7 @@ class JobOutput:
 **Usage:**
 
 ```python
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 
 config = LiveServerless(name="my_job", gpus=[GpuGroup.ANY])
 
@@ -579,7 +579,7 @@ else:
 Load-balanced resources return your value directly as HTTP response:
 
 ```python
-from tetra_rp import remote, LiveLoadBalancer, GpuGroup
+from runpod_flash import remote, LiveLoadBalancer, GpuGroup
 
 lb_config = LiveLoadBalancer(name="api", gpus=[GpuGroup.ANY])
 
@@ -675,7 +675,7 @@ async def process_image(image_url: str) -> dict:
 
 #### Cloudpickle Caching
 
-Arguments are hashed and cached by tetra-rp. Identical arguments in rapid succession reuse cached versions.
+Arguments are hashed and cached by runpod-flash. Identical arguments in rapid succession reuse cached versions.
 
 ```python
 # First call - argument cached
@@ -714,7 +714,7 @@ result = await my_function({"input": "value"})
 Mount persistent storage for large models or datasets:
 
 ```python
-from tetra_rp import remote, LiveServerless, NetworkVolume
+from runpod_flash import remote, LiveServerless, NetworkVolume
 
 volume = NetworkVolume(
     name="model_storage",
@@ -744,7 +744,7 @@ async def inference(prompt: str) -> dict:
 Advanced: Custom pod configuration for specialized requirements:
 
 ```python
-from tetra_rp import PodTemplate
+from runpod_flash import PodTemplate
 
 pod_template = PodTemplate(
     # Custom resource limits
@@ -786,7 +786,7 @@ async def configurable_function(data: dict) -> dict:
 Execute methods on remote classes:
 
 ```python
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 
 @remote(resource_config=config)
 async def run_model(data: dict) -> dict:
@@ -846,13 +846,13 @@ async def inference(request: InferenceRequest) -> dict:
 
 ```python
 import asyncio
-from tetra_rp import remote, LiveServerless, LiveLoadBalancer
+from runpod_flash import remote, LiveServerless, LiveLoadBalancer
 
 config = LiveServerless(name="retry_example", gpus=[GpuGroup.ANY])
 
 @remote(resource_config=config, max_retries=3)
 async def unreliable_operation(data: dict) -> dict:
-    # tetra-rp handles retries automatically for queue-based
+    # runpod-flash handles retries automatically for queue-based
     async def flaky_external_api(data):
         # Your API call logic here
         import httpx

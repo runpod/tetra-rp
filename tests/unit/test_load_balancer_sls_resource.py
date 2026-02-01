@@ -7,12 +7,12 @@ import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from tetra_rp.core.resources import (
+from runpod_flash.core.resources import (
     LoadBalancerSlsResource,
     ServerlessType,
     ServerlessScalerType,
 )
-from tetra_rp.core.resources.serverless import ServerlessResource
+from runpod_flash.core.resources.serverless import ServerlessResource
 
 # Set a dummy API key for tests that create ResourceManager instances
 os.environ.setdefault("RUNPOD_API_KEY", "test-key-for-unit-tests")
@@ -153,7 +153,7 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                "runpod_flash.core.utils.http.httpx.AsyncClient",
                 return_value=mock_client,
             ),
         ):
@@ -178,7 +178,7 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                "runpod_flash.core.utils.http.httpx.AsyncClient",
                 return_value=mock_client,
             ),
         ):
@@ -203,7 +203,7 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                "runpod_flash.core.utils.http.httpx.AsyncClient",
                 return_value=mock_client,
             ),
         ):
@@ -230,7 +230,7 @@ class TestLoadBalancerSlsResourceHealthCheck:
                 new_callable=lambda: property(lambda self: "https://test-endpoint.com"),
             ),
             patch(
-                "tetra_rp.core.utils.http.httpx.AsyncClient",
+                "runpod_flash.core.utils.http.httpx.AsyncClient",
                 return_value=mock_client,
             ),
         ):

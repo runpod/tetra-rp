@@ -4,12 +4,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tetra_rp.runtime.production_wrapper import (
+from runpod_flash.runtime.production_wrapper import (
     ProductionWrapper,
     create_production_wrapper,
     reset_wrapper,
 )
-from tetra_rp.runtime.service_registry import ServiceRegistry
+from runpod_flash.runtime.service_registry import ServiceRegistry
 
 
 class TestProductionWrapper:
@@ -209,7 +209,7 @@ class TestProductionWrapper:
         mock_resource.run_sync = AsyncMock()
         mock_resource.run_sync.return_value = MagicMock(error="", output=None)
 
-        with patch("tetra_rp.runtime.serialization.cloudpickle") as mock_pickle:
+        with patch("runpod_flash.runtime.serialization.cloudpickle") as mock_pickle:
             mock_pickle.dumps.return_value = b"pickled"
 
             await wrapper._execute_remote(
@@ -286,7 +286,7 @@ class TestCreateProductionWrapper:
     def test_create_wrapper_creates_defaults(self):
         """Test that wrapper creates default components."""
         with patch(
-            "tetra_rp.runtime.production_wrapper.ServiceRegistry"
+            "runpod_flash.runtime.production_wrapper.ServiceRegistry"
         ) as mock_registry_class:
             create_production_wrapper()
 

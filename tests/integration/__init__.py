@@ -1,1 +1,1 @@
-# Integration tests for tetra-rp
+# Integration tests for flash

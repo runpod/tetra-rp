@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 
-from tetra_rp.cli.commands.build_utils.handler_generator import HandlerGenerator
+from runpod_flash.cli.commands.build_utils.handler_generator import HandlerGenerator
 
 
 def test_generate_handlers_creates_files():
@@ -218,7 +218,7 @@ def test_handler_includes_create_handler_import():
 
         handler_content = handler_paths[0].read_text()
         assert (
-            "from tetra_rp.runtime.generic_handler import create_handler"
+            "from runpod_flash.runtime.generic_handler import create_handler"
             in handler_content
         )
         assert "handler = create_handler(FUNCTION_REGISTRY)" in handler_content

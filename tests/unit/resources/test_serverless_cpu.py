@@ -4,9 +4,9 @@ Unit tests for CpuServerlessEndpoint class.
 
 import pickle
 import pytest
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
-from tetra_rp.core.resources.template import PodTemplate
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.serverless_cpu import CpuServerlessEndpoint
+from runpod_flash.core.resources.template import PodTemplate
 
 
 class TestCpuServerlessEndpoint:
@@ -429,7 +429,7 @@ class TestCpuConfigHash:
         When comparing templates using !=, different instances are never equal
         even if they have the same content, causing false structural changes.
         """
-        from tetra_rp.core.resources.template import PodTemplate
+        from runpod_flash.core.resources.template import PodTemplate
 
         template1 = PodTemplate(
             name="test-template",

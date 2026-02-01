@@ -6,11 +6,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tetra_rp.runtime.mothership_provisioner import (
+from runpod_flash.runtime.mothership_provisioner import (
     compute_resource_hash,
     reconcile_children,
 )
-from tetra_rp.runtime.state_manager_client import StateManagerClient
+from runpod_flash.runtime.state_manager_client import StateManagerClient
 
 
 class TestMothershipProvisioningFlow:
@@ -52,9 +52,11 @@ class TestMothershipProvisioningFlow:
         mock_cpu_resource.endpoint_url = "https://cpu-worker.api.runpod.ai"
 
         with (
-            patch("tetra_rp.runtime.mothership_provisioner.load_manifest") as mock_load,
             patch(
-                "tetra_rp.runtime.mothership_provisioner.ResourceManager"
+                "runpod_flash.runtime.mothership_provisioner.load_manifest"
+            ) as mock_load,
+            patch(
+                "runpod_flash.runtime.mothership_provisioner.ResourceManager"
             ) as mock_rm_class,
             patch.dict(
                 "os.environ",
@@ -135,9 +137,11 @@ class TestMothershipProvisioningFlow:
         mock_gpu_resource.endpoint_url = "https://gpu-worker.api.runpod.ai"
 
         with (
-            patch("tetra_rp.runtime.mothership_provisioner.load_manifest") as mock_load,
             patch(
-                "tetra_rp.runtime.mothership_provisioner.ResourceManager"
+                "runpod_flash.runtime.mothership_provisioner.load_manifest"
+            ) as mock_load,
+            patch(
+                "runpod_flash.runtime.mothership_provisioner.ResourceManager"
             ) as mock_rm_class,
             patch.dict(
                 "os.environ",
@@ -214,9 +218,11 @@ class TestMothershipProvisioningFlow:
         mock_gpu_resource.endpoint_url = "https://gpu-worker.api.runpod.ai"
 
         with (
-            patch("tetra_rp.runtime.mothership_provisioner.load_manifest") as mock_load,
             patch(
-                "tetra_rp.runtime.mothership_provisioner.ResourceManager"
+                "runpod_flash.runtime.mothership_provisioner.load_manifest"
+            ) as mock_load,
+            patch(
+                "runpod_flash.runtime.mothership_provisioner.ResourceManager"
             ) as mock_rm_class,
             patch.dict(
                 "os.environ",
@@ -288,12 +294,14 @@ class TestMothershipProvisioningFlow:
         mock_gpu_resource.endpoint_url = "https://gpu-worker.api.runpod.ai"
 
         with (
-            patch("tetra_rp.runtime.mothership_provisioner.load_manifest") as mock_load,
             patch(
-                "tetra_rp.runtime.mothership_provisioner.create_resource_from_manifest"
+                "runpod_flash.runtime.mothership_provisioner.load_manifest"
+            ) as mock_load,
+            patch(
+                "runpod_flash.runtime.mothership_provisioner.create_resource_from_manifest"
             ) as mock_create,
             patch(
-                "tetra_rp.runtime.mothership_provisioner.ResourceManager"
+                "runpod_flash.runtime.mothership_provisioner.ResourceManager"
             ) as mock_rm_class,
             patch.dict(
                 "os.environ",
@@ -362,9 +370,11 @@ class TestMothershipProvisioningFlow:
         mock_cpu_resource.endpoint_url = "https://cpu-worker.api.runpod.ai"
 
         with (
-            patch("tetra_rp.runtime.mothership_provisioner.load_manifest") as mock_load,
             patch(
-                "tetra_rp.runtime.mothership_provisioner.ResourceManager"
+                "runpod_flash.runtime.mothership_provisioner.load_manifest"
+            ) as mock_load,
+            patch(
+                "runpod_flash.runtime.mothership_provisioner.ResourceManager"
             ) as mock_rm_class,
             patch.dict(
                 "os.environ",
@@ -448,9 +458,11 @@ class TestMothershipProvisioningFlow:
 
         # Mock ResourceManager - should not be called
         with (
-            patch("tetra_rp.runtime.mothership_provisioner.load_manifest") as mock_load,
             patch(
-                "tetra_rp.runtime.mothership_provisioner.ResourceManager"
+                "runpod_flash.runtime.mothership_provisioner.load_manifest"
+            ) as mock_load,
+            patch(
+                "runpod_flash.runtime.mothership_provisioner.ResourceManager"
             ) as mock_rm_class,
             patch.dict(
                 "os.environ",

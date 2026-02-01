@@ -1,5 +1,5 @@
 """
-Unit tests for tetra_rp.execute_class module.
+Unit tests for runpod_flash.execute_class module.
 """
 
 import asyncio
@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import cloudpickle
 import pytest
-from tetra_rp.core.resources import ServerlessResource
-from tetra_rp.execute_class import create_remote_class, extract_class_code_simple
-from tetra_rp.protos.remote_execution import FunctionRequest
+from runpod_flash.core.resources import ServerlessResource
+from runpod_flash.execute_class import create_remote_class, extract_class_code_simple
+from runpod_flash.protos.remote_execution import FunctionRequest
 
 
 class TestExtractClassCodeSimple:
@@ -135,10 +135,10 @@ def create_nested():
 
         # Mock inspect.getsource to raise an exception
         with patch(
-            "tetra_rp.execute_class.inspect.getsource",
+            "runpod_flash.execute_class.inspect.getsource",
             side_effect=OSError("No source available"),
         ):
-            with patch("tetra_rp.execute_class.log.warning") as mock_log_warning:
+            with patch("runpod_flash.execute_class.log.warning") as mock_log_warning:
                 result = extract_class_code_simple(mock_class)
 
                 # Should use fallback

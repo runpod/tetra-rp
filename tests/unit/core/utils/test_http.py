@@ -1,7 +1,7 @@
 """Tests for HTTP utilities for RunPod API communication."""
 
 import requests
-from tetra_rp.core.utils.http import (
+from runpod_flash.core.utils.http import (
     get_authenticated_httpx_client,
     get_authenticated_requests_session,
 )

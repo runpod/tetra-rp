@@ -3,8 +3,8 @@
 import pytest
 from textwrap import dedent
 
-from tetra_rp.core.discovery import ResourceDiscovery
-from tetra_rp.core.resources.serverless import ServerlessResource
+from runpod_flash.core.discovery import ResourceDiscovery
+from runpod_flash.core.resources.serverless import ServerlessResource
 
 
 class TestResourceDiscovery:
@@ -53,8 +53,8 @@ class TestResourceDiscovery:
         temp_entry_point.write_text(
             dedent(
                 """
-                from tetra_rp.client import remote
-                from tetra_rp.core.resources.serverless import ServerlessResource
+                from runpod_flash.client import remote
+                from runpod_flash.core.resources.serverless import ServerlessResource
 
                 gpu_config = ServerlessResource(
                     name="test-gpu",
@@ -83,8 +83,8 @@ class TestResourceDiscovery:
         temp_entry_point.write_text(
             dedent(
                 """
-                from tetra_rp.client import remote
-                from tetra_rp.core.resources.serverless import ServerlessResource
+                from runpod_flash.client import remote
+                from runpod_flash.core.resources.serverless import ServerlessResource
 
                 gpu_config = ServerlessResource(
                     name="gpu-endpoint",
@@ -125,8 +125,8 @@ class TestResourceDiscovery:
         temp_entry_point.write_text(
             dedent(
                 """
-                from tetra_rp.client import remote
-                from tetra_rp.core.resources.serverless import ServerlessResource
+                from runpod_flash.client import remote
+                from runpod_flash.core.resources.serverless import ServerlessResource
 
                 my_config = ServerlessResource(
                     name="test-endpoint",
@@ -156,7 +156,7 @@ class TestResourceDiscovery:
                 """
                 import nonexistent_module
 
-                from tetra_rp.client import remote
+                from runpod_flash.client import remote
                 """
             )
         )
@@ -172,8 +172,8 @@ class TestResourceDiscovery:
         temp_entry_point.write_text(
             dedent(
                 """
-                from tetra_rp.client import remote
-                from tetra_rp.core.resources.serverless import ServerlessResource
+                from runpod_flash.client import remote
+                from runpod_flash.core.resources.serverless import ServerlessResource
 
                 config = ServerlessResource(
                     name="cached-endpoint",
@@ -205,8 +205,8 @@ class TestResourceDiscovery:
         temp_entry_point.write_text(
             dedent(
                 """
-                from tetra_rp.client import remote
-                from tetra_rp.core.resources.serverless import ServerlessResource
+                from runpod_flash.client import remote
+                from runpod_flash.core.resources.serverless import ServerlessResource
 
                 config = ServerlessResource(
                     name="test-endpoint",
@@ -253,7 +253,7 @@ class TestResourceDiscovery:
         temp_entry_point.write_text(
             dedent(
                 """
-                from tetra_rp.client import remote
+                from runpod_flash.client import remote
 
                 # Not a DeployableResource
                 config = {"name": "not-a-resource"}
@@ -310,8 +310,8 @@ class TestResourceDiscovery:
         worker_file.write_text(
             dedent(
                 """
-                from tetra_rp.client import remote
-                from tetra_rp.core.resources.serverless import ServerlessResource
+                from runpod_flash.client import remote
+                from runpod_flash.core.resources.serverless import ServerlessResource
 
                 gpu_config = ServerlessResource(
                     name="test-gpu-worker",

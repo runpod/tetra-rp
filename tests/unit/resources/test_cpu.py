@@ -2,7 +2,7 @@
 Unit tests for CPU utilities and constants.
 """
 
-from tetra_rp.core.resources.cpu import (
+from runpod_flash.core.resources.cpu import (
     CpuInstanceType,
     CPU_INSTANCE_DISK_LIMITS,
     calculate_max_disk_size,

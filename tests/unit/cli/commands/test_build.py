@@ -1,6 +1,6 @@
 """Unit tests for flash build command."""
 
-from tetra_rp.cli.commands.build import (
+from runpod_flash.cli.commands.build import (
     extract_package_name,
     should_exclude_package,
 )

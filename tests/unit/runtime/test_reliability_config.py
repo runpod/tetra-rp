@@ -1,6 +1,6 @@
 """Tests for reliability configuration module."""
 
-from tetra_rp.runtime.reliability_config import (
+from runpod_flash.runtime.reliability_config import (
     CircuitBreakerConfig,
     LoadBalancerConfig,
     LoadBalancerStrategy,
@@ -95,7 +95,7 @@ class TestMetricsConfig:
         """Test default values."""
         config = MetricsConfig()
         assert config.enabled is True
-        assert config.namespace == "tetra.metrics"
+        assert config.namespace == "flash.metrics"
 
     def test_custom_values(self):
         """Test with custom values."""
@@ -132,7 +132,7 @@ class TestReliabilityConfig:
 
     def test_from_env_default(self, monkeypatch):
         """Test from_env with no environment variables."""
-        monkeypatch.delenv("TETRA_CIRCUIT_BREAKER_ENABLED", raising=False)
+        monkeypatch.delenv("FLASH_CIRCUIT_BREAKER_ENABLED", raising=False)
         config = ReliabilityConfig.from_env()
         assert config.circuit_breaker.enabled is True
         assert config.load_balancer.enabled is False
@@ -140,9 +140,9 @@ class TestReliabilityConfig:
 
     def test_from_env_custom(self, monkeypatch):
         """Test from_env with custom environment variables."""
-        monkeypatch.setenv("TETRA_CIRCUIT_BREAKER_ENABLED", "false")
-        monkeypatch.setenv("TETRA_LOAD_BALANCER_ENABLED", "true")
-        monkeypatch.setenv("TETRA_CB_FAILURE_THRESHOLD", "10")
+        monkeypatch.setenv("FLASH_CIRCUIT_BREAKER_ENABLED", "false")
+        monkeypatch.setenv("FLASH_LOAD_BALANCER_ENABLED", "true")
+        monkeypatch.setenv("FLASH_CB_FAILURE_THRESHOLD", "10")
         config = ReliabilityConfig.from_env()
         assert config.circuit_breaker.enabled is False
         assert config.load_balancer.enabled is True
@@ -150,13 +150,13 @@ class TestReliabilityConfig:
 
     def test_from_env_load_balancer_strategy(self, monkeypatch):
         """Test from_env with load balancer strategy."""
-        monkeypatch.setenv("TETRA_LB_STRATEGY", "least_connections")
+        monkeypatch.setenv("FLASH_LB_STRATEGY", "least_connections")
         config = ReliabilityConfig.from_env()
         assert config.load_balancer.strategy == LoadBalancerStrategy.LEAST_CONNECTIONS
 
     def test_from_env_invalid_strategy_defaults(self, monkeypatch):
         """Test from_env with invalid strategy defaults to round_robin."""
-        monkeypatch.setenv("TETRA_LB_STRATEGY", "invalid_strategy")
+        monkeypatch.setenv("FLASH_LB_STRATEGY", "invalid_strategy")
         config = ReliabilityConfig.from_env()
         assert config.load_balancer.strategy == LoadBalancerStrategy.ROUND_ROBIN
 

@@ -18,7 +18,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tetra_rp.core.utils.file_lock import (
+from runpod_flash.core.utils.file_lock import (
     file_lock,
     FileLockError,
     FileLockTimeout,
@@ -49,28 +49,28 @@ class TestPlatformDetection:
         ]
         assert sum(locking_mechanisms) >= 1  # At least fallback should work
 
-    @patch("tetra_rp.core.utils.file_lock.platform.system")
+    @patch("runpod_flash.core.utils.file_lock.platform.system")
     def test_platform_detection_windows(self, mock_system):
         """Test Windows platform detection."""
         mock_system.return_value = "Windows"
 
         # Re-import to trigger platform detection
         from importlib import reload
-        import tetra_rp.core.utils.file_lock as file_lock_module
+        import runpod_flash.core.utils.file_lock as file_lock_module
 
         reload(file_lock_module)
 
         info = file_lock_module.get_platform_info()
         assert info["platform"] == "Windows"
 
-    @patch("tetra_rp.core.utils.file_lock.platform.system")
+    @patch("runpod_flash.core.utils.file_lock.platform.system")
     def test_platform_detection_linux(self, mock_system):
         """Test Linux platform detection."""
         mock_system.return_value = "Linux"
 
         # Re-import to trigger platform detection
         from importlib import reload
-        import tetra_rp.core.utils.file_lock as file_lock_module
+        import runpod_flash.core.utils.file_lock as file_lock_module
 
         reload(file_lock_module)
 
@@ -260,7 +260,7 @@ class TestPlatformSpecificLocking:
     @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-specific test")
     def test_windows_locking_available(self):
         """Test Windows locking is available on Windows platform."""
-        import tetra_rp.core.utils.file_lock as file_lock_module
+        import runpod_flash.core.utils.file_lock as file_lock_module
 
         assert file_lock_module._IS_WINDOWS
         # msvcrt should be available on Windows
@@ -270,7 +270,7 @@ class TestPlatformSpecificLocking:
     @pytest.mark.skipif(platform.system() == "Windows", reason="Unix-specific test")
     def test_unix_locking_available(self):
         """Test Unix locking is available on Unix platforms."""
-        import tetra_rp.core.utils.file_lock as file_lock_module
+        import runpod_flash.core.utils.file_lock as file_lock_module
 
         assert file_lock_module._IS_UNIX
         # fcntl should be available on Unix

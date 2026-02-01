@@ -3,9 +3,12 @@ Unit tests for LiveServerless and CpuLiveServerless classes.
 """
 
 import pytest
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.live_serverless import LiveServerless, CpuLiveServerless
-from tetra_rp.core.resources.template import PodTemplate
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.live_serverless import (
+    LiveServerless,
+    CpuLiveServerless,
+)
+from runpod_flash.core.resources.template import PodTemplate
 
 
 class TestLiveServerless:
@@ -21,7 +24,7 @@ class TestLiveServerless:
         assert live_serverless.instanceIds is None
         assert live_serverless.template is not None
         assert live_serverless.template.containerDiskInGb == 64
-        assert "tetra-rp:" in live_serverless.imageName  # GPU image
+        assert "flash:" in live_serverless.imageName  # GPU image
 
     def test_live_serverless_image_locked(self):
         """Test LiveServerless imageName is locked to GPU image."""
@@ -35,7 +38,7 @@ class TestLiveServerless:
         live_serverless.imageName = "custom/image:latest"
 
         assert live_serverless.imageName == original_image
-        assert "tetra-rp:" in live_serverless.imageName  # Still GPU image
+        assert "flash:" in live_serverless.imageName  # Still GPU image
 
     def test_live_serverless_with_custom_template(self):
         """Test LiveServerless with custom template."""
@@ -68,7 +71,7 @@ class TestCpuLiveServerless:
         assert live_serverless.template is not None
         # Default disk size should be 20GB for CPU3G_2_8
         assert live_serverless.template.containerDiskInGb == 20
-        assert "tetra-rp-cpu:" in live_serverless.imageName  # CPU image
+        assert "flash-cpu:" in live_serverless.imageName  # CPU image
 
     def test_cpu_live_serverless_custom_instances(self):
         """Test CpuLiveServerless with custom CPU instances."""
@@ -104,7 +107,7 @@ class TestCpuLiveServerless:
         live_serverless.imageName = "custom/image:latest"
 
         assert live_serverless.imageName == original_image
-        assert "tetra-rp-cpu:" in live_serverless.imageName  # Still CPU image
+        assert "flash-cpu:" in live_serverless.imageName  # Still CPU image
 
     def test_cpu_live_serverless_validation_failure(self):
         """Test CpuLiveServerless validation fails with excessive disk size."""
@@ -159,13 +162,13 @@ class TestLiveServerlessMixin:
     def test_live_image_property_gpu(self):
         """Test LiveServerless _live_image property."""
         live_serverless = LiveServerless(name="test")
-        assert "tetra-rp:" in live_serverless._live_image
+        assert "flash:" in live_serverless._live_image
         assert "cpu" not in live_serverless._live_image
 
     def test_live_image_property_cpu(self):
         """Test CpuLiveServerless _live_image property."""
         live_serverless = CpuLiveServerless(name="test")
-        assert "tetra-rp-cpu:" in live_serverless._live_image
+        assert "flash-cpu:" in live_serverless._live_image
 
     def test_image_name_property_gpu(self):
         """Test LiveServerless imageName property returns locked image."""

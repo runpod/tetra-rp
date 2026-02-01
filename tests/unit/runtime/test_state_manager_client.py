@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tetra_rp.core.api.runpod import RunpodGraphQLClient
-from tetra_rp.runtime.exceptions import ManifestServiceUnavailableError
-from tetra_rp.runtime.state_manager_client import StateManagerClient
+from runpod_flash.core.api.runpod import RunpodGraphQLClient
+from runpod_flash.runtime.exceptions import ManifestServiceUnavailableError
+from runpod_flash.runtime.state_manager_client import StateManagerClient
 
 
 class TestStateManagerClientBasicOperations:
@@ -35,7 +35,7 @@ class TestStateManagerClientBasicOperations:
         }
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient()
@@ -71,7 +71,7 @@ class TestStateManagerClientBasicOperations:
         mock_client.update_build_manifest = AsyncMock()
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient()
@@ -107,7 +107,7 @@ class TestStateManagerClientBasicOperations:
         mock_client.update_build_manifest = AsyncMock()
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient()
@@ -132,7 +132,7 @@ class TestStateManagerClientErrorHandling:
         mock_client.get_flash_environment.return_value = {"activeBuildId": None}
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient()
@@ -153,7 +153,7 @@ class TestStateManagerClientErrorHandling:
         mock_client.get_flash_build.return_value = {"id": "build-123", "manifest": None}
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient()
@@ -175,13 +175,13 @@ class TestStateManagerClientErrorHandling:
         )
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient(max_retries=2)
 
             with patch(
-                "tetra_rp.runtime.state_manager_client.asyncio.sleep",
+                "runpod_flash.runtime.state_manager_client.asyncio.sleep",
                 new_callable=AsyncMock,
             ):
                 with pytest.raises(
@@ -206,13 +206,13 @@ class TestStateManagerClientErrorHandling:
         )
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient(max_retries=2)
 
             with patch(
-                "tetra_rp.runtime.state_manager_client.asyncio.sleep",
+                "runpod_flash.runtime.state_manager_client.asyncio.sleep",
                 new_callable=AsyncMock,
             ):
                 with pytest.raises(
@@ -246,13 +246,13 @@ class TestStateManagerClientRetryLogic:
         ]
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient(max_retries=3)
 
             with patch(
-                "tetra_rp.runtime.state_manager_client.asyncio.sleep",
+                "runpod_flash.runtime.state_manager_client.asyncio.sleep",
                 new_callable=AsyncMock,
             ) as mock_sleep:
                 manifest = await client.get_persisted_manifest("env-123")
@@ -275,13 +275,13 @@ class TestStateManagerClientRetryLogic:
         mock_client.get_flash_environment.side_effect = ConnectionError("Always fails")
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient(max_retries=2)
 
             with patch(
-                "tetra_rp.runtime.state_manager_client.asyncio.sleep",
+                "runpod_flash.runtime.state_manager_client.asyncio.sleep",
                 new_callable=AsyncMock,
             ):
                 with pytest.raises(
@@ -309,13 +309,13 @@ class TestStateManagerClientRetryLogic:
         mock_client.update_build_manifest = AsyncMock()
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient(max_retries=3)
 
             with patch(
-                "tetra_rp.runtime.state_manager_client.asyncio.sleep",
+                "runpod_flash.runtime.state_manager_client.asyncio.sleep",
                 new_callable=AsyncMock,
             ) as mock_sleep:
                 await client.remove_resource_state("env-123", "worker1")
@@ -344,7 +344,7 @@ class TestStateManagerClientConcurrency:
         mock_client.update_build_manifest = AsyncMock()
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient()
@@ -384,7 +384,7 @@ class TestStateManagerClientConcurrency:
         mock_client.update_build_manifest = AsyncMock()
 
         with patch(
-            "tetra_rp.runtime.state_manager_client.RunpodGraphQLClient",
+            "runpod_flash.runtime.state_manager_client.RunpodGraphQLClient",
             return_value=mock_client,
         ):
             client = StateManagerClient()

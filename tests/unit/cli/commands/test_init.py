@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from tetra_rp.cli.commands.init import init_command
+from runpod_flash.cli.commands.init import init_command
 
 
 @pytest.fixture
@@ -21,13 +21,13 @@ def mock_context(monkeypatch):
     mocks["console"].status.return_value.__exit__ = Mock(return_value=False)
 
     patches = [
-        patch("tetra_rp.cli.commands.init.console", mocks["console"]),
+        patch("runpod_flash.cli.commands.init.console", mocks["console"]),
         patch(
-            "tetra_rp.cli.commands.init.detect_file_conflicts",
+            "runpod_flash.cli.commands.init.detect_file_conflicts",
             mocks["detect_conflicts"],
         ),
         patch(
-            "tetra_rp.cli.commands.init.create_project_skeleton",
+            "runpod_flash.cli.commands.init.create_project_skeleton",
             mocks["create_skeleton"],
         ),
     ]

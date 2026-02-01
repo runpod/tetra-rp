@@ -5,7 +5,7 @@ Unit tests for NetworkVolume idempotent behavior.
 from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 
-from tetra_rp.core.resources.network_volume import NetworkVolume, DataCenter
+from runpod_flash.core.resources.network_volume import NetworkVolume, DataCenter
 
 
 class TestNetworkVolumeIdempotent:
@@ -43,7 +43,7 @@ class TestNetworkVolumeIdempotent:
         mock_runpod_client.create_network_volume.return_value = sample_volume_data
 
         with patch(
-            "tetra_rp.core.resources.network_volume.RunpodRestClient"
+            "runpod_flash.core.resources.network_volume.RunpodRestClient"
         ) as mock_client_class:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__ = AsyncMock()
@@ -68,7 +68,7 @@ class TestNetworkVolumeIdempotent:
         mock_runpod_client.list_network_volumes.return_value = [sample_volume_data]
 
         with patch(
-            "tetra_rp.core.resources.network_volume.RunpodRestClient"
+            "runpod_flash.core.resources.network_volume.RunpodRestClient"
         ) as mock_client_class:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__ = AsyncMock()
@@ -98,7 +98,7 @@ class TestNetworkVolumeIdempotent:
         mock_runpod_client.create_network_volume.return_value = sample_volume_data
 
         with patch(
-            "tetra_rp.core.resources.network_volume.RunpodRestClient"
+            "runpod_flash.core.resources.network_volume.RunpodRestClient"
         ) as mock_client_class:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__ = AsyncMock()
@@ -127,7 +127,7 @@ class TestNetworkVolumeIdempotent:
         mock_runpod_client.create_network_volume.return_value = sample_volume_data
 
         with patch(
-            "tetra_rp.core.resources.network_volume.RunpodRestClient"
+            "runpod_flash.core.resources.network_volume.RunpodRestClient"
         ) as mock_client_class:
             mock_client_class.return_value.__aenter__.return_value = mock_runpod_client
             mock_client_class.return_value.__aexit__ = AsyncMock()
@@ -162,7 +162,7 @@ class TestNetworkVolumeIdempotent:
         deployed_volume.id = sample_volume_data["id"]
 
         with patch(
-            "tetra_rp.core.resources.network_volume.ResourceManager"
+            "runpod_flash.core.resources.network_volume.ResourceManager"
         ) as mock_manager_cls:
             mock_manager = MagicMock()
             mock_manager.get_or_deploy_resource = AsyncMock(

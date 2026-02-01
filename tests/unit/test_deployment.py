@@ -4,11 +4,11 @@ import pytest
 import asyncio
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from tetra_rp.core.deployment import (
+from runpod_flash.core.deployment import (
     DeploymentOrchestrator,
     DeploymentStatus,
 )
-from tetra_rp.core.resources.serverless import ServerlessResource
+from runpod_flash.core.resources.serverless import ServerlessResource
 
 
 class TestDeploymentOrchestrator:

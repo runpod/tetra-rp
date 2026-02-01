@@ -149,7 +149,7 @@ async def test():
 ```
 
 **Key differences:**
-- `LiveLoadBalancer` locks image to Tetra LB runtime (tetra-rp-lb)
+- `LiveLoadBalancer` locks image to Tetra LB runtime (runpod-flash-lb)
 - Functions execute directly without deployment
 - Ideal for development and CI/CD testing
 - Same `@remote` decorator interface as production
@@ -332,7 +332,7 @@ from typing import Optional
 # For local development, use LiveLoadBalancer
 api = LoadBalancerSlsResource(
     name="user-service",
-    imageName="runpod/tetra-rp-lb:latest"
+    imageName="runpod/runpod-flash-lb:latest"
 )
 
 class UserNotFound(Exception):

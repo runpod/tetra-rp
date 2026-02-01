@@ -8,7 +8,7 @@ uv pip install -e .
 
 # Development (complete - includes packaging validation)
 # Build wheel and install it to test CLI from anywhere
-cd /path/to/tetra-rp && uv build && pip install dist/tetra_rp-*.whl --force-reinstall
+cd /path/to/runpod_flash && uv build && pip install dist/runpod_flash-*.whl --force-reinstall
 cd /tmp && flash init test_project
 
 # Unit tests
@@ -38,11 +38,11 @@ make validate-wheel
 
 **Coverage threshold failures**
 - Use `--no-cov` flag for focused testing: `uv run pytest tests/unit/test_skeleton.py -v --no-cov`
-- Or test specific module: `uv run pytest --cov=src/tetra_rp/cli/utils/skeleton`
+- Or test specific module: `uv run pytest --cov=src/runpod_flash/cli/utils/skeleton`
 
 **Hidden files require explicit glob patterns**
 - Pattern `**/.*` needed in pyproject.toml to include `.env`, `.gitignore`, `.flashignore`
-- Verify with: `unzip -l dist/tetra_rp-*.whl | grep skeleton_template`
+- Verify with: `unzip -l dist/runpod_flash-*.whl | grep skeleton_template`
 
 ## Pre-Release Checklist
 
