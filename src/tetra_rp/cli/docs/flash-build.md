@@ -135,7 +135,7 @@ Successful build displays:
 ⠙ ✓ Found 42 files to package
 ⠙ ✓ Created .flash/.build/my-project/
 ⠙ ✓ Copied 42 files
-⠙ ✓ Generated 3 handlers and manifest
+⠙ ✓ Created manifest and registered 3 resources
 ⠙ ✓ Installed 5 packages
 ⠙ ✓ Created archive.tar.gz (45.2 MB)
 ⠙ ✓ Removed .build directory

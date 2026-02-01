@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
 ```mermaid
 graph TD
-    A["LoadBalancerSlsResource created"] -->|flash build| B["Generate handler file"]
+    A["LoadBalancerSlsResource created"] -->|flash build| B["Package application"]
     B -->|flash deploy| C["Push to RunPod"]
     C --> D["RunPod creates container"]
     D --> E["Container starts uvicorn"]

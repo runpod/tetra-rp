@@ -19,7 +19,6 @@ graph TB
 
     subgraph Build["Build Phase"]
         Scan["Scanner<br/>Find @remote"]
-        Gen["Generator<br/>Create Handlers"]
         Manifest["ManifestBuilder<br/>flash_manifest.json"]
     end
 
@@ -861,8 +860,6 @@ else:
 graph TB
     subgraph Build["Build (Local)"]
         Scanner["Scanner<br/>RemoteDecoratorScanner"]
-        Generator["Generator<br/>HandlerGenerator"]
-        LBGen["LB Generator<br/>LBHandlerGenerator"]
         ManifestB["ManifestBuilder"]
     end
 
@@ -893,10 +890,7 @@ graph TB
         Exec["Function Execution"]
     end
 
-    Scanner --> Generator
-    Scanner --> LBGen
-    Generator --> ManifestB
-    LBGen --> ManifestB
+    Scanner --> ManifestB
     ManifestB --> Archive
     Archive --> S3
     S3 --> Fetcher
