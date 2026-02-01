@@ -27,7 +27,7 @@ build/
 *.egg-info/
 
 # Flash resources
-.tetra_resources.pkl
+.runpod/
 
 # Tests
 tests/

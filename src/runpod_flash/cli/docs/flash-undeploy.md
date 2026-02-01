@@ -1,6 +1,6 @@
 # flash undeploy
 
-Manage and delete RunPod serverless endpoints deployed via Tetra.
+Manage and delete RunPod serverless endpoints deployed via Flash.
 
 ## Synopsis
 
@@ -12,7 +12,7 @@ flash undeploy [NAME|list] [OPTIONS]
 
 The `flash undeploy` command manages RunPod serverless endpoints that were deployed using the `@remote` decorator. It provides multiple ways to delete endpoints and clean up tracking state.
 
-When you deploy functions with `@remote`, Tetra tracks them in `.tetra_resources.pkl`. The undeploy command helps you manage these endpoints through deletion and cleanup operations.
+When you deploy functions with `@remote`, Flash tracks them in `.runpod/resources.pkl`. The undeploy command helps you manage these endpoints through deletion and cleanup operations.
 
 ## Usage Modes
 
@@ -173,7 +173,7 @@ The Status column performs a health check API call for each endpoint. This:
 
 ## Tracking File
 
-Endpoints are tracked in `.tetra_resources.pkl` at your project root.
+Endpoints are tracked in `.runpod/resources.pkl`.
 
 **Important:**
 - This file is in `.gitignore` (never commit)
@@ -193,9 +193,9 @@ def my_function(data):
     return {"result": data}
 ```
 
-Tetra automatically:
+Flash automatically:
 1. Deploys endpoint to RunPod
-2. Tracks in `.tetra_resources.pkl`
+2. Tracks in `.runpod/resources.pkl`
 3. Reuses endpoint on subsequent calls
 
 To clean up:

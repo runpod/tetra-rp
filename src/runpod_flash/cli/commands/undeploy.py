@@ -65,7 +65,7 @@ def _get_resource_type(resource) -> str:
 
 
 def list_command():
-    """List all deployed endpoints tracked in .tetra_resources.pkl."""
+    """List all deployed endpoints tracked in .runpod/resources.pkl."""
     manager = _get_resource_manager()
     resources = manager.list_all_resources()
 
