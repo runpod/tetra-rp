@@ -36,7 +36,6 @@ class ManifestResource:
     """Resource config entry in manifest."""
 
     resource_type: str
-    handler_file: str
     functions: List[ManifestFunction]
     is_load_balanced: bool = False  # Determined by isinstance() at scan time
     is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
@@ -193,7 +192,6 @@ class ManifestBuilder:
         """
         return {
             "resource_type": "CpuLiveLoadBalancer",
-            "handler_file": "handler_mothership.py",
             "functions": [],
             "is_load_balanced": True,
             "is_live_resource": True,
@@ -237,7 +235,6 @@ class ManifestBuilder:
 
         return {
             "resource_type": resource_type,
-            "handler_file": "handler_mothership.py",
             "functions": [],
             "is_load_balanced": True,
             "is_live_resource": True,
@@ -268,8 +265,6 @@ class ManifestBuilder:
         ] = {}  # resource_name -> {route_key -> function_name}
 
         for resource_name, functions in sorted(resources.items()):
-            handler_file = f"handler_{resource_name}.py"
-
             # Use actual resource type from first function in group
             resource_type = (
                 functions[0].resource_type if functions else "LiveServerless"
@@ -335,7 +330,6 @@ class ManifestBuilder:
 
             resources_dict[resource_name] = {
                 "resource_type": resource_type,
-                "handler_file": handler_file,
                 "functions": functions_list,
                 "is_load_balanced": is_load_balanced,
                 "is_live_resource": is_live_resource,

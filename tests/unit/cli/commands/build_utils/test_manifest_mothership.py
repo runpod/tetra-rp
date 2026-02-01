@@ -192,7 +192,6 @@ def root():
 
                 # Check all expected fields
                 assert mothership["resource_type"] == "CpuLiveLoadBalancer"
-                assert mothership["handler_file"] == "handler_mothership.py"
                 assert mothership["functions"] == []
                 assert mothership["is_load_balanced"] is True
                 assert mothership["is_live_resource"] is True
