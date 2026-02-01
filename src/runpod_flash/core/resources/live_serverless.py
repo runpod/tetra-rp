@@ -10,18 +10,14 @@ from .load_balancer_sls_resource import (
 from .serverless import ServerlessEndpoint
 from .serverless_cpu import CpuServerlessEndpoint
 
-TETRA_IMAGE_TAG = os.environ.get("TETRA_IMAGE_TAG", "latest")
-TETRA_GPU_IMAGE = os.environ.get(
-    "TETRA_GPU_IMAGE", f"runpod/tetra-rp:{TETRA_IMAGE_TAG}"
+FLASH_IMAGE_TAG = os.environ.get("FLASH_IMAGE_TAG", "latest")
+FLASH_GPU_IMAGE = os.environ.get("FLASH_GPU_IMAGE", f"runpod/flash:{FLASH_IMAGE_TAG}")
+FLASH_CPU_IMAGE = os.environ.get(
+    "FLASH_CPU_IMAGE", f"runpod/flash-cpu:{FLASH_IMAGE_TAG}"
 )
-TETRA_CPU_IMAGE = os.environ.get(
-    "TETRA_CPU_IMAGE", f"runpod/tetra-rp-cpu:{TETRA_IMAGE_TAG}"
-)
-TETRA_LB_IMAGE = os.environ.get(
-    "TETRA_LB_IMAGE", f"runpod/tetra-rp-lb:{TETRA_IMAGE_TAG}"
-)
-TETRA_CPU_LB_IMAGE = os.environ.get(
-    "TETRA_CPU_LB_IMAGE", f"runpod/tetra-rp-lb-cpu:{TETRA_IMAGE_TAG}"
+FLASH_LB_IMAGE = os.environ.get("FLASH_LB_IMAGE", f"runpod/flash-lb:{FLASH_IMAGE_TAG}")
+FLASH_CPU_LB_IMAGE = os.environ.get(
+    "FLASH_CPU_LB_IMAGE", f"runpod/flash-lb-cpu:{FLASH_IMAGE_TAG}"
 )
 
 
@@ -49,13 +45,13 @@ class LiveServerless(LiveServerlessMixin, ServerlessEndpoint):
 
     @property
     def _live_image(self) -> str:
-        return TETRA_GPU_IMAGE
+        return FLASH_GPU_IMAGE
 
     @model_validator(mode="before")
     @classmethod
     def set_live_serverless_template(cls, data: dict):
         """Set default GPU image for Live Serverless."""
-        data["imageName"] = TETRA_GPU_IMAGE
+        data["imageName"] = FLASH_GPU_IMAGE
         return data
 
 
@@ -64,13 +60,13 @@ class CpuLiveServerless(LiveServerlessMixin, CpuServerlessEndpoint):
 
     @property
     def _live_image(self) -> str:
-        return TETRA_CPU_IMAGE
+        return FLASH_CPU_IMAGE
 
     @model_validator(mode="before")
     @classmethod
     def set_live_serverless_template(cls, data: dict):
         """Set default CPU image for Live Serverless."""
-        data["imageName"] = TETRA_CPU_IMAGE
+        data["imageName"] = FLASH_CPU_IMAGE
         return data
 
 
@@ -82,7 +78,7 @@ class LiveLoadBalancer(LiveServerlessMixin, LoadBalancerSlsResource):
     before deploying to production.
 
     Features:
-    - Locks to Tetra LB image (tetra-rp-lb)
+    - Locks to Flash LB image (flash-lb)
     - Direct HTTP execution (not queue-based)
     - Local development with flash run
     - Same @remote decorator pattern as LoadBalancerSlsResource
@@ -114,13 +110,13 @@ class LiveLoadBalancer(LiveServerlessMixin, LoadBalancerSlsResource):
 
     @property
     def _live_image(self) -> str:
-        return TETRA_LB_IMAGE
+        return FLASH_LB_IMAGE
 
     @model_validator(mode="before")
     @classmethod
     def set_live_lb_template(cls, data: dict):
         """Set default image for Live Load-Balanced endpoint."""
-        data["imageName"] = TETRA_LB_IMAGE
+        data["imageName"] = FLASH_LB_IMAGE
         return data
 
 
@@ -131,7 +127,7 @@ class CpuLiveLoadBalancer(LiveServerlessMixin, CpuLoadBalancerSlsResource):
     automatic disk sizing and validation.
 
     Features:
-    - Locks to CPU Tetra LB image (tetra-rp-lb-cpu)
+    - Locks to CPU Flash LB image (flash-lb-cpu)
     - CPU instance support with automatic disk sizing
     - Direct HTTP execution (not queue-based)
     - Local development with flash run
@@ -159,11 +155,11 @@ class CpuLiveLoadBalancer(LiveServerlessMixin, CpuLoadBalancerSlsResource):
 
     @property
     def _live_image(self) -> str:
-        return TETRA_CPU_LB_IMAGE
+        return FLASH_CPU_LB_IMAGE
 
     @model_validator(mode="before")
     @classmethod
     def set_live_cpu_lb_template(cls, data: dict):
         """Set default CPU image for Live Load-Balanced endpoint."""
-        data["imageName"] = TETRA_CPU_LB_IMAGE
+        data["imageName"] = FLASH_CPU_LB_IMAGE
         return data

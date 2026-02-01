@@ -430,7 +430,7 @@ class TestCpuEndpointConfigHash:
             workersMax=3,
             workersMin=0,
             flashboot=False,
-            imageName="runpod/tetra-rp-cpu:latest",
+            imageName="runpod/flash-cpu:latest",
         )
 
         config2 = CpuServerlessEndpoint(
@@ -438,7 +438,7 @@ class TestCpuEndpointConfigHash:
             workersMax=3,
             workersMin=0,
             flashboot=False,
-            imageName="runpod/tetra-rp-cpu:latest",
+            imageName="runpod/flash-cpu:latest",
             env={"DIFFERENT_ENV": "value"},
         )
 

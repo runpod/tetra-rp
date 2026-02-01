@@ -55,7 +55,7 @@ class MetricsConfig:
     """Configuration for metrics collection."""
 
     enabled: bool = True
-    namespace: str = "tetra.metrics"
+    namespace: str = "flash.metrics"
 
 
 @dataclass
@@ -72,47 +72,47 @@ class ReliabilityConfig:
         """Load configuration from environment variables.
 
         Environment variables:
-        - TETRA_CIRCUIT_BREAKER_ENABLED: Enable circuit breaker (default: true)
-        - TETRA_CB_FAILURE_THRESHOLD: Failures before opening (default: 5)
-        - TETRA_CB_SUCCESS_THRESHOLD: Successes to close (default: 2)
-        - TETRA_CB_TIMEOUT_SECONDS: Time before half-open (default: 60)
-        - TETRA_LOAD_BALANCER_ENABLED: Enable load balancer (default: false)
-        - TETRA_LB_STRATEGY: Load balancer strategy (default: round_robin)
-        - TETRA_RETRY_ENABLED: Enable retry (default: true)
-        - TETRA_RETRY_MAX_ATTEMPTS: Max retry attempts (default: 3)
-        - TETRA_RETRY_BASE_DELAY: Base delay for backoff (default: 0.5)
-        - TETRA_METRICS_ENABLED: Enable metrics (default: true)
+        - FLASH_CIRCUIT_BREAKER_ENABLED: Enable circuit breaker (default: true)
+        - FLASH_CB_FAILURE_THRESHOLD: Failures before opening (default: 5)
+        - FLASH_CB_SUCCESS_THRESHOLD: Successes to close (default: 2)
+        - FLASH_CB_TIMEOUT_SECONDS: Time before half-open (default: 60)
+        - FLASH_LOAD_BALANCER_ENABLED: Enable load balancer (default: false)
+        - FLASH_LB_STRATEGY: Load balancer strategy (default: round_robin)
+        - FLASH_RETRY_ENABLED: Enable retry (default: true)
+        - FLASH_RETRY_MAX_ATTEMPTS: Max retry attempts (default: 3)
+        - FLASH_RETRY_BASE_DELAY: Base delay for backoff (default: 0.5)
+        - FLASH_METRICS_ENABLED: Enable metrics (default: true)
 
         Returns:
             ReliabilityConfig initialized from environment variables.
         """
         circuit_breaker = CircuitBreakerConfig(
-            enabled=os.getenv("TETRA_CIRCUIT_BREAKER_ENABLED", "true").lower()
+            enabled=os.getenv("FLASH_CIRCUIT_BREAKER_ENABLED", "true").lower()
             == "true",
-            failure_threshold=int(os.getenv("TETRA_CB_FAILURE_THRESHOLD", "5")),
-            success_threshold=int(os.getenv("TETRA_CB_SUCCESS_THRESHOLD", "2")),
-            timeout_seconds=int(os.getenv("TETRA_CB_TIMEOUT_SECONDS", "60")),
+            failure_threshold=int(os.getenv("FLASH_CB_FAILURE_THRESHOLD", "5")),
+            success_threshold=int(os.getenv("FLASH_CB_SUCCESS_THRESHOLD", "2")),
+            timeout_seconds=int(os.getenv("FLASH_CB_TIMEOUT_SECONDS", "60")),
         )
 
-        strategy_str = os.getenv("TETRA_LB_STRATEGY", "round_robin").lower()
+        strategy_str = os.getenv("FLASH_LB_STRATEGY", "round_robin").lower()
         try:
             strategy = LoadBalancerStrategy(strategy_str)
         except ValueError:
             strategy = LoadBalancerStrategy.ROUND_ROBIN
 
         load_balancer = LoadBalancerConfig(
-            enabled=os.getenv("TETRA_LOAD_BALANCER_ENABLED", "false").lower() == "true",
+            enabled=os.getenv("FLASH_LOAD_BALANCER_ENABLED", "false").lower() == "true",
             strategy=strategy,
         )
 
         retry = RetryConfig(
-            enabled=os.getenv("TETRA_RETRY_ENABLED", "true").lower() == "true",
-            max_attempts=int(os.getenv("TETRA_RETRY_MAX_ATTEMPTS", "3")),
-            base_delay=float(os.getenv("TETRA_RETRY_BASE_DELAY", "0.5")),
+            enabled=os.getenv("FLASH_RETRY_ENABLED", "true").lower() == "true",
+            max_attempts=int(os.getenv("FLASH_RETRY_MAX_ATTEMPTS", "3")),
+            base_delay=float(os.getenv("FLASH_RETRY_BASE_DELAY", "0.5")),
         )
 
         metrics = MetricsConfig(
-            enabled=os.getenv("TETRA_METRICS_ENABLED", "true").lower() == "true",
+            enabled=os.getenv("FLASH_METRICS_ENABLED", "true").lower() == "true",
         )
 
         return cls(

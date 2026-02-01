@@ -40,7 +40,7 @@ def _clear_resource_cache() -> None:
 
 def test_mothership_command(
     image: str = typer.Option(
-        "runpod/tetra-rp-lb-cpu:local",
+        "runpod/flash-lb-cpu:local",
         "--image",
         help="Docker image to use for testing",
     ),

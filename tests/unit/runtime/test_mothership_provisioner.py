@@ -390,7 +390,7 @@ class TestCreateResourceFromManifest:
         resource_name = "worker1"
         resource_data = {
             "resource_type": "ServerlessResource",
-            "imageName": "runpod/tetra-rp:latest",
+            "imageName": "runpod/flash:latest",
         }
         mothership_url = "https://test.api.runpod.ai"
 
@@ -416,7 +416,7 @@ class TestCreateResourceFromManifest:
         resource_name = "worker1"
         resource_data = {
             "resource_type": "LiveServerless",
-            "imageName": "runpod/tetra-rp:latest",
+            "imageName": "runpod/flash:latest",
         }
         mothership_url = "https://test.api.runpod.ai"
 
@@ -445,7 +445,7 @@ class TestCreateResourceFromManifest:
 
         resource_name = "worker1"
         resource_data = {
-            "imageName": "runpod/tetra-rp:latest"
+            "imageName": "runpod/flash:latest"
         }  # No resource_type specified
         mothership_url = "https://test.api.runpod.ai"
 
@@ -469,7 +469,7 @@ class TestCreateResourceFromManifest:
         resource_name = "worker1"
         resource_data = {
             "resource_type": "ServerlessResource",
-            "imageName": "runpod/tetra-rp:latest",
+            "imageName": "runpod/flash:latest",
         }
         mothership_url = ""  # Empty URL indicates CLI context
 
@@ -497,7 +497,7 @@ class TestCreateResourceFromManifest:
         resource_name = "worker1"
         resource_data = {
             "resource_type": "ServerlessResource",
-            "imageName": "runpod/tetra-rp:latest",
+            "imageName": "runpod/flash:latest",
         }
         mothership_url = "https://mothership.api.runpod.ai"
 

@@ -200,7 +200,7 @@ class ManifestBuilder:
             "is_mothership": True,
             "main_file": main_app_config["file_path"].name,
             "app_variable": main_app_config["app_variable"],
-            "imageName": "runpod/tetra-rp-lb-cpu:latest",
+            "imageName": "runpod/flash-lb-cpu:latest",
             "workersMin": 1,
             "workersMax": 3,
         }
@@ -231,9 +231,9 @@ class ManifestBuilder:
         # Map resource type to image name
         resource_type = explicit_config.get("resource_type", "CpuLiveLoadBalancer")
         if resource_type == "LiveLoadBalancer":
-            image_name = "runpod/tetra-rp-lb:latest"  # GPU load balancer
+            image_name = "runpod/flash-lb:latest"  # GPU load balancer
         else:
-            image_name = "runpod/tetra-rp-lb-cpu:latest"  # CPU load balancer
+            image_name = "runpod/flash-lb-cpu:latest"  # CPU load balancer
 
         return {
             "resource_type": resource_type,

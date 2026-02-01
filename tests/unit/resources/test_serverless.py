@@ -103,7 +103,7 @@ class TestServerlessResource:
         Create new instances with same env to test different configs.
         """
         # Fixed env to ensure consistency
-        env = {"TETRA_IMAGE_TAG": "test-123"}
+        env = {"FLASH_IMAGE_TAG": "test-123"}
 
         # Original config
         serverless1 = ServerlessResource(name="hash-test", flashboot=False, env=env)

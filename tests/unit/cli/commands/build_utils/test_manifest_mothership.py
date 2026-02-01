@@ -62,7 +62,7 @@ def process(data):
                 assert mothership["main_file"] == "main.py"
                 assert mothership["app_variable"] == "app"
                 assert mothership["resource_type"] == "CpuLiveLoadBalancer"
-                assert mothership["imageName"] == "runpod/tetra-rp-lb-cpu:latest"
+                assert mothership["imageName"] == "runpod/flash-lb-cpu:latest"
 
     def test_manifest_skips_mothership_without_routes(self):
         """Test mothership NOT added if main.py has no routes."""
@@ -196,7 +196,7 @@ def root():
                 assert mothership["functions"] == []
                 assert mothership["is_load_balanced"] is True
                 assert mothership["is_live_resource"] is True
-                assert mothership["imageName"] == "runpod/tetra-rp-lb-cpu:latest"
+                assert mothership["imageName"] == "runpod/flash-lb-cpu:latest"
                 assert mothership["workersMin"] == 1
                 assert mothership["workersMax"] == 3
 
@@ -393,5 +393,5 @@ def root():
 
                 mothership = manifest["resources"]["gpu-mothership"]
                 assert mothership["resource_type"] == "LiveLoadBalancer"
-                assert mothership["imageName"] == "runpod/tetra-rp-lb:latest"
+                assert mothership["imageName"] == "runpod/flash-lb:latest"
                 assert mothership["is_explicit"] is True

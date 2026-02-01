@@ -1,5 +1,5 @@
 """
-Test configuration and fixtures for tetra-rp tests.
+Test configuration and fixtures for flash tests.
 
 Provides shared fixtures for:
 - Resource configurations (GPU, CPU)

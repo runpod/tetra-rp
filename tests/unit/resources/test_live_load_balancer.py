@@ -21,7 +21,7 @@ class TestLiveLoadBalancer:
 
     def test_live_load_balancer_creation_with_local_tag(self, monkeypatch):
         """Test LiveLoadBalancer creates with local image tag."""
-        monkeypatch.setenv("TETRA_IMAGE_TAG", "local")
+        monkeypatch.setenv("FLASH_IMAGE_TAG", "local")
         # Need to reload the module to pick up new env var
         import importlib
         import runpod_flash.core.resources.live_serverless as ls_module
@@ -29,18 +29,18 @@ class TestLiveLoadBalancer:
         importlib.reload(ls_module)
 
         lb = ls_module.LiveLoadBalancer(name="test-lb")
-        assert lb.imageName == "runpod/tetra-rp-lb:local"
+        assert lb.imageName == "runpod/flash-lb:local"
         assert lb.template is not None
-        assert lb.template.imageName == "runpod/tetra-rp-lb:local"
+        assert lb.template.imageName == "runpod/flash-lb:local"
 
     def test_live_load_balancer_default_image_tag(self):
         """Test LiveLoadBalancer uses default image tag."""
         # Clear any custom tag
-        os.environ.pop("TETRA_IMAGE_TAG", None)
+        os.environ.pop("FLASH_IMAGE_TAG", None)
 
         lb = LiveLoadBalancer(name="test-lb")
 
-        assert "runpod/tetra-rp-lb:" in lb.imageName
+        assert "runpod/flash-lb:" in lb.imageName
         assert lb.template is not None
         assert lb.template.imageName == lb.imageName
 
@@ -109,11 +109,11 @@ class TestLoadBalancerSlsResourceTemplate:
         """Test LoadBalancerSlsResource creates template from imageName."""
         lb = LoadBalancerSlsResource(
             name="test-lb",
-            imageName="runpod/tetra-rp-lb:latest",
+            imageName="runpod/flash-lb:latest",
         )
 
         assert lb.template is not None
-        assert lb.template.imageName == "runpod/tetra-rp-lb:latest"
+        assert lb.template.imageName == "runpod/flash-lb:latest"
 
     def test_load_balancer_sls_requires_image_template_or_id(self):
         """Test LoadBalancerSlsResource requires one of: imageName, template, templateId."""
@@ -156,7 +156,7 @@ class TestTemplateSerializationRoundtrip:
         assert "imageName" not in payload
 
         # Verify the template has the correct image
-        assert "tetra-rp-lb:" in payload["template"]["imageName"], (
+        assert "flash-lb:" in payload["template"]["imageName"], (
             "Must have load-balancer image"
         )
 
@@ -184,7 +184,7 @@ class TestCpuLiveLoadBalancer:
 
     def test_cpu_live_load_balancer_creation_with_local_tag(self, monkeypatch):
         """Test CpuLiveLoadBalancer creates with local image tag."""
-        monkeypatch.setenv("TETRA_IMAGE_TAG", "local")
+        monkeypatch.setenv("FLASH_IMAGE_TAG", "local")
         # Need to reload the module to pick up new env var
         import importlib
 
@@ -193,18 +193,18 @@ class TestCpuLiveLoadBalancer:
         importlib.reload(ls_module)
 
         lb = ls_module.CpuLiveLoadBalancer(name="test-lb")
-        assert lb.imageName == "runpod/tetra-rp-lb-cpu:local"
+        assert lb.imageName == "runpod/flash-lb-cpu:local"
         assert lb.template is not None
-        assert lb.template.imageName == "runpod/tetra-rp-lb-cpu:local"
+        assert lb.template.imageName == "runpod/flash-lb-cpu:local"
 
     def test_cpu_live_load_balancer_default_image_tag(self):
         """Test CpuLiveLoadBalancer uses default CPU LB image tag."""
         # Clear any custom tag
-        os.environ.pop("TETRA_IMAGE_TAG", None)
+        os.environ.pop("FLASH_IMAGE_TAG", None)
 
         lb = CpuLiveLoadBalancer(name="test-lb")
 
-        assert "runpod/tetra-rp-lb-cpu:" in lb.imageName
+        assert "runpod/flash-lb-cpu:" in lb.imageName
         assert lb.template is not None
         assert lb.template.imageName == lb.imageName
 
