@@ -18,6 +18,25 @@ def _endpoint_domain_from_base_url(base_url: str) -> str:
 
 ENDPOINT_DOMAIN = _endpoint_domain_from_base_url(runpod.endpoint_url_base)
 
+# Docker image configuration
+TETRA_IMAGE_TAG = os.environ.get("TETRA_IMAGE_TAG", "latest")
+TETRA_GPU_IMAGE = os.environ.get(
+    "TETRA_GPU_IMAGE", f"runpod/tetra-rp:{TETRA_IMAGE_TAG}"
+)
+TETRA_CPU_IMAGE = os.environ.get(
+    "TETRA_CPU_IMAGE", f"runpod/tetra-rp-cpu:{TETRA_IMAGE_TAG}"
+)
+TETRA_LB_IMAGE = os.environ.get(
+    "TETRA_LB_IMAGE", f"runpod/tetra-rp-lb:{TETRA_IMAGE_TAG}"
+)
+TETRA_CPU_LB_IMAGE = os.environ.get(
+    "TETRA_CPU_LB_IMAGE", f"runpod/tetra-rp-lb-cpu:{TETRA_IMAGE_TAG}"
+)
+
+# Worker configuration defaults
+DEFAULT_WORKERS_MIN = 1
+DEFAULT_WORKERS_MAX = 3
+
 # Flash app artifact upload constants
 TARBALL_CONTENT_TYPE = "application/gzip"
 MAX_TARBALL_SIZE_MB = 500  # Maximum tarball size in megabytes

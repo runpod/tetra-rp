@@ -9,6 +9,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from tetra_rp.core.resources.constants import (
+    DEFAULT_WORKERS_MAX,
+    DEFAULT_WORKERS_MIN,
+    TETRA_CPU_LB_IMAGE,
+    TETRA_LB_IMAGE,
+)
+
 from .scanner import RemoteFunctionMetadata, detect_explicit_mothership, detect_main_app
 
 logger = logging.getLogger(__name__)
@@ -198,9 +205,9 @@ class ManifestBuilder:
             "is_mothership": True,
             "main_file": main_app_config["file_path"].name,
             "app_variable": main_app_config["app_variable"],
-            "imageName": "runpod/tetra-rp-lb-cpu:latest",
-            "workersMin": 1,
-            "workersMax": 3,
+            "imageName": TETRA_CPU_LB_IMAGE,
+            "workersMin": DEFAULT_WORKERS_MIN,
+            "workersMax": DEFAULT_WORKERS_MAX,
         }
 
     def _create_mothership_from_explicit(
@@ -229,9 +236,9 @@ class ManifestBuilder:
         # Map resource type to image name
         resource_type = explicit_config.get("resource_type", "CpuLiveLoadBalancer")
         if resource_type == "LiveLoadBalancer":
-            image_name = "runpod/tetra-rp-lb:latest"  # GPU load balancer
+            image_name = TETRA_LB_IMAGE  # GPU load balancer
         else:
-            image_name = "runpod/tetra-rp-lb-cpu:latest"  # CPU load balancer
+            image_name = TETRA_CPU_LB_IMAGE  # CPU load balancer
 
         return {
             "resource_type": resource_type,
@@ -243,8 +250,8 @@ class ManifestBuilder:
             "main_file": main_file,
             "app_variable": app_variable,
             "imageName": image_name,
-            "workersMin": explicit_config.get("workersMin", 1),
-            "workersMax": explicit_config.get("workersMax", 3),
+            "workersMin": explicit_config.get("workersMin", DEFAULT_WORKERS_MIN),
+            "workersMax": explicit_config.get("workersMax", DEFAULT_WORKERS_MAX),
         }
 
     def build(self) -> Dict[str, Any]:

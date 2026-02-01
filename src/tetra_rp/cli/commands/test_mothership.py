@@ -12,6 +12,8 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
+from tetra_rp.core.resources.constants import TETRA_CPU_LB_IMAGE
+
 logger = logging.getLogger(__name__)
 console = Console()
 
@@ -40,7 +42,7 @@ def _clear_resource_cache() -> None:
 
 def test_mothership_command(
     image: str = typer.Option(
-        "runpod/tetra-rp-lb-cpu:local",
+        TETRA_CPU_LB_IMAGE,
         "--image",
         help="Docker image to use for testing",
     ),
