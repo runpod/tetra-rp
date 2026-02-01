@@ -4,49 +4,46 @@
 # source: remote_execution.proto
 # Protobuf Python Version: 5.29.3
 """Generated protocol buffer code."""
+
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
+
 _runtime_version.ValidateProtobufRuntimeVersion(
-    _runtime_version.Domain.PUBLIC,
-    5,
-    29,
-    3,
-    '',
-    'remote_execution.proto'
+    _runtime_version.Domain.PUBLIC, 5, 29, 3, "", "remote_execution.proto"
 )
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
 
-
-
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16remote_execution.proto\x12\x05\x66lash\"\xb0\x05\n\x0f\x46unctionRequest\x12\x1a\n\rfunction_name\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x1a\n\rfunction_code\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x0c\n\x04\x61rgs\x18\x03 \x03(\t\x12\x32\n\x06kwargs\x18\x04 \x03(\x0b\x32\".flash.FunctionRequest.KwargsEntry\x12\x14\n\x0c\x64\x65pendencies\x18\x05 \x03(\t\x12\x1b\n\x13system_dependencies\x18\x06 \x03(\t\x12\x16\n\x0e\x65xecution_type\x18\x07 \x01(\t\x12\x17\n\nclass_name\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x17\n\nclass_code\x18\t \x01(\tH\x03\x88\x01\x01\x12\x18\n\x10\x63onstructor_args\x18\n \x03(\t\x12I\n\x12\x63onstructor_kwargs\x18\x0b \x03(\x0b\x32-.flash.FunctionRequest.ConstructorKwargsEntry\x12\x13\n\x0bmethod_name\x18\x0c \x01(\t\x12\x18\n\x0binstance_id\x18\r \x01(\tH\x04\x88\x01\x01\x12\x1b\n\x13\x63reate_new_instance\x18\x0e \x01(\x08\x12!\n\x14\x61\x63\x63\x65lerate_downloads\x18\x13 \x01(\x08H\x05\x88\x01\x01\x1a-\n\x0bKwargsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x38\n\x16\x43onstructorKwargsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x10\n\x0e_function_nameB\x10\n\x0e_function_codeB\r\n\x0b_class_nameB\r\n\x0b_class_codeB\x0e\n\x0c_instance_idB\x17\n\x15_accelerate_downloads\"\xa2\x02\n\x10\x46unctionResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x13\n\x06result\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x12\n\x05\x65rror\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06stdout\x18\x04 \x01(\tH\x02\x88\x01\x01\x12\x18\n\x0binstance_id\x18\x05 \x01(\tH\x03\x88\x01\x01\x12@\n\rinstance_info\x18\x06 \x03(\x0b\x32).flash.FunctionResponse.InstanceInfoEntry\x1a\x33\n\x11InstanceInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\t\n\x07_resultB\x08\n\x06_errorB\t\n\x07_stdoutB\x0e\n\x0c_instance_id2V\n\x0eRemoteExecutor\x12\x44\n\x0f\x45xecuteFunction\x12\x16.flash.FunctionRequest\x1a\x17.flash.FunctionResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
+    b'\n\x16remote_execution.proto\x12\x05\x66lash"\xb0\x05\n\x0f\x46unctionRequest\x12\x1a\n\rfunction_name\x18\x01 \x01(\tH\x00\x88\x01\x01\x12\x1a\n\rfunction_code\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x0c\n\x04\x61rgs\x18\x03 \x03(\t\x12\x32\n\x06kwargs\x18\x04 \x03(\x0b\x32".flash.FunctionRequest.KwargsEntry\x12\x14\n\x0c\x64\x65pendencies\x18\x05 \x03(\t\x12\x1b\n\x13system_dependencies\x18\x06 \x03(\t\x12\x16\n\x0e\x65xecution_type\x18\x07 \x01(\t\x12\x17\n\nclass_name\x18\x08 \x01(\tH\x02\x88\x01\x01\x12\x17\n\nclass_code\x18\t \x01(\tH\x03\x88\x01\x01\x12\x18\n\x10\x63onstructor_args\x18\n \x03(\t\x12I\n\x12\x63onstructor_kwargs\x18\x0b \x03(\x0b\x32-.flash.FunctionRequest.ConstructorKwargsEntry\x12\x13\n\x0bmethod_name\x18\x0c \x01(\t\x12\x18\n\x0binstance_id\x18\r \x01(\tH\x04\x88\x01\x01\x12\x1b\n\x13\x63reate_new_instance\x18\x0e \x01(\x08\x12!\n\x14\x61\x63\x63\x65lerate_downloads\x18\x13 \x01(\x08H\x05\x88\x01\x01\x1a-\n\x0bKwargsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a\x38\n\x16\x43onstructorKwargsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x10\n\x0e_function_nameB\x10\n\x0e_function_codeB\r\n\x0b_class_nameB\r\n\x0b_class_codeB\x0e\n\x0c_instance_idB\x17\n\x15_accelerate_downloads"\xa2\x02\n\x10\x46unctionResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x13\n\x06result\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x12\n\x05\x65rror\x18\x03 \x01(\tH\x01\x88\x01\x01\x12\x13\n\x06stdout\x18\x04 \x01(\tH\x02\x88\x01\x01\x12\x18\n\x0binstance_id\x18\x05 \x01(\tH\x03\x88\x01\x01\x12@\n\rinstance_info\x18\x06 \x03(\x0b\x32).flash.FunctionResponse.InstanceInfoEntry\x1a\x33\n\x11InstanceInfoEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\t\n\x07_resultB\x08\n\x06_errorB\t\n\x07_stdoutB\x0e\n\x0c_instance_id2V\n\x0eRemoteExecutor\x12\x44\n\x0f\x45xecuteFunction\x12\x16.flash.FunctionRequest\x1a\x17.flash.FunctionResponse"\x00\x62\x06proto3'
+)
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'remote_execution_pb2', _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "remote_execution_pb2", _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
-  _globals['_FUNCTIONREQUEST_KWARGSENTRY']._loaded_options = None
-  _globals['_FUNCTIONREQUEST_KWARGSENTRY']._serialized_options = b'8\001'
-  _globals['_FUNCTIONREQUEST_CONSTRUCTORKWARGSENTRY']._loaded_options = None
-  _globals['_FUNCTIONREQUEST_CONSTRUCTORKWARGSENTRY']._serialized_options = b'8\001'
-  _globals['_FUNCTIONRESPONSE_INSTANCEINFOENTRY']._loaded_options = None
-  _globals['_FUNCTIONRESPONSE_INSTANCEINFOENTRY']._serialized_options = b'8\001'
-  _globals['_FUNCTIONREQUEST']._serialized_start=34
-  _globals['_FUNCTIONREQUEST']._serialized_end=722
-  _globals['_FUNCTIONREQUEST_KWARGSENTRY']._serialized_start=512
-  _globals['_FUNCTIONREQUEST_KWARGSENTRY']._serialized_end=557
-  _globals['_FUNCTIONREQUEST_CONSTRUCTORKWARGSENTRY']._serialized_start=559
-  _globals['_FUNCTIONREQUEST_CONSTRUCTORKWARGSENTRY']._serialized_end=615
-  _globals['_FUNCTIONRESPONSE']._serialized_start=725
-  _globals['_FUNCTIONRESPONSE']._serialized_end=1015
-  _globals['_FUNCTIONRESPONSE_INSTANCEINFOENTRY']._serialized_start=916
-  _globals['_FUNCTIONRESPONSE_INSTANCEINFOENTRY']._serialized_end=967
-  _globals['_REMOTEEXECUTOR']._serialized_start=1017
-  _globals['_REMOTEEXECUTOR']._serialized_end=1103
+    DESCRIPTOR._loaded_options = None
+    _globals["_FUNCTIONREQUEST_KWARGSENTRY"]._loaded_options = None
+    _globals["_FUNCTIONREQUEST_KWARGSENTRY"]._serialized_options = b"8\001"
+    _globals["_FUNCTIONREQUEST_CONSTRUCTORKWARGSENTRY"]._loaded_options = None
+    _globals["_FUNCTIONREQUEST_CONSTRUCTORKWARGSENTRY"]._serialized_options = b"8\001"
+    _globals["_FUNCTIONRESPONSE_INSTANCEINFOENTRY"]._loaded_options = None
+    _globals["_FUNCTIONRESPONSE_INSTANCEINFOENTRY"]._serialized_options = b"8\001"
+    _globals["_FUNCTIONREQUEST"]._serialized_start = 34
+    _globals["_FUNCTIONREQUEST"]._serialized_end = 722
+    _globals["_FUNCTIONREQUEST_KWARGSENTRY"]._serialized_start = 512
+    _globals["_FUNCTIONREQUEST_KWARGSENTRY"]._serialized_end = 557
+    _globals["_FUNCTIONREQUEST_CONSTRUCTORKWARGSENTRY"]._serialized_start = 559
+    _globals["_FUNCTIONREQUEST_CONSTRUCTORKWARGSENTRY"]._serialized_end = 615
+    _globals["_FUNCTIONRESPONSE"]._serialized_start = 725
+    _globals["_FUNCTIONRESPONSE"]._serialized_end = 1015
+    _globals["_FUNCTIONRESPONSE_INSTANCEINFOENTRY"]._serialized_start = 916
+    _globals["_FUNCTIONRESPONSE_INSTANCEINFOENTRY"]._serialized_end = 967
+    _globals["_REMOTEEXECUTOR"]._serialized_start = 1017
+    _globals["_REMOTEEXECUTOR"]._serialized_end = 1103
 # @@protoc_insertion_point(module_scope)
