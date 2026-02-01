@@ -1,4 +1,4 @@
-"""Custom exceptions for tetra_rp.
+"""Custom exceptions for runpod_flash.
 
 Provides clear, actionable error messages for common failure scenarios.
 """

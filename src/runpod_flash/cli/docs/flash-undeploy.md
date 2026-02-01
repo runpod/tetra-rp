@@ -186,7 +186,7 @@ Endpoints are tracked in `.tetra_resources.pkl` at your project root.
 When you use the `@remote` decorator:
 
 ```python
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 
 @remote(resource_config=LiveServerless(name="my-api"))
 def my_function(data):

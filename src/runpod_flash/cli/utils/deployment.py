@@ -425,7 +425,7 @@ async def deploy_to_environment(
     """Deploy current project to environment.
 
     Raises:
-        tetra_rp.core.resources.app.FlashEnvironmentNotFoundError: If the environment does not exist
+        runpod_flash.core.resources.app.FlashEnvironmentNotFoundError: If the environment does not exist
         FileNotFoundError: If manifest not found
         ValueError: If manifest is invalid
     """

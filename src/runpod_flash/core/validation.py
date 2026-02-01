@@ -1,4 +1,4 @@
-"""Validation utilities for tetra_rp configuration.
+"""Validation utilities for runpod_flash configuration.
 
 Provides validation functions for required environment variables and configuration.
 """

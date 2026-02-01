@@ -25,7 +25,7 @@ def _get_resource_manager():
     at CLI startup time. This allows fast commands like 'flash init' to run without
     loading unnecessary dependencies.
 
-    Can be mocked in tests: @patch('tetra_rp.cli.commands.undeploy._get_resource_manager')
+    Can be mocked in tests: @patch('runpod_flash.cli.commands.undeploy._get_resource_manager')
     """
     from ...core.resources.resource_manager import ResourceManager
 

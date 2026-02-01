@@ -313,7 +313,7 @@ cleanup() {
     echo "Shutting down test-mothership..."
     echo "Cleaning up all temporary endpoints..."
     echo "=========================================="
-    python -m tetra_rp.cli.main undeploy --all --force || true
+    python -m runpod_flash.cli.main undeploy --all --force || true
     echo "Cleanup complete"
     exit 0
 }
@@ -331,7 +331,7 @@ echo "=========================================="
 python3 provision_from_manifest.py
 
 # Start server without --auto-provision to avoid re-discovering resources
-python -m tetra_rp.cli.main run --host 0.0.0.0 --port 8000 &
+python -m runpod_flash.cli.main run --host 0.0.0.0 --port 8000 &
 PID=$!
 
 wait $PID

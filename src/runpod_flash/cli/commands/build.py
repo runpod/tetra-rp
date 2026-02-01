@@ -152,7 +152,7 @@ def _extract_runpod_flash_dependencies(flash_pkg_dir: Path) -> list[str]:
 
         if dependencies:
             console.print(
-                f"[dim]Found {len(dependencies)} tetra_rp dependencies to install[/dim]"
+                f"[dim]Found {len(dependencies)} runpod_flash dependencies to install[/dim]"
             )
 
         return dependencies
@@ -206,7 +206,7 @@ def build_command(
     use_local_tetra: bool = typer.Option(
         False,
         "--use-local-tetra",
-        help="Bundle local tetra_rp source instead of PyPI version (for development/testing)",
+        help="Bundle local runpod_flash source instead of PyPI version (for development/testing)",
     ),
 ):
     """
@@ -485,7 +485,7 @@ def build_command(
                 else:
                     progress.update(
                         flash_task,
-                        description="[yellow]⚠ Using PyPI tetra_rp",
+                        description="[yellow]⚠ Using PyPI runpod_flash",
                     )
                 progress.stop_task(flash_task)
 

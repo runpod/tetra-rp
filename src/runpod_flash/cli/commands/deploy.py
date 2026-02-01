@@ -25,7 +25,7 @@ console = Console()
 
 
 def _get_resource_manager():
-    from tetra_rp.core.resources.resource_manager import ResourceManager
+    from runpod_flash.core.resources.resource_manager import ResourceManager
 
     return ResourceManager()
 

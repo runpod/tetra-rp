@@ -180,7 +180,7 @@ flash deploy send production
 
 1. Create `workers/my_worker/endpoint.py`:
 ```python
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 
 config = LiveServerless(name="my_worker")
 
@@ -213,7 +213,7 @@ app.include_router(my_router, prefix="/my_worker")
 
 Same pattern but use `CpuLiveServerless`:
 ```python
-from tetra_rp import remote, CpuLiveServerless, CpuInstanceType
+from runpod_flash import remote, CpuLiveServerless, CpuInstanceType
 
 config = CpuLiveServerless(
     name="my_cpu_worker",

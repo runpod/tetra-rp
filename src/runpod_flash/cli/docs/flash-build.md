@@ -166,7 +166,7 @@ Successful build displays:
 Ensure your project has `@remote` decorated functions in `workers/` directory:
 
 ```python
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 
 gpu_config = LiveServerless(name="my-gpu")
 

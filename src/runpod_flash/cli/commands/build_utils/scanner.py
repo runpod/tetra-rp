@@ -285,7 +285,7 @@ class RemoteDecoratorScanner:
         from runpod_flash.core.resources.serverless import ServerlessResource
 
         try:
-            module = importlib.import_module("tetra_rp")
+            module = importlib.import_module("runpod_flash")
             if hasattr(module, type_name):
                 cls = getattr(module, type_name)
                 return isinstance(cls, type) and issubclass(cls, ServerlessResource)

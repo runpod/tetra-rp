@@ -354,7 +354,7 @@ uv run python scripts/code_intel.py interface LiveServerless
 **List symbols in a file:**
 
 ```bash
-uv run python scripts/code_intel.py file tetra_rp/decorators.py
+uv run python scripts/code_intel.py file runpod_flash/decorators.py
 ```
 
 **List all symbols:**
