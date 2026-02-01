@@ -212,7 +212,6 @@ sequenceDiagram
     Developer->>Build: flash build
     Build->>Build: Scan files for @remote
     Build->>Build: Find resource configs<br/>(e.g., gpu_config, cpu_config)
-    Build->>Build: Generate handler_gpu_config.py<br/>handler_cpu_config.py
     Build->>Build: Scan functions per resource<br/>Build function registry
     Build->>ManifestBuilder: Create manifest entry<br/>per resource config
     ManifestBuilder->>ManifestBuilder: Validate routes<br/>(no conflicts)
@@ -228,11 +227,6 @@ sequenceDiagram
 - Extracts: function name, module path, async status, HTTP routing info
 - Groups functions by resource config
 
-**Handler Generation** (`src/tetra_rp/cli/commands/build_utils/handler_generator.py`):
-- Per-resource handlers: `handler_{resource_name}.py`
-- Contains `handle(job_input)` function for RunPod
-- Invokes discovered `@remote` functions
-
 **Manifest Building** (`src/tetra_rp/cli/commands/build_utils/manifest.py`):
 - Structure:
   ```json
@@ -243,7 +237,6 @@ sequenceDiagram
     "resources": {
       "gpu_config": {
         "resource_type": "LiveServerless",
-        "handler_file": "handler_gpu_config.py",
         "functions": [{"name": "process", "module": "main", ...}],
         "is_load_balanced": false
       }
@@ -258,8 +251,6 @@ sequenceDiagram
 archive.tar.gz
 ├── flash_manifest.json          # Manifest (source of truth)
 ├── src/                         # Application source code
-├── handler_gpu_config.py        # Generated handlers
-├── handler_cpu_config.py
 └── vendor/                      # Bundled dependencies
 ```
 
@@ -502,7 +493,6 @@ The manifest is the contract between build-time and runtime. It defines all depl
   "resources": {
     "gpu_config": {
       "resource_type": "LiveServerless",
-      "handler_file": "handler_gpu_config.py",
       "functions": [
         {
           "name": "train",
@@ -1136,7 +1126,6 @@ flash test-mothership
 **Use Cases**:
 - Validate manifest structure before deployment
 - Test resource provisioning logic
-- Debug handler generation
 
 **Code Reference**: `src/tetra_rp/cli/commands/test_mothership.py`
 
@@ -1204,8 +1193,6 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 | File | Purpose |
 |------|---------|
 | `src/tetra_rp/cli/commands/build_utils/scanner.py` | Scans for @remote decorators |
-| `src/tetra_rp/cli/commands/build_utils/handler_generator.py` | Generates queue-based handlers |
-| `src/tetra_rp/cli/commands/build_utils/lb_handler_generator.py` | Generates load-balanced handlers |
 | `src/tetra_rp/cli/commands/build_utils/manifest.py` | Manifest builder and validation |
 
 ### Resource Management
