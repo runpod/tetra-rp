@@ -76,7 +76,7 @@ jobs:
     
     environment:
       name: pypi-production
-      url: https://pypi.org/project/tetra-rp/
+      url: https://pypi.org/project/runpod-flash/
       
     steps:
       - name: Checkout code
