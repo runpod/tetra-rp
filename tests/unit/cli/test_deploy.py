@@ -231,6 +231,9 @@ class TestDeployDelete:
         }
 
         flash_app = MagicMock()
+        flash_app.get_environment_by_name = AsyncMock(
+            return_value=mock_fetch_env.return_value
+        )
         flash_app.delete_environment = AsyncMock(return_value=True)
         mock_from_name.return_value = flash_app
 
@@ -325,6 +328,9 @@ class TestDeployDelete:
         }
 
         flash_app = MagicMock()
+        flash_app.get_environment_by_name = AsyncMock(
+            return_value=mock_fetch_env.return_value
+        )
         flash_app.delete_environment = AsyncMock(return_value=False)
         mock_from_name.return_value = flash_app
 
