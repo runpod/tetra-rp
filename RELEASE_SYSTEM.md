@@ -2,7 +2,7 @@
 
 ## Overview
 
-The tetra-rp project uses a simple, reliable release automation system built on **Release Please v4** with quality gates and automated PyPI publishing via OIDC trusted publishing.
+The runpod-flash project uses a simple, reliable release automation system built on **Release Please v4** with quality gates and automated PyPI publishing via OIDC trusted publishing.
 
 ## Architecture
 

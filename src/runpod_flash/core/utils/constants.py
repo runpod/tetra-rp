@@ -1,7 +1,7 @@
 """
 Constants for utility modules and caching configurations.
 
-This module contains configurable constants used across the tetra-rp codebase
+This module contains configurable constants used across the runpod-flash codebase
 to ensure consistency and easy maintenance.
 """
 

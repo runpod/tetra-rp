@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AST-based code indexer for tetra-rp framework.
+"""AST-based code indexer for runpod-flash framework.
 
 Extracts Python symbols (classes, functions, methods) and stores them in SQLite
 for fast symbol lookup and exploration. Reduces token usage by ~85% when exploring

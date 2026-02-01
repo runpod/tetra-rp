@@ -1117,6 +1117,6 @@ def fetch_data(url):
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 <p align="center">
-  <a href="https://github.com/runpod/tetra-rp">Flash</a> •
+  <a href="https://github.com/runpod/runpod-flash">Flash</a> •
   <a href="https://runpod.io">Runpod</a>
 </p>

@@ -15,7 +15,7 @@ graph TD
     A["User Code"] -->|flash build| B["Generate handler_service.py"]
     B -->|FastAPI App| C["handler_service.py"]
     C -->|flash deploy| D["Push to RunPod"]
-    D -->|Create Container| E["RunPod Container<br/>tetra-rp-lb image"]
+    D -->|Create Container| E["RunPod Container<br/>runpod-flash-lb image"]
     E --> F["FastAPI Server<br/>uvicorn on port 8000"]
     F --> G["Load your handler"]
     G --> H["Endpoint Ready"]
@@ -64,7 +64,7 @@ if __name__ == "__main__":
 ```
 
 **Container Setup:**
-- Base image: `runpod/tetra-rp-lb:latest` (contains FastAPI, uvicorn, dependencies)
+- Base image: `runpod/runpod-flash-lb:latest` (contains FastAPI, uvicorn, dependencies)
 - Entrypoint: Runs `python handler_service.py`
 - Port: 8000 (internal)
 - RunPod exposes this via HTTPS endpoint URL
@@ -176,7 +176,7 @@ sequenceDiagram
 ```python
 # Local code - after deployment
 api = LoadBalancerSlsResource(name="user-service",
-                            imageName="runpod/tetra-rp-lb:latest")
+                            imageName="runpod/runpod-flash-lb:latest")
 
 # Deploy the endpoint (generates endpoint_url automatically)
 await api.deploy()
@@ -640,7 +640,7 @@ RunPod polls /ping every 30 seconds
 ### Image Selection
 
 ```
-tetra-rp-lb:latest (default)
+runpod-flash-lb:latest (default)
 - FastAPI + uvicorn pre-installed
 - Tetra runtime dependencies
 - Optimized for LB endpoints
@@ -656,7 +656,7 @@ Custom image:
 ```python
 LoadBalancerSlsResource(
     name="my-api",
-    imageName="runpod/tetra-rp-lb:latest",
+    imageName="runpod/runpod-flash-lb:latest",
     gpus=[GpuGroup.AMPERE_80],      # Optional: if compute needed
     instanceIds=[...],               # Or specify CPU instances
     workersMax=5,                    # Max concurrent workers
