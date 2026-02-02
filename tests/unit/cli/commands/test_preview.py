@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from tetra_rp.cli.commands.preview import (
+    CONTAINER_ARCHIVE_PATH,
     ContainerInfo,
     _assign_container_port,
     _display_preview_info,
@@ -402,14 +403,16 @@ class TestStartResourceContainer:
         )
 
         # Verify docker command includes archive mount
-        call_args = mock_run.call_args[0][
+        command_list = mock_run.call_args.args[
             0
-        ]  # Get first positional arg (the command list)
-        assert "-v" in call_args
+        ]  # First positional arg is the command list
+        assert "-v" in command_list
         # Find the volume mount for archive
-        v_indices = [i for i, arg in enumerate(call_args) if arg == "-v"]
+        v_indices = [i for i, arg in enumerate(command_list) if arg == "-v"]
         archive_mounts = [
-            call_args[i + 1] for i in v_indices if "archive.tar.gz" in call_args[i + 1]
+            command_list[i + 1]
+            for i in v_indices
+            if "archive.tar.gz" in command_list[i + 1]
         ]
         assert len(archive_mounts) > 0
-        assert "/root/.runpod/archive.tar.gz:ro" in archive_mounts[0]
+        assert f"{CONTAINER_ARCHIVE_PATH}:ro" in archive_mounts[0]

@@ -27,7 +27,8 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXAMPLES_DIR="/Users/deanquinanola/Github/python/flash-examples/01_getting_started/01_hello_world"
+: "${FLASH_EXAMPLES_DIR:="$REPO_ROOT/../flash-examples/01_getting_started/01_hello_world"}"
+EXAMPLES_DIR="$FLASH_EXAMPLES_DIR"
 TEST_RESULTS=()
 
 echo -e "${BLUE}============================================================${NC}"

@@ -17,6 +17,9 @@ from tetra_rp.core.resources.constants import TETRA_CPU_LB_IMAGE
 logger = logging.getLogger(__name__)
 console = Console()
 
+# Container archive mount path - expected location where containers unpack the archive
+CONTAINER_ARCHIVE_PATH = "/root/.runpod/archive.tar.gz"
+
 
 @dataclass
 class ContainerInfo:
@@ -258,7 +261,7 @@ def _start_resource_container(
         "--network",
         network,
         "-v",
-        f"{archive_path}:/root/.runpod/archive.tar.gz:ro",
+        f"{archive_path}:{CONTAINER_ARCHIVE_PATH}:ro",
         "-v",
         f"{build_dir}:/workspace",
         "-e",
@@ -358,14 +361,16 @@ def _assign_container_port(resource_name: str, is_mothership: bool) -> int:
         return 8000
 
     # For workers, assign incrementally: 8001, 8002, etc.
-    # This is a simple strategy; could be made more sophisticated
-    # by actually checking which ports are available
+    # Built-in resources have fixed ports in the map; unknown resources are assigned
+    # deterministically based on name hash (guaranteed same port for same resource name
+    # across runs, but possible collisions if hash values wrap). This simple strategy
+    # works well for local preview testing.
     port_map = {
         "gpu_config": 8001,
         "cpu_config": 8002,
     }
 
-    return port_map.get(resource_name, 8000 + hash(resource_name) % 100)
+    return port_map.get(resource_name, 8001 + (hash(resource_name) % 99))
 
 
 def _display_preview_info(containers: list[ContainerInfo]) -> None:
@@ -402,8 +407,10 @@ def _display_preview_info(containers: list[ContainerInfo]) -> None:
 
     console.print()
     console.print("[bold]Container communication:[/bold]")
-    console.print("  [dim]Containers communicate via Docker DNS[/dim]")
-    console.print("  [dim]Example: flash-preview-gpu_config:8000[/dim]")
+    console.print(
+        "  [dim]Containers communicate via Docker DNS on internal port 80[/dim]"
+    )
+    console.print("  [dim]Example: http://flash-preview-gpu_config:80[/dim]")
 
     console.print()
     console.print("[bold][yellow]Press Ctrl+C to stop and cleanup[/yellow][/bold]")

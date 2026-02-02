@@ -23,8 +23,11 @@ ENDPOINT_DOMAIN = _endpoint_domain_from_base_url(runpod.endpoint_url_base)
 def _get_platform_aware_tag(base_tag: str) -> str:
     """Get platform-specific image tag.
 
-    For local/development tags, appends architecture suffix for arm64 machines.
-    For production tags (latest, version numbers), uses as-is for manifest support.
+    For local/development tags, appends architecture suffix for arm64 machines to support
+    local preview testing on different platforms.
+
+    For production tags (latest, version numbers), uses as-is since these are typically
+    multi-arch manifests already managed by the registry.
 
     Args:
         base_tag: Base image tag (e.g., "local", "latest", "v1.0")
