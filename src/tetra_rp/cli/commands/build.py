@@ -203,6 +203,11 @@ def build_command(
         "--use-local-tetra",
         help="Bundle local tetra_rp source instead of PyPI version (for development/testing)",
     ),
+    preview: bool = typer.Option(
+        False,
+        "--preview",
+        help="Launch local test environment after successful build",
+    ),
 ):
     """
     Build Flash application for deployment.
@@ -214,6 +219,7 @@ def build_command(
       flash build                              # Build with all dependencies
       flash build --no-deps                    # Skip transitive dependencies
       flash build --keep-build                 # Keep temporary build directory
+      flash build --preview                    # Build and launch local test environment
       flash build -o my-app.tar.gz             # Custom archive name
       flash build --exclude torch,torchvision  # Exclude large packages (assume in base image)
     """
@@ -225,6 +231,11 @@ def build_command(
             console.print("[red]Error:[/red] Not a valid Flash project")
             console.print("Run [bold]flash init[/bold] to create a Flash project")
             raise typer.Exit(1)
+
+        # Auto-enable keep_build if preview requested (preview needs build directory)
+        if preview:
+            keep_build = True
+            logger.debug("Preview mode: automatically enabling keep_build")
 
         # Create build directory first to ensure clean state before collecting files
         build_dir = create_build_directory(project_dir, app_name)
@@ -477,6 +488,30 @@ def build_command(
 
         # Success summary
         _display_build_summary(archive_path, app_name, len(files), len(requirements))
+
+        # Launch preview environment if requested
+        if preview:
+            console.print(
+                "\n[bold cyan]Launching multi-container preview...[/bold cyan]"
+            )
+            console.print("[dim]Starting all endpoints locally in Docker...[/dim]\n")
+
+            try:
+                from .preview import launch_preview
+
+                # Manifest is in .flash/flash_manifest.json
+                manifest_path = project_dir / ".flash" / "flash_manifest.json"
+
+                launch_preview(
+                    build_dir=build_dir,
+                    manifest_path=manifest_path,
+                )
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Preview stopped by user[/yellow]")
+            except Exception as e:
+                console.print(f"[red]Preview error:[/red] {e}")
+                logger.exception("Preview launch failed")
+                raise typer.Exit(1)
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Build cancelled by user[/yellow]")

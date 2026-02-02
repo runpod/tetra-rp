@@ -13,6 +13,8 @@ flash build [OPTIONS]
 - `--no-deps`: Skip transitive dependencies during pip install (default: false)
 - `--keep-build`: Keep `.flash/.build` directory after creating archive (default: false)
 - `--output, -o`: Custom archive name (default: archive.tar.gz)
+- `--exclude`: Comma-separated packages to exclude (e.g., 'torch,torchvision')
+- `--preview`: Launch local test environment after successful build (auto-enables `--keep-build`)
 
 ## Examples
 
@@ -25,6 +27,9 @@ flash build --no-deps
 
 # Keep temporary build directory for inspection
 flash build --keep-build
+
+# Build and launch local test environment
+flash build --preview
 
 # Custom output filename
 flash build --output my-app.tar.gz
@@ -86,6 +91,33 @@ Only installs direct dependencies specified in `@remote` decorators:
 - Faster builds for large projects
 - Smaller deployment packages
 - Useful when base image already includes dependencies
+
+## Preview Environment
+
+```bash
+flash build --preview
+```
+
+Launch a local Docker-based test environment immediately after building. This allows you to test your distributed system locally before deploying to RunPod.
+
+**What happens:**
+1. Builds your project (creates archive, manifest)
+2. Creates a Docker network for inter-container communication
+3. Starts one Docker container per resource config:
+   - Mothership container (orchestrator)
+   - All worker containers (GPU, CPU, etc.)
+4. Exposes the mothership on `localhost:8000`
+5. All containers communicate via Docker DNS
+6. On shutdown (Ctrl+C), automatically stops and removes all containers
+
+**When to use:**
+- Test deployment before production
+- Validate manifest structure
+- Debug resource provisioning
+- Verify endpoint auto-discovery
+- Test distributed function calls
+
+**Note:** `--preview` automatically enables `--keep-build` since the preview needs the build directory.
 
 ## Keep Build Directory
 

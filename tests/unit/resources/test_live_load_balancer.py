@@ -29,9 +29,10 @@ class TestLiveLoadBalancer:
         importlib.reload(ls_module)
 
         lb = ls_module.LiveLoadBalancer(name="test-lb")
-        assert lb.imageName == "runpod/tetra-rp-lb:local"
+        expected_image = "runpod/tetra-rp-lb:local"
+        assert lb.imageName == expected_image
         assert lb.template is not None
-        assert lb.template.imageName == "runpod/tetra-rp-lb:local"
+        assert lb.template.imageName == expected_image
 
     def test_live_load_balancer_default_image_tag(self):
         """Test LiveLoadBalancer uses default image tag."""
@@ -194,9 +195,10 @@ class TestCpuLiveLoadBalancer:
         importlib.reload(ls_module)
 
         lb = ls_module.CpuLiveLoadBalancer(name="test-lb")
-        assert lb.imageName == "runpod/tetra-rp-lb-cpu:local"
+        expected_image = "runpod/tetra-rp-lb-cpu:local"
+        assert lb.imageName == expected_image
         assert lb.template is not None
-        assert lb.template.imageName == "runpod/tetra-rp-lb-cpu:local"
+        assert lb.template.imageName == expected_image
 
     def test_cpu_live_load_balancer_default_image_tag(self):
         """Test CpuLiveLoadBalancer uses default CPU LB image tag."""
