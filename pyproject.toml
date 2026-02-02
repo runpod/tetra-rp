@@ -1,6 +1,6 @@
 [project]
 name = "tetra_rp"
-version = "0.24.0"
+version = "0.25.0"
 description = "A Python library for distributed inference and serving of machine learning models"
 authors = [
     { name = "Runpod", email = "engineer@runpod.io" },
