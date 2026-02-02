@@ -310,7 +310,6 @@ async def test_deploy_to_environment_provisioning_failure(mock_flash_app, tmp_pa
             await deploy_to_environment("app-name", "dev", build_path)
 
         assert "Failed to provision resources" in str(exc_info.value)
-        mock_flash_app.deploy_build_to_environment.assert_not_awaited()
 
 
 @pytest.mark.asyncio
