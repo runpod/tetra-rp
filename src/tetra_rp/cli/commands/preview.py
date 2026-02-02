@@ -240,6 +240,13 @@ def _start_resource_container(
     # Container name for Docker network DNS
     container_name = f"flash-preview-{resource_name}"
 
+    # Verify archive exists
+    archive_path = build_dir.parent / "archive.tar.gz"
+    if not archive_path.exists():
+        raise FileNotFoundError(
+            f"Archive not found at {archive_path}. Run 'flash build' first."
+        )
+
     # Build Docker command
     docker_cmd = [
         "docker",
@@ -249,6 +256,8 @@ def _start_resource_container(
         container_name,
         "--network",
         network,
+        "-v",
+        f"{archive_path}:/root/.runpod/archive.tar.gz:ro",
         "-v",
         f"{build_dir}:/workspace",
         "-e",
@@ -278,6 +287,9 @@ def _start_resource_container(
 
         logger.info(f"Started container {resource_name}: {container_id}")
 
+        # Verify container is actually running (not crashed immediately)
+        _verify_container_health(container_id, resource_name)
+
         return ContainerInfo(
             id=container_id,
             name=resource_name,
@@ -291,6 +303,42 @@ def _start_resource_container(
         console.print(f"[red]Error:[/red] Failed to start {resource_name} container")
         console.print(f"[dim]{error_msg}[/dim]")
         raise
+
+
+def _verify_container_health(container_id: str, resource_name: str) -> None:
+    """Verify container is running and didn't crash immediately.
+
+    Args:
+        container_id: Docker container ID
+        resource_name: Name of resource (for error messages)
+
+    Raises:
+        Exception: If container is not running or crashed
+    """
+    # Wait briefly for container to start and unpack archive
+    time.sleep(2)
+
+    # Check container status
+    check_result = subprocess.run(
+        ["docker", "inspect", "--format", "{{.State.Status}}", container_id],
+        capture_output=True,
+        text=True,
+    )
+
+    status = check_result.stdout.strip()
+    if status != "running":
+        # Get logs for debugging
+        logs_result = subprocess.run(
+            ["docker", "logs", container_id],
+            capture_output=True,
+            text=True,
+        )
+        error_msg = f"Container {resource_name} failed to start (status: {status})"
+        if logs_result.stderr:
+            error_msg += f"\n{logs_result.stderr[:500]}"
+        if logs_result.stdout:
+            error_msg += f"\n{logs_result.stdout[:500]}"
+        raise Exception(error_msg)
 
 
 def _assign_container_port(resource_name: str, is_mothership: bool) -> int:
