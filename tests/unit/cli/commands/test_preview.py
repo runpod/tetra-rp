@@ -112,20 +112,21 @@ class TestParseResourcesFromManifest:
     """Tests for _parse_resources_from_manifest function."""
 
     def test_parse_empty_manifest(self):
-        """Test parsing manifest with no resources."""
+        """Test parsing manifest with no resources creates default mothership."""
         manifest = {"resources": {}}
         resources = _parse_resources_from_manifest(manifest)
 
-        # Should always include mothership
+        # Should create default mothership when none specified
         assert "mothership" in resources
         assert resources["mothership"]["is_mothership"] is True
 
-    def test_parse_manifest_with_gpu_config(self):
-        """Test parsing manifest with GPU resource."""
+    def test_parse_manifest_with_gpu_config_creates_default_mothership(self):
+        """Test parsing manifest with GPU resource but no mothership."""
         manifest = {
             "resources": {
                 "gpu_config": {
                     "imageName": "custom-gpu:latest",
+                    "is_mothership": False,
                     "functions": [{"name": "gpu_fn", "module": "workers.gpu.endpoint"}],
                 }
             }
@@ -133,33 +134,76 @@ class TestParseResourcesFromManifest:
 
         resources = _parse_resources_from_manifest(manifest)
 
+        # Should include default mothership since none specified
         assert "mothership" in resources
+        assert resources["mothership"]["is_mothership"] is True
+
+        # Should include gpu_config
         assert "gpu_config" in resources
         assert resources["gpu_config"]["imageName"] == "custom-gpu:latest"
+        assert resources["gpu_config"]["is_mothership"] is False
+
+    def test_parse_manifest_with_explicit_mothership(self):
+        """Test parsing manifest with explicit mothership resource."""
+        manifest = {
+            "resources": {
+                "my_custom_mothership": {
+                    "imageName": "custom-lb:latest",
+                    "is_mothership": True,
+                    "functions": [],
+                },
+                "gpu_config": {
+                    "imageName": "gpu:latest",
+                    "is_mothership": False,
+                    "functions": [],
+                },
+            }
+        }
+
+        resources = _parse_resources_from_manifest(manifest)
+
+        # Should NOT create default mothership
+        assert "mothership" not in resources
+
+        # Should use explicit mothership from manifest
+        assert "my_custom_mothership" in resources
+        assert resources["my_custom_mothership"]["is_mothership"] is True
+
+        # Should include worker
+        assert "gpu_config" in resources
         assert resources["gpu_config"]["is_mothership"] is False
 
     def test_parse_manifest_with_multiple_resources(self):
         """Test parsing manifest with multiple resources."""
         manifest = {
             "resources": {
-                "gpu_config": {"imageName": "gpu:latest", "functions": []},
-                "cpu_config": {"imageName": "cpu:latest", "functions": []},
+                "gpu_config": {
+                    "imageName": "gpu:latest",
+                    "is_mothership": False,
+                    "functions": [],
+                },
+                "cpu_config": {
+                    "imageName": "cpu:latest",
+                    "is_mothership": False,
+                    "functions": [],
+                },
             }
         }
 
         resources = _parse_resources_from_manifest(manifest)
 
-        assert len(resources) == 3  # mothership + gpu + cpu
+        assert len(resources) == 3  # mothership (default) + gpu + cpu
         assert "mothership" in resources
         assert "gpu_config" in resources
         assert "cpu_config" in resources
 
-    def test_parse_manifest_skips_existing_mothership(self):
-        """Test that manifest mothership config is skipped if present."""
+    def test_parse_manifest_with_named_mothership(self):
+        """Test manifest with resource literally named 'mothership'."""
         manifest = {
             "resources": {
                 "mothership": {
                     "imageName": "custom-mothership:latest",
+                    "is_mothership": True,
                     "functions": [],
                 }
             }
@@ -167,15 +211,15 @@ class TestParseResourcesFromManifest:
 
         resources = _parse_resources_from_manifest(manifest)
 
-        # Should use default mothership, not from manifest
+        # Should use the mothership from manifest
         assert "mothership" in resources
-        # Default mothership should be used (not custom)
-        assert resources["mothership"].get("imageName") != "custom-mothership:latest"
+        assert resources["mothership"]["imageName"] == "custom-mothership:latest"
+        assert resources["mothership"]["is_mothership"] is True
 
     def test_parse_manifest_missing_image_name(self):
         """Test parsing resource without imageName uses default."""
         manifest = {
-            "resources": {"gpu_config": {"functions": []}}  # no imageName
+            "resources": {"gpu_config": {"is_mothership": False, "functions": []}}
         }
 
         resources = _parse_resources_from_manifest(manifest)
@@ -183,6 +227,20 @@ class TestParseResourcesFromManifest:
         assert "gpu_config" in resources
         # Should have a default imageName
         assert "imageName" in resources["gpu_config"]
+
+    def test_parse_manifest_missing_is_mothership_defaults_false(self):
+        """Test parsing resource without is_mothership defaults to False."""
+        manifest = {
+            "resources": {"gpu_config": {"imageName": "gpu:latest", "functions": []}}
+        }
+
+        resources = _parse_resources_from_manifest(manifest)
+
+        assert "gpu_config" in resources
+        assert resources["gpu_config"]["is_mothership"] is False
+        # Should create default mothership since none explicitly marked
+        assert "mothership" in resources
+        assert resources["mothership"]["is_mothership"] is True
 
 
 class TestDisplayPreviewInfo:

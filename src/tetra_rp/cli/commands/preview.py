@@ -166,21 +166,22 @@ def _parse_resources_from_manifest(manifest: dict) -> dict:
     """
     resources = {}
 
-    # Always include mothership
-    resources["mothership"] = {
-        "is_mothership": True,
-        "imageName": TETRA_CPU_LB_IMAGE,
-    }
-
-    # Add resources from manifest
+    # Parse resources from manifest
     manifest_resources = manifest.get("resources", {})
     for resource_name, resource_data in manifest_resources.items():
-        if resource_name != "mothership":  # Skip if already added
-            resources[resource_name] = {
-                "is_mothership": False,
-                "imageName": resource_data.get("imageName", TETRA_CPU_LB_IMAGE),
-                "functions": resource_data.get("functions", []),
-            }
+        resources[resource_name] = {
+            "is_mothership": resource_data.get("is_mothership", False),
+            "imageName": resource_data.get("imageName", TETRA_CPU_LB_IMAGE),
+            "functions": resource_data.get("functions", []),
+        }
+
+    # Fallback: If no mothership found in manifest, create default
+    has_mothership = any(r.get("is_mothership") for r in resources.values())
+    if not has_mothership:
+        resources["mothership"] = {
+            "is_mothership": True,
+            "imageName": TETRA_CPU_LB_IMAGE,
+        }
 
     return resources
 
