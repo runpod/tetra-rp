@@ -61,7 +61,7 @@ flash build [OPTIONS]
 **Options:**
 - `--no-deps`: Skip transitive dependencies during pip install
 - `--keep-build`: Keep `.flash/.build` directory after creating archive
-- `--output, -o`: Custom archive name (default: archive.tar.gz)
+- `--output, -o`: Custom archive name (default: artifact.tar.gz)
 - `--exclude`: Comma-separated packages to exclude (e.g., 'torch,torchvision')
 - `--preview`: Launch local test environment after build
 

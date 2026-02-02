@@ -23,7 +23,7 @@ graph TB
     end
 
     subgraph Cloud["RunPod Cloud"]
-        S3["S3 Storage<br/>archive.tar.gz"]
+        S3["S3 Storage<br/>artifact.tar.gz"]
 
         subgraph Mothership["Mothership Endpoint<br/>(FLASH_IS_MOTHERSHIP=true)"]
             MothershipReconciler["MothershipsProvisioner<br/>Reconcile Children"]
@@ -115,10 +115,10 @@ flash deploy send <env_name> [--app-name <app_name>]
 - `--app-name <app_name>`: Flash app name (auto-detected if not provided)
 
 **Prerequisites:**
-- Archive must exist at `.flash/archive.tar.gz` (created by `flash build`)
+- Archive must exist at `.flash/artifact.tar.gz` (created by `flash build`)
 
 **What it does:**
-1. Uploads archive.tar.gz to S3
+1. Uploads artifact.tar.gz to S3
 2. Provisions all resources upfront before environment activation
 3. Manifest is read from `.flash/` directory on resources
 
@@ -217,7 +217,7 @@ sequenceDiagram
     ManifestBuilder->>ManifestBuilder: Detect load-balanced<br/>vs queue-based
     ManifestBuilder->>Manifest: Write flash_manifest.json
     Build->>TarGz: Package build directory
-    TarGz->>Archive: Create .flash/archive.tar.gz
+    TarGz->>Archive: Create .flash/artifact.tar.gz
     Archive->>Developer: Build complete
 ```
 
@@ -247,7 +247,7 @@ sequenceDiagram
 
 **Archive Structure**:
 ```
-archive.tar.gz
+artifact.tar.gz
 ├── flash_manifest.json          # Manifest (source of truth)
 ├── src/                         # Application source code
 └── vendor/                      # Bundled dependencies
@@ -264,7 +264,7 @@ archive.tar.gz
 ```mermaid
 sequenceDiagram
     Developer->>CLI: flash deploy send <env_name>
-    CLI->>S3: Upload .flash/archive.tar.gz
+    CLI->>S3: Upload .flash/artifact.tar.gz
     CLI->>RunPod: Create endpoints via API<br/>with manifest reference
     RunPod->>ChildEndpoints: Boot endpoints
     ChildEndpoints->>ChildEndpoints: Read manifest from .flash/
@@ -917,7 +917,7 @@ graph TB
 ```mermaid
 graph LR
     A["Build Time<br/>ManifestBuilder"] -->|Generate| B["flash_manifest.json<br/>(embedded in archive)"]
-    B -->|Upload| C["S3<br/>(archive.tar.gz)"]
+    B -->|Upload| C["S3<br/>(artifact.tar.gz)"]
     C -->|Provision upfront<br/>before activation| D["Child Endpoints<br/>(deployed)"]
     D -->|Extract from<br/>.flash/ directory| E["LocalManifest<br/>(from archive)"]
     Mothership -->|Load from<br/>.flash/| E
@@ -1237,7 +1237,7 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 **Cause**: flash_manifest.json not included in archive or not found at runtime
 
 **Solution**:
-1. Verify archive contains flash_manifest.json: `tar -tzf archive.tar.gz | grep manifest`
+1. Verify archive contains flash_manifest.json: `tar -tzf artifact.tar.gz | grep manifest`
 2. Check `FLASH_MANIFEST_PATH` env var if using custom location
 3. Ensure flash_manifest.json is in build root when creating archive
 

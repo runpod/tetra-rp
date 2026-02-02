@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 # Container archive mount path - expected location where containers unpack the archive
-CONTAINER_ARCHIVE_PATH = "/root/.runpod/archive.tar.gz"
+CONTAINER_ARCHIVE_PATH = "/root/.runpod/artifact.tar.gz"
 
 
 @dataclass
@@ -245,7 +245,7 @@ def _start_resource_container(
     container_name = f"flash-preview-{resource_name}"
 
     # Verify archive exists
-    archive_path = build_dir.parent / "archive.tar.gz"
+    archive_path = build_dir.parent / "artifact.tar.gz"
     if not archive_path.exists():
         raise FileNotFoundError(
             f"Archive not found at {archive_path}. Run 'flash build' first."

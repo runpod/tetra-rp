@@ -442,7 +442,7 @@ When you run `flash build`, the following happens:
 2. **Grouping**: Functions are grouped by their `resource_config`
 3. **Manifest Creation**: A `flash_manifest.json` file maps functions to their endpoints
 4. **Dependency Installation**: Python packages are installed with Linux x86_64 compatibility
-5. **Packaging**: Everything is bundled into `archive.tar.gz` for deployment
+5. **Packaging**: Everything is bundled into `artifact.tar.gz` for deployment
 
 #### Cross-Platform Builds
 
@@ -478,7 +478,7 @@ The runtime wrapper handles service discovery and routing automatically.
 
 After `flash build` completes:
 - `.flash/.build/`: Temporary build directory (removed unless `--keep-build`)
-- `.flash/archive.tar.gz`: Deployment package
+- `.flash/artifact.tar.gz`: Deployment package
 - `.flash/flash_manifest.json`: Service discovery configuration
 
 For information on load-balanced endpoints (required for Mothership and HTTP services), see [docs/Load_Balancer_Endpoints.md](docs/Load_Balancer_Endpoints.md).

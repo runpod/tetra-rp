@@ -342,7 +342,7 @@ class TestVerifyContainerHealth:
     @patch("tetra_rp.cli.commands.preview.time.sleep")
     def test_container_health_check_includes_logs(self, mock_sleep, mock_run):
         """Test that error message includes container logs."""
-        error_log = "FileNotFoundError: archive.tar.gz not found"
+        error_log = "FileNotFoundError: artifact.tar.gz not found"
         # First call returns 'exited', second call returns logs
         mock_run.side_effect = [
             MagicMock(stdout="exited\n", stderr=""),
@@ -386,7 +386,7 @@ class TestStartResourceContainer:
         build_dir.mkdir(parents=True)
 
         # Create archive
-        archive_path = tmp_path / ".flash" / "archive.tar.gz"
+        archive_path = tmp_path / ".flash" / "artifact.tar.gz"
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         archive_path.write_text("dummy archive")
 
@@ -412,7 +412,7 @@ class TestStartResourceContainer:
         archive_mounts = [
             command_list[i + 1]
             for i in v_indices
-            if "archive.tar.gz" in command_list[i + 1]
+            if "artifact.tar.gz" in command_list[i + 1]
         ]
         assert len(archive_mounts) > 0
         assert f"{CONTAINER_ARCHIVE_PATH}:ro" in archive_mounts[0]
