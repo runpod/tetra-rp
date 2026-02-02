@@ -439,7 +439,8 @@ async def deploy_to_environment(
     build = await app.upload_build(build_path)
     build_id = build["id"]
 
-    # Reconcile and provision resources upfront before environment activation
+    result = await app.deploy_build_to_environment(build_id, environment_name=env_name)
+
     try:
         resources_endpoints = await reconcile_and_provision_resources(
             app,
@@ -453,9 +454,6 @@ async def deploy_to_environment(
     except Exception as e:
         log.error(f"Resource provisioning failed: {e}")
         raise
-
-    # Deploy build to environment (now resources are already provisioned)
-    result = await app.deploy_build_to_environment(build_id, environment_name=env_name)
 
     return result
 
