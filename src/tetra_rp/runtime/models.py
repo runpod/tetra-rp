@@ -21,7 +21,6 @@ class ResourceConfig:
     """Resource configuration in manifest."""
 
     resource_type: str
-    handler_file: str
     functions: List[FunctionMetadata] = field(default_factory=list)
 
     @classmethod
@@ -32,7 +31,6 @@ class ResourceConfig:
         ]
         return cls(
             resource_type=data["resource_type"],
-            handler_file=data["handler_file"],
             functions=functions,
         )
 

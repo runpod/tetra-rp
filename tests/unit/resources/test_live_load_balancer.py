@@ -20,16 +20,19 @@ class TestLiveLoadBalancer:
     def test_live_load_balancer_creation_with_local_tag(self, monkeypatch):
         """Test LiveLoadBalancer creates with local image tag."""
         monkeypatch.setenv("TETRA_IMAGE_TAG", "local")
-        # Need to reload the module to pick up new env var
+        # Need to reload modules to pick up new env var
         import importlib
+        import tetra_rp.core.resources.constants as const_module
         import tetra_rp.core.resources.live_serverless as ls_module
 
+        importlib.reload(const_module)
         importlib.reload(ls_module)
 
         lb = ls_module.LiveLoadBalancer(name="test-lb")
-        assert lb.imageName == "runpod/tetra-rp-lb:local"
+        expected_image = "runpod/tetra-rp-lb:local"
+        assert lb.imageName == expected_image
         assert lb.template is not None
-        assert lb.template.imageName == "runpod/tetra-rp-lb:local"
+        assert lb.template.imageName == expected_image
 
     def test_live_load_balancer_default_image_tag(self):
         """Test LiveLoadBalancer uses default image tag."""
@@ -183,17 +186,19 @@ class TestCpuLiveLoadBalancer:
     def test_cpu_live_load_balancer_creation_with_local_tag(self, monkeypatch):
         """Test CpuLiveLoadBalancer creates with local image tag."""
         monkeypatch.setenv("TETRA_IMAGE_TAG", "local")
-        # Need to reload the module to pick up new env var
+        # Need to reload modules to pick up new env var
         import importlib
-
+        import tetra_rp.core.resources.constants as const_module
         import tetra_rp.core.resources.live_serverless as ls_module
 
+        importlib.reload(const_module)
         importlib.reload(ls_module)
 
         lb = ls_module.CpuLiveLoadBalancer(name="test-lb")
-        assert lb.imageName == "runpod/tetra-rp-lb-cpu:local"
+        expected_image = "runpod/tetra-rp-lb-cpu:local"
+        assert lb.imageName == expected_image
         assert lb.template is not None
-        assert lb.template.imageName == "runpod/tetra-rp-lb-cpu:local"
+        assert lb.template.imageName == expected_image
 
     def test_cpu_live_load_balancer_default_image_tag(self):
         """Test CpuLiveLoadBalancer uses default CPU LB image tag."""

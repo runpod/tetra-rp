@@ -1,28 +1,18 @@
 # Ship serverless code as you write it. No builds, no deploys — just run.
-import os
-
 from pydantic import model_validator
 
+from .constants import (
+    TETRA_CPU_IMAGE,
+    TETRA_CPU_LB_IMAGE,
+    TETRA_GPU_IMAGE,
+    TETRA_LB_IMAGE,
+)
 from .load_balancer_sls_resource import (
     CpuLoadBalancerSlsResource,
     LoadBalancerSlsResource,
 )
 from .serverless import ServerlessEndpoint
 from .serverless_cpu import CpuServerlessEndpoint
-
-TETRA_IMAGE_TAG = os.environ.get("TETRA_IMAGE_TAG", "latest")
-TETRA_GPU_IMAGE = os.environ.get(
-    "TETRA_GPU_IMAGE", f"runpod/tetra-rp:{TETRA_IMAGE_TAG}"
-)
-TETRA_CPU_IMAGE = os.environ.get(
-    "TETRA_CPU_IMAGE", f"runpod/tetra-rp-cpu:{TETRA_IMAGE_TAG}"
-)
-TETRA_LB_IMAGE = os.environ.get(
-    "TETRA_LB_IMAGE", f"runpod/tetra-rp-lb:{TETRA_IMAGE_TAG}"
-)
-TETRA_CPU_LB_IMAGE = os.environ.get(
-    "TETRA_CPU_LB_IMAGE", f"runpod/tetra-rp-lb-cpu:{TETRA_IMAGE_TAG}"
-)
 
 
 class LiveServerlessMixin:

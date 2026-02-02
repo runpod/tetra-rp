@@ -39,14 +39,12 @@ class TestCrossEndpointRoutingIntegration:
             "resources": {
                 "gpu_config": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_gpu.py",
                     "functions": [
                         {"name": "gpu_task", "module": "workers.gpu", "is_async": True}
                     ],
                 },
                 "cpu_config": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_cpu.py",
                     "functions": [
                         {
                             "name": "cpu_task",

@@ -19,12 +19,11 @@ graph TB
 
     subgraph Build["Build Phase"]
         Scan["Scanner<br/>Find @remote"]
-        Gen["Generator<br/>Create Handlers"]
         Manifest["ManifestBuilder<br/>flash_manifest.json"]
     end
 
     subgraph Cloud["RunPod Cloud"]
-        S3["S3 Storage<br/>archive.tar.gz"]
+        S3["S3 Storage<br/>artifact.tar.gz"]
 
         subgraph Mothership["Mothership Endpoint<br/>(FLASH_IS_MOTHERSHIP=true)"]
             MothershipReconciler["MothershipsProvisioner<br/>Reconcile Children"]
@@ -116,10 +115,10 @@ flash deploy send <env_name> [--app-name <app_name>]
 - `--app-name <app_name>`: Flash app name (auto-detected if not provided)
 
 **Prerequisites:**
-- Archive must exist at `.flash/archive.tar.gz` (created by `flash build`)
+- Archive must exist at `.flash/artifact.tar.gz` (created by `flash build`)
 
 **What it does:**
-1. Uploads archive.tar.gz to S3
+1. Uploads artifact.tar.gz to S3
 2. Provisions all resources upfront before environment activation
 3. Manifest is read from `.flash/` directory on resources
 
@@ -212,14 +211,13 @@ sequenceDiagram
     Developer->>Build: flash build
     Build->>Build: Scan files for @remote
     Build->>Build: Find resource configs<br/>(e.g., gpu_config, cpu_config)
-    Build->>Build: Generate handler_gpu_config.py<br/>handler_cpu_config.py
     Build->>Build: Scan functions per resource<br/>Build function registry
     Build->>ManifestBuilder: Create manifest entry<br/>per resource config
     ManifestBuilder->>ManifestBuilder: Validate routes<br/>(no conflicts)
     ManifestBuilder->>ManifestBuilder: Detect load-balanced<br/>vs queue-based
     ManifestBuilder->>Manifest: Write flash_manifest.json
     Build->>TarGz: Package build directory
-    TarGz->>Archive: Create .flash/archive.tar.gz
+    TarGz->>Archive: Create .flash/artifact.tar.gz
     Archive->>Developer: Build complete
 ```
 
@@ -227,11 +225,6 @@ sequenceDiagram
 - Decorators scanned: `@remote`, `@load_balanced`, `@cluster`
 - Extracts: function name, module path, async status, HTTP routing info
 - Groups functions by resource config
-
-**Handler Generation** (`src/tetra_rp/cli/commands/build_utils/handler_generator.py`):
-- Per-resource handlers: `handler_{resource_name}.py`
-- Contains `handle(job_input)` function for RunPod
-- Invokes discovered `@remote` functions
 
 **Manifest Building** (`src/tetra_rp/cli/commands/build_utils/manifest.py`):
 - Structure:
@@ -243,7 +236,6 @@ sequenceDiagram
     "resources": {
       "gpu_config": {
         "resource_type": "LiveServerless",
-        "handler_file": "handler_gpu_config.py",
         "functions": [{"name": "process", "module": "main", ...}],
         "is_load_balanced": false
       }
@@ -255,11 +247,9 @@ sequenceDiagram
 
 **Archive Structure**:
 ```
-archive.tar.gz
+artifact.tar.gz
 ├── flash_manifest.json          # Manifest (source of truth)
 ├── src/                         # Application source code
-├── handler_gpu_config.py        # Generated handlers
-├── handler_cpu_config.py
 └── vendor/                      # Bundled dependencies
 ```
 
@@ -274,7 +264,7 @@ archive.tar.gz
 ```mermaid
 sequenceDiagram
     Developer->>CLI: flash deploy send <env_name>
-    CLI->>S3: Upload .flash/archive.tar.gz
+    CLI->>S3: Upload .flash/artifact.tar.gz
     CLI->>RunPod: Create endpoints via API<br/>with manifest reference
     RunPod->>ChildEndpoints: Boot endpoints
     ChildEndpoints->>ChildEndpoints: Read manifest from .flash/
@@ -502,7 +492,6 @@ The manifest is the contract between build-time and runtime. It defines all depl
   "resources": {
     "gpu_config": {
       "resource_type": "LiveServerless",
-      "handler_file": "handler_gpu_config.py",
       "functions": [
         {
           "name": "train",
@@ -871,8 +860,6 @@ else:
 graph TB
     subgraph Build["Build (Local)"]
         Scanner["Scanner<br/>RemoteDecoratorScanner"]
-        Generator["Generator<br/>HandlerGenerator"]
-        LBGen["LB Generator<br/>LBHandlerGenerator"]
         ManifestB["ManifestBuilder"]
     end
 
@@ -903,10 +890,7 @@ graph TB
         Exec["Function Execution"]
     end
 
-    Scanner --> Generator
-    Scanner --> LBGen
-    Generator --> ManifestB
-    LBGen --> ManifestB
+    Scanner --> ManifestB
     ManifestB --> Archive
     Archive --> S3
     S3 --> Fetcher
@@ -933,7 +917,7 @@ graph TB
 ```mermaid
 graph LR
     A["Build Time<br/>ManifestBuilder"] -->|Generate| B["flash_manifest.json<br/>(embedded in archive)"]
-    B -->|Upload| C["S3<br/>(archive.tar.gz)"]
+    B -->|Upload| C["S3<br/>(artifact.tar.gz)"]
     C -->|Provision upfront<br/>before activation| D["Child Endpoints<br/>(deployed)"]
     D -->|Extract from<br/>.flash/ directory| E["LocalManifest<br/>(from archive)"]
     Mothership -->|Load from<br/>.flash/| E
@@ -1118,27 +1102,32 @@ On mothership boot:
 
 ## Testing & Debugging
 
-### flash test-mothership
+### flash build --preview
 
-Local testing of mothership provisioning without deploying to RunPod.
+Local testing of your distributed system without deploying to RunPod.
 
 ```bash
-flash test-mothership
+flash build --preview
 ```
 
 **What it does**:
-1. Loads flash_manifest.json from current directory
-2. Creates temporary resource configs (prefixed with `tmp-`)
-3. Simulates mothership provisioning locally
-4. Displays resource creation output
-5. Auto-cleanup on exit
+1. Builds your project (creates archive, manifest)
+2. Creates a Docker network for inter-container communication
+3. Starts one Docker container per resource config:
+   - Mothership container (orchestrator)
+   - All worker containers (GPU, CPU, etc.)
+4. Exposes mothership on `localhost:8000`
+5. All containers communicate via Docker DNS
+6. Auto-cleanup on exit (Ctrl+C)
 
 **Use Cases**:
 - Validate manifest structure before deployment
 - Test resource provisioning logic
-- Debug handler generation
+- Debug distributed function calls
+- Test endpoint auto-discovery
+- Verify container networking
 
-**Code Reference**: `src/tetra_rp/cli/commands/test_mothership.py`
+**Code Reference**: `src/tetra_rp/cli/commands/preview.py`
 
 ### Local Docker Testing
 
@@ -1204,8 +1193,6 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 | File | Purpose |
 |------|---------|
 | `src/tetra_rp/cli/commands/build_utils/scanner.py` | Scans for @remote decorators |
-| `src/tetra_rp/cli/commands/build_utils/handler_generator.py` | Generates queue-based handlers |
-| `src/tetra_rp/cli/commands/build_utils/lb_handler_generator.py` | Generates load-balanced handlers |
 | `src/tetra_rp/cli/commands/build_utils/manifest.py` | Manifest builder and validation |
 
 ### Resource Management
@@ -1250,7 +1237,7 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 **Cause**: flash_manifest.json not included in archive or not found at runtime
 
 **Solution**:
-1. Verify archive contains flash_manifest.json: `tar -tzf archive.tar.gz | grep manifest`
+1. Verify archive contains flash_manifest.json: `tar -tzf artifact.tar.gz | grep manifest`
 2. Check `FLASH_MANIFEST_PATH` env var if using custom location
 3. Ensure flash_manifest.json is in build root when creating archive
 

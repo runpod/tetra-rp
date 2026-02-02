@@ -6,6 +6,10 @@ from unittest.mock import patch
 
 from tetra_rp.cli.commands.build_utils.manifest import ManifestBuilder
 from tetra_rp.cli.commands.build_utils.scanner import RemoteFunctionMetadata
+from tetra_rp.core.resources.constants import (
+    TETRA_CPU_LB_IMAGE,
+    TETRA_LB_IMAGE,
+)
 
 
 class TestManifestMothership:
@@ -62,7 +66,7 @@ def process(data):
                 assert mothership["main_file"] == "main.py"
                 assert mothership["app_variable"] == "app"
                 assert mothership["resource_type"] == "CpuLiveLoadBalancer"
-                assert mothership["imageName"] == "runpod/tetra-rp-lb-cpu:latest"
+                assert mothership["imageName"] == TETRA_CPU_LB_IMAGE
 
     def test_manifest_skips_mothership_without_routes(self):
         """Test mothership NOT added if main.py has no routes."""
@@ -192,11 +196,10 @@ def root():
 
                 # Check all expected fields
                 assert mothership["resource_type"] == "CpuLiveLoadBalancer"
-                assert mothership["handler_file"] == "handler_mothership.py"
                 assert mothership["functions"] == []
                 assert mothership["is_load_balanced"] is True
                 assert mothership["is_live_resource"] is True
-                assert mothership["imageName"] == "runpod/tetra-rp-lb-cpu:latest"
+                assert mothership["imageName"] == TETRA_CPU_LB_IMAGE
                 assert mothership["workersMin"] == 1
                 assert mothership["workersMax"] == 3
 
@@ -371,7 +374,7 @@ mothership = LiveLoadBalancer(
 """
             )
 
-            # Create main.py for handler generation
+            # Create main.py for FastAPI app
             main_file = project_root / "main.py"
             main_file.write_text(
                 """
@@ -393,5 +396,5 @@ def root():
 
                 mothership = manifest["resources"]["gpu-mothership"]
                 assert mothership["resource_type"] == "LiveLoadBalancer"
-                assert mothership["imageName"] == "runpod/tetra-rp-lb:latest"
+                assert mothership["imageName"] == TETRA_LB_IMAGE
                 assert mothership["is_explicit"] is True
