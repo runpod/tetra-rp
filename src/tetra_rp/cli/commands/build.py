@@ -191,7 +191,7 @@ def build_command(
         False, "--keep-build", help="Keep .build directory after creating archive"
     ),
     output_name: str | None = typer.Option(
-        None, "--output", "-o", help="Custom archive name (default: archive.tar.gz)"
+        None, "--output", "-o", help="Custom archive name (default: artifact.tar.gz)"
     ),
     exclude: str | None = typer.Option(
         None,
@@ -446,7 +446,7 @@ def build_command(
 
             # Create archive
             archive_task = progress.add_task("Creating archive...")
-            archive_name = output_name or "archive.tar.gz"
+            archive_name = output_name or "artifact.tar.gz"
             archive_path = project_dir / ".flash" / archive_name
 
             create_tarball(build_dir, archive_path, app_name)
@@ -999,7 +999,7 @@ def _display_build_config(
     excluded_packages: list[str],
 ):
     """Display build configuration."""
-    archive_name = output_name or "archive.tar.gz"
+    archive_name = output_name or "artifact.tar.gz"
 
     config_text = (
         f"[bold]Project:[/bold] {app_name}\n"

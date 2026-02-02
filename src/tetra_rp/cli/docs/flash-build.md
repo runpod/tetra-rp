@@ -12,7 +12,7 @@ flash build [OPTIONS]
 
 - `--no-deps`: Skip transitive dependencies during pip install (default: false)
 - `--keep-build`: Keep `.flash/.build` directory after creating archive (default: false)
-- `--output, -o`: Custom archive name (default: archive.tar.gz)
+- `--output, -o`: Custom archive name (default: artifact.tar.gz)
 - `--exclude`: Comma-separated packages to exclude (e.g., 'torch,torchvision')
 - `--preview`: Launch local test environment after successful build (auto-enables `--keep-build`)
 
@@ -46,7 +46,7 @@ The build process packages your Flash application into a self-contained deployme
 2. **Grouping**: Groups functions by their `resource_config`
 3. **Manifest Creation**: Generates `flash_manifest.json` for service discovery
 4. **Dependency Installation**: Installs all Python dependencies locally
-5. **Packaging**: Creates `.flash/archive.tar.gz` ready for deployment
+5. **Packaging**: Creates `.flash/artifact.tar.gz` ready for deployment
 
 ## Build Artifacts
 
@@ -54,7 +54,7 @@ After `flash build` completes:
 
 | File/Directory | Purpose |
 |---|---|
-| `.flash/archive.tar.gz` | Deployment package (ready for RunPod) |
+| `.flash/artifact.tar.gz` | Deployment package (ready for RunPod) |
 | `.flash/flash_manifest.json` | Service discovery configuration |
 | `.flash/.build/` | Temporary build directory (removed unless `--keep-build` specified) |
 
@@ -159,7 +159,7 @@ Successful build displays:
 ╭───────────────────────── Flash Build Configuration ──────────────────────────╮
 │ Project: my-project                                                          │
 │ Directory: /path/to/project                                                  │
-│ Archive: .flash/archive.tar.gz                                               │
+│ Archive: .flash/artifact.tar.gz                                              │
 │ Skip transitive deps: False                                                  │
 │ Keep build dir: False                                                        │
 ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -169,13 +169,13 @@ Successful build displays:
 ⠙ ✓ Copied 42 files
 ⠙ ✓ Created manifest and registered 3 resources
 ⠙ ✓ Installed 5 packages
-⠙ ✓ Created archive.tar.gz (45.2 MB)
+⠙ ✓ Created artifact.tar.gz (45.2 MB)
 ⠙ ✓ Removed .build directory
 
  Application     my-project
  Files packaged  42
  Dependencies    5
- Archive         .flash/archive.tar.gz
+ Archive         .flash/artifact.tar.gz
  Size            45.2 MB
 ╭────────── ✓ Build Complete ──────────╮
 │ my-project built successfully!       │

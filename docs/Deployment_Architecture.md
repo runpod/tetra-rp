@@ -9,7 +9,7 @@ A deployed Flash App consists of a Mothership coordinator and distributed Child 
 graph TD
     A["📦 flash build"] -->|"Analyze App"| B["Scan remote functions"]
     B -->|"Write"| C["flash_manifest.json"]
-    B -->|"Archive"| D["archive.tar.gz"]
+    B -->|"Archive"| D["artifact.tar.gz"]
 
     D -->|"flash deploy"| E["Push Archive +<br/>Provision Resources"]
 
