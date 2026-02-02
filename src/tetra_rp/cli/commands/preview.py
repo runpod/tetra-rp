@@ -265,7 +265,7 @@ def _start_resource_container(
         "-e",
         f"RUNPOD_ENDPOINT_ID=preview-{resource_name}",
         "-p",
-        f"{port}:8000",
+        f"{port}:80",
     ]
 
     if is_mothership:
