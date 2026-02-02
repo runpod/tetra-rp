@@ -1,5 +1,4 @@
 import os
-import platform
 from urllib.parse import urlparse
 
 import runpod
@@ -20,36 +19,9 @@ def _endpoint_domain_from_base_url(base_url: str) -> str:
 ENDPOINT_DOMAIN = _endpoint_domain_from_base_url(runpod.endpoint_url_base)
 
 
-def _get_platform_aware_tag(base_tag: str) -> str:
-    """Get platform-specific image tag.
-
-    For local/development tags, appends architecture suffix for arm64 machines to support
-    local preview testing on different platforms.
-
-    For production tags (latest, version numbers), uses as-is since these are typically
-    multi-arch manifests already managed by the registry.
-
-    Args:
-        base_tag: Base image tag (e.g., "local", "latest", "v1.0")
-
-    Returns:
-        Platform-specific tag (e.g., "local-arm64" on arm64, "local" on x86_64)
-    """
-    # Don't append architecture to production tags
-    if base_tag in ("latest", "dev") or base_tag.startswith("v"):
-        return base_tag
-
-    # Detect platform and append architecture suffix for arm64
-    machine = platform.machine().lower()
-    if machine in ("arm64", "aarch64"):
-        return f"{base_tag}-arm64"
-
-    return base_tag
-
-
 # Docker image configuration
 TETRA_IMAGE_TAG = os.environ.get("TETRA_IMAGE_TAG", "latest")
-_RESOLVED_TAG = _get_platform_aware_tag(TETRA_IMAGE_TAG)
+_RESOLVED_TAG = TETRA_IMAGE_TAG
 
 TETRA_GPU_IMAGE = os.environ.get("TETRA_GPU_IMAGE", f"runpod/tetra-rp:{_RESOLVED_TAG}")
 TETRA_CPU_IMAGE = os.environ.get(

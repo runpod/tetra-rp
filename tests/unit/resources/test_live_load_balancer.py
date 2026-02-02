@@ -3,7 +3,6 @@ Unit tests for LiveLoadBalancer class and template serialization.
 """
 
 import os
-import platform
 
 import pytest
 
@@ -13,14 +12,6 @@ from tetra_rp.core.resources.live_serverless import (
     LiveLoadBalancer,
 )
 from tetra_rp.core.resources.load_balancer_sls_resource import LoadBalancerSlsResource
-
-
-def _get_expected_local_tag(base_image: str) -> str:
-    """Get expected image tag for 'local' based on platform."""
-    machine = platform.machine().lower()
-    if machine in ("arm64", "aarch64"):
-        return f"{base_image}:local-arm64"
-    return f"{base_image}:local"
 
 
 class TestLiveLoadBalancer:
@@ -38,7 +29,7 @@ class TestLiveLoadBalancer:
         importlib.reload(ls_module)
 
         lb = ls_module.LiveLoadBalancer(name="test-lb")
-        expected_image = _get_expected_local_tag("runpod/tetra-rp-lb")
+        expected_image = "runpod/tetra-rp-lb:local"
         assert lb.imageName == expected_image
         assert lb.template is not None
         assert lb.template.imageName == expected_image
@@ -204,7 +195,7 @@ class TestCpuLiveLoadBalancer:
         importlib.reload(ls_module)
 
         lb = ls_module.CpuLiveLoadBalancer(name="test-lb")
-        expected_image = _get_expected_local_tag("runpod/tetra-rp-lb-cpu")
+        expected_image = "runpod/tetra-rp-lb-cpu:local"
         assert lb.imageName == expected_image
         assert lb.template is not None
         assert lb.template.imageName == expected_image
