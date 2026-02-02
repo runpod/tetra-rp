@@ -1102,26 +1102,32 @@ On mothership boot:
 
 ## Testing & Debugging
 
-### flash test-mothership
+### flash build --preview
 
-Local testing of mothership provisioning without deploying to RunPod.
+Local testing of your distributed system without deploying to RunPod.
 
 ```bash
-flash test-mothership
+flash build --preview
 ```
 
 **What it does**:
-1. Loads flash_manifest.json from current directory
-2. Creates temporary resource configs (prefixed with `tmp-`)
-3. Simulates mothership provisioning locally
-4. Displays resource creation output
-5. Auto-cleanup on exit
+1. Builds your project (creates archive, manifest)
+2. Creates a Docker network for inter-container communication
+3. Starts one Docker container per resource config:
+   - Mothership container (orchestrator)
+   - All worker containers (GPU, CPU, etc.)
+4. Exposes mothership on `localhost:8000`
+5. All containers communicate via Docker DNS
+6. Auto-cleanup on exit (Ctrl+C)
 
 **Use Cases**:
 - Validate manifest structure before deployment
 - Test resource provisioning logic
+- Debug distributed function calls
+- Test endpoint auto-discovery
+- Verify container networking
 
-**Code Reference**: `src/tetra_rp/cli/commands/test_mothership.py`
+**Code Reference**: `src/tetra_rp/cli/commands/preview.py`
 
 ### Local Docker Testing
 

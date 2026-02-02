@@ -14,18 +14,16 @@ Run with: uv run python3 scripts/test-image-constants.py
 import sys
 import os
 import subprocess
-import json
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Color codes
-GREEN = '\033[92m'
-RED = '\033[91m'
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-END = '\033[0m'
+GREEN = "\033[92m"
+RED = "\033[91m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+END = "\033[0m"
 
 test_count = 0
 passed_count = 0
@@ -88,28 +86,27 @@ def test_manifest_builder():
     builder = ManifestBuilder(project_name="test", remote_functions=[])
 
     # Test _create_mothership_resource
-    mothership = builder._create_mothership_resource({
-        "file_path": Path("main.py"),
-        "app_variable": "app"
-    })
+    mothership = builder._create_mothership_resource(
+        {"file_path": Path("main.py"), "app_variable": "app"}
+    )
 
     test(
         "Mothership uses TETRA_CPU_LB_IMAGE",
         mothership["imageName"] == TETRA_CPU_LB_IMAGE,
-        f"Got {mothership['imageName']}"
+        f"Got {mothership['imageName']}",
     )
     test(
         "Mothership uses DEFAULT_WORKERS_MIN",
         mothership["workersMin"] == DEFAULT_WORKERS_MIN,
-        f"Got {mothership['workersMin']}"
+        f"Got {mothership['workersMin']}",
     )
     test(
         "Mothership uses DEFAULT_WORKERS_MAX",
         mothership["workersMax"] == DEFAULT_WORKERS_MAX,
-        f"Got {mothership['workersMax']}"
+        f"Got {mothership['workersMax']}",
     )
 
-    print(f"  Mothership config:")
+    print("  Mothership config:")
     print(f"    imageName: {mothership['imageName']}")
     print(f"    workersMin: {mothership['workersMin']}")
     print(f"    workersMax: {mothership['workersMax']}")
@@ -133,20 +130,20 @@ def test_live_serverless():
     test(
         "LiveServerless uses TETRA_GPU_IMAGE",
         gpu_ls.imageName == TETRA_GPU_IMAGE,
-        f"Got {gpu_ls.imageName}"
+        f"Got {gpu_ls.imageName}",
     )
     test(
         "LiveLoadBalancer uses TETRA_LB_IMAGE",
         gpu_lb.imageName == TETRA_LB_IMAGE,
-        f"Got {gpu_lb.imageName}"
+        f"Got {gpu_lb.imageName}",
     )
     test(
         "CpuLiveLoadBalancer uses TETRA_CPU_LB_IMAGE",
         cpu_lb.imageName == TETRA_CPU_LB_IMAGE,
-        f"Got {cpu_lb.imageName}"
+        f"Got {cpu_lb.imageName}",
     )
 
-    print(f"  Resource images:")
+    print("  Resource images:")
     print(f"    LiveServerless: {gpu_ls.imageName}")
     print(f"    LiveLoadBalancer: {gpu_lb.imageName}")
     print(f"    CpuLiveLoadBalancer: {cpu_lb.imageName}")
@@ -158,7 +155,10 @@ def test_env_var_override():
 
     # Test with TETRA_IMAGE_TAG=dev in subprocess
     result = subprocess.run(
-        [sys.executable, "-c", """
+        [
+            sys.executable,
+            "-c",
+            """
 import sys
 import os
 sys.path.insert(0, 'src')
@@ -171,23 +171,24 @@ from tetra_rp.core.resources.constants import (
 assert TETRA_IMAGE_TAG == "dev", f"Expected dev, got {TETRA_IMAGE_TAG}"
 assert TETRA_CPU_LB_IMAGE == "runpod/tetra-rp-lb-cpu:dev", f"Got {TETRA_CPU_LB_IMAGE}"
 print(f"OK:{TETRA_CPU_LB_IMAGE}")
-"""],
+""",
+        ],
         env={**dict(os.environ), "TETRA_IMAGE_TAG": "dev"},
         capture_output=True,
         text=True,
-        cwd=Path(__file__).parent.parent
+        cwd=Path(__file__).parent.parent,
     )
 
     success = result.returncode == 0 and "OK:" in result.stdout
     test(
         "TETRA_IMAGE_TAG=dev override works",
         success,
-        result.stderr if not success else ""
+        result.stderr if not success else "",
     )
 
     if success:
         image = result.stdout.split("OK:")[1].strip()
-        print(f"  With TETRA_IMAGE_TAG=dev:")
+        print("  With TETRA_IMAGE_TAG=dev:")
         print(f"    TETRA_CPU_LB_IMAGE: {image}")
 
 
@@ -195,12 +196,15 @@ def test_no_hardcoded_values():
     """Verify no hardcoded image names in manifest.py"""
     print(f"\n{BLUE}Test Suite 5: Code Quality Check{END}")
 
-    manifest_file = Path(__file__).parent.parent / "src/tetra_rp/cli/commands/build_utils/manifest.py"
+    manifest_file = (
+        Path(__file__).parent.parent
+        / "src/tetra_rp/cli/commands/build_utils/manifest.py"
+    )
     content = manifest_file.read_text()
 
     hardcoded_patterns = [
-        'runpod/tetra-rp-lb-cpu:latest',
-        'runpod/tetra-rp-lb:latest',
+        "runpod/tetra-rp-lb-cpu:latest",
+        "runpod/tetra-rp-lb:latest",
         'imageName": "runpod/',
     ]
 
@@ -226,9 +230,9 @@ def test_no_hardcoded_values():
 
 
 def main():
-    print(f"\n{BLUE}{'='*60}{END}")
+    print(f"\n{BLUE}{'=' * 60}{END}")
     print(f"{BLUE}Docker Image Constants Verification{END}")
-    print(f"{BLUE}{'='*60}{END}")
+    print(f"{BLUE}{'=' * 60}{END}")
 
     test_constants_exist()
     test_manifest_builder()
@@ -236,9 +240,9 @@ def main():
     test_env_var_override()
     test_no_hardcoded_values()
 
-    print(f"\n{BLUE}{'='*60}{END}")
+    print(f"\n{BLUE}{'=' * 60}{END}")
     print(f"Results: {GREEN}{passed_count}/{test_count} tests passed{END}")
-    print(f"{BLUE}{'='*60}{END}")
+    print(f"{BLUE}{'=' * 60}{END}")
 
     if passed_count == test_count:
         print(f"\n{GREEN}✓ ALL TESTS PASSED{END}")
