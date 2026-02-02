@@ -29,7 +29,6 @@ class TestServiceRegistry:
             "resources": {
                 "gpu_config": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_gpu_config.py",
                     "functions": [
                         {"name": "gpu_task", "module": "workers.gpu", "is_async": True},
                         {
@@ -41,7 +40,6 @@ class TestServiceRegistry:
                 },
                 "cpu_config": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_cpu_config.py",
                     "functions": [
                         {
                             "name": "preprocess",

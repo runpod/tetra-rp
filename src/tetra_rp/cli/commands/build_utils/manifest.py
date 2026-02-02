@@ -9,6 +9,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from tetra_rp.core.resources.constants import (
+    DEFAULT_WORKERS_MAX,
+    DEFAULT_WORKERS_MIN,
+    TETRA_CPU_LB_IMAGE,
+    TETRA_LB_IMAGE,
+)
+
 from .scanner import RemoteFunctionMetadata, detect_explicit_mothership, detect_main_app
 
 logger = logging.getLogger(__name__)
@@ -36,7 +43,6 @@ class ManifestResource:
     """Resource config entry in manifest."""
 
     resource_type: str
-    handler_file: str
     functions: List[ManifestFunction]
     is_load_balanced: bool = False  # Determined by isinstance() at scan time
     is_live_resource: bool = False  # LiveLoadBalancer vs LoadBalancerSlsResource
@@ -193,16 +199,15 @@ class ManifestBuilder:
         """
         return {
             "resource_type": "CpuLiveLoadBalancer",
-            "handler_file": "handler_mothership.py",
             "functions": [],
             "is_load_balanced": True,
             "is_live_resource": True,
             "is_mothership": True,
             "main_file": main_app_config["file_path"].name,
             "app_variable": main_app_config["app_variable"],
-            "imageName": "runpod/tetra-rp-lb-cpu:latest",
-            "workersMin": 1,
-            "workersMax": 3,
+            "imageName": TETRA_CPU_LB_IMAGE,
+            "workersMin": DEFAULT_WORKERS_MIN,
+            "workersMax": DEFAULT_WORKERS_MAX,
         }
 
     def _create_mothership_from_explicit(
@@ -231,13 +236,12 @@ class ManifestBuilder:
         # Map resource type to image name
         resource_type = explicit_config.get("resource_type", "CpuLiveLoadBalancer")
         if resource_type == "LiveLoadBalancer":
-            image_name = "runpod/tetra-rp-lb:latest"  # GPU load balancer
+            image_name = TETRA_LB_IMAGE  # GPU load balancer
         else:
-            image_name = "runpod/tetra-rp-lb-cpu:latest"  # CPU load balancer
+            image_name = TETRA_CPU_LB_IMAGE  # CPU load balancer
 
         return {
             "resource_type": resource_type,
-            "handler_file": "handler_mothership.py",
             "functions": [],
             "is_load_balanced": True,
             "is_live_resource": True,
@@ -246,8 +250,8 @@ class ManifestBuilder:
             "main_file": main_file,
             "app_variable": app_variable,
             "imageName": image_name,
-            "workersMin": explicit_config.get("workersMin", 1),
-            "workersMax": explicit_config.get("workersMax", 3),
+            "workersMin": explicit_config.get("workersMin", DEFAULT_WORKERS_MIN),
+            "workersMax": explicit_config.get("workersMax", DEFAULT_WORKERS_MAX),
         }
 
     def build(self) -> Dict[str, Any]:
@@ -268,8 +272,6 @@ class ManifestBuilder:
         ] = {}  # resource_name -> {route_key -> function_name}
 
         for resource_name, functions in sorted(resources.items()):
-            handler_file = f"handler_{resource_name}.py"
-
             # Use actual resource type from first function in group
             resource_type = (
                 functions[0].resource_type if functions else "LiveServerless"
@@ -335,7 +337,6 @@ class ManifestBuilder:
 
             resources_dict[resource_name] = {
                 "resource_type": resource_type,
-                "handler_file": handler_file,
                 "functions": functions_list,
                 "is_load_balanced": is_load_balanced,
                 "is_live_resource": is_live_resource,
