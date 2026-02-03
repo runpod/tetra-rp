@@ -146,7 +146,7 @@ def _run_flash_build() -> None:
     """Run flash build command."""
     console.print("[cyan]Running flash build...[/cyan]")
     result = subprocess.run(
-        ["flash", "build", "--keep-build", "--use-local-tetra"],
+        ["flash", "build", "--keep-build", "--use-local-flash"],
         capture_output=False,
     )
     if result.returncode != 0:

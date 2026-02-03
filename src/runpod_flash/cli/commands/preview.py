@@ -12,7 +12,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from tetra_rp.core.resources.constants import TETRA_CPU_LB_IMAGE
+from runpod_flash.core.resources.constants import FLASH_CPU_LB_IMAGE
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -174,7 +174,7 @@ def _parse_resources_from_manifest(manifest: dict) -> dict:
     for resource_name, resource_data in manifest_resources.items():
         resources[resource_name] = {
             "is_mothership": resource_data.get("is_mothership", False),
-            "imageName": resource_data.get("imageName", TETRA_CPU_LB_IMAGE),
+            "imageName": resource_data.get("imageName", FLASH_CPU_LB_IMAGE),
             "functions": resource_data.get("functions", []),
         }
 
@@ -183,7 +183,7 @@ def _parse_resources_from_manifest(manifest: dict) -> dict:
     if not has_mothership:
         resources["mothership"] = {
             "is_mothership": True,
-            "imageName": TETRA_CPU_LB_IMAGE,
+            "imageName": FLASH_CPU_LB_IMAGE,
         }
 
     return resources
@@ -235,7 +235,7 @@ def _start_resource_container(
         Exception: If container startup fails
     """
     # Determine Docker image
-    image = resource_config.get("imageName", TETRA_CPU_LB_IMAGE)
+    image = resource_config.get("imageName", FLASH_CPU_LB_IMAGE)
     is_mothership = resource_config.get("is_mothership", False)
 
     # Assign port

@@ -48,7 +48,7 @@ def generate_resource_table(resource_manager: ResourceManager) -> Panel:
     if not resources:
         return Panel(
             "📊 No resources currently tracked\n\n"
-            "Resources will appear here after running your Tetra applications.",
+            "Resources will appear here after running your Flash applications.",
             title="Resource Status Report",
             expand=False,
         )

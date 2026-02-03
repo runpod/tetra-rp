@@ -200,9 +200,9 @@ def build_command(
         "--exclude",
         help="Comma-separated packages to exclude (e.g., 'torch,torchvision')",
     ),
-    use_local_tetra: bool = typer.Option(
+    use_local_flash: bool = typer.Option(
         False,
-        "--use-local-tetra",
+        "--use-local-flash",
         help="Bundle local runpod_flash source instead of PyPI version (for development/testing)",
     ),
     preview: bool = typer.Option(
@@ -357,7 +357,7 @@ def build_command(
 
             # Extract runpod_flash dependencies if bundling local version
             flash_deps = []
-            if use_local_tetra:
+            if use_local_flash:
                 flash_pkg = _find_local_runpod_flash()
                 if flash_pkg:
                     flash_deps = _extract_runpod_flash_dependencies(flash_pkg)
@@ -428,7 +428,7 @@ def build_command(
             progress.stop_task(deps_task)
 
             # Bundle local runpod_flash if requested
-            if use_local_tetra:
+            if use_local_flash:
                 flash_task = progress.add_task("Bundling local runpod_flash...")
                 if _bundle_local_runpod_flash(build_dir):
                     _remove_runpod_flash_from_requirements(build_dir)

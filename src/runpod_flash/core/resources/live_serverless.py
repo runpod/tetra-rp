@@ -2,10 +2,10 @@
 from pydantic import model_validator
 
 from .constants import (
-    TETRA_CPU_IMAGE,
-    TETRA_CPU_LB_IMAGE,
-    TETRA_GPU_IMAGE,
-    TETRA_LB_IMAGE,
+    FLASH_CPU_IMAGE,
+    FLASH_CPU_LB_IMAGE,
+    FLASH_GPU_IMAGE,
+    FLASH_LB_IMAGE,
 )
 from .load_balancer_sls_resource import (
     CpuLoadBalancerSlsResource,
@@ -39,13 +39,13 @@ class LiveServerless(LiveServerlessMixin, ServerlessEndpoint):
 
     @property
     def _live_image(self) -> str:
-        return TETRA_GPU_IMAGE
+        return FLASH_GPU_IMAGE
 
     @model_validator(mode="before")
     @classmethod
     def set_live_serverless_template(cls, data: dict):
         """Set default GPU image for Live Serverless."""
-        data["imageName"] = TETRA_GPU_IMAGE
+        data["imageName"] = FLASH_GPU_IMAGE
         return data
 
 
@@ -54,13 +54,13 @@ class CpuLiveServerless(LiveServerlessMixin, CpuServerlessEndpoint):
 
     @property
     def _live_image(self) -> str:
-        return TETRA_CPU_IMAGE
+        return FLASH_CPU_IMAGE
 
     @model_validator(mode="before")
     @classmethod
     def set_live_serverless_template(cls, data: dict):
         """Set default CPU image for Live Serverless."""
-        data["imageName"] = TETRA_CPU_IMAGE
+        data["imageName"] = FLASH_CPU_IMAGE
         return data
 
 
@@ -104,13 +104,13 @@ class LiveLoadBalancer(LiveServerlessMixin, LoadBalancerSlsResource):
 
     @property
     def _live_image(self) -> str:
-        return TETRA_LB_IMAGE
+        return FLASH_LB_IMAGE
 
     @model_validator(mode="before")
     @classmethod
     def set_live_lb_template(cls, data: dict):
         """Set default image for Live Load-Balanced endpoint."""
-        data["imageName"] = TETRA_LB_IMAGE
+        data["imageName"] = FLASH_LB_IMAGE
         return data
 
 
@@ -149,11 +149,11 @@ class CpuLiveLoadBalancer(LiveServerlessMixin, CpuLoadBalancerSlsResource):
 
     @property
     def _live_image(self) -> str:
-        return TETRA_CPU_LB_IMAGE
+        return FLASH_CPU_LB_IMAGE
 
     @model_validator(mode="before")
     @classmethod
     def set_live_cpu_lb_template(cls, data: dict):
         """Set default CPU image for Live Load-Balanced endpoint."""
-        data["imageName"] = TETRA_CPU_LB_IMAGE
+        data["imageName"] = FLASH_CPU_LB_IMAGE
         return data

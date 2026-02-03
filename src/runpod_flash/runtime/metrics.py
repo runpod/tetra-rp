@@ -37,7 +37,7 @@ class Metric:
 class MetricsCollector:
     """Collect metrics via structured logging."""
 
-    def __init__(self, namespace: str = "tetra.metrics", enabled: bool = True):
+    def __init__(self, namespace: str = "flash.metrics", enabled: bool = True):
         """Initialize metrics collector.
 
         Args:

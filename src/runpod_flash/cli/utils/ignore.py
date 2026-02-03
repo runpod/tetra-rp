@@ -67,7 +67,7 @@ def load_ignore_patterns(project_dir: Path) -> pathspec.PathSpec:
     # Always exclude build artifacts and Python bytecode
     always_ignore = [
         ".build/",
-        ".tetra/",
+        ".flash/",
         "*.tar.gz",
         ".git/",
         "__pycache__/",
