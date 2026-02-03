@@ -11,7 +11,9 @@ from runpod_flash.core.resources.live_serverless import (
     CpuLiveLoadBalancer,
     LiveLoadBalancer,
 )
-from runpod_flash.core.resources.load_balancer_sls_resource import LoadBalancerSlsResource
+from runpod_flash.core.resources.load_balancer_sls_resource import (
+    LoadBalancerSlsResource,
+)
 
 
 class TestLiveLoadBalancer:
