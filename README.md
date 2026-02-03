@@ -506,7 +506,7 @@ For information on load-balanced endpoints (required for Mothership and HTTP ser
 
 RunPod serverless has a **500MB deployment limit**. Exceeding this limit will cause deployment failures.
 
-Use `--exclude` to skip packages already in your worker-tetra Docker image:
+Use `--exclude` to skip packages already in your worker-flash Docker image:
 
 ```bash
 # For GPU deployments (PyTorch pre-installed)
@@ -520,7 +520,7 @@ flash build --exclude torch,torchvision,torchaudio
 - **CPU resources** → Python slim images have NO ML frameworks pre-installed
 - **Load-balanced** → Same as above, depends on GPU vs CPU variant
 
-See [worker-tetra](https://github.com/runpod-workers/worker-tetra) for base image details.
+See [worker-flash](https://github.com/runpod-workers/worker-flash) for base image details.
 
 ## Configuration
 

@@ -245,9 +245,9 @@ flash build --exclude torch,torchvision,torchaudio
 flash build --exclude numpy,scipy,pillow
 ```
 
-### Base Image Package Reference (worker-tetra)
+### Base Image Package Reference (worker-flash)
 
-Check the [worker-tetra repository](https://github.com/runpod-workers/worker-tetra) for current base images and pre-installed packages.
+Check the [worker-flash repository](https://github.com/runpod-workers/worker-flash) for current base images and pre-installed packages.
 
 **Base image patterns** (check repository for current versions):
 
@@ -258,7 +258,7 @@ Check the [worker-tetra repository](https://github.com/runpod-workers/worker-tet
 | `Dockerfile-lb` (GPU LoadBalanced) | `pytorch/pytorch:*-cuda*-cudnn*-runtime` | torch, torchvision, torchaudio | `--exclude torch,torchvision,torchaudio` |
 | `Dockerfile-lb-cpu` (CPU LoadBalanced) | `python:*-slim` | **None** | Do not exclude ML packages |
 
-**Common pre-installed packages** (versions change - verify in [worker-tetra Dockerfiles](https://github.com/runpod-workers/worker-tetra)):
+**Common pre-installed packages** (versions change - verify in [worker-flash Dockerfiles](https://github.com/runpod-workers/worker-flash)):
 - cloudpickle
 - pydantic
 - requests
@@ -269,7 +269,7 @@ Check the [worker-tetra repository](https://github.com/runpod-workers/worker-tet
 **Important:**
 - Only exclude packages you're certain exist in your base image
 - Check your resource config's base image before excluding
-- Verify current versions in the [worker-tetra repository](https://github.com/runpod-workers/worker-tetra)
+- Verify current versions in the [worker-flash repository](https://github.com/runpod-workers/worker-flash)
 - CPU deployments: Do NOT exclude torch (not pre-installed)
 - GPU deployments: Safe to exclude torch/torchvision/torchaudio
 
@@ -277,7 +277,7 @@ Check the [worker-tetra repository](https://github.com/runpod-workers/worker-tet
 1. Check your `@remote` decorator's `resource_config`
 2. GPU configs use PyTorch base → exclude torch packages
 3. CPU configs use Python slim → bundle all ML packages
-4. When in doubt, check the [worker-tetra Dockerfiles](https://github.com/runpod-workers/worker-tetra)
+4. When in doubt, check the [worker-flash Dockerfiles](https://github.com/runpod-workers/worker-flash)
 
 ## Next Steps
 
