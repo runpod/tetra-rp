@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/runpod/tetra-rp/compare/v0.25.0...v0.25.1) (2026-02-03)
+
+
+### Bug Fixes
+
+* set build id for env before deploying resources ([#169](https://github.com/runpod/tetra-rp/issues/169)) ([e5d38d6](https://github.com/runpod/tetra-rp/commit/e5d38d61c6daf12a482341c5675b9125431f6d05))
+
 ## [0.25.0](https://github.com/runpod/tetra-rp/compare/v0.24.0...v0.25.0) (2026-02-02)
 
 
