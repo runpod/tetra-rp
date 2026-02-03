@@ -363,7 +363,7 @@
 * AE-432: Logging ([a93f88e](https://github.com/runpod/runpod-flash/commit/a93f88e20a2fb0f6d741aebe98db85cc8b3ed88b))
 * AE-432: Logging ([718de18](https://github.com/runpod/runpod-flash/commit/718de18289b2d605ecc01359c6be9b6290373d3a))
 * AE-442: Docker image template polish + cleanup ([75471b2](https://github.com/runpod/runpod-flash/commit/75471b2cbb40d31d0d82d4562072d8c16a59cb8e))
-* AE-470: shadow deploy as tetra_rp ([749d427](https://github.com/runpod/runpod-flash/commit/749d427b9095d77742ddde679d1fc44d999d5d30))
+* AE-470: shadow deploy as runpod_flash ([749d427](https://github.com/runpod/runpod-flash/commit/749d427b9095d77742ddde679d1fc44d999d5d30))
 * AE-494: remove all docker- worker-related content ([72a4b9a](https://github.com/runpod/runpod-flash/commit/72a4b9a74761affdb1b0e9381bcaf49763829bac))
 * AE-494: removed any worker-related content ([72464d1](https://github.com/runpod/runpod-flash/commit/72464d1881584a2003d2edbd2cf9e6a982455592))
 * AE-517: logs from remote printed as `Remote | <log>` ([d8f4ee1](https://github.com/runpod/runpod-flash/commit/d8f4ee1323696b3f9cd8e5c2e928eb8538c6d2cd))
