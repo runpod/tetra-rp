@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.25.0](https://github.com/runpod/tetra-rp/compare/v0.24.0...v0.25.0) (2026-02-02)
+
+
+### Features
+
+* `flash build --preview` in local docker for smoke-testing deployments ([#167](https://github.com/runpod/tetra-rp/issues/167)) ([a2cc56c](https://github.com/runpod/tetra-rp/commit/a2cc56c755ae6badb4f00ad8fe62c2e3d89af9bd))
+* code intelligence indexer service for Claude Code ([#158](https://github.com/runpod/tetra-rp/issues/158)) ([69b3887](https://github.com/runpod/tetra-rp/commit/69b38875b9991d8e8095b39d98382f99487adfad))
+
+
+### Bug Fixes
+
+* exclude NetworkVolume from undeploy list command ([#164](https://github.com/runpod/tetra-rp/issues/164)) ([b0960d9](https://github.com/runpod/tetra-rp/commit/b0960d967b588b43c0970a42e8fa8c69c7e83077))
+
+
+### Code Refactoring
+
+* **build:** remove deprecated handler generator and add verification scripts ([#166](https://github.com/runpod/tetra-rp/issues/166)) ([5a253af](https://github.com/runpod/tetra-rp/commit/5a253af047052acdf1874072ddb8864bbdfa1679))
+* rename archive.tar.gz to artifact.tar.gz ([#170](https://github.com/runpod/tetra-rp/issues/170)) ([1f033c3](https://github.com/runpod/tetra-rp/commit/1f033c39ec71f1291d5c261aa5d88bb0182c2270))
+
 ## [0.24.0](https://github.com/runpod/tetra-rp/compare/v0.23.1...v0.24.0) (2026-01-30)
 
 

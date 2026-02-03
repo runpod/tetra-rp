@@ -12,12 +12,12 @@ When you deploy a `LoadBalancerSlsResource` endpoint with `flash build` and `fla
 
 ```mermaid
 graph TD
-    A["User Code"] -->|flash build| B["Generate handler_service.py"]
-    B -->|FastAPI App| C["handler_service.py"]
+    A["User Code"] -->|flash build| B["Package Application"]
+    B -->|FastAPI App| C["Flash Manifest"]
     C -->|flash deploy| D["Push to RunPod"]
-    D -->|Create Container| E["RunPod Container<br/>runpod-flash-lb image"]
+    D -->|Create Container| E["RunPod Container<br/>tetra-rp-lb image"]
     E --> F["FastAPI Server<br/>uvicorn on port 8000"]
-    F --> G["Load your handler"]
+    F --> G["Load your application"]
     G --> H["Endpoint Ready"]
 
     style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
@@ -38,25 +38,19 @@ graph TD
 
 ### What Gets Deployed
 
-The generated handler file contains:
+The runtime loads your application using the manifest and route registry:
 
 ```python
-# handler_service.py (auto-generated)
+# Runtime loads from flash_manifest.json
+# and executes your @remote decorated functions via FastAPI
+
 from fastapi import FastAPI
 from tetra_rp.runtime.lb_handler import create_lb_handler
 
-# User functions imported
-from api.endpoints import process_data
-from api.health import health_check
+# User functions are discovered and registered at runtime
+# Routes are configured based on @remote decorators with HTTP method and path
 
-# Route registry
-ROUTE_REGISTRY = {
-    ("POST", "/api/process"): process_data,
-    ("GET", "/api/health"): health_check,
-}
-
-# FastAPI app created
-app = create_lb_handler(ROUTE_REGISTRY)
+app = create_lb_handler(route_registry)
 
 if __name__ == "__main__":
     import uvicorn
@@ -64,8 +58,8 @@ if __name__ == "__main__":
 ```
 
 **Container Setup:**
-- Base image: `runpod/runpod-flash-lb:latest` (contains FastAPI, uvicorn, dependencies)
-- Entrypoint: Runs `python handler_service.py`
+- Base image: `runpod/tetra-rp-lb:latest` (contains FastAPI, uvicorn, dependencies)
+- Entrypoint: Loads manifest and starts FastAPI server
 - Port: 8000 (internal)
 - RunPod exposes this via HTTPS endpoint URL
 - Health check: Polls `/ping` endpoint every 30 seconds with 15 second timeout per check
@@ -75,7 +69,7 @@ if __name__ == "__main__":
 
 ```mermaid
 graph TD
-    A["LoadBalancerSlsResource created"] -->|flash build| B["Generate handler file"]
+    A["LoadBalancerSlsResource created"] -->|flash build| B["Package application"]
     B -->|flash deploy| C["Push to RunPod"]
     C --> D["RunPod creates container"]
     D --> E["Container starts uvicorn"]
@@ -176,7 +170,7 @@ sequenceDiagram
 ```python
 # Local code - after deployment
 api = LoadBalancerSlsResource(name="user-service",
-                            imageName="runpod/runpod-flash-lb:latest")
+                            imageName="runpod/tetra-rp-lb:latest")
 
 # Deploy the endpoint (generates endpoint_url automatically)
 await api.deploy()
@@ -640,7 +634,7 @@ RunPod polls /ping every 30 seconds
 ### Image Selection
 
 ```
-runpod-flash-lb:latest (default)
+tetra-rp-lb:latest (default)
 - FastAPI + uvicorn pre-installed
 - Tetra runtime dependencies
 - Optimized for LB endpoints
@@ -656,7 +650,7 @@ Custom image:
 ```python
 LoadBalancerSlsResource(
     name="my-api",
-    imageName="runpod/runpod-flash-lb:latest",
+    imageName="runpod/tetra-rp-lb:latest",
     gpus=[GpuGroup.AMPERE_80],      # Optional: if compute needed
     instanceIds=[...],               # Or specify CPU instances
     workersMax=5,                    # Max concurrent workers

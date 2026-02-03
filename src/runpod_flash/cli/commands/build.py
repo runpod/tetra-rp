@@ -24,10 +24,7 @@ except ImportError:
     import tomli as tomllib  # Python 3.9-3.10
 
 from ..utils.ignore import get_file_tree, load_ignore_patterns
-from .build_utils.handler_generator import HandlerGenerator
-from .build_utils.lb_handler_generator import LBHandlerGenerator
 from .build_utils.manifest import ManifestBuilder
-from .build_utils.mothership_handler_generator import generate_mothership_handler
 from .build_utils.scanner import RemoteDecoratorScanner
 
 logger = logging.getLogger(__name__)
@@ -196,7 +193,7 @@ def build_command(
         False, "--keep-build", help="Keep .build directory after creating archive"
     ),
     output_name: str | None = typer.Option(
-        None, "--output", "-o", help="Custom archive name (default: archive.tar.gz)"
+        None, "--output", "-o", help="Custom archive name (default: artifact.tar.gz)"
     ),
     exclude: str | None = typer.Option(
         None,
@@ -207,6 +204,11 @@ def build_command(
         False,
         "--use-local-tetra",
         help="Bundle local runpod_flash source instead of PyPI version (for development/testing)",
+    ),
+    preview: bool = typer.Option(
+        False,
+        "--preview",
+        help="Launch local test environment after successful build",
     ),
 ):
     """
@@ -219,6 +221,7 @@ def build_command(
       flash build                              # Build with all dependencies
       flash build --no-deps                    # Skip transitive dependencies
       flash build --keep-build                 # Keep temporary build directory
+      flash build --preview                    # Build and launch local test environment
       flash build -o my-app.tar.gz             # Custom archive name
       flash build --exclude torch,torchvision  # Exclude large packages (assume in base image)
     """
@@ -230,6 +233,11 @@ def build_command(
             console.print("[red]Error:[/red] Not a valid Flash project")
             console.print("Run [bold]flash init[/bold] to create a Flash project")
             raise typer.Exit(1)
+
+        # Auto-enable keep_build if preview requested (preview needs build directory)
+        if preview:
+            keep_build = True
+            logger.debug("Preview mode: automatically enabling keep_build")
 
         # Create build directory first to ensure clean state before collecting files
         build_dir = create_build_directory(project_dir, app_name)
@@ -282,7 +290,7 @@ def build_command(
                 )
                 progress.stop_task(copy_task)
 
-                # Generate handlers and manifest
+                # Generate manifest
                 manifest_task = progress.add_task("Generating service manifest...")
                 try:
                     scanner = RemoteDecoratorScanner(build_dir)
@@ -302,63 +310,9 @@ def build_command(
                     deployment_manifest_path = flash_dir / "flash_manifest.json"
                     shutil.copy2(manifest_path, deployment_manifest_path)
 
-                    # Generate handler files if there are resources
-                    handler_paths = []
                     manifest_resources = manifest.get("resources", {})
 
                     if manifest_resources:
-                        # Separate resources by type
-                        # Use flag determined by isinstance() at scan time
-                        lb_resources = {
-                            name: data
-                            for name, data in manifest_resources.items()
-                            if data.get("is_load_balanced", False)
-                        }
-                        qb_resources = {
-                            name: data
-                            for name, data in manifest_resources.items()
-                            if not data.get("is_load_balanced", False)
-                        }
-
-                        # Generate LB handlers
-                        if lb_resources:
-                            lb_gen = LBHandlerGenerator(manifest, build_dir)
-                            handler_paths.extend(lb_gen.generate_handlers())
-
-                        # Generate QB handlers
-                        if qb_resources:
-                            qb_gen = HandlerGenerator(manifest, build_dir)
-                            handler_paths.extend(qb_gen.generate_handlers())
-
-                        # Generate mothership handler if present in manifest
-                        mothership_resources = {
-                            name: data
-                            for name, data in manifest_resources.items()
-                            if data.get("is_mothership", False)
-                        }
-                        if mothership_resources:
-                            for (
-                                resource_name,
-                                resource_data,
-                            ) in mothership_resources.items():
-                                mothership_handler_path = (
-                                    build_dir / "handlers" / "handler_mothership.py"
-                                )
-                                generate_mothership_handler(
-                                    main_file=resource_data.get("main_file", "main.py"),
-                                    app_variable=resource_data.get(
-                                        "app_variable", "app"
-                                    ),
-                                    output_path=mothership_handler_path,
-                                )
-                                handler_paths.append(str(mothership_handler_path))
-
-                    if handler_paths:
-                        progress.update(
-                            manifest_task,
-                            description=f"[green]✓ Generated {len(handler_paths)} handlers and manifest",
-                        )
-                    elif manifest_resources:
                         progress.update(
                             manifest_task,
                             description=f"[green]✓ Generated manifest with {len(manifest_resources)} resources",
@@ -494,7 +448,7 @@ def build_command(
 
             # Create archive
             archive_task = progress.add_task("Creating archive...")
-            archive_name = output_name or "archive.tar.gz"
+            archive_name = output_name or "artifact.tar.gz"
             archive_path = project_dir / ".flash" / archive_name
 
             create_tarball(build_dir, archive_path, app_name)
@@ -536,6 +490,30 @@ def build_command(
 
         # Success summary
         _display_build_summary(archive_path, app_name, len(files), len(requirements))
+
+        # Launch preview environment if requested
+        if preview:
+            console.print(
+                "\n[bold cyan]Launching multi-container preview...[/bold cyan]"
+            )
+            console.print("[dim]Starting all endpoints locally in Docker...[/dim]\n")
+
+            try:
+                from .preview import launch_preview
+
+                # Manifest is in .flash/flash_manifest.json
+                manifest_path = project_dir / ".flash" / "flash_manifest.json"
+
+                launch_preview(
+                    build_dir=build_dir,
+                    manifest_path=manifest_path,
+                )
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Preview stopped by user[/yellow]")
+            except Exception as e:
+                console.print(f"[red]Preview error:[/red] {e}")
+                logger.exception("Preview launch failed")
+                raise typer.Exit(1)
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Build cancelled by user[/yellow]")
@@ -1023,7 +1001,7 @@ def _display_build_config(
     excluded_packages: list[str],
 ):
     """Display build configuration."""
-    archive_name = output_name or "archive.tar.gz"
+    archive_name = output_name or "artifact.tar.gz"
 
     config_text = (
         f"[bold]Project:[/bold] {app_name}\n"

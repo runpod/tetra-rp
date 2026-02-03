@@ -270,7 +270,7 @@ def send_command(
     if not app_name:
         _, app_name = discover_flash_project()
 
-    build_path = Path(".flash/archive.tar.gz")
+    build_path = Path(".flash/artifact.tar.gz")
     if not build_path.exists():
         console.print(
             "no build path found in current directory. Build your project with flash build first"

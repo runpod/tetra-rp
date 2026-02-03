@@ -201,7 +201,6 @@ When using `LiveLoadBalancer` for local testing:
 ### Deployed Endpoints (LoadBalancerSlsResource)
 
 When deployed to production:
-- Generated handlers do NOT expose `/execute` endpoint (security)
 - Functions decorated with `@remote` are called via HTTP requests to their user-defined routes
 - The stub automatically translates `@remote` calls into HTTP requests with mapped parameters
 - Example: `await process_data(5, 3)` becomes `POST /api/process {"x": 5, "y": 3}`
@@ -256,32 +255,16 @@ When you run `flash build`, the system:
 
 1. **Scans** your code for `@remote` decorated functions
 2. **Extracts** HTTP routing metadata (method, path)
-3. **Generates** FastAPI application with routes
-4. **Creates** one handler file per LoadBalancerSlsResource
-5. **Validates** routes for conflicts and reserved paths
+3. **Creates** manifest with route registry
+4. **Validates** routes for conflicts and reserved paths
+5. **Packages** everything for deployment
 
-Example generated handler:
+The runtime then:
+- Loads the manifest and route registry
+- Creates a FastAPI application with the registered routes
+- Starts the server on port 8000
 
-```python
-from fastapi import FastAPI
-from tetra_rp.runtime.lb_handler import create_lb_handler
-
-# Imported from user code
-from api.endpoints import process_data, health_check
-
-# Route registry built automatically
-ROUTE_REGISTRY = {
-    ("POST", "/api/process"): process_data,
-    ("GET", "/api/health"): health_check,
-}
-
-# FastAPI app created with routes
-app = create_lb_handler(ROUTE_REGISTRY)
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-```
+Your `@remote` decorated functions are discovered and registered automatically based on their HTTP method and path parameters.
 
 ### Deployment Workflow
 
@@ -494,7 +477,7 @@ async def test_delete_user():
 ### Build Errors
 
 **"Cannot import module 'user_service'"**
-- Problem: Function module not found during handler generation
+- Problem: Function module not found at runtime
 - Solution: Ensure module is in Python path, check import statements
 
 **"Function 'process_data' not found in executed code"**

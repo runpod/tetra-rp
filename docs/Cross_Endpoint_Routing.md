@@ -36,14 +36,12 @@ Create a `flash_manifest.json` in your project root:
   "resources": {
     "image-processor": {
       "resource_type": "ServerlessEndpoint",
-      "handler_file": "handlers/image.py",
       "functions": [
         {"name": "process_image", "module": "processors.image", "is_async": true}
       ]
     },
     "report-generator": {
       "resource_type": "ServerlessEndpoint",
-      "handler_file": "handlers/report.py",
       "functions": [
         {"name": "generate_report", "module": "processors.report", "is_async": true}
       ]
@@ -128,7 +126,6 @@ The manifest file (`flash_manifest.json`) defines function routing and resource 
   "resources": {
     "resource_config_name": {
       "resource_type": "ServerlessEndpoint",
-      "handler_file": "handlers/module.py",
       "functions": [
         {"name": "function_name", "module": "path.to.module", "is_async": true}
       ]
@@ -515,7 +512,6 @@ class ServiceRegistry:
   "resources": {
     "resource_config_name": {
       "resource_type": "ServerlessEndpoint",
-      "handler_file": "handler.py",
       "functions": [...]
     }
   }

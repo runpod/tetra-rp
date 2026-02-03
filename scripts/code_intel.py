@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Code intelligence query interface for runpod-flash framework.
+"""Code intelligence query interface for tetra-rp framework.
 
 Fast symbol lookup for exploring framework codebase. Reduces token usage by ~85%
-when exploring runpod-flash framework structure with Claude Code.
+when exploring tetra-rp framework structure with Claude Code.
 
 Usage:
     uv run python scripts/code_intel.py find <symbol>
@@ -21,7 +21,7 @@ from rich.table import Table
 
 app = typer.Typer(
     name="code-intel",
-    help="Query runpod-flash code intelligence index",
+    help="Query tetra-rp code intelligence index",
     no_args_is_help=True,
 )
 console = Console()

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import cloudpickle
 
-from runpod_flash import remote, LiveLoadBalancer, LoadBalancerSlsResource
+from tetra_rp import remote, LiveLoadBalancer, LoadBalancerSlsResource
 
 
 class TestRemoteWithLoadBalancerIntegration:
@@ -62,7 +62,7 @@ class TestRemoteWithLoadBalancerIntegration:
     @pytest.mark.asyncio
     async def test_remote_function_serialization_roundtrip(self):
         """Test that function code and args serialize/deserialize correctly."""
-        from runpod_flash.stubs.load_balancer_sls import LoadBalancerSlsStub
+        from tetra_rp.stubs.load_balancer_sls import LoadBalancerSlsStub
 
         mock_resource = MagicMock()
         stub = LoadBalancerSlsStub(mock_resource)
@@ -88,7 +88,7 @@ class TestRemoteWithLoadBalancerIntegration:
     @pytest.mark.asyncio
     async def test_stub_response_deserialization(self):
         """Test that response deserialization works correctly."""
-        from runpod_flash.stubs.load_balancer_sls import LoadBalancerSlsStub
+        from tetra_rp.stubs.load_balancer_sls import LoadBalancerSlsStub
 
         mock_resource = MagicMock()
         stub = LoadBalancerSlsStub(mock_resource)
@@ -114,7 +114,7 @@ class TestRemoteWithLoadBalancerIntegration:
         # Verify resource is correctly configured
         # Note: name may have "-fb" appended by flash boot validator
         assert "test-live-api" in lb.name
-        assert "flash-lb" in lb.imageName
+        assert "tetra-rp-lb" in lb.imageName
         assert echo.__remote_config__["method"] == "POST"
 
     def test_live_load_balancer_image_locked(self):
@@ -123,7 +123,7 @@ class TestRemoteWithLoadBalancerIntegration:
 
         # Verify image is locked and cannot be overridden
         original_image = lb.imageName
-        assert "flash-lb" in original_image
+        assert "tetra-rp-lb" in original_image
 
         # Try to set a different image (should be ignored due to property)
         lb.imageName = "custom-image:latest"
@@ -133,7 +133,7 @@ class TestRemoteWithLoadBalancerIntegration:
 
     def test_load_balancer_vs_queue_based_endpoints(self):
         """Test that LB and QB endpoints have different characteristics."""
-        from runpod_flash import ServerlessEndpoint
+        from tetra_rp import ServerlessEndpoint
 
         lb = LoadBalancerSlsResource(name="lb-api", imageName="test:latest")
         qb = ServerlessEndpoint(name="qb-api", imageName="test:latest")
@@ -158,123 +158,15 @@ class TestRemoteWithLoadBalancerIntegration:
         assert qb_func.__remote_config__["method"] is None
         assert qb_func.__remote_config__["path"] is None
 
-    def test_live_load_balancer_handler_includes_execute_endpoint(self):
-        """Test that generated handler for LiveLoadBalancer includes /execute endpoint."""
-        from runpod_flash.cli.commands.build_utils.lb_handler_generator import (
-            LBHandlerGenerator,
-        )
-        from datetime import datetime, timezone
-        from pathlib import Path
-        import tempfile
-
-        # Create a manifest for LiveLoadBalancer
-        manifest = {
-            "version": "1.0",
-            "generated_at": datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
-            "project_name": "test-project",
-            "resources": {
-                "test-api": {
-                    "resource_type": "LiveLoadBalancer",
-                    "handler_file": "handler_test_api.py",
-                    "is_load_balanced": True,
-                    "is_live_resource": True,
-                    "functions": [
-                        {
-                            "name": "process_data",
-                            "module": "api.endpoints",
-                            "is_async": True,
-                            "is_class": False,
-                            "is_load_balanced": True,
-                            "is_live_resource": True,
-                            "http_method": "POST",
-                            "http_path": "/api/process",
-                        }
-                    ],
-                }
-            },
-        }
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            build_dir = Path(tmpdir)
-            generator = LBHandlerGenerator(manifest, build_dir)
-            handlers = generator.generate_handlers()
-
-            assert len(handlers) == 1
-            handler_path = handlers[0]
-            handler_code = handler_path.read_text()
-
-            # Verify the handler includes include_execute=True for LiveLoadBalancer
-            assert "include_execute=True" in handler_code
-            assert (
-                "create_lb_handler(ROUTE_REGISTRY, include_execute=True, lifespan=lifespan)"
-                in handler_code
-            )
-
-    def test_deployed_load_balancer_handler_excludes_execute_endpoint(self):
-        """Test that generated handler for deployed LoadBalancerSlsResource excludes /execute endpoint."""
-        from runpod_flash.cli.commands.build_utils.lb_handler_generator import (
-            LBHandlerGenerator,
-        )
-        from datetime import datetime, timezone
-        from pathlib import Path
-        import tempfile
-
-        # Create a manifest for deployed LoadBalancerSlsResource
-        manifest = {
-            "version": "1.0",
-            "generated_at": datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
-            "project_name": "test-project",
-            "resources": {
-                "api-service": {
-                    "resource_type": "LoadBalancerSlsResource",
-                    "handler_file": "handler_api_service.py",
-                    "is_load_balanced": True,
-                    "is_live_resource": False,
-                    "functions": [
-                        {
-                            "name": "process_data",
-                            "module": "api.endpoints",
-                            "is_async": True,
-                            "is_class": False,
-                            "is_load_balanced": True,
-                            "is_live_resource": False,
-                            "http_method": "POST",
-                            "http_path": "/api/process",
-                        }
-                    ],
-                }
-            },
-        }
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            build_dir = Path(tmpdir)
-            generator = LBHandlerGenerator(manifest, build_dir)
-            handlers = generator.generate_handlers()
-
-            assert len(handlers) == 1
-            handler_path = handlers[0]
-            handler_code = handler_path.read_text()
-
-            # Verify the handler includes include_execute=False for deployed endpoints
-            assert "include_execute=False" in handler_code
-            assert (
-                "create_lb_handler(ROUTE_REGISTRY, include_execute=False, lifespan=lifespan)"
-                in handler_code
-            )
-
     def test_scanner_discovers_load_balancer_resources(self):
         """Test that scanner can discover LiveLoadBalancer and LoadBalancerSlsResource."""
-        from runpod_flash.cli.commands.build_utils.scanner import RemoteDecoratorScanner
+        from tetra_rp.cli.commands.build_utils.scanner import RemoteDecoratorScanner
         from pathlib import Path
         import tempfile
 
         # Create temporary Python file with LoadBalancer resource
         code = """
-from runpod_flash import LiveLoadBalancer, LoadBalancerSlsResource, remote
+from tetra_rp import LiveLoadBalancer, LoadBalancerSlsResource, remote
 
 # Test LiveLoadBalancer discovery
 api = LiveLoadBalancer(name="test-api")
@@ -312,60 +204,3 @@ def get_status():
             assert scanner.resource_types["test-api"] == "LiveLoadBalancer"
             assert "deployed-api" in scanner.resource_types
             assert scanner.resource_types["deployed-api"] == "LoadBalancerSlsResource"
-
-    def test_handler_generation_with_numeric_module_paths(self):
-        """Test that LB handlers use importlib for numeric module paths."""
-        from runpod_flash.cli.commands.build_utils.lb_handler_generator import (
-            LBHandlerGenerator,
-        )
-        from datetime import datetime, timezone
-        from pathlib import Path
-        import tempfile
-
-        # Create a manifest with numeric module paths
-        manifest = {
-            "version": "1.0",
-            "generated_at": datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
-            "project_name": "test-project",
-            "resources": {
-                "test-api": {
-                    "resource_type": "LoadBalancerSlsResource",
-                    "handler_file": "handler_test_api.py",
-                    "is_load_balanced": True,
-                    "is_live_resource": False,
-                    "functions": [
-                        {
-                            "name": "gpu_health",
-                            "module": "03_advanced_workers.05_load_balancer.workers.gpu.endpoint",
-                            "is_async": True,
-                            "is_class": False,
-                            "is_load_balanced": True,
-                            "is_live_resource": False,
-                            "http_method": "GET",
-                            "http_path": "/health",
-                        }
-                    ],
-                }
-            },
-        }
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            build_dir = Path(tmpdir)
-            generator = LBHandlerGenerator(manifest, build_dir)
-            handlers = generator.generate_handlers()
-
-            assert len(handlers) == 1
-            handler_path = handlers[0]
-            handler_code = handler_path.read_text()
-
-            # Verify importlib pattern is used
-            assert "import importlib" in handler_code
-            assert (
-                "gpu_health = importlib.import_module('03_advanced_workers.05_load_balancer.workers.gpu.endpoint').gpu_health"
-                in handler_code
-            )
-
-            # Verify no invalid from syntax
-            assert "from 03_advanced_workers" not in handler_code

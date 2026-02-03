@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MCP server for runpod-flash code intelligence.
+"""MCP server for tetra-rp code intelligence.
 
 Provides tools for querying the SQLite code intelligence database.
 Claude Code automatically discovers and uses these tools.
@@ -23,11 +23,6 @@ CODE_INTEL_DIR = Path.cwd() / ".code-intel"
 DB_PATH = CODE_INTEL_DIR / "flash.db"
 INDEXER_SCRIPT = Path.cwd() / "scripts" / "ast_to_sqlite.py"
 SRC_DIR = Path.cwd() / "src"
-
-# Query result limits
-MAX_SYMBOL_RESULTS = 50
-MAX_CLASS_RESULTS = 100
-MAX_DECORATOR_RESULTS = 100
 
 # Query result limits
 MAX_SYMBOL_RESULTS = 50
@@ -236,7 +231,7 @@ async def list_tools() -> list[types.Tool]:
     return [
         types.Tool(
             name="find_symbol",
-            description="Search for a symbol (class, function, method) by name in the runpod-flash framework. "
+            description="Search for a symbol (class, function, method) by name in the tetra-rp framework. "
             "Returns symbol name, kind, signature, file location, and docstring. "
             "Use this instead of reading full files when exploring code structure.",
             inputSchema={
@@ -252,7 +247,7 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="list_classes",
-            description="List all classes in the runpod-flash framework with their signatures and locations. "
+            description="List all classes in the tetra-rp framework with their signatures and locations. "
             "Use this to understand the framework's class hierarchy without reading files.",
             inputSchema={"type": "object", "properties": {}},
         ),
@@ -409,7 +404,7 @@ async def handle_call_tool(
         results = cursor.fetchall()
         conn.close()
 
-        output = f"# Classes in runpod-flash Framework ({len(results)} found)\n\n"
+        output = f"# Classes in tetra-rp Framework ({len(results)} found)\n\n"
         current_file = None
         for row in results:
             file_path, name_val, sig, line, docstring = (

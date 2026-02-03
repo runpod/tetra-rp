@@ -44,7 +44,7 @@ Before you can use Flash, you'll need:
 ### Step 1: Install Flash
 
 ```bash
-pip install runpod-flash
+pip install tetra_rp
 ```
 
 ### Step 2: Set your API key
@@ -67,7 +67,7 @@ Add the following code to a new Python file:
 
 ```python
 import asyncio
-from runpod_flash import remote, LiveServerless
+from tetra_rp import remote, LiveServerless
 from dotenv import load_dotenv
 
 # Uncomment if using a .env file
@@ -291,7 +291,7 @@ async def main():
 Flash provides fine-grained control over hardware allocation through configuration objects:
 
 ```python
-from runpod_flash import LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
+from tetra_rp import LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
 
 # GPU configuration
 gpu_config = LiveServerless(
@@ -345,7 +345,7 @@ results = await asyncio.gather(
 For API endpoints requiring low-latency HTTP access with direct routing, use load-balanced endpoints:
 
 ```python
-from runpod_flash import LiveLoadBalancer, remote
+from tetra_rp import LiveLoadBalancer, remote
 
 api = LiveLoadBalancer(name="api-service")
 
@@ -394,7 +394,7 @@ Flash orchestrates workflow execution through a sophisticated multi-step process
 `LiveServerless` resources use a fixed Docker image that's optimized for Flash runtime, and supports full remote code execution. For specialized environments that require a custom Docker image, use `ServerlessEndpoint` or `CpuServerlessEndpoint`:
 
 ```python
-from runpod_flash import ServerlessEndpoint
+from tetra_rp import ServerlessEndpoint
 
 custom_gpu = ServerlessEndpoint(
     name="custom-ml-env",
@@ -430,9 +430,9 @@ config = LiveServerless(
 
 Environment variables are excluded from configuration hashing, which means changing environment values won't trigger endpoint recreation. This allows different processes to load environment variables from `.env` files without causing false drift detection. Only structural changes (like GPU type, image, or template modifications) trigger endpoint updates.
 
-### Build Process and Handler Generation
+### Build Process
 
-Flash uses a sophisticated build process to package your application for deployment. Understanding how handlers are generated helps you debug issues and optimize your deployments.
+Flash uses a sophisticated build process to package your application for deployment.
 
 #### How Flash Builds Your Application
 
@@ -440,10 +440,9 @@ When you run `flash build`, the following happens:
 
 1. **Discovery**: Flash scans your code for `@remote` decorated functions
 2. **Grouping**: Functions are grouped by their `resource_config`
-3. **Handler Generation**: For each resource config, Flash generates a lightweight handler file
-4. **Manifest Creation**: A `flash_manifest.json` file maps functions to their endpoints
-5. **Dependency Installation**: Python packages are installed with Linux x86_64 compatibility
-6. **Packaging**: Everything is bundled into `archive.tar.gz` for deployment
+3. **Manifest Creation**: A `flash_manifest.json` file maps functions to their endpoints
+4. **Dependency Installation**: Python packages are installed with Linux x86_64 compatibility
+5. **Packaging**: Everything is bundled into `artifact.tar.gz` for deployment
 
 #### Cross-Platform Builds
 
@@ -454,26 +453,6 @@ Flash automatically handles cross-platform builds, ensuring your deployments wor
 - **Binary Wheel Enforcement**: Only pre-built binary wheels are used, preventing platform-specific compilation issues
 
 This means you can build on macOS ARM64, Windows, or any other platform, and the resulting package will run correctly on RunPod serverless.
-
-#### Handler Architecture
-
-Flash uses a factory pattern for handlers to eliminate code duplication:
-
-```python
-# Generated handler (handler_gpu_config.py)
-from runpod_flash.runtime.generic_handler import create_handler
-from workers.gpu import process_data
-
-FUNCTION_REGISTRY = {
-    "process_data": process_data,
-}
-
-handler = create_handler(FUNCTION_REGISTRY)
-```
-
-This approach provides:
-- **Single source of truth**: All handler logic in one place
-- **Easier maintenance**: Bug fixes don't require rebuilding projects
 
 #### Cross-Endpoint Function Calls
 
@@ -499,10 +478,8 @@ The runtime wrapper handles service discovery and routing automatically.
 
 After `flash build` completes:
 - `.flash/.build/`: Temporary build directory (removed unless `--keep-build`)
-- `.flash/archive.tar.gz`: Deployment package
+- `.flash/artifact.tar.gz`: Deployment package
 - `.flash/flash_manifest.json`: Service discovery configuration
-
-For more details on the handler architecture, see [docs/Runtime_Generic_Handler.md](docs/Runtime_Generic_Handler.md).
 
 For information on load-balanced endpoints (required for Mothership and HTTP services), see [docs/Load_Balancer_Endpoints.md](docs/Load_Balancer_Endpoints.md).
 
@@ -512,12 +489,6 @@ For information on load-balanced endpoints (required for Mothership and HTTP ser
 - Ensure your functions are decorated with `@remote(resource_config)`
 - Check that Python files are not excluded by `.gitignore` or `.flashignore`
 - Verify function decorators have valid syntax
-
-**Handler generation failed:**
-- Check for syntax errors in your Python files (these will be logged)
-- Verify all imports in your worker modules are available
-- Ensure resource config variables (e.g., `gpu_config`) are defined before functions reference them
-- Use `--keep-build` to inspect generated handler files in `.flash/.build/`
 
 **Build succeeded but deployment failed:**
 - Verify all function imports work in the deployment environment
@@ -624,7 +595,7 @@ Some common GPU groups available through `GpuGroup`:
 
 ```python
 import asyncio
-from runpod_flash import remote, LiveServerless
+from tetra_rp import remote, LiveServerless
 
 # Simple GPU configuration
 gpu_config = LiveServerless(name="example-gpu-server")
@@ -663,7 +634,7 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from runpod_flash import remote, LiveServerless, GpuGroup, PodTemplate
+from tetra_rp import remote, LiveServerless, GpuGroup, PodTemplate
 import base64
 
 # Advanced GPU configuration with consolidated template overrides
@@ -718,7 +689,7 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from runpod_flash import remote, LiveServerless, CpuInstanceType
+from tetra_rp import remote, LiveServerless, CpuInstanceType
 
 # Simple CPU configuration
 cpu_config = LiveServerless(
@@ -766,7 +737,7 @@ if __name__ == "__main__":
 ```python
 import asyncio
 import base64
-from runpod_flash import remote, LiveServerless, CpuInstanceType, PodTemplate
+from tetra_rp import remote, LiveServerless, CpuInstanceType, PodTemplate
 
 # Advanced CPU configuration with template overrides
 data_processing_config = LiveServerless(
@@ -843,7 +814,7 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from runpod_flash import remote, LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
+from tetra_rp import remote, LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
 
 # GPU configuration for model inference
 gpu_config = LiveServerless(
@@ -958,7 +929,7 @@ if __name__ == "__main__":
 ```python
 import os
 import asyncio
-from runpod_flash import remote, LiveServerless
+from tetra_rp import remote, LiveServerless
 
 # Configure Runpod resources
 runpod_config = LiveServerless(name="multi-stage-pipeline-server")
@@ -1117,6 +1088,6 @@ def fetch_data(url):
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 <p align="center">
-  <a href="https://github.com/runpod/runpod-flash">Flash</a> •
+  <a href="https://github.com/runpod/tetra-rp">Flash</a> •
   <a href="https://runpod.io">Runpod</a>
 </p>
