@@ -90,7 +90,7 @@ Remove inactive endpoints from tracking without API deletion:
 flash undeploy --cleanup-stale
 ```
 
-**Use case:** When endpoints are deleted via RunPod UI or API (not through Tetra), the tracking file becomes stale. This command identifies and removes those orphaned entries.
+**Use case:** When endpoints are deleted via RunPod UI or API (not through Flash), the tracking file becomes stale. This command identifies and removes those orphaned entries.
 
 **Behavior:**
 1. Checks health status of all tracked endpoints
@@ -243,4 +243,4 @@ flash undeploy list
 
 - [Flash CLI Overview](./README.md)
 - [RunPod Serverless Documentation](https://docs.runpod.io/serverless/overview)
-- [Tetra Documentation](../../../README.md)
+- [Flash Documentation](../../../README.md)

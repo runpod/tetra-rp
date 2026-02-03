@@ -1,9 +1,9 @@
-# Tetra-rp Framework Explorer Skill
+# Flash Framework Explorer Skill
 
 ## When to Use
 
 Use this skill when:
-- Exploring the tetra-rp framework codebase
+- Exploring the runpod-flash framework codebase
 - Understanding class hierarchies and relationships
 - Finding where methods or classes are defined
 - Checking what decorators are used in the codebase
@@ -74,7 +74,7 @@ After running tests (`make test-unit`, `make test`, `pytest`), **ALWAYS use `par
 3. Only read the full file if you need implementation details
 
 **Bad - Reading files directly:**
-1. Read entire `src/tetra_rp/core/resources/serverless.py` (500+ tokens)
+1. Read entire `src/runpod_flash/core/resources/serverless.py` (500+ tokens)
 2. Search manually for ServerlessEndpoint
 
 **Good - Parse test output:**

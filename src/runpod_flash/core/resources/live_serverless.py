@@ -72,7 +72,7 @@ class LiveLoadBalancer(LiveServerlessMixin, LoadBalancerSlsResource):
     before deploying to production.
 
     Features:
-    - Locks to Tetra LB image (tetra-rp-lb)
+    - Locks to Flash LB image (flash-lb)
     - Direct HTTP execution (not queue-based)
     - Local development with flash run
     - Same @remote decorator pattern as LoadBalancerSlsResource
@@ -121,7 +121,7 @@ class CpuLiveLoadBalancer(LiveServerlessMixin, CpuLoadBalancerSlsResource):
     automatic disk sizing and validation.
 
     Features:
-    - Locks to CPU Tetra LB image (tetra-rp-lb-cpu)
+    - Locks to CPU Flash LB image (flash-lb-cpu)
     - CPU instance support with automatic disk sizing
     - Direct HTTP execution (not queue-based)
     - Local development with flash run

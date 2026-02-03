@@ -149,7 +149,7 @@ async def test():
 ```
 
 **Key differences:**
-- `LiveLoadBalancer` locks image to Tetra LB runtime (runpod-flash-lb)
+- `LiveLoadBalancer` locks image to Flash LB runtime (runpod/flash-lb)
 - Functions execute directly without deployment
 - Ideal for development and CI/CD testing
 - Same `@remote` decorator interface as production
@@ -508,7 +508,7 @@ See `docs/Load_Balancer_Endpoints.md` for detailed architecture and configuratio
 ### LiveLoadBalancer
 
 A test/development variant of LoadBalancerSlsResource:
-- Locks to Tetra LB image
+- Locks to Flash LB image
 - Enables direct function calls without deployment
 - Same decorator interface as production
 

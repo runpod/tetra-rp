@@ -153,7 +153,7 @@ def test_env_var_override():
     """Test environment variable override in subprocess"""
     print(f"\n{BLUE}Test Suite 4: Environment Variable Override{END}")
 
-    # Test with TETRA_IMAGE_TAG=dev in subprocess
+    # Test with FLASH_IMAGE_TAG=dev in subprocess
     result = subprocess.run(
         [
             sys.executable,
@@ -169,7 +169,7 @@ from runpod_flash.core.resources.constants import (
 )
 
 assert FLASH_IMAGE_TAG == "dev", f"Expected dev, got {FLASH_IMAGE_TAG}"
-assert FLASH_CPU_LB_IMAGE == "runpod/tetra-rp-lb-cpu:dev", f"Got {FLASH_CPU_LB_IMAGE}"
+assert FLASH_CPU_LB_IMAGE == "runpod/flash-lb-cpu:dev", f"Got {FLASH_CPU_LB_IMAGE}"
 print(f"OK:{FLASH_CPU_LB_IMAGE}")
 """,
         ],
@@ -203,8 +203,8 @@ def test_no_hardcoded_values():
     content = manifest_file.read_text()
 
     hardcoded_patterns = [
-        "runpod/tetra-rp-lb-cpu:latest",
-        "runpod/tetra-rp-lb:latest",
+        "runpod/flash-lb-cpu:latest",
+        "runpod/flash-lb:latest",
         'imageName": "runpod/',
     ]
 

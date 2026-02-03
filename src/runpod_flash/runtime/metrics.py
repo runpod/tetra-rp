@@ -127,7 +127,7 @@ _collector: Optional[MetricsCollector] = None
 
 
 def get_metrics_collector(
-    namespace: str = "tetra.metrics", enabled: bool = True
+    namespace: str = "flash.metrics", enabled: bool = True
 ) -> MetricsCollector:
     """Get global metrics collector (lazy-loaded).
 

@@ -636,7 +636,7 @@ RunPod polls /ping every 30 seconds
 ```
 runpod-flash-lb:latest (default)
 - FastAPI + uvicorn pre-installed
-- Tetra runtime dependencies
+- Flash runtime dependencies
 - Optimized for LB endpoints
 
 Custom image:

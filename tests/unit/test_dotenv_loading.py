@@ -151,7 +151,7 @@ CUSTOM_TEST_VAR=file_value
                 elif "TEST_OVERRIDE_VAR" in os.environ:
                     del os.environ["TEST_OVERRIDE_VAR"]
 
-    def test_env_vars_available_after_tetra_import(self):
+    def test_env_vars_available_after_flash_import(self):
         """Test that env vars are available when runpod_flash modules are imported."""
 
         # Set up test environment variables
