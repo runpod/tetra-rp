@@ -47,38 +47,38 @@ def test_constants_exist():
     """Test that all constants are defined"""
     print(f"\n{BLUE}Test Suite 1: Constants Definition{END}")
 
-    from tetra_rp.core.resources.constants import (
-        TETRA_IMAGE_TAG,
-        TETRA_GPU_IMAGE,
-        TETRA_CPU_IMAGE,
-        TETRA_LB_IMAGE,
-        TETRA_CPU_LB_IMAGE,
+    from runpod_flash.core.resources.constants import (
+        FLASH_IMAGE_TAG,
+        FLASH_GPU_IMAGE,
+        FLASH_CPU_IMAGE,
+        FLASH_LB_IMAGE,
+        FLASH_CPU_LB_IMAGE,
         DEFAULT_WORKERS_MIN,
         DEFAULT_WORKERS_MAX,
     )
 
-    test("TETRA_IMAGE_TAG defined", TETRA_IMAGE_TAG is not None)
-    test("TETRA_GPU_IMAGE defined", TETRA_GPU_IMAGE is not None)
-    test("TETRA_CPU_IMAGE defined", TETRA_CPU_IMAGE is not None)
-    test("TETRA_LB_IMAGE defined", TETRA_LB_IMAGE is not None)
-    test("TETRA_CPU_LB_IMAGE defined", TETRA_CPU_LB_IMAGE is not None)
+    test("FLASH_IMAGE_TAG defined", FLASH_IMAGE_TAG is not None)
+    test("FLASH_GPU_IMAGE defined", FLASH_GPU_IMAGE is not None)
+    test("FLASH_CPU_IMAGE defined", FLASH_CPU_IMAGE is not None)
+    test("FLASH_LB_IMAGE defined", FLASH_LB_IMAGE is not None)
+    test("FLASH_CPU_LB_IMAGE defined", FLASH_CPU_LB_IMAGE is not None)
     test("DEFAULT_WORKERS_MIN is 1", DEFAULT_WORKERS_MIN == 1)
     test("DEFAULT_WORKERS_MAX is 3", DEFAULT_WORKERS_MAX == 3)
 
-    print(f"  Constants values (with TETRA_IMAGE_TAG={TETRA_IMAGE_TAG}):")
-    print(f"    TETRA_GPU_IMAGE: {TETRA_GPU_IMAGE}")
-    print(f"    TETRA_CPU_IMAGE: {TETRA_CPU_IMAGE}")
-    print(f"    TETRA_LB_IMAGE: {TETRA_LB_IMAGE}")
-    print(f"    TETRA_CPU_LB_IMAGE: {TETRA_CPU_LB_IMAGE}")
+    print(f"  Constants values (with FLASH_IMAGE_TAG={FLASH_IMAGE_TAG}):")
+    print(f"    FLASH_GPU_IMAGE: {FLASH_GPU_IMAGE}")
+    print(f"    FLASH_CPU_IMAGE: {FLASH_CPU_IMAGE}")
+    print(f"    FLASH_LB_IMAGE: {FLASH_LB_IMAGE}")
+    print(f"    FLASH_CPU_LB_IMAGE: {FLASH_CPU_LB_IMAGE}")
 
 
 def test_manifest_builder():
     """Test that manifest builder uses constants"""
     print(f"\n{BLUE}Test Suite 2: Manifest Builder Integration{END}")
 
-    from tetra_rp.cli.commands.build_utils.manifest import ManifestBuilder
-    from tetra_rp.core.resources.constants import (
-        TETRA_CPU_LB_IMAGE,
+    from runpod_flash.cli.commands.build_utils.manifest import ManifestBuilder
+    from runpod_flash.core.resources.constants import (
+        FLASH_CPU_LB_IMAGE,
         DEFAULT_WORKERS_MIN,
         DEFAULT_WORKERS_MAX,
     )
@@ -91,8 +91,8 @@ def test_manifest_builder():
     )
 
     test(
-        "Mothership uses TETRA_CPU_LB_IMAGE",
-        mothership["imageName"] == TETRA_CPU_LB_IMAGE,
+        "Mothership uses FLASH_CPU_LB_IMAGE",
+        mothership["imageName"] == FLASH_CPU_LB_IMAGE,
         f"Got {mothership['imageName']}",
     )
     test(
@@ -116,11 +116,11 @@ def test_live_serverless():
     """Test that LiveServerless uses constants"""
     print(f"\n{BLUE}Test Suite 3: LiveServerless Integration{END}")
 
-    from tetra_rp import LiveServerless, CpuLiveLoadBalancer, LiveLoadBalancer
-    from tetra_rp.core.resources.constants import (
-        TETRA_GPU_IMAGE,
-        TETRA_LB_IMAGE,
-        TETRA_CPU_LB_IMAGE,
+    from runpod_flash import LiveServerless, CpuLiveLoadBalancer, LiveLoadBalancer
+    from runpod_flash.core.resources.constants import (
+        FLASH_GPU_IMAGE,
+        FLASH_LB_IMAGE,
+        FLASH_CPU_LB_IMAGE,
     )
 
     gpu_ls = LiveServerless(name="test-gpu")
@@ -128,18 +128,18 @@ def test_live_serverless():
     cpu_lb = CpuLiveLoadBalancer(name="test-cpu-lb")
 
     test(
-        "LiveServerless uses TETRA_GPU_IMAGE",
-        gpu_ls.imageName == TETRA_GPU_IMAGE,
+        "LiveServerless uses FLASH_GPU_IMAGE",
+        gpu_ls.imageName == FLASH_GPU_IMAGE,
         f"Got {gpu_ls.imageName}",
     )
     test(
-        "LiveLoadBalancer uses TETRA_LB_IMAGE",
-        gpu_lb.imageName == TETRA_LB_IMAGE,
+        "LiveLoadBalancer uses FLASH_LB_IMAGE",
+        gpu_lb.imageName == FLASH_LB_IMAGE,
         f"Got {gpu_lb.imageName}",
     )
     test(
-        "CpuLiveLoadBalancer uses TETRA_CPU_LB_IMAGE",
-        cpu_lb.imageName == TETRA_CPU_LB_IMAGE,
+        "CpuLiveLoadBalancer uses FLASH_CPU_LB_IMAGE",
+        cpu_lb.imageName == FLASH_CPU_LB_IMAGE,
         f"Got {cpu_lb.imageName}",
     )
 
@@ -163,17 +163,17 @@ import sys
 import os
 sys.path.insert(0, 'src')
 
-from tetra_rp.core.resources.constants import (
-    TETRA_IMAGE_TAG,
-    TETRA_CPU_LB_IMAGE,
+from runpod_flash.core.resources.constants import (
+    FLASH_IMAGE_TAG,
+    FLASH_CPU_LB_IMAGE,
 )
 
-assert TETRA_IMAGE_TAG == "dev", f"Expected dev, got {TETRA_IMAGE_TAG}"
-assert TETRA_CPU_LB_IMAGE == "runpod/tetra-rp-lb-cpu:dev", f"Got {TETRA_CPU_LB_IMAGE}"
-print(f"OK:{TETRA_CPU_LB_IMAGE}")
+assert FLASH_IMAGE_TAG == "dev", f"Expected dev, got {FLASH_IMAGE_TAG}"
+assert FLASH_CPU_LB_IMAGE == "runpod/tetra-rp-lb-cpu:dev", f"Got {FLASH_CPU_LB_IMAGE}"
+print(f"OK:{FLASH_CPU_LB_IMAGE}")
 """,
         ],
-        env={**dict(os.environ), "TETRA_IMAGE_TAG": "dev"},
+        env={**dict(os.environ), "FLASH_IMAGE_TAG": "dev"},
         capture_output=True,
         text=True,
         cwd=Path(__file__).parent.parent,
@@ -181,15 +181,15 @@ print(f"OK:{TETRA_CPU_LB_IMAGE}")
 
     success = result.returncode == 0 and "OK:" in result.stdout
     test(
-        "TETRA_IMAGE_TAG=dev override works",
+        "FLASH_IMAGE_TAG=dev override works",
         success,
         result.stderr if not success else "",
     )
 
     if success:
         image = result.stdout.split("OK:")[1].strip()
-        print("  With TETRA_IMAGE_TAG=dev:")
-        print(f"    TETRA_CPU_LB_IMAGE: {image}")
+        print("  With FLASH_IMAGE_TAG=dev:")
+        print(f"    FLASH_CPU_LB_IMAGE: {image}")
 
 
 def test_no_hardcoded_values():
@@ -198,7 +198,7 @@ def test_no_hardcoded_values():
 
     manifest_file = (
         Path(__file__).parent.parent
-        / "src/tetra_rp/cli/commands/build_utils/manifest.py"
+        / "src/runpod_flash/cli/commands/build_utils/manifest.py"
     )
     content = manifest_file.read_text()
 
@@ -216,12 +216,12 @@ def test_no_hardcoded_values():
 
     # Check that manifest.py imports the constants
     test(
-        "Manifest imports TETRA_CPU_LB_IMAGE",
-        "TETRA_CPU_LB_IMAGE" in content,
+        "Manifest imports FLASH_CPU_LB_IMAGE",
+        "FLASH_CPU_LB_IMAGE" in content,
     )
     test(
-        "Manifest imports TETRA_LB_IMAGE",
-        "TETRA_LB_IMAGE" in content,
+        "Manifest imports FLASH_LB_IMAGE",
+        "FLASH_LB_IMAGE" in content,
     )
     test(
         "Manifest imports DEFAULT_WORKERS_MIN",
