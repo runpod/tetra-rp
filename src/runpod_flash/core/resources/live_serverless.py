@@ -78,7 +78,7 @@ class LiveLoadBalancer(LiveServerlessMixin, LoadBalancerSlsResource):
     - Same @remote decorator pattern as LoadBalancerSlsResource
 
     Usage:
-        from tetra_rp import LiveLoadBalancer, remote
+        from runpod_flash import LiveLoadBalancer, remote
 
         api = LiveLoadBalancer(name="api-service")
 
@@ -128,7 +128,7 @@ class CpuLiveLoadBalancer(LiveServerlessMixin, CpuLoadBalancerSlsResource):
     - Same @remote decorator pattern as CpuLoadBalancerSlsResource
 
     Usage:
-        from tetra_rp import CpuLiveLoadBalancer, remote
+        from runpod_flash import CpuLiveLoadBalancer, remote
 
         api = CpuLiveLoadBalancer(name="api-service")
 

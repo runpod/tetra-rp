@@ -1,5 +1,5 @@
 """
-Integration tests for tetra_rp remote class execution functionality.
+Integration tests for runpod_flash remote class execution functionality.
 
 These tests verify end-to-end functionality of remote class execution including:
 - Remote class decorator integration

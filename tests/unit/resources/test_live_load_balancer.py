@@ -6,12 +6,12 @@ import os
 
 import pytest
 
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.live_serverless import (
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.live_serverless import (
     CpuLiveLoadBalancer,
     LiveLoadBalancer,
 )
-from tetra_rp.core.resources.load_balancer_sls_resource import LoadBalancerSlsResource
+from runpod_flash.core.resources.load_balancer_sls_resource import LoadBalancerSlsResource
 
 
 class TestLiveLoadBalancer:
@@ -19,11 +19,11 @@ class TestLiveLoadBalancer:
 
     def test_live_load_balancer_creation_with_local_tag(self, monkeypatch):
         """Test LiveLoadBalancer creates with local image tag."""
-        monkeypatch.setenv("TETRA_IMAGE_TAG", "local")
+        monkeypatch.setenv("FLASH_IMAGE_TAG", "local")
         # Need to reload modules to pick up new env var
         import importlib
-        import tetra_rp.core.resources.constants as const_module
-        import tetra_rp.core.resources.live_serverless as ls_module
+        import runpod_flash.core.resources.constants as const_module
+        import runpod_flash.core.resources.live_serverless as ls_module
 
         importlib.reload(const_module)
         importlib.reload(ls_module)
@@ -37,7 +37,7 @@ class TestLiveLoadBalancer:
     def test_live_load_balancer_default_image_tag(self):
         """Test LiveLoadBalancer uses default image tag."""
         # Clear any custom tag
-        os.environ.pop("TETRA_IMAGE_TAG", None)
+        os.environ.pop("FLASH_IMAGE_TAG", None)
 
         lb = LiveLoadBalancer(name="test-lb")
 
@@ -185,11 +185,11 @@ class TestCpuLiveLoadBalancer:
 
     def test_cpu_live_load_balancer_creation_with_local_tag(self, monkeypatch):
         """Test CpuLiveLoadBalancer creates with local image tag."""
-        monkeypatch.setenv("TETRA_IMAGE_TAG", "local")
+        monkeypatch.setenv("FLASH_IMAGE_TAG", "local")
         # Need to reload modules to pick up new env var
         import importlib
-        import tetra_rp.core.resources.constants as const_module
-        import tetra_rp.core.resources.live_serverless as ls_module
+        import runpod_flash.core.resources.constants as const_module
+        import runpod_flash.core.resources.live_serverless as ls_module
 
         importlib.reload(const_module)
         importlib.reload(ls_module)
@@ -203,7 +203,7 @@ class TestCpuLiveLoadBalancer:
     def test_cpu_live_load_balancer_default_image_tag(self):
         """Test CpuLiveLoadBalancer uses default CPU LB image tag."""
         # Clear any custom tag
-        os.environ.pop("TETRA_IMAGE_TAG", None)
+        os.environ.pop("FLASH_IMAGE_TAG", None)
 
         lb = CpuLiveLoadBalancer(name="test-lb")
 

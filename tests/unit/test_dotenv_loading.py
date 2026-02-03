@@ -152,7 +152,7 @@ CUSTOM_TEST_VAR=file_value
                     del os.environ["TEST_OVERRIDE_VAR"]
 
     def test_env_vars_available_after_tetra_import(self):
-        """Test that env vars are available when tetra_rp modules are imported."""
+        """Test that env vars are available when runpod_flash modules are imported."""
 
         # Set up test environment variables
         test_env_vars = {
@@ -168,14 +168,14 @@ CUSTOM_TEST_VAR=file_value
             os.environ[var] = value
 
         try:
-            # Remove tetra_rp from sys.modules to force fresh import
+            # Remove runpod_flash from sys.modules to force fresh import
             modules_to_remove = [
-                name for name in sys.modules.keys() if name.startswith("tetra_rp")
+                name for name in sys.modules.keys() if name.startswith("runpod_flash")
             ]
             for module_name in modules_to_remove:
                 del sys.modules[module_name]
 
-            # Import tetra_rp (this will trigger __init__.py and load_dotenv())
+            # Import runpod_flash (this will trigger __init__.py and load_dotenv())
 
             # Clear any cached modules to ensure fresh import with new env vars
             modules_to_clear = [
