@@ -171,10 +171,10 @@ EOF
 
 ```bash
 # Verify no hardcoded image names in manifest.py
-grep -n "runpod/runpod-flash-lb" src/tetra_rp/cli/commands/build_utils/manifest.py || echo "✓ No hardcoded images found"
+grep -n "runpod/runpod-flash-lb" src/runpod_flash/cli/commands/build_utils/manifest.py || echo "✓ No hardcoded images found"
 
 # Verify constants are imported
-grep "FLASH_CPU_LB_IMAGE\|FLASH_LB_IMAGE\|DEFAULT_WORKERS" src/tetra_rp/cli/commands/build_utils/manifest.py
+grep "FLASH_CPU_LB_IMAGE\|FLASH_LB_IMAGE\|DEFAULT_WORKERS" src/runpod_flash/cli/commands/build_utils/manifest.py
 ```
 
 ### Test 7: Unit Tests Pass
@@ -242,10 +242,10 @@ export FLASH_CPU_LB_IMAGE=my-registry/runpod-flash-lb-cpu:custom
 
 ## Files Modified
 
-- `src/tetra_rp/cli/commands/build_utils/manifest.py` - Uses constants
-- `src/tetra_rp/cli/commands/test_mothership.py` - Uses constants
-- `src/tetra_rp/core/resources/constants.py` - Centralizes constants
-- `src/tetra_rp/core/resources/live_serverless.py` - Imports from constants
+- `src/runpod_flash/cli/commands/build_utils/manifest.py` - Uses constants
+- `src/runpod_flash/cli/commands/test_mothership.py` - Uses constants
+- `src/runpod_flash/core/resources/constants.py` - Centralizes constants
+- `src/runpod_flash/core/resources/live_serverless.py` - Imports from constants
 - `tests/unit/cli/commands/build_utils/test_manifest_mothership.py` - Updated tests
 
 ## Related Documentation
@@ -291,7 +291,7 @@ unset FLASH_IMAGE_TAG FLASH_CPU_LB_IMAGE FLASH_LB_IMAGE
 
 Verify imports in manifest.py:
 ```bash
-grep "from runpod_flash.core.resources.constants import" src/tetra_rp/cli/commands/build_utils/manifest.py
+grep "from runpod_flash.core.resources.constants import" src/runpod_flash/cli/commands/build_utils/manifest.py
 ```
 
 ## Summary

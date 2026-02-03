@@ -4,16 +4,16 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "tetra-code-intel"
+    "flash-code-intel"
   ],
   "permissions": {
     "allow": [
-      "mcp__tetra-code-intel__find_by_decorator",
-      "mcp__tetra-code-intel__find_symbol",
-      "mcp__tetra-code-intel__get_class_interface",
-      "mcp__tetra-code-intel__list_classes",
-      "mcp__tetra-code-intel__list_file_symbols",
-      "mcp__tetra-code-intel__parse_test_output",
+      "mcp__flash-code-intel__find_by_decorator",
+      "mcp__flash-code-intel__find_symbol",
+      "mcp__flash-code-intel__get_class_interface",
+      "mcp__flash-code-intel__list_classes",
+      "mcp__flash-code-intel__list_file_symbols",
+      "mcp__flash-code-intel__parse_test_output",
       "Bash(./scripts/validate-wheel.sh:*)",
       "Bash(git diff:*)",
       "Bash(git fetch:*)",
