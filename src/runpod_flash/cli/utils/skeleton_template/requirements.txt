@@ -1,1 +1,1 @@
-tetra_rp
+runpod-flash
