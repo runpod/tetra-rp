@@ -44,7 +44,7 @@ Before you can use Flash, you'll need:
 ### Step 1: Install Flash
 
 ```bash
-pip install tetra_rp
+pip install runpod-flash
 ```
 
 ### Step 2: Set your API key
@@ -67,7 +67,7 @@ Add the following code to a new Python file:
 
 ```python
 import asyncio
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 from dotenv import load_dotenv
 
 # Uncomment if using a .env file
@@ -291,7 +291,7 @@ async def main():
 Flash provides fine-grained control over hardware allocation through configuration objects:
 
 ```python
-from tetra_rp import LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
+from runpod_flash import LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
 
 # GPU configuration
 gpu_config = LiveServerless(
@@ -345,7 +345,7 @@ results = await asyncio.gather(
 For API endpoints requiring low-latency HTTP access with direct routing, use load-balanced endpoints:
 
 ```python
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 api = LiveLoadBalancer(name="api-service")
 
@@ -394,7 +394,7 @@ Flash orchestrates workflow execution through a sophisticated multi-step process
 `LiveServerless` resources use a fixed Docker image that's optimized for Flash runtime, and supports full remote code execution. For specialized environments that require a custom Docker image, use `ServerlessEndpoint` or `CpuServerlessEndpoint`:
 
 ```python
-from tetra_rp import ServerlessEndpoint
+from runpod_flash import ServerlessEndpoint
 
 custom_gpu = ServerlessEndpoint(
     name="custom-ml-env",
@@ -595,7 +595,7 @@ Some common GPU groups available through `GpuGroup`:
 
 ```python
 import asyncio
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 
 # Simple GPU configuration
 gpu_config = LiveServerless(name="example-gpu-server")
@@ -634,7 +634,7 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from tetra_rp import remote, LiveServerless, GpuGroup, PodTemplate
+from runpod_flash import remote, LiveServerless, GpuGroup, PodTemplate
 import base64
 
 # Advanced GPU configuration with consolidated template overrides
@@ -689,7 +689,7 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from tetra_rp import remote, LiveServerless, CpuInstanceType
+from runpod_flash import remote, LiveServerless, CpuInstanceType
 
 # Simple CPU configuration
 cpu_config = LiveServerless(
@@ -737,7 +737,7 @@ if __name__ == "__main__":
 ```python
 import asyncio
 import base64
-from tetra_rp import remote, LiveServerless, CpuInstanceType, PodTemplate
+from runpod_flash import remote, LiveServerless, CpuInstanceType, PodTemplate
 
 # Advanced CPU configuration with template overrides
 data_processing_config = LiveServerless(
@@ -814,7 +814,7 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from tetra_rp import remote, LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
+from runpod_flash import remote, LiveServerless, GpuGroup, CpuInstanceType, PodTemplate
 
 # GPU configuration for model inference
 gpu_config = LiveServerless(
@@ -929,7 +929,7 @@ if __name__ == "__main__":
 ```python
 import os
 import asyncio
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 
 # Configure Runpod resources
 runpod_config = LiveServerless(name="multi-stage-pipeline-server")
@@ -1088,6 +1088,6 @@ def fetch_data(url):
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 <p align="center">
-  <a href="https://github.com/runpod/tetra-rp">Flash</a> •
+  <a href="https://github.com/runpod/runpod-flash">Flash</a> •
   <a href="https://runpod.io">Runpod</a>
 </p>

@@ -1,4 +1,4 @@
-# Contributing to tetra-rp
+# Contributing to runpod-flash
 
 ## Development Setup
 
@@ -12,8 +12,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/tetra-rp.git
-cd tetra-rp
+git clone https://github.com/your-org/runpod-flash.git
+cd runpod-flash
 
 # Install dependencies and package in editable mode
 make dev
@@ -310,7 +310,7 @@ When reviewing code, consider:
 
 ## Getting Help
 
-- Check existing [Issues](https://github.com/your-org/tetra-rp/issues)
+- Check existing [Issues](https://github.com/your-org/runpod-flash/issues)
 - Review [README.md](README.md) for usage examples
 - See [TESTING.md](TESTING.md) for testing details
 - See [RELEASE_SYSTEM.md](RELEASE_SYSTEM.md) for release process

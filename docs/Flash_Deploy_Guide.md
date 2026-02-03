@@ -1142,10 +1142,10 @@ docker run -it \
   -e FLASH_IS_MOTHERSHIP=true \
   -e RUNPOD_API_KEY=$RUNPOD_API_KEY \
   -v $(pwd)/.flash:/workspace/.flash \
-  tetra-rp:latest
+  runpod-flash:latest
 
 # Run provisioner
-python -m tetra_rp.runtime.mothership_provisioner
+python -m runpod_flash.runtime.mothership_provisioner
 ```
 
 ### Debugging Tips
@@ -1163,7 +1163,7 @@ python -c "import json; print(json.dumps(json.load(open('flash_manifest.json')),
 
 **Check Local Resources**:
 ```python
-from tetra_rp.core.resources.resource_manager import ResourceManager
+from runpod_flash.core.resources.resource_manager import ResourceManager
 rm = ResourceManager()
 print(rm._resources)
 print(rm._resource_configs)
@@ -1173,7 +1173,7 @@ print(rm._resource_configs)
 ```python
 # Add logging to ServiceRegistry
 import logging
-logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
+logging.getLogger("runpod_flash.runtime.service_registry").setLevel(logging.DEBUG)
 ```
 
 ---

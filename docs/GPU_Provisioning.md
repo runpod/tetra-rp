@@ -252,7 +252,7 @@ class LiveServerless(LiveServerlessMixin, ServerlessEndpoint):
     
     @property
     def _live_image(self) -> str:
-        return TETRA_GPU_IMAGE  # Locked to GPU-optimized image
+        return FLASH_GPU_IMAGE  # Locked to GPU-optimized image
     
     @property
     def imageName(self):
@@ -388,7 +388,7 @@ live_endpoint = LiveServerless(
     workersMax=8,
     workersMin=1
 )
-# imageName automatically locked to TETRA_GPU_IMAGE
+# imageName automatically locked to FLASH_GPU_IMAGE
 ```
 
 ### High-Memory Workloads with Conservative Scaling

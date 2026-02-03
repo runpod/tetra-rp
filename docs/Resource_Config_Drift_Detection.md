@@ -141,7 +141,7 @@ def config_hash(self) -> str:
 ### Basic Deployment with Auto Drift Detection
 
 ```python
-from tetra_rp import CpuLoadBalancerSlsResource
+from runpod_flash import CpuLoadBalancerSlsResource
 
 # Define resource
 lb = CpuLoadBalancerSlsResource(

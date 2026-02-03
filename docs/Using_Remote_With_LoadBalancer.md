@@ -41,7 +41,7 @@ Use **Queue-Based** when you need:
 For local development, use `LiveLoadBalancer`:
 
 ```python
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 # Create load-balanced endpoint
 api = LiveLoadBalancer(name="example-api")
@@ -86,7 +86,7 @@ Load-balanced endpoints require explicit HTTP routing metadata in the `@remote` 
 Multiple functions can share a single LoadBalancerSlsResource with different routes:
 
 ```python
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 api = LiveLoadBalancer(name="user-service")
 
@@ -134,7 +134,7 @@ Attempting to use `/ping` or `/execute` as user-defined routes will raise a vali
 For local development and testing, use `LiveLoadBalancer` instead of `LoadBalancerSlsResource`:
 
 ```python
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 api = LiveLoadBalancer(name="my-api")
 
@@ -158,7 +158,7 @@ async def test():
 
 ```python
 import pytest
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 api = LiveLoadBalancer(name="test-api")
 
@@ -308,7 +308,7 @@ Here's a full example with multiple routes, error handling, and testing:
 user_service.py - Example load-balanced API service
 """
 
-from tetra_rp import LoadBalancerSlsResource, remote
+from runpod_flash import LoadBalancerSlsResource, remote
 from typing import Optional
 
 # For production, use LoadBalancerSlsResource
@@ -384,7 +384,7 @@ test_user_service.py
 """
 
 import pytest
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 from typing import Optional
 
 # Use LiveLoadBalancer for testing

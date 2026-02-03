@@ -77,7 +77,7 @@ export RUNPOD_ENDPOINT_ID=gpu-endpoint-123
 Define functions normally. The routing system decides execution location:
 
 ```python
-from tetra_rp import stub
+from runpod_flash import stub
 
 @stub.function()
 async def process_image(image_path: str) -> dict:

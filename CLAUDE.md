@@ -1,4 +1,4 @@
-# tetra-rp Project Configuration
+# runpod-flash Project Configuration
 
 ## Claude Code Configuration
 
