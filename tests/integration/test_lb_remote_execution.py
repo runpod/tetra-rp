@@ -114,21 +114,21 @@ class TestRemoteWithLoadBalancerIntegration:
         # Verify resource is correctly configured
         # Note: name may have "-fb" appended by flash boot validator
         assert "test-live-api" in lb.name
-        assert "tetra-rp-lb" in lb.imageName
+        assert "flash-lb" in lb.imageName
         assert echo.__remote_config__["method"] == "POST"
 
     def test_live_load_balancer_image_locked(self):
-        """Test that LiveLoadBalancer locks the image to Tetra LB image."""
+        """Test that LiveLoadBalancer locks the image to Flash LB image."""
         lb = LiveLoadBalancer(name="test-api")
 
         # Verify image is locked and cannot be overridden
         original_image = lb.imageName
-        assert "tetra-rp-lb" in original_image
+        assert "flash-lb" in original_image
 
         # Try to set a different image (should be ignored due to property)
         lb.imageName = "custom-image:latest"
 
-        # Image should still be locked to Tetra
+        # Image should still be locked to Flash
         assert lb.imageName == original_image
 
     def test_load_balancer_vs_queue_based_endpoints(self):

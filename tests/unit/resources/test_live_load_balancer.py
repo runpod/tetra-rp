@@ -31,7 +31,7 @@ class TestLiveLoadBalancer:
         importlib.reload(ls_module)
 
         lb = ls_module.LiveLoadBalancer(name="test-lb")
-        expected_image = "runpod/tetra-rp-lb:local"
+        expected_image = "runpod/flash-lb:local"
         assert lb.imageName == expected_image
         assert lb.template is not None
         assert lb.template.imageName == expected_image
@@ -43,7 +43,7 @@ class TestLiveLoadBalancer:
 
         lb = LiveLoadBalancer(name="test-lb")
 
-        assert "runpod/tetra-rp-lb:" in lb.imageName
+        assert "runpod/flash-lb:" in lb.imageName
         assert lb.template is not None
         assert lb.template.imageName == lb.imageName
 
@@ -112,11 +112,11 @@ class TestLoadBalancerSlsResourceTemplate:
         """Test LoadBalancerSlsResource creates template from imageName."""
         lb = LoadBalancerSlsResource(
             name="test-lb",
-            imageName="runpod/tetra-rp-lb:latest",
+            imageName="runpod/flash-lb:latest",
         )
 
         assert lb.template is not None
-        assert lb.template.imageName == "runpod/tetra-rp-lb:latest"
+        assert lb.template.imageName == "runpod/flash-lb:latest"
 
     def test_load_balancer_sls_requires_image_template_or_id(self):
         """Test LoadBalancerSlsResource requires one of: imageName, template, templateId."""
@@ -159,7 +159,7 @@ class TestTemplateSerializationRoundtrip:
         assert "imageName" not in payload
 
         # Verify the template has the correct image
-        assert "tetra-rp-lb:" in payload["template"]["imageName"], (
+        assert "flash-lb:" in payload["template"]["imageName"], (
             "Must have load-balancer image"
         )
 
@@ -197,7 +197,7 @@ class TestCpuLiveLoadBalancer:
         importlib.reload(ls_module)
 
         lb = ls_module.CpuLiveLoadBalancer(name="test-lb")
-        expected_image = "runpod/tetra-rp-lb-cpu:local"
+        expected_image = "runpod/flash-lb-cpu:local"
         assert lb.imageName == expected_image
         assert lb.template is not None
         assert lb.template.imageName == expected_image
@@ -209,7 +209,7 @@ class TestCpuLiveLoadBalancer:
 
         lb = CpuLiveLoadBalancer(name="test-lb")
 
-        assert "runpod/tetra-rp-lb-cpu:" in lb.imageName
+        assert "runpod/flash-lb-cpu:" in lb.imageName
         assert lb.template is not None
         assert lb.template.imageName == lb.imageName
 

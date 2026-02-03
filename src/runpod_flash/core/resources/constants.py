@@ -23,13 +23,11 @@ ENDPOINT_DOMAIN = _endpoint_domain_from_base_url(runpod.endpoint_url_base)
 FLASH_IMAGE_TAG = os.environ.get("FLASH_IMAGE_TAG", "latest")
 _RESOLVED_TAG = FLASH_IMAGE_TAG
 
-FLASH_GPU_IMAGE = os.environ.get("FLASH_GPU_IMAGE", f"runpod/tetra-rp:{_RESOLVED_TAG}")
-FLASH_CPU_IMAGE = os.environ.get(
-    "FLASH_CPU_IMAGE", f"runpod/tetra-rp-cpu:{_RESOLVED_TAG}"
-)
-FLASH_LB_IMAGE = os.environ.get("FLASH_LB_IMAGE", f"runpod/tetra-rp-lb:{_RESOLVED_TAG}")
+FLASH_GPU_IMAGE = os.environ.get("FLASH_GPU_IMAGE", f"runpod/flash:{_RESOLVED_TAG}")
+FLASH_CPU_IMAGE = os.environ.get("FLASH_CPU_IMAGE", f"runpod/flash-cpu:{_RESOLVED_TAG}")
+FLASH_LB_IMAGE = os.environ.get("FLASH_LB_IMAGE", f"runpod/flash-lb:{_RESOLVED_TAG}")
 FLASH_CPU_LB_IMAGE = os.environ.get(
-    "FLASH_CPU_LB_IMAGE", f"runpod/tetra-rp-lb-cpu:{_RESOLVED_TAG}"
+    "FLASH_CPU_LB_IMAGE", f"runpod/flash-lb-cpu:{_RESOLVED_TAG}"
 )
 
 # Worker configuration defaults
