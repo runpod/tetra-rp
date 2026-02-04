@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, List
 import aiohttp
 from aiohttp.resolver import ThreadedResolver
 
+from runpod_flash.core.credentials import get_api_key
 from runpod_flash.core.exceptions import RunpodAPIKeyError
 from runpod_flash.runtime.exceptions import GraphQLMutationError, GraphQLQueryError
 
@@ -59,9 +60,9 @@ class RunpodGraphQLClient:
 
     GRAPHQL_URL = f"{RUNPOD_API_BASE_URL}/graphql"
 
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
-        if not self.api_key:
+    def __init__(self, api_key: Optional[str] = None, require_api_key: bool = True):
+        self.api_key = api_key or get_api_key()
+        if require_api_key and not self.api_key:
             raise RunpodAPIKeyError()
 
         self.session: Optional[aiohttp.ClientSession] = None
@@ -71,12 +72,12 @@ class RunpodGraphQLClient:
         if self.session is None or self.session.closed:
             timeout = aiohttp.ClientTimeout(total=300)  # 5 minute timeout
             connector = aiohttp.TCPConnector(resolver=ThreadedResolver())
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
             self.session = aiohttp.ClientSession(
                 timeout=timeout,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
                 connector=connector,
             )
         return self.session
@@ -748,6 +749,33 @@ class RunpodGraphQLClient:
             log.error(f"Error checking endpoint existence: {e}")
             return False
 
+    async def create_flash_auth_request(self) -> Dict[str, Any]:
+        mutation = """
+        mutation createFlashAuthRequest {
+            createFlashAuthRequest {
+                id
+                status
+                expiresAt
+            }
+        }
+        """
+        result = await self._execute_graphql(mutation)
+        return result.get("createFlashAuthRequest", {})
+
+    async def get_flash_auth_request_status(self, request_id: str) -> Dict[str, Any]:
+        query = """
+        query flashAuthRequestStatus($flashAuthRequestId: String!) {
+            flashAuthRequestStatus(flashAuthRequestId: $flashAuthRequestId) {
+                id
+                status
+                expiresAt
+                apiKey
+            }
+        }
+        """
+        result = await self._execute_graphql(query, {"flashAuthRequestId": request_id})
+        return result.get("flashAuthRequestStatus", {})
+
     async def close(self):
         """Close the HTTP session."""
         if self.session and not self.session.closed:
@@ -767,7 +795,7 @@ class RunpodRestClient:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("RUNPOD_API_KEY")
+        self.api_key = api_key or get_api_key()
         if not self.api_key:
             raise RunpodAPIKeyError()
 
@@ -777,13 +805,10 @@ class RunpodRestClient:
         """Get or create an aiohttp session."""
         if self.session is None or self.session.closed:
             timeout = aiohttp.ClientTimeout(total=300)  # 5 minute timeout
-            self.session = aiohttp.ClientSession(
-                timeout=timeout,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
-            )
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            self.session = aiohttp.ClientSession(timeout=timeout, headers=headers)
         return self.session
 
     async def _execute_rest(
