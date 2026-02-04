@@ -1,3 +1,16 @@
+# ⚠️ DEPRECATED: tetra-rp
+
+> **This package is deprecated.** The final release of `tetra-rp` is version 0.25.2. All future development and releases will be under the new package name `runpod-flash`.
+>
+> **Migration Required:** To upgrade, install the new package and update your imports:
+> ```bash
+> pip uninstall tetra-rp
+> pip install runpod-flash
+> ```
+> Then update your imports from `from tetra_rp import ...` to `from runpod_flash import ...`
+>
+> See [runpod/flash](https://github.com/runpod/flash) for the new repository.
+
 # Flash: Serverless computing for AI workloads
 
 Runpod Flash is a Python SDK that streamlines the development and deployment of AI workflows on Runpod's [Serverless infrastructure](http://docs.runpod.io/serverless/overview). Write Python functions locally, and Flash handles the infrastructure, provisioning GPUs and CPUs, managing dependencies, and transferring data, allowing you to focus on building AI applications.
@@ -43,6 +56,12 @@ Before you can use Flash, you'll need:
 
 ### Step 1: Install Flash
 
+> **Note:** This documentation describes the deprecated `tetra-rp` package. For new projects, use `runpod-flash`:
+> ```bash
+> pip install runpod-flash
+> ```
+
+For the legacy package:
 ```bash
 pip install tetra_rp
 ```

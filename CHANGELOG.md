@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.2](https://github.com/runpod/tetra-rp/compare/v0.25.1...v0.25.2) (2026-02-03)
+
+### ⚠️ DEPRECATED
+
+This is the final release of `tetra-rp`. All future development and releases will be under the new package name `runpod-flash`. See [runpod/flash](https://github.com/runpod/flash) for the new repository.
+
+**Migration guide:** Uninstall `tetra-rp`, install `runpod-flash`, and update imports from `from tetra_rp import ...` to `from runpod_flash import ...`
+
 ## [0.25.1](https://github.com/runpod/tetra-rp/compare/v0.25.0...v0.25.1) (2026-02-03)
 
 
