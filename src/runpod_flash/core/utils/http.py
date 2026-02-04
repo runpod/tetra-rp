@@ -5,7 +5,7 @@ from typing import Optional
 import httpx
 import requests
 
-from tetra_rp.core.credentials import get_api_key
+from runpod_flash.core.credentials import get_api_key
 
 
 def get_authenticated_httpx_client(

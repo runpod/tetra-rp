@@ -3,7 +3,7 @@
 Provides clear, actionable error messages for common failure scenarios.
 """
 
-from tetra_rp.core.credentials import get_credentials_path
+from runpod_flash.core.credentials import get_credentials_path
 
 
 class RunpodAPIKeyError(Exception):
