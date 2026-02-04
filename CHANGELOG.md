@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/runpod/flash/compare/v0.25.1...v1.0.0) (2026-02-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename tetra to flash ([#165](https://github.com/runpod/flash/issues/165))
+
+### Bug Fixes
+
+* 0.25.3 ([#173](https://github.com/runpod/flash/issues/173)) ([98b1ed7](https://github.com/runpod/flash/commit/98b1ed7c98ee8bbab43b4c880210579c1cab6a37))
+
+
+### Code Refactoring
+
+* rename tetra to flash ([#165](https://github.com/runpod/flash/issues/165)) ([7546eaf](https://github.com/runpod/flash/commit/7546eaf4e65cc828c46cf53b57ea41b8f7374d64))
+
 ## [0.25.1](https://github.com/runpod/runpod-flash/compare/v0.25.0...v0.25.1) (2026-02-03)
 
 
