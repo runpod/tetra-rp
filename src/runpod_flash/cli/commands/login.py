@@ -44,7 +44,9 @@ async def _login_async(open_browser: bool, timeout_seconds: float) -> None:
             typer.launch(auth_url)
 
         expires_at = _parse_expires_at(request.get("expiresAt"))
-        deadline = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=timeout_seconds)
+        deadline = dt.datetime.now(dt.timezone.utc) + dt.timedelta(
+            seconds=timeout_seconds
+        )
         if expires_at and expires_at < deadline:
             deadline = expires_at
 
