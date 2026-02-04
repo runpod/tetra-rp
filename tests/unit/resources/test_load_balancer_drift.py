@@ -6,12 +6,12 @@ changes while ignoring runtime-assigned fields and dynamic environment variables
 
 import os
 
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.load_balancer_sls_resource import (
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.load_balancer_sls_resource import (
     CpuLoadBalancerSlsResource,
     LoadBalancerSlsResource,
 )
-from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
+from runpod_flash.core.resources.serverless_cpu import CpuServerlessEndpoint
 
 # Set a dummy API key for tests
 os.environ.setdefault("RUNPOD_API_KEY", "test-key-for-unit-tests")
@@ -45,7 +45,7 @@ class TestLoadBalancerConfigHashStability:
         hash1 = lb1.config_hash
 
         # Simulate API assigning a template
-        from tetra_rp.core.resources.serverless import PodTemplate
+        from runpod_flash.core.resources.serverless import PodTemplate
 
         lb1.template = PodTemplate(imageName="test/image:latest", name="test")
         hash_after_template = lb1.config_hash
@@ -168,7 +168,7 @@ class TestCpuLoadBalancerConfigHashStability:
         )
         hash1 = cpu_lb.config_hash
 
-        from tetra_rp.core.resources.serverless import PodTemplate
+        from runpod_flash.core.resources.serverless import PodTemplate
 
         cpu_lb.template = PodTemplate(imageName="test/image:latest", name="test")
         hash2 = cpu_lb.config_hash
@@ -220,7 +220,7 @@ class TestStructuralChangeDetection:
         )
 
         # Add template to lb1
-        from tetra_rp.core.resources.serverless import PodTemplate
+        from runpod_flash.core.resources.serverless import PodTemplate
 
         lb1.template = PodTemplate(imageName="test/image:latest", name="test")
 
@@ -416,7 +416,7 @@ class TestSerializerDefensiveBehavior:
 
     def test_scaler_type_serializer_with_enum(self):
         """Serializer correctly handles ServerlessScalerType enum."""
-        from tetra_rp.core.resources.serverless import ServerlessScalerType
+        from runpod_flash.core.resources.serverless import ServerlessScalerType
 
         lb = LoadBalancerSlsResource(
             name="test-lb",
@@ -448,7 +448,7 @@ class TestSerializerDefensiveBehavior:
 
     def test_type_serializer_with_enum(self):
         """Serializer correctly handles ServerlessType enum."""
-        from tetra_rp.core.resources.serverless import ServerlessType
+        from runpod_flash.core.resources.serverless import ServerlessType
 
         lb = LoadBalancerSlsResource(
             name="test-lb",

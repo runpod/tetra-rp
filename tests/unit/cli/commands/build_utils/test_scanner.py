@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 
-from tetra_rp.cli.commands.build_utils.scanner import RemoteDecoratorScanner
+from runpod_flash.cli.commands.build_utils.scanner import RemoteDecoratorScanner
 
 
 def test_discover_simple_function():
@@ -16,7 +16,7 @@ def test_discover_simple_function():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 gpu_config = LiveServerless(name="test_gpu")
 
@@ -44,7 +44,7 @@ def test_discover_class():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 gpu_config = LiveServerless(name="test_gpu")
 
@@ -74,7 +74,7 @@ def test_discover_multiple_functions_same_config():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 gpu_config = LiveServerless(name="gpu_worker")
 
@@ -104,7 +104,7 @@ def test_discover_functions_different_configs():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, CpuLiveServerless, remote
+from runpod_flash import LiveServerless, CpuLiveServerless, remote
 
 gpu_config = LiveServerless(name="gpu_worker")
 cpu_config = CpuLiveServerless(name="cpu_worker")
@@ -139,7 +139,7 @@ def test_discover_nested_module():
         test_file = workers_dir / "inference.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="gpu_inference")
 
@@ -165,7 +165,7 @@ def test_discover_inline_config():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 @remote(LiveServerless(name="inline_config"))
 async def my_function(data):
@@ -210,7 +210,7 @@ def test_discover_sync_function():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="cpu_sync")
 
@@ -238,7 +238,7 @@ def test_exclude_venv_directory():
         venv_file = venv_dir / "test_module.py"
         venv_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="venv_config")
 
@@ -252,7 +252,7 @@ async def venv_function(data):
         project_file = project_dir / "main.py"
         project_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="project_config")
 
@@ -281,7 +281,7 @@ def test_exclude_flash_directory():
         flash_file = flash_dir / "generated.py"
         flash_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="flash_config")
 
@@ -295,7 +295,7 @@ async def flash_function(data):
         project_file = project_dir / "main.py"
         project_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="project_config")
 
@@ -324,7 +324,7 @@ def test_exclude_runpod_directory():
         runpod_file = runpod_dir / "cached.py"
         runpod_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="runpod_config")
 
@@ -338,7 +338,7 @@ async def runpod_function(data):
         project_file = project_dir / "main.py"
         project_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="project_config")
 
@@ -364,7 +364,7 @@ def test_fallback_to_variable_name_when_name_parameter_missing():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 gpu_config = LiveServerless()
 
@@ -390,7 +390,7 @@ def test_ignore_non_serverless_classes_with_serverless_in_name():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 class MyServerlessHelper:
     def __init__(self):
@@ -421,7 +421,7 @@ def test_extract_resource_name_with_special_characters():
         test_file = project_dir / "test_module.py"
         test_file.write_text(
             """
-from tetra_rp import LiveServerless, remote
+from runpod_flash import LiveServerless, remote
 
 config = LiveServerless(name="01_gpu-worker.v1")
 
@@ -447,7 +447,7 @@ def test_scanner_extracts_config_variable_names():
 
         test_file.write_text(
             """
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 gpu_config = LiveLoadBalancer(name="my-endpoint")
 
@@ -473,7 +473,7 @@ def test_cpu_live_load_balancer_flags():
 
         test_file.write_text(
             """
-from tetra_rp import CpuLiveLoadBalancer, remote
+from runpod_flash import CpuLiveLoadBalancer, remote
 
 cpu_config = CpuLiveLoadBalancer(name="cpu_worker")
 

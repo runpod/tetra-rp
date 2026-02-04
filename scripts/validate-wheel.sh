@@ -11,24 +11,24 @@ cd "$PROJECT_DIR"
 echo "Building wheel..."
 uv build
 
-WHEEL_FILE=$(ls -t dist/tetra_rp-*.whl | head -1)
+WHEEL_FILE=$(ls -t dist/runpod_flash-*.whl | head -1)
 echo "Testing wheel: $WHEEL_FILE"
 echo ""
 
 # Check wheel contents without installing
 echo "Checking wheel contents..."
 REQUIRED_TEMPLATE_FILES=(
-    "tetra_rp/cli/utils/skeleton_template/.env.example"
-    "tetra_rp/cli/utils/skeleton_template/.gitignore"
-    "tetra_rp/cli/utils/skeleton_template/.flashignore"
-    "tetra_rp/cli/utils/skeleton_template/main.py"
-    "tetra_rp/cli/utils/skeleton_template/README.md"
-    "tetra_rp/cli/utils/skeleton_template/requirements.txt"
-    "tetra_rp/cli/utils/skeleton_template/workers/__init__.py"
-    "tetra_rp/cli/utils/skeleton_template/workers/cpu/__init__.py"
-    "tetra_rp/cli/utils/skeleton_template/workers/cpu/endpoint.py"
-    "tetra_rp/cli/utils/skeleton_template/workers/gpu/__init__.py"
-    "tetra_rp/cli/utils/skeleton_template/workers/gpu/endpoint.py"
+    "runpod_flash/cli/utils/skeleton_template/.env.example"
+    "runpod_flash/cli/utils/skeleton_template/.gitignore"
+    "runpod_flash/cli/utils/skeleton_template/.flashignore"
+    "runpod_flash/cli/utils/skeleton_template/main.py"
+    "runpod_flash/cli/utils/skeleton_template/README.md"
+    "runpod_flash/cli/utils/skeleton_template/requirements.txt"
+    "runpod_flash/cli/utils/skeleton_template/workers/__init__.py"
+    "runpod_flash/cli/utils/skeleton_template/workers/cpu/__init__.py"
+    "runpod_flash/cli/utils/skeleton_template/workers/cpu/endpoint.py"
+    "runpod_flash/cli/utils/skeleton_template/workers/gpu/__init__.py"
+    "runpod_flash/cli/utils/skeleton_template/workers/gpu/endpoint.py"
 )
 
 MISSING_IN_WHEEL=0

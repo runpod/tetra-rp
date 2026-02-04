@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tetra_rp.runtime.production_wrapper import (
+from runpod_flash.runtime.production_wrapper import (
     ProductionWrapper,
     create_production_wrapper,
     reset_wrapper,
 )
-from tetra_rp.runtime.service_registry import ServiceRegistry
-from tetra_rp.runtime.state_manager_client import StateManagerClient
+from runpod_flash.runtime.service_registry import ServiceRegistry
+from runpod_flash.runtime.state_manager_client import StateManagerClient
 
 
 class TestCrossEndpointRoutingIntegration:
@@ -39,14 +39,12 @@ class TestCrossEndpointRoutingIntegration:
             "resources": {
                 "gpu_config": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_gpu.py",
                     "functions": [
                         {"name": "gpu_task", "module": "workers.gpu", "is_async": True}
                     ],
                 },
                 "cpu_config": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_cpu.py",
                     "functions": [
                         {
                             "name": "cpu_task",

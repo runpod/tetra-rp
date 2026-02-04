@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tetra_rp.runtime.mothership_provisioner import (
+from runpod_flash.runtime.mothership_provisioner import (
     ManifestDiff,
     compute_resource_hash,
     create_resource_from_manifest,
@@ -385,12 +385,12 @@ class TestCreateResourceFromManifest:
 
     def test_create_resource_from_manifest_serverless(self):
         """Test creating ServerlessResource from manifest."""
-        from tetra_rp.core.resources.serverless import ServerlessResource
+        from runpod_flash.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
         resource_data = {
             "resource_type": "ServerlessResource",
-            "imageName": "runpod/tetra-rp:latest",
+            "imageName": "runpod/flash:latest",
         }
         mothership_url = "https://test.api.runpod.ai"
 
@@ -411,12 +411,12 @@ class TestCreateResourceFromManifest:
         This is a known limitation - manifest needs to include full deployment config
         to properly construct different resource types.
         """
-        from tetra_rp.core.resources.serverless import ServerlessResource
+        from runpod_flash.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
         resource_data = {
             "resource_type": "LiveServerless",
-            "imageName": "runpod/tetra-rp:latest",
+            "imageName": "runpod/flash:latest",
         }
         mothership_url = "https://test.api.runpod.ai"
 
@@ -441,11 +441,11 @@ class TestCreateResourceFromManifest:
 
     def test_create_resource_from_manifest_default_type(self):
         """Test that default type is ServerlessResource when not specified."""
-        from tetra_rp.core.resources.serverless import ServerlessResource
+        from runpod_flash.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
         resource_data = {
-            "imageName": "runpod/tetra-rp:latest"
+            "imageName": "runpod/flash:latest"
         }  # No resource_type specified
         mothership_url = "https://test.api.runpod.ai"
 
@@ -464,12 +464,12 @@ class TestCreateResourceFromManifest:
         FLASH_MOTHERSHIP_ID should not be included in env to avoid
         Pydantic validation errors (None values are not allowed).
         """
-        from tetra_rp.core.resources.serverless import ServerlessResource
+        from runpod_flash.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
         resource_data = {
             "resource_type": "ServerlessResource",
-            "imageName": "runpod/tetra-rp:latest",
+            "imageName": "runpod/flash:latest",
         }
         mothership_url = ""  # Empty URL indicates CLI context
 
@@ -492,12 +492,12 @@ class TestCreateResourceFromManifest:
         FLASH_MOTHERSHIP_ID should be included in env so children can query
         the State Manager using the mothership's ID.
         """
-        from tetra_rp.core.resources.serverless import ServerlessResource
+        from runpod_flash.core.resources.serverless import ServerlessResource
 
         resource_name = "worker1"
         resource_data = {
             "resource_type": "ServerlessResource",
-            "imageName": "runpod/tetra-rp:latest",
+            "imageName": "runpod/flash:latest",
         }
         mothership_url = "https://mothership.api.runpod.ai"
 
@@ -514,7 +514,7 @@ class TestCreateResourceFromManifest:
 
     def test_create_resource_from_manifest_cpu_live_serverless(self):
         """Test creating CpuLiveServerless from manifest."""
-        from tetra_rp.core.resources.live_serverless import CpuLiveServerless
+        from runpod_flash.core.resources.live_serverless import CpuLiveServerless
 
         resource_name = "cpu_worker"
         resource_data = {"resource_type": "CpuLiveServerless"}

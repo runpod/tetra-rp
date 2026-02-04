@@ -7,11 +7,14 @@ interact with the CPU utilities and template system.
 """
 
 import pytest
-from tetra_rp.core.resources.cpu import CpuInstanceType
-from tetra_rp.core.resources.serverless import ServerlessEndpoint
-from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
-from tetra_rp.core.resources.live_serverless import LiveServerless, CpuLiveServerless
-from tetra_rp.core.resources.template import PodTemplate
+from runpod_flash.core.resources.cpu import CpuInstanceType
+from runpod_flash.core.resources.serverless import ServerlessEndpoint
+from runpod_flash.core.resources.serverless_cpu import CpuServerlessEndpoint
+from runpod_flash.core.resources.live_serverless import (
+    LiveServerless,
+    CpuLiveServerless,
+)
+from runpod_flash.core.resources.template import PodTemplate
 
 
 class TestUniversalCpuDetectionIntegration:
@@ -126,7 +129,7 @@ class TestCpuDiskSizingIntegration:
         # 2. CPU utilities calculate minimum disk size
         # 3. Template creation with auto-sizing
         # 4. Validation passes
-        assert "tetra-rp-cpu:" in live_serverless.imageName
+        assert "flash-cpu:" in live_serverless.imageName
         assert live_serverless.instanceIds == [
             CpuInstanceType.CPU5C_1_2,
             CpuInstanceType.CPU5C_2_4,
@@ -251,8 +254,8 @@ class TestLiveServerlessImageLockingIntegration:
 
         # Verify different images are used
         assert gpu_live.imageName != cpu_live.imageName
-        assert "tetra-rp:" in gpu_live.imageName
-        assert "tetra-rp-cpu:" in cpu_live.imageName
+        assert "flash:" in gpu_live.imageName
+        assert "flash-cpu:" in cpu_live.imageName
 
         # Verify images remain locked despite attempts to change
         original_gpu_image = gpu_live.imageName

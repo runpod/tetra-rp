@@ -178,6 +178,14 @@ cython_debug/
 # Runpod Flash state
 .runpod/
 
+# Code intelligence
+.code-intel/
+
+# Claude Code (session-specific, but track skills and config)
+.claude/hooks.json
+.claude/projects/
+
 # dev only
 .envrc
 test_app/
+.claude/settings.json

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tetra_rp.runtime.service_registry import ServiceRegistry
+from runpod_flash.runtime.service_registry import ServiceRegistry
 
 
 class TestServiceRegistry:
@@ -29,7 +29,6 @@ class TestServiceRegistry:
             "resources": {
                 "gpu_config": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_gpu_config.py",
                     "functions": [
                         {"name": "gpu_task", "module": "workers.gpu", "is_async": True},
                         {
@@ -41,7 +40,6 @@ class TestServiceRegistry:
                 },
                 "cpu_config": {
                     "resource_type": "LiveServerless",
-                    "handler_file": "handler_cpu_config.py",
                     "functions": [
                         {
                             "name": "preprocess",
@@ -325,7 +323,7 @@ class TestServiceRegistry:
         """Test initialization without RUNPOD_API_KEY."""
         with patch.dict(os.environ, {}, clear=True):
             with patch(
-                "tetra_rp.runtime.service_registry.StateManagerClient"
+                "runpod_flash.runtime.service_registry.StateManagerClient"
             ) as mock_client_class:
                 mock_client_class.side_effect = Exception("No API key")
                 registry = ServiceRegistry(manifest_path=manifest_file)

@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
-from tetra_rp.runtime.exceptions import SerializationError
-from tetra_rp.runtime.serialization import (
+from runpod_flash.runtime.exceptions import SerializationError
+from runpod_flash.runtime.serialization import (
     deserialize_arg,
     deserialize_args,
     deserialize_kwargs,
@@ -54,14 +54,18 @@ class TestSerializeArgs:
 
     def test_serialize_args_propagates_serialization_error(self):
         """Test serialize_args propagates SerializationError."""
-        with patch("tetra_rp.runtime.serialization.serialize_arg") as mock_serialize:
+        with patch(
+            "runpod_flash.runtime.serialization.serialize_arg"
+        ) as mock_serialize:
             mock_serialize.side_effect = SerializationError("Known error")
             with pytest.raises(SerializationError, match="Known error"):
                 serialize_args((1, 2))
 
     def test_serialize_args_unexpected_error(self):
         """Test serialize_args handles unexpected exceptions."""
-        with patch("tetra_rp.runtime.serialization.serialize_arg") as mock_serialize:
+        with patch(
+            "runpod_flash.runtime.serialization.serialize_arg"
+        ) as mock_serialize:
             mock_serialize.side_effect = RuntimeError("Unexpected error")
             with pytest.raises(SerializationError, match="Failed to serialize args"):
                 serialize_args((1, 2))
@@ -85,14 +89,18 @@ class TestSerializeKwargs:
 
     def test_serialize_kwargs_propagates_serialization_error(self):
         """Test serialize_kwargs propagates SerializationError."""
-        with patch("tetra_rp.runtime.serialization.serialize_arg") as mock_serialize:
+        with patch(
+            "runpod_flash.runtime.serialization.serialize_arg"
+        ) as mock_serialize:
             mock_serialize.side_effect = SerializationError("Known error")
             with pytest.raises(SerializationError, match="Known error"):
                 serialize_kwargs({"key": 42})
 
     def test_serialize_kwargs_unexpected_error(self):
         """Test serialize_kwargs handles unexpected exceptions."""
-        with patch("tetra_rp.runtime.serialization.serialize_arg") as mock_serialize:
+        with patch(
+            "runpod_flash.runtime.serialization.serialize_arg"
+        ) as mock_serialize:
             mock_serialize.side_effect = RuntimeError("Unexpected error")
             with pytest.raises(SerializationError, match="Failed to serialize kwargs"):
                 serialize_kwargs({"key": 42})
@@ -132,7 +140,7 @@ class TestDeserializeArgs:
     def test_deserialize_args_propagates_serialization_error(self):
         """Test deserialize_args propagates SerializationError."""
         with patch(
-            "tetra_rp.runtime.serialization.deserialize_arg"
+            "runpod_flash.runtime.serialization.deserialize_arg"
         ) as mock_deserialize:
             mock_deserialize.side_effect = SerializationError("Known error")
             with pytest.raises(SerializationError, match="Known error"):
@@ -141,7 +149,7 @@ class TestDeserializeArgs:
     def test_deserialize_args_unexpected_error(self):
         """Test deserialize_args handles unexpected exceptions."""
         with patch(
-            "tetra_rp.runtime.serialization.deserialize_arg"
+            "runpod_flash.runtime.serialization.deserialize_arg"
         ) as mock_deserialize:
             mock_deserialize.side_effect = RuntimeError("Unexpected error")
             with pytest.raises(SerializationError, match="Failed to deserialize args"):
@@ -165,7 +173,7 @@ class TestDeserializeKwargs:
     def test_deserialize_kwargs_propagates_serialization_error(self):
         """Test deserialize_kwargs propagates SerializationError."""
         with patch(
-            "tetra_rp.runtime.serialization.deserialize_arg"
+            "runpod_flash.runtime.serialization.deserialize_arg"
         ) as mock_deserialize:
             mock_deserialize.side_effect = SerializationError("Known error")
             with pytest.raises(SerializationError, match="Known error"):
@@ -174,7 +182,7 @@ class TestDeserializeKwargs:
     def test_deserialize_kwargs_unexpected_error(self):
         """Test deserialize_kwargs handles unexpected exceptions."""
         with patch(
-            "tetra_rp.runtime.serialization.deserialize_arg"
+            "runpod_flash.runtime.serialization.deserialize_arg"
         ) as mock_deserialize:
             mock_deserialize.side_effect = RuntimeError("Unexpected error")
             with pytest.raises(

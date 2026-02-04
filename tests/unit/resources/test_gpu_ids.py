@@ -1,4 +1,4 @@
-from tetra_rp.core.resources.gpu import GpuGroup, GpuType
+from runpod_flash.core.resources.gpu import GpuGroup, GpuType
 
 
 class TestGpuIdsImports:

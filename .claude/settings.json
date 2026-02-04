@@ -1,0 +1,41 @@
+{
+  "enabledPlugins": {
+    "pyright-lsp@claude-plugins-official": true
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "flash-code-intel"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__flash-code-intel__find_by_decorator",
+      "mcp__flash-code-intel__find_symbol",
+      "mcp__flash-code-intel__get_class_interface",
+      "mcp__flash-code-intel__list_classes",
+      "mcp__flash-code-intel__list_file_symbols",
+      "mcp__flash-code-intel__parse_test_output",
+      "Bash(./scripts/validate-wheel.sh:*)",
+      "Bash(git diff:*)",
+      "Bash(git fetch:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(jq:*)",
+      "Bash(ls:*)",
+      "Bash(make format:*)",
+      "Bash(make lint-fix:*)",
+      "Bash(make lint:*)",
+      "Bash(make quality-check:*)",
+      "Bash(make test-coverage:*)",
+      "Bash(make test-unit:*)",
+      "Bash(make test:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(sqlite3:*)",
+      "Bash(uv run:*)",
+      "Bash(uv sync:*)",
+      "Bash(wc:*)",
+      "Bash(xargs:*)"
+    ],
+    "deny": []
+  }
+}

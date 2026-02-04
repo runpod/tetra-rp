@@ -1,4 +1,4 @@
-# Contributing to tetra-rp
+# Contributing to runpod-flash
 
 ## Development Setup
 
@@ -12,8 +12,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/tetra-rp.git
-cd tetra-rp
+git clone https://github.com/your-org/runpod-flash.git
+cd runpod-flash
 
 # Install dependencies and package in editable mode
 make dev
@@ -93,7 +93,7 @@ Write tests before implementation (TDD approach):
 All new features require:
 - Unit tests in [tests/unit/](tests/unit/)
 - Integration tests if external dependencies involved
-- Minimum 35% code coverage (aim for 70% on critical paths)
+- Minimum 65% code coverage (aim for 70% on critical paths)
 
 Test structure follows Arrange-Act-Assert pattern:
 
@@ -278,7 +278,7 @@ make quality-check
 
 **Coverage threshold failures**
 - Use `--no-cov` flag: `uv run pytest tests/unit/test_file.py -v --no-cov`
-- Or test specific module: `uv run pytest --cov=src/tetra_rp/module`
+- Or test specific module: `uv run pytest --cov=src/runpod_flash/module`
 
 ## Release Process
 
@@ -310,10 +310,167 @@ When reviewing code, consider:
 
 ## Getting Help
 
-- Check existing [Issues](https://github.com/your-org/tetra-rp/issues)
+- Check existing [Issues](https://github.com/your-org/runpod-flash/issues)
 - Review [README.md](README.md) for usage examples
 - See [TESTING.md](TESTING.md) for testing details
 - See [RELEASE_SYSTEM.md](RELEASE_SYSTEM.md) for release process
+
+## Code Intelligence System
+
+### Overview
+
+The project uses AST-based code indexing to enable fast symbol lookup and exploration. This reduces token usage by ~85% when Claude Code explores the codebase.
+
+### Setup
+
+Generate the code intelligence index after cloning the repository or making significant code changes:
+
+```bash
+make index
+```
+
+This creates `.code-intel/flash.db` containing indexed symbols.
+
+### Usage
+
+**List all classes in the framework:**
+
+```bash
+make query-classes
+```
+
+**Find specific symbol:**
+
+```bash
+make query SYMBOL=ServerlessEndpoint
+```
+
+**Get class interface (methods without implementations):**
+
+```bash
+uv run python scripts/code_intel.py interface LiveServerless
+```
+
+**List symbols in a file:**
+
+```bash
+uv run python scripts/code_intel.py file runpod_flash/decorators.py
+```
+
+**List all symbols:**
+
+```bash
+make query-all
+```
+
+### For Claude Code
+
+**Automatic Integration (Recommended):**
+
+Claude Code automatically uses the MCP code intelligence server when exploring the codebase. This provides:
+
+- **Automatic tool discovery**: 5 specialized tools for code exploration
+- **85% token reduction**: No need to read full files for structure queries
+- **Instant results**: Direct database queries instead of file parsing
+
+The MCP server is configured in `.mcp.json` and automatically activated when you open this project in Claude Code. Use the `/flash-explorer` skill to get guidance on best exploration practices.
+
+Available MCP tools:
+- `find_symbol` - Search for classes, functions, methods
+- `list_classes` - Browse all framework classes
+- `get_class_interface` - View class methods without implementations
+- `list_file_symbols` - Explore file structure without full content
+- `find_by_decorator` - Find all symbols with specific decorators
+
+**Manual CLI Usage (for non-Claude-Code exploration):**
+
+1. Query the index to understand structure:
+
+```bash
+# Find a specific class or function
+uv run python scripts/code_intel.py find <symbol>
+
+# List all classes
+make query-classes
+
+# Show class interface
+uv run python scripts/code_intel.py interface <ClassName>
+```
+
+2. Only read full files when implementation details are needed
+3. This reduces token usage by ~85% for exploration tasks
+
+**Example:**
+
+```bash
+# Instead of reading full file (500+ tokens):
+# Do this query first (50 tokens):
+uv run python scripts/code_intel.py file runpod_flash/decorators.py
+
+# Then only read full file if implementation details needed
+```
+
+### Architecture
+
+**Indexer** (`scripts/ast_to_sqlite.py`):
+- Parses Python framework files using built-in `ast` module
+- Extracts: classes, functions, methods, decorators, type hints, docstrings
+- Stores in SQLite with optimized indexes for common queries
+
+**Query Interface** (`scripts/code_intel.py`):
+- CLI built with `typer` and `rich`
+- Commands: `list-all`, `find`, `interface`, `file`
+- Performance: <10ms per query
+
+**Database** (`.code-intel/flash.db`):
+- SQLite database with symbols table
+- Indexed on: symbol_name, file_path, kind, decorator_json
+- Typical size: 100-500KB
+
+### MCP Server Setup
+
+The MCP (Model Context Protocol) server automatically provides code intelligence tools to Claude Code without any setup. Simply open this project in Claude Code and the server will:
+
+1. Start automatically (configured in `.mcp.json`)
+2. Discover the 5 code intelligence tools
+3. Enable Claude to query the database instead of reading files
+
+**Verify MCP Server is Running:**
+
+Claude Code shows available tools in the UI. If you don't see the code intelligence tools, try:
+
+1. Ensure the code intelligence index is generated:
+   ```bash
+   make index
+   ```
+
+2. Restart Claude Code to reload MCP servers
+
+3. Check that `.mcp.json` exists in the project root
+
+### Troubleshooting
+
+**Error: "Index not found"**
+
+```bash
+make index  # Generate index
+```
+
+**Error: "SyntaxError during indexing"**
+- Check Python file syntax
+- Indexer skips malformed files automatically
+
+**Stale index**
+- Regenerate after significant code changes:
+  ```bash
+  make index
+  ```
+
+**MCP Server not connecting in Claude Code**
+- Ensure code intelligence index exists: `make index`
+- Check `.mcp.json` file exists in project root
+- Restart Claude Code to reload MCP configuration
+- Try running the server manually: `uv run python scripts/mcp_code_intel_server.py`
 
 ## License
 

@@ -1,11 +1,9 @@
 [project]
-name = "tetra_rp"
-version = "0.23.1"
+name = "runpod-flash"
+version = "1.0.0"
 description = "A Python library for distributed inference and serving of machine learning models"
 authors = [
-    { name = "Marut Pandya", email = "pandyamarut@gmail.com" },
-    { name = "Patrick Rachford", email = "prachford@icloud.com" },
-    { name = "Dean Quinanola", email = "dean.quinanola@runpod.io" },
+    { name = "Runpod", email = "engineer@runpod.io" },
 ]
 readme = "README.md"
 license = { text = "MIT" }
@@ -33,6 +31,7 @@ dependencies = [
 dev = [
     "mypy>=1.16.1",
     "ruff>=0.11.9",
+    "mcp>=1.0.0",
 ]
 test = [
     "pytest>=8.4.1",
@@ -44,7 +43,7 @@ test = [
 ]
 
 [project.scripts]
-flash = "tetra_rp.cli.main:app"
+flash = "runpod_flash.cli.main:app"
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
@@ -54,7 +53,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-tetra_rp = [
+runpod_flash = [
     "cli/utils/skeleton_template/**/*",
     "cli/utils/skeleton_template/**/.*",
 ]
@@ -67,7 +66,7 @@ python_functions = ["test_*"]
 addopts = [
     "-v",
     "--tb=short",
-    "--cov=tetra_rp",
+    "--cov=runpod_flash",
     "--cov-report=term-missing",
     "--cov-fail-under=65"
 ]
@@ -85,8 +84,6 @@ filterwarnings = [
     "ignore::pytest.PytestDeprecationWarning",
     "ignore::pytest.PytestUnknownMarkWarning"
 ]
-
-[tool.ruff]
 
 [tool.mypy]
 # Basic configuration
@@ -122,7 +119,7 @@ ignore_missing_imports = true
 [tool.coverage.run]
 parallel = true
 branch = false
-source = ["tetra_rp"]
+source = ["runpod_flash"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
@@ -146,8 +143,19 @@ exclude_lines = [
 
 [tool.coverage.paths]
 source = [
-    "src/tetra_rp",
-    "*/site-packages/tetra_rp",
+    "src/runpod_flash",
+    "*/site-packages/runpod_flash",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+exclude = [
+    ".venv",
+    ".git",
+    "__pycache__",
+    "dist",
+    "build",
 ]
 
 [tool.uv.sources]

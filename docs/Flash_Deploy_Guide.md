@@ -19,12 +19,11 @@ graph TB
 
     subgraph Build["Build Phase"]
         Scan["Scanner<br/>Find @remote"]
-        Gen["Generator<br/>Create Handlers"]
         Manifest["ManifestBuilder<br/>flash_manifest.json"]
     end
 
     subgraph Cloud["RunPod Cloud"]
-        S3["S3 Storage<br/>archive.tar.gz"]
+        S3["S3 Storage<br/>artifact.tar.gz"]
 
         subgraph Mothership["Mothership Endpoint<br/>(FLASH_IS_MOTHERSHIP=true)"]
             MothershipReconciler["MothershipsProvisioner<br/>Reconcile Children"]
@@ -119,7 +118,7 @@ flash deploy new production
 # Next: flash deploy send production
 ```
 
-**Implementation:** `src/tetra_rp/cli/commands/deploy.py:38-50`
+**Implementation:** `src/runpod_flash/cli/commands/deploy.py:38-50`
 
 ---
 
@@ -138,10 +137,10 @@ flash deploy send <env_name> [--app-name <app_name>]
 - `--app-name <app_name>`: Flash app name (auto-detected if not provided)
 
 **Prerequisites:**
-- Archive must exist at `.flash/archive.tar.gz` (created by `flash build`)
+- Archive must exist at `.flash/artifact.tar.gz` (created by `flash build`)
 
 **What it does:**
-1. Uploads archive.tar.gz to S3
+1. Uploads artifact.tar.gz to S3
 2. Provisions all resources upfront before environment activation
 3. Manifest is read from `.flash/` directory on resources
 
@@ -152,7 +151,7 @@ flash deploy send production
 # Deployment Complete
 ```
 
-**Implementation:** `src/tetra_rp/cli/commands/deploy.py:197-224`
+**Implementation:** `src/runpod_flash/cli/commands/deploy.py:197-224`
 
 ---
 
@@ -173,7 +172,7 @@ flash deploy list [--app-name <app_name>]
 - Active build ID
 - Creation timestamp
 
-**Implementation:** `src/tetra_rp/cli/commands/deploy.py:27-135`
+**Implementation:** `src/runpod_flash/cli/commands/deploy.py:27-135`
 
 ---
 
@@ -197,7 +196,7 @@ flash deploy info <env_name> [--app-name <app_name>]
 - Associated endpoints
 - Associated network volumes
 
-**Implementation:** `src/tetra_rp/cli/commands/deploy.py:69-111`
+**Implementation:** `src/runpod_flash/cli/commands/deploy.py:69-111`
 
 ---
 
@@ -219,7 +218,7 @@ flash deploy delete <env_name> [--app-name <app_name>]
 - Requires confirmation (twice for safety)
 - Cannot be undone
 
-**Implementation:** `src/tetra_rp/cli/commands/deploy.py:237-270`
+**Implementation:** `src/runpod_flash/cli/commands/deploy.py:237-270`
 
 ---
 
@@ -234,28 +233,22 @@ sequenceDiagram
     Developer->>Build: flash build
     Build->>Build: Scan files for @remote
     Build->>Build: Find resource configs<br/>(e.g., gpu_config, cpu_config)
-    Build->>Build: Generate handler_gpu_config.py<br/>handler_cpu_config.py
     Build->>Build: Scan functions per resource<br/>Build function registry
     Build->>ManifestBuilder: Create manifest entry<br/>per resource config
     ManifestBuilder->>ManifestBuilder: Validate routes<br/>(no conflicts)
     ManifestBuilder->>ManifestBuilder: Detect load-balanced<br/>vs queue-based
     ManifestBuilder->>Manifest: Write flash_manifest.json
     Build->>TarGz: Package build directory
-    TarGz->>Archive: Create .flash/archive.tar.gz
+    TarGz->>Archive: Create .flash/artifact.tar.gz
     Archive->>Developer: Build complete
 ```
 
-**Scanner** (`src/tetra_rp/cli/commands/build_utils/scanner.py`):
+**Scanner** (`src/runpod_flash/cli/commands/build_utils/scanner.py`):
 - Decorators scanned: `@remote`, `@load_balanced`, `@cluster`
 - Extracts: function name, module path, async status, HTTP routing info
 - Groups functions by resource config
 
-**Handler Generation** (`src/tetra_rp/cli/commands/build_utils/handler_generator.py`):
-- Per-resource handlers: `handler_{resource_name}.py`
-- Contains `handle(job_input)` function for RunPod
-- Invokes discovered `@remote` functions
-
-**Manifest Building** (`src/tetra_rp/cli/commands/build_utils/manifest.py`):
+**Manifest Building** (`src/runpod_flash/cli/commands/build_utils/manifest.py`):
 - Structure:
   ```json
   {
@@ -265,7 +258,6 @@ sequenceDiagram
     "resources": {
       "gpu_config": {
         "resource_type": "LiveServerless",
-        "handler_file": "handler_gpu_config.py",
         "functions": [{"name": "process", "module": "main", ...}],
         "is_load_balanced": false
       }
@@ -277,17 +269,15 @@ sequenceDiagram
 
 **Archive Structure**:
 ```
-archive.tar.gz
+artifact.tar.gz
 ├── flash_manifest.json          # Manifest (source of truth)
 ├── src/                         # Application source code
-├── handler_gpu_config.py        # Generated handlers
-├── handler_cpu_config.py
 └── vendor/                      # Bundled dependencies
 ```
 
 **Key Files:**
-- `src/tetra_rp/cli/commands/build.py` - Entry point for `flash build`
-- `src/tetra_rp/cli/commands/build_utils/manifest.py` - ManifestBuilder
+- `src/runpod_flash/cli/commands/build.py` - Entry point for `flash build`
+- `src/runpod_flash/cli/commands/build_utils/manifest.py` - ManifestBuilder
 
 ---
 
@@ -296,20 +286,20 @@ archive.tar.gz
 ```mermaid
 sequenceDiagram
     Developer->>CLI: flash deploy send <env_name>
-    CLI->>S3: Upload .flash/archive.tar.gz
+    CLI->>S3: Upload .flash/artifact.tar.gz
     CLI->>RunPod: Create endpoints via API<br/>with manifest reference
     RunPod->>ChildEndpoints: Boot endpoints
     ChildEndpoints->>ChildEndpoints: Read manifest from .flash/
     ChildEndpoints->>StateManager: Query for peer endpoints<br/>peer-to-peer discovery
 ```
 
-**Upload Process** (`src/tetra_rp/cli/commands/deploy.py:197-224`):
+**Upload Process** (`src/runpod_flash/cli/commands/deploy.py:197-224`):
 1. Archive uploaded to RunPod's built-in S3 storage
 2. URL generated with temporary access
 3. URL passed to mothership endpoint creation
 
 **Key Files:**
-- `src/tetra_rp/cli/commands/deploy.py` - Deploy CLI commands
+- `src/runpod_flash/cli/commands/deploy.py` - Deploy CLI commands
 
 ---
 
@@ -335,20 +325,20 @@ sequenceDiagram
 
 **Key Components:**
 
-**MothershipsProvisioner** (`src/tetra_rp/runtime/mothership_provisioner.py`):
+**MothershipsProvisioner** (`src/runpod_flash/runtime/mothership_provisioner.py`):
 - `is_mothership()`: Check if endpoint is mothership (FLASH_IS_MOTHERSHIP=true)
 - `reconcile_children()`: Compute diff between desired and current state
 - Verifies child endpoints are deployed and healthy
 - Updates State Manager with reconciliation results
 
-**ResourceManager** (`src/tetra_rp/core/resources/resource_manager.py`):
+**ResourceManager** (`src/runpod_flash/core/resources/resource_manager.py`):
 - Singleton pattern (global resource registry)
 - Stores state in `.runpod/resources.pkl` with file locking
 - Tracks config hashes for drift detection (hash comparison)
 - Provisioned upfront by CLI before environment activation
 - Auto-migrates legacy resources
 
-**StateManagerClient** (`src/tetra_rp/runtime/state_manager_client.py`):
+**StateManagerClient** (`src/runpod_flash/runtime/state_manager_client.py`):
 - GraphQL client for persisting manifest state
 - Read-modify-write pattern for updates (3 GQL roundtrips)
 - Thread-safe with asyncio.Lock for concurrent updates
@@ -363,9 +353,9 @@ sequenceDiagram
 6. **Persist new state**: Update State Manager with current reconciliation results
 
 **Key Files:**
-- `src/tetra_rp/runtime/mothership_provisioner.py` - Reconciliation logic
-- `src/tetra_rp/core/resources/resource_manager.py` - Resource provisioning
-- `src/tetra_rp/runtime/state_manager_client.py` - State persistence
+- `src/runpod_flash/runtime/mothership_provisioner.py` - Reconciliation logic
+- `src/runpod_flash/core/resources/resource_manager.py` - Resource provisioning
+- `src/runpod_flash/runtime/state_manager_client.py` - State persistence
 
 ---
 
@@ -395,14 +385,14 @@ sequenceDiagram
     Child->>Ready: Ready to execute functions
 ```
 
-**ManifestFetcher** (`src/tetra_rp/runtime/manifest_fetcher.py`):
+**ManifestFetcher** (`src/runpod_flash/runtime/manifest_fetcher.py`):
 - Caches manifest with TTL (default: 300s)
 - Fetches from State Manager GraphQL API (source of truth)
 - Falls back to local flash_manifest.json if API unavailable
 - Updates local file with fetched data
 - Thread-safe with asyncio.Lock
 
-**ServiceRegistry** (`src/tetra_rp/runtime/service_registry.py`):
+**ServiceRegistry** (`src/runpod_flash/runtime/service_registry.py`):
 - Loads manifest to build function registry
 - Queries State Manager for peer endpoint URLs via GraphQL (peer-to-peer)
 - Returns mapping: `{resource_config_name: endpoint_url}`
@@ -417,9 +407,9 @@ sequenceDiagram
 - `RUNPOD_ENDPOINT_ID`: This endpoint's RunPod endpoint ID
 
 **Key Files:**
-- `src/tetra_rp/runtime/manifest_fetcher.py` - Manifest loading with caching
-- `src/tetra_rp/runtime/service_registry.py` - Service discovery
-- `src/tetra_rp/runtime/generic_handler.py` - Handler utilities
+- `src/runpod_flash/runtime/manifest_fetcher.py` - Manifest loading with caching
+- `src/runpod_flash/runtime/service_registry.py` - Service discovery
+- `src/runpod_flash/runtime/generic_handler.py` - Handler utilities
 
 ---
 
@@ -449,14 +439,14 @@ sequenceDiagram
     Stub->>Client: Return unwrapped result
 ```
 
-**Serialization** (`src/tetra_rp/runtime/serialization.py`):
+**Serialization** (`src/runpod_flash/runtime/serialization.py`):
 - **Args/Kwargs**: cloudpickle → base64
 - **Result**: cloudpickle → base64
 - Max payload size: 10MB
 
 **Handler Routing**:
 
-**Queue-Based** (`src/tetra_rp/runtime/generic_handler.py`):
+**Queue-Based** (`src/runpod_flash/runtime/generic_handler.py`):
 
 Uses a factory function `create_handler(function_registry)` that returns a RunPod-compatible handler:
 
@@ -485,16 +475,16 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     }
 ```
 
-**Load-Balanced** (`src/tetra_rp/runtime/lb_handler.py`):
+**Load-Balanced** (`src/runpod_flash/runtime/lb_handler.py`):
 - FastAPI app with user-defined HTTP routes
 - `/execute` endpoint for @remote execution (LiveLoadBalancer only)
 - User routes: HTTP methods + paths from manifest
 
 **Key Files:**
-- `src/tetra_rp/runtime/generic_handler.py` - Queue-based handler
-- `src/tetra_rp/runtime/lb_handler.py` - Load-balanced handler factory
-- `src/tetra_rp/runtime/serialization.py` - cloudpickle serialization
-- `src/tetra_rp/runtime/service_registry.py` - Cross-endpoint routing
+- `src/runpod_flash/runtime/generic_handler.py` - Queue-based handler
+- `src/runpod_flash/runtime/lb_handler.py` - Load-balanced handler factory
+- `src/runpod_flash/runtime/serialization.py` - cloudpickle serialization
+- `src/runpod_flash/runtime/service_registry.py` - Cross-endpoint routing
 
 ---
 
@@ -506,7 +496,7 @@ The manifest is the contract between build-time and runtime. It defines all depl
 
 **Location**: Generated during `flash build`
 
-**Builder**: `ManifestBuilder` in `src/tetra_rp/cli/commands/build_utils/manifest.py`
+**Builder**: `ManifestBuilder` in `src/runpod_flash/cli/commands/build_utils/manifest.py`
 
 **Input**:
 - List of discovered `@remote` functions (from scanner)
@@ -524,7 +514,6 @@ The manifest is the contract between build-time and runtime. It defines all depl
   "resources": {
     "gpu_config": {
       "resource_type": "LiveServerless",
-      "handler_file": "handler_gpu_config.py",
       "functions": [
         {
           "name": "train",
@@ -554,7 +543,7 @@ The manifest is the contract between build-time and runtime. It defines all depl
 - Load-balanced endpoints have method and path
 - No reserved paths (/execute, /ping)
 
-**Code Reference**: `src/tetra_rp/cli/commands/build_utils/manifest.py:50-164`
+**Code Reference**: `src/runpod_flash/cli/commands/build_utils/manifest.py:50-164`
 
 ---
 
@@ -575,7 +564,7 @@ The manifest is the contract between build-time and runtime. It defines all depl
 
 4. **Return to caller**: Cached manifest
 
-**Code Reference**: `src/tetra_rp/runtime/manifest_fetcher.py:47-118`
+**Code Reference**: `src/runpod_flash/runtime/manifest_fetcher.py:47-118`
 
 **Child Endpoint Side** - `ServiceRegistry`:
 
@@ -593,7 +582,7 @@ The manifest is the contract between build-time and runtime. It defines all depl
 
 4. **Cache endpoints**: Store for routing decisions
 
-**Code Reference**: `src/tetra_rp/runtime/service_registry.py:29-80`
+**Code Reference**: `src/runpod_flash/runtime/service_registry.py:29-80`
 
 ---
 
@@ -632,7 +621,7 @@ Write: Mutation updateFlashBuildManifest
 **Performance**: Each update = 3 GQL roundtrips
 - Consider batching when provisioning many resources
 
-**Code Reference**: `src/tetra_rp/runtime/state_manager_client.py:53-248`
+**Code Reference**: `src/runpod_flash/runtime/state_manager_client.py:53-248`
 
 ---
 
@@ -670,7 +659,7 @@ Resources are dynamically provisioned by the mothership during boot, based on th
 - New format: `{ResourceType:name: resource}`
 - Enables name-based lookup and drift detection
 
-**Code Reference**: `src/tetra_rp/core/resources/resource_manager.py:22-150`
+**Code Reference**: `src/runpod_flash/core/resources/resource_manager.py:22-150`
 
 ---
 
@@ -716,7 +705,7 @@ await StateManagerClient.update_resource_state(mothership_id, resources)
 - If hashes differ: Resource has been modified, trigger update
 - Prevents unnecessary updates when resource unchanged
 
-**Code Reference**: `src/tetra_rp/runtime/mothership_provisioner.py:1-150`
+**Code Reference**: `src/runpod_flash/runtime/mothership_provisioner.py:1-150`
 
 ---
 
@@ -777,7 +766,7 @@ serialized = base64.b64encode(cloudpickle.dumps(args))
 deserialized = cloudpickle.loads(base64.b64decode(serialized))
 ```
 
-**Code Reference**: `src/tetra_rp/runtime/serialization.py`
+**Code Reference**: `src/runpod_flash/runtime/serialization.py`
 
 ---
 
@@ -788,7 +777,7 @@ deserialized = cloudpickle.loads(base64.b64decode(serialized))
 Uses a factory function `create_handler(function_registry)` that creates a RunPod-compatible handler:
 
 ```python
-# src/tetra_rp/runtime/generic_handler.py - conceptual flow
+# src/runpod_flash/runtime/generic_handler.py - conceptual flow
 def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     # Extract job input
     job_input = job.get("input", {})
@@ -816,7 +805,7 @@ def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 Uses `create_lb_handler(route_registry, include_execute=False)` factory:
 
 ```python
-# src/tetra_rp/runtime/lb_handler.py - conceptual structure
+# src/runpod_flash/runtime/lb_handler.py - conceptual structure
 app = FastAPI()
 
 # User-defined routes registered from route_registry
@@ -851,8 +840,8 @@ async def execute_remote_function(request: Request) -> Dict[str, Any]:
 ```
 
 **Code References**:
-- `src/tetra_rp/runtime/generic_handler.py` - Queue-based handler
-- `src/tetra_rp/runtime/lb_handler.py` - Load-balanced handler
+- `src/runpod_flash/runtime/generic_handler.py` - Queue-based handler
+- `src/runpod_flash/runtime/lb_handler.py` - Load-balanced handler
 
 ---
 
@@ -861,7 +850,7 @@ async def execute_remote_function(request: Request) -> Dict[str, Any]:
 **ServiceRegistry** determines function endpoint:
 
 ```python
-# src/tetra_rp/runtime/service_registry.py
+# src/runpod_flash/runtime/service_registry.py
 registry = ServiceRegistry()
 
 # Lookup function's resource config
@@ -893,8 +882,6 @@ else:
 graph TB
     subgraph Build["Build (Local)"]
         Scanner["Scanner<br/>RemoteDecoratorScanner"]
-        Generator["Generator<br/>HandlerGenerator"]
-        LBGen["LB Generator<br/>LBHandlerGenerator"]
         ManifestB["ManifestBuilder"]
     end
 
@@ -925,10 +912,7 @@ graph TB
         Exec["Function Execution"]
     end
 
-    Scanner --> Generator
-    Scanner --> LBGen
-    Generator --> ManifestB
-    LBGen --> ManifestB
+    Scanner --> ManifestB
     ManifestB --> Archive
     Archive --> S3
     S3 --> Fetcher
@@ -955,7 +939,7 @@ graph TB
 ```mermaid
 graph LR
     A["Build Time<br/>ManifestBuilder"] -->|Generate| B["flash_manifest.json<br/>(embedded in archive)"]
-    B -->|Upload| C["S3<br/>(archive.tar.gz)"]
+    B -->|Upload| C["S3<br/>(artifact.tar.gz)"]
     C -->|Provision upfront<br/>before activation| D["Child Endpoints<br/>(deployed)"]
     D -->|Extract from<br/>.flash/ directory| E["LocalManifest<br/>(from archive)"]
     Mothership -->|Load from<br/>.flash/| E
@@ -1079,7 +1063,7 @@ Flash Deploy uses a dual-layer state system for reliability and consistency.
 - Exclusive lock for writes (single writer)
 - Prevents data corruption during concurrent access
 
-**Code Reference**: `src/tetra_rp/core/resources/resource_manager.py:46-150`
+**Code Reference**: `src/runpod_flash/core/resources/resource_manager.py:46-150`
 
 ### Remote State: RunPod State Manager (GraphQL API)
 
@@ -1134,33 +1118,38 @@ On mothership boot:
 4. Verify resource health and status
 5. Persist reconciliation state to State Manager
 
-**Code Reference**: `src/tetra_rp/runtime/state_manager_client.py`
+**Code Reference**: `src/runpod_flash/runtime/state_manager_client.py`
 
 ---
 
 ## Testing & Debugging
 
-### flash test-mothership
+### flash build --preview
 
-Local testing of mothership provisioning without deploying to RunPod.
+Local testing of your distributed system without deploying to RunPod.
 
 ```bash
-flash test-mothership
+flash build --preview
 ```
 
 **What it does**:
-1. Loads flash_manifest.json from current directory
-2. Creates temporary resource configs (prefixed with `tmp-`)
-3. Simulates mothership provisioning locally
-4. Displays resource creation output
-5. Auto-cleanup on exit
+1. Builds your project (creates archive, manifest)
+2. Creates a Docker network for inter-container communication
+3. Starts one Docker container per resource config:
+   - Mothership container (orchestrator)
+   - All worker containers (GPU, CPU, etc.)
+4. Exposes mothership on `localhost:8000`
+5. All containers communicate via Docker DNS
+6. Auto-cleanup on exit (Ctrl+C)
 
 **Use Cases**:
 - Validate manifest structure before deployment
 - Test resource provisioning logic
-- Debug handler generation
+- Debug distributed function calls
+- Test endpoint auto-discovery
+- Verify container networking
 
-**Code Reference**: `src/tetra_rp/cli/commands/test_mothership.py`
+**Code Reference**: `src/runpod_flash/cli/commands/preview.py`
 
 ### Local Docker Testing
 
@@ -1175,10 +1164,10 @@ docker run -it \
   -e FLASH_IS_MOTHERSHIP=true \
   -e RUNPOD_API_KEY=$RUNPOD_API_KEY \
   -v $(pwd)/.flash:/workspace/.flash \
-  tetra-rp:latest
+  runpod-flash:latest
 
 # Run provisioner
-python -m tetra_rp.runtime.mothership_provisioner
+python -m runpod_flash.runtime.mothership_provisioner
 ```
 
 ### Debugging Tips
@@ -1196,7 +1185,7 @@ python -c "import json; print(json.dumps(json.load(open('flash_manifest.json')),
 
 **Check Local Resources**:
 ```python
-from tetra_rp.core.resources.resource_manager import ResourceManager
+from runpod_flash.core.resources.resource_manager import ResourceManager
 rm = ResourceManager()
 print(rm._resources)
 print(rm._resource_configs)
@@ -1206,7 +1195,7 @@ print(rm._resource_configs)
 ```python
 # Add logging to ServiceRegistry
 import logging
-logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
+logging.getLogger("runpod_flash.runtime.service_registry").setLevel(logging.DEBUG)
 ```
 
 ---
@@ -1217,51 +1206,49 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 
 | File | Purpose |
 |------|---------|
-| `src/tetra_rp/cli/commands/deploy.py` | Deploy environment management commands |
-| `src/tetra_rp/cli/commands/build.py` | Build packaging and archive creation |
-| `src/tetra_rp/cli/commands/test_mothership.py` | Local mothership testing |
+| `src/runpod_flash/cli/commands/deploy.py` | Deploy environment management commands |
+| `src/runpod_flash/cli/commands/build.py` | Build packaging and archive creation |
+| `src/runpod_flash/cli/commands/test_mothership.py` | Local mothership testing |
 
 ### Build System
 
 | File | Purpose |
 |------|---------|
-| `src/tetra_rp/cli/commands/build_utils/scanner.py` | Scans for @remote decorators |
-| `src/tetra_rp/cli/commands/build_utils/handler_generator.py` | Generates queue-based handlers |
-| `src/tetra_rp/cli/commands/build_utils/lb_handler_generator.py` | Generates load-balanced handlers |
-| `src/tetra_rp/cli/commands/build_utils/manifest.py` | Manifest builder and validation |
+| `src/runpod_flash/cli/commands/build_utils/scanner.py` | Scans for @remote decorators |
+| `src/runpod_flash/cli/commands/build_utils/manifest.py` | Manifest builder and validation |
 
 ### Resource Management
 
 | File | Purpose |
 |------|---------|
-| `src/tetra_rp/core/resources/resource_manager.py` | Resource provisioning and state tracking |
-| `src/tetra_rp/core/resources/base.py` | Base resource types |
-| `src/tetra_rp/core/resources/serverless.py` | Serverless resource implementations |
+| `src/runpod_flash/core/resources/resource_manager.py` | Resource provisioning and state tracking |
+| `src/runpod_flash/core/resources/base.py` | Base resource types |
+| `src/runpod_flash/core/resources/serverless.py` | Serverless resource implementations |
 
 ### Runtime: Manifest & State
 
 | File | Purpose |
 |------|---------|
-| `src/tetra_rp/runtime/manifest_fetcher.py` | Manifest loading from local .flash/ directory |
-| `src/tetra_rp/runtime/state_manager_client.py` | GraphQL client for peer-to-peer service discovery |
-| `src/tetra_rp/runtime/mothership_provisioner.py` | Auto-provisioning logic |
+| `src/runpod_flash/runtime/manifest_fetcher.py` | Manifest loading from local .flash/ directory |
+| `src/runpod_flash/runtime/state_manager_client.py` | GraphQL client for peer-to-peer service discovery |
+| `src/runpod_flash/runtime/mothership_provisioner.py` | Auto-provisioning logic |
 
 ### Runtime: Execution
 
 | File | Purpose |
 |------|---------|
-| `src/tetra_rp/runtime/generic_handler.py` | Queue-based handler factory |
-| `src/tetra_rp/runtime/lb_handler.py` | Load-balanced (FastAPI) handler factory |
-| `src/tetra_rp/runtime/service_registry.py` | Service discovery and routing |
-| `src/tetra_rp/runtime/serialization.py` | cloudpickle serialization/deserialization |
+| `src/runpod_flash/runtime/generic_handler.py` | Queue-based handler factory |
+| `src/runpod_flash/runtime/lb_handler.py` | Load-balanced (FastAPI) handler factory |
+| `src/runpod_flash/runtime/service_registry.py` | Service discovery and routing |
+| `src/runpod_flash/runtime/serialization.py` | cloudpickle serialization/deserialization |
 
 ### Utilities
 
 | File | Purpose |
 |------|---------|
-| `src/tetra_rp/core/utils/file_lock.py` | Cross-platform file locking |
-| `src/tetra_rp/core/utils/singleton.py` | Singleton pattern implementation |
-| `src/tetra_rp/runtime/config.py` | Runtime configuration constants |
+| `src/runpod_flash/core/utils/file_lock.py` | Cross-platform file locking |
+| `src/runpod_flash/core/utils/singleton.py` | Singleton pattern implementation |
+| `src/runpod_flash/runtime/config.py` | Runtime configuration constants |
 
 ---
 
@@ -1272,7 +1259,7 @@ logging.getLogger("tetra_rp.runtime.service_registry").setLevel(logging.DEBUG)
 **Cause**: flash_manifest.json not included in archive or not found at runtime
 
 **Solution**:
-1. Verify archive contains flash_manifest.json: `tar -tzf archive.tar.gz | grep manifest`
+1. Verify archive contains flash_manifest.json: `tar -tzf artifact.tar.gz | grep manifest`
 2. Check `FLASH_MANIFEST_PATH` env var if using custom location
 3. Ensure flash_manifest.json is in build root when creating archive
 

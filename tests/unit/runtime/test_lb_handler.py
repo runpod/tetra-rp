@@ -1,6 +1,6 @@
 """Unit tests for LoadBalancer handler factory."""
 
-from tetra_rp.runtime.lb_handler import create_lb_handler
+from runpod_flash.runtime.lb_handler import create_lb_handler
 
 
 class TestExecuteEndpointStillWorks:

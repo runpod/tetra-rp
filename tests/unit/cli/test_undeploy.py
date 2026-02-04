@@ -4,9 +4,10 @@ import pytest
 from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
-from tetra_rp.cli.main import app
-from tetra_rp.core.resources.serverless import ServerlessResource
-from tetra_rp.core.resources.resource_manager import ResourceManager
+from runpod_flash.cli.main import app
+from runpod_flash.core.resources.serverless import ServerlessResource
+from runpod_flash.core.resources.network_volume import NetworkVolume
+from runpod_flash.core.resources.resource_manager import ResourceManager
 
 
 @pytest.fixture(autouse=True)
@@ -62,7 +63,7 @@ class TestUndeployList:
     def test_list_no_endpoints(self, runner):
         """Test list command with no endpoints."""
         with patch(
-            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            "runpod_flash.cli.commands.undeploy._get_resource_manager"
         ) as mock_get_rm:
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = {}
@@ -75,18 +76,18 @@ class TestUndeployList:
 
     def test_list_with_endpoints(self, runner):
         """Test list command with endpoints."""
-        # Create mock resources instead of real ones to avoid Pydantic issues
-        mock_resource1 = MagicMock()
+        from runpod_flash.core.resources.serverless import ServerlessResource
+
+        # Create mock resources that are instances of ServerlessResource
+        mock_resource1 = MagicMock(spec=ServerlessResource)
         mock_resource1.name = "test-api-1"
         mock_resource1.id = "endpoint-id-1"
         mock_resource1.is_deployed.return_value = True
-        mock_resource1.__class__.__name__ = "ServerlessResource"
 
-        mock_resource2 = MagicMock()
+        mock_resource2 = MagicMock(spec=ServerlessResource)
         mock_resource2.name = "test-api-2"
         mock_resource2.id = "endpoint-id-2"
         mock_resource2.is_deployed.return_value = True
-        mock_resource2.__class__.__name__ = "ServerlessResource"
 
         mock_resources = {
             "resource-id-1": mock_resource1,
@@ -94,7 +95,7 @@ class TestUndeployList:
         }
 
         with patch(
-            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            "runpod_flash.cli.commands.undeploy._get_resource_manager"
         ) as mock_get_rm:
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = mock_resources
@@ -111,6 +112,47 @@ class TestUndeployList:
             assert "endpoint-id-1" in result.stdout
             assert "endpoint-id-2" in result.stdout
 
+    def test_list_filters_non_serverless_resources(self, runner):
+        """Test that list command filters out non-ServerlessResource types."""
+        from runpod_flash.cli.commands.undeploy import _get_serverless_resources
+
+        # Create mock ServerlessResource instances
+        mock_serverless1 = MagicMock(spec=ServerlessResource)
+        mock_serverless1.name = "serverless-api-1"
+        mock_serverless1.id = "serverless-id-1"
+        mock_serverless1.is_deployed.return_value = True
+
+        mock_serverless2 = MagicMock(spec=ServerlessResource)
+        mock_serverless2.name = "serverless-api-2"
+        mock_serverless2.id = "serverless-id-2"
+        mock_serverless2.is_deployed.return_value = True
+
+        # Create mock NetworkVolume instance (should be filtered out)
+        mock_network_volume = MagicMock(spec=NetworkVolume)
+        mock_network_volume.name = "storage-volume"
+        mock_network_volume.id = "volume-id"
+        mock_network_volume.is_deployed.return_value = True
+
+        # Mix of resource types
+        mock_resources = {
+            "resource-id-1": mock_serverless1,
+            "resource-id-2": mock_serverless2,
+            "volume-id-1": mock_network_volume,
+        }
+
+        # Test the filtering function directly
+        filtered = _get_serverless_resources(mock_resources)
+
+        # Should only include ServerlessResource instances
+        assert len(filtered) == 2
+        assert "resource-id-1" in filtered
+        assert "resource-id-2" in filtered
+        assert "volume-id-1" not in filtered
+
+        # Verify filtered resources are correct instances
+        assert isinstance(filtered["resource-id-1"], MagicMock)
+        assert isinstance(filtered["resource-id-2"], MagicMock)
+
 
 class TestUndeployCommand:
     """Test undeploy command."""
@@ -118,7 +160,7 @@ class TestUndeployCommand:
     def test_undeploy_no_args_shows_help(self, runner):
         """Test undeploy without arguments shows help/usage."""
         with patch(
-            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            "runpod_flash.cli.commands.undeploy._get_resource_manager"
         ) as mock_get_rm:
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = {}
@@ -133,7 +175,7 @@ class TestUndeployCommand:
     def test_undeploy_no_args_shows_usage_text(self, runner):
         """Ensure usage panel is rendered when no args are provided."""
         with patch(
-            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            "runpod_flash.cli.commands.undeploy._get_resource_manager"
         ) as mock_get_rm:
             mock_resource = MagicMock()
             mock_resource.name = "foo"
@@ -149,7 +191,7 @@ class TestUndeployCommand:
     def test_undeploy_nonexistent_name(self, runner, sample_resources):
         """Test undeploy with nonexistent name."""
         with patch(
-            "tetra_rp.cli.commands.undeploy._get_resource_manager"
+            "runpod_flash.cli.commands.undeploy._get_resource_manager"
         ) as mock_get_rm:
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
@@ -164,9 +206,9 @@ class TestUndeployCommand:
         """Test undeploy by name cancelled by user."""
         with (
             patch(
-                "tetra_rp.cli.commands.undeploy._get_resource_manager"
+                "runpod_flash.cli.commands.undeploy._get_resource_manager"
             ) as mock_get_rm,
-            patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
+            patch("runpod_flash.cli.commands.undeploy.questionary") as mock_questionary,
         ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
@@ -182,16 +224,16 @@ class TestUndeployCommand:
             assert result.exit_code == 0
             assert "cancelled" in result.stdout.lower()
 
-    @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
+    @patch("runpod_flash.cli.commands.undeploy.asyncio.run")
     def test_undeploy_by_name_success(
         self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro
     ):
         """Test successful undeploy by name."""
         with (
             patch(
-                "tetra_rp.cli.commands.undeploy._get_resource_manager"
+                "runpod_flash.cli.commands.undeploy._get_resource_manager"
             ) as mock_get_rm,
-            patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
+            patch("runpod_flash.cli.commands.undeploy.questionary") as mock_questionary,
         ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
@@ -220,16 +262,16 @@ class TestUndeployCommand:
             assert result.exit_code == 0
             assert "Successfully" in result.stdout
 
-    @patch("tetra_rp.cli.commands.undeploy.asyncio.run")
+    @patch("runpod_flash.cli.commands.undeploy.asyncio.run")
     def test_undeploy_all_flag(
         self, mock_asyncio_run, runner, sample_resources, mock_asyncio_run_coro
     ):
         """Test undeploy --all flag."""
         with (
             patch(
-                "tetra_rp.cli.commands.undeploy._get_resource_manager"
+                "runpod_flash.cli.commands.undeploy._get_resource_manager"
             ) as mock_get_rm,
-            patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
+            patch("runpod_flash.cli.commands.undeploy.questionary") as mock_questionary,
         ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
@@ -266,9 +308,9 @@ class TestUndeployCommand:
         """Test undeploy --all with wrong confirmation text."""
         with (
             patch(
-                "tetra_rp.cli.commands.undeploy._get_resource_manager"
+                "runpod_flash.cli.commands.undeploy._get_resource_manager"
             ) as mock_get_rm,
-            patch("tetra_rp.cli.commands.undeploy.questionary") as mock_questionary,
+            patch("runpod_flash.cli.commands.undeploy.questionary") as mock_questionary,
         ):
             mock_manager = MagicMock()
             mock_manager.list_all_resources.return_value = sample_resources
@@ -294,7 +336,7 @@ class TestResourceStatusHelpers:
 
     def test_get_resource_status_active(self):
         """Test _get_resource_status for active resource."""
-        from tetra_rp.cli.commands.undeploy import _get_resource_status
+        from runpod_flash.cli.commands.undeploy import _get_resource_status
 
         mock_resource = MagicMock()
         mock_resource.is_deployed.return_value = True
@@ -306,7 +348,7 @@ class TestResourceStatusHelpers:
 
     def test_get_resource_status_inactive(self):
         """Test _get_resource_status for inactive resource."""
-        from tetra_rp.cli.commands.undeploy import _get_resource_status
+        from runpod_flash.cli.commands.undeploy import _get_resource_status
 
         mock_resource = MagicMock()
         mock_resource.is_deployed.return_value = False
@@ -318,7 +360,7 @@ class TestResourceStatusHelpers:
 
     def test_get_resource_status_exception(self):
         """Test _get_resource_status when exception occurs."""
-        from tetra_rp.cli.commands.undeploy import _get_resource_status
+        from runpod_flash.cli.commands.undeploy import _get_resource_status
 
         mock_resource = MagicMock()
         mock_resource.is_deployed.side_effect = Exception("API Error")
@@ -330,7 +372,7 @@ class TestResourceStatusHelpers:
 
     def test_get_resource_type(self, sample_resources):
         """Test _get_resource_type returns formatted type."""
-        from tetra_rp.cli.commands.undeploy import _get_resource_type
+        from runpod_flash.cli.commands.undeploy import _get_resource_type
 
         resource = list(sample_resources.values())[0]
         resource_type = _get_resource_type(resource)

@@ -5,8 +5,8 @@ import tempfile
 from pathlib import Path
 
 
-from tetra_rp.cli.commands.build_utils.manifest import ManifestBuilder
-from tetra_rp.cli.commands.build_utils.scanner import RemoteFunctionMetadata
+from runpod_flash.cli.commands.build_utils.manifest import ManifestBuilder
+from runpod_flash.cli.commands.build_utils.scanner import RemoteFunctionMetadata
 
 
 def test_build_manifest_single_resource():
@@ -29,9 +29,6 @@ def test_build_manifest_single_resource():
     assert manifest["version"] == "1.0"
     assert manifest["project_name"] == "test_app"
     assert "gpu_config" in manifest["resources"]
-    assert (
-        manifest["resources"]["gpu_config"]["handler_file"] == "handler_gpu_config.py"
-    )
     assert len(manifest["resources"]["gpu_config"]["functions"]) == 1
 
     # Check function registry

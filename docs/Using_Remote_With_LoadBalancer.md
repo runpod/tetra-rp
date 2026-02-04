@@ -41,7 +41,7 @@ Use **Queue-Based** when you need:
 For local development, use `LiveLoadBalancer`:
 
 ```python
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 # Create load-balanced endpoint
 api = LiveLoadBalancer(name="example-api")
@@ -86,7 +86,7 @@ Load-balanced endpoints require explicit HTTP routing metadata in the `@remote` 
 Multiple functions can share a single LoadBalancerSlsResource with different routes:
 
 ```python
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 api = LiveLoadBalancer(name="user-service")
 
@@ -134,7 +134,7 @@ Attempting to use `/ping` or `/execute` as user-defined routes will raise a vali
 For local development and testing, use `LiveLoadBalancer` instead of `LoadBalancerSlsResource`:
 
 ```python
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 api = LiveLoadBalancer(name="my-api")
 
@@ -149,7 +149,7 @@ async def test():
 ```
 
 **Key differences:**
-- `LiveLoadBalancer` locks image to Tetra LB runtime (tetra-rp-lb)
+- `LiveLoadBalancer` locks image to Flash LB runtime (runpod/flash-lb)
 - Functions execute directly without deployment
 - Ideal for development and CI/CD testing
 - Same `@remote` decorator interface as production
@@ -158,7 +158,7 @@ async def test():
 
 ```python
 import pytest
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 
 api = LiveLoadBalancer(name="test-api")
 
@@ -201,7 +201,6 @@ When using `LiveLoadBalancer` for local testing:
 ### Deployed Endpoints (LoadBalancerSlsResource)
 
 When deployed to production:
-- Generated handlers do NOT expose `/execute` endpoint (security)
 - Functions decorated with `@remote` are called via HTTP requests to their user-defined routes
 - The stub automatically translates `@remote` calls into HTTP requests with mapped parameters
 - Example: `await process_data(5, 3)` becomes `POST /api/process {"x": 5, "y": 3}`
@@ -256,32 +255,16 @@ When you run `flash build`, the system:
 
 1. **Scans** your code for `@remote` decorated functions
 2. **Extracts** HTTP routing metadata (method, path)
-3. **Generates** FastAPI application with routes
-4. **Creates** one handler file per LoadBalancerSlsResource
-5. **Validates** routes for conflicts and reserved paths
+3. **Creates** manifest with route registry
+4. **Validates** routes for conflicts and reserved paths
+5. **Packages** everything for deployment
 
-Example generated handler:
+The runtime then:
+- Loads the manifest and route registry
+- Creates a FastAPI application with the registered routes
+- Starts the server on port 8000
 
-```python
-from fastapi import FastAPI
-from tetra_rp.runtime.lb_handler import create_lb_handler
-
-# Imported from user code
-from api.endpoints import process_data, health_check
-
-# Route registry built automatically
-ROUTE_REGISTRY = {
-    ("POST", "/api/process"): process_data,
-    ("GET", "/api/health"): health_check,
-}
-
-# FastAPI app created with routes
-app = create_lb_handler(ROUTE_REGISTRY)
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-```
+Your `@remote` decorated functions are discovered and registered automatically based on their HTTP method and path parameters.
 
 ### Deployment Workflow
 
@@ -325,14 +308,14 @@ Here's a full example with multiple routes, error handling, and testing:
 user_service.py - Example load-balanced API service
 """
 
-from tetra_rp import LoadBalancerSlsResource, remote
+from runpod_flash import LoadBalancerSlsResource, remote
 from typing import Optional
 
 # For production, use LoadBalancerSlsResource
 # For local development, use LiveLoadBalancer
 api = LoadBalancerSlsResource(
     name="user-service",
-    imageName="runpod/tetra-rp-lb:latest"
+    imageName="runpod/runpod-flash-lb:latest"
 )
 
 class UserNotFound(Exception):
@@ -401,7 +384,7 @@ test_user_service.py
 """
 
 import pytest
-from tetra_rp import LiveLoadBalancer, remote
+from runpod_flash import LiveLoadBalancer, remote
 from typing import Optional
 
 # Use LiveLoadBalancer for testing
@@ -494,7 +477,7 @@ async def test_delete_user():
 ### Build Errors
 
 **"Cannot import module 'user_service'"**
-- Problem: Function module not found during handler generation
+- Problem: Function module not found at runtime
 - Solution: Ensure module is in Python path, check import statements
 
 **"Function 'process_data' not found in executed code"**
@@ -525,7 +508,7 @@ See `docs/Load_Balancer_Endpoints.md` for detailed architecture and configuratio
 ### LiveLoadBalancer
 
 A test/development variant of LoadBalancerSlsResource:
-- Locks to Tetra LB image
+- Locks to Flash LB image
 - Enables direct function calls without deployment
 - Same decorator interface as production
 
