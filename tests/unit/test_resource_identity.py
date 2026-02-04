@@ -2,8 +2,8 @@
 
 import cloudpickle
 
-from tetra_rp.core.resources.live_serverless import LiveServerless
-from tetra_rp.core.resources.gpu import GpuGroup
+from runpod_flash.core.resources.live_serverless import LiveServerless
+from runpod_flash.core.resources.gpu import GpuGroup
 
 
 class TestResourceIdentity:

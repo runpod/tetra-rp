@@ -70,7 +70,7 @@ test_scenario() {
     # Run flash build (with minimal verbosity)
     echo "  Running: flash build --no-docker..."
     cd "$REPO_ROOT"
-    python3 -m tetra_rp.cli.commands.build build --no-docker --generate-file-structure 2>&1 > /dev/null || true
+    python3 -m runpod_flash.cli.commands.build build --no-docker --generate-file-structure 2>&1 > /dev/null || true
 
     # Check manifest in test directory
     if [ ! -f "$TEST_DIR/.flash/flash_manifest.json" ]; then
@@ -108,22 +108,22 @@ PYTHON
 
 # Test 1: Default behavior (no env vars)
 echo -e "${YELLOW}Test Suite 1: Default Behavior${NC}"
-(unset TETRA_IMAGE_TAG; test_scenario "Default (no env vars)" "" "runpod/tetra-rp-lb-cpu:latest") || true
+(unset FLASH_IMAGE_TAG; test_scenario "Default (no env vars)" "" "runpod/flash-lb-cpu:latest") || true
 
-# Test 2: With TETRA_IMAGE_TAG=local
+# Test 2: With FLASH_IMAGE_TAG=local
 echo ""
-echo -e "${YELLOW}Test Suite 2: With TETRA_IMAGE_TAG=local${NC}"
-test_scenario "TETRA_IMAGE_TAG=local" "TETRA_IMAGE_TAG=local" "runpod/tetra-rp-lb-cpu:local" || true
+echo -e "${YELLOW}Test Suite 2: With FLASH_IMAGE_TAG=local${NC}"
+test_scenario "FLASH_IMAGE_TAG=local" "FLASH_IMAGE_TAG=local" "runpod/flash-lb-cpu:local" || true
 
-# Test 3: With TETRA_IMAGE_TAG=dev
+# Test 3: With FLASH_IMAGE_TAG=dev
 echo ""
-echo -e "${YELLOW}Test Suite 3: With TETRA_IMAGE_TAG=dev${NC}"
-test_scenario "TETRA_IMAGE_TAG=dev" "TETRA_IMAGE_TAG=dev" "runpod/tetra-rp-lb-cpu:dev" || true
+echo -e "${YELLOW}Test Suite 3: With FLASH_IMAGE_TAG=dev${NC}"
+test_scenario "FLASH_IMAGE_TAG=dev" "FLASH_IMAGE_TAG=dev" "runpod/flash-lb-cpu:dev" || true
 
 # Test 4: With custom CPU LB image
 echo ""
 echo -e "${YELLOW}Test Suite 4: Custom Image Override${NC}"
-(unset TETRA_IMAGE_TAG; test_scenario "Custom TETRA_CPU_LB_IMAGE" "TETRA_CPU_LB_IMAGE=custom/lb-cpu:v1" "custom/lb-cpu:v1") || true
+(unset FLASH_IMAGE_TAG; test_scenario "Custom FLASH_CPU_LB_IMAGE" "FLASH_CPU_LB_IMAGE=custom/lb-cpu:v1" "custom/lb-cpu:v1") || true
 
 # Test 5: Run the actual unit tests
 echo ""
@@ -140,18 +140,18 @@ python3 << 'PYTHON'
 import sys
 sys.path.insert(0, 'src')
 
-from tetra_rp.core.resources.constants import (
-    TETRA_CPU_LB_IMAGE,
-    TETRA_LB_IMAGE,
+from runpod_flash.core.resources.constants import (
+    FLASH_CPU_LB_IMAGE,
+    FLASH_LB_IMAGE,
     DEFAULT_WORKERS_MIN,
     DEFAULT_WORKERS_MAX,
 )
-from tetra_rp.cli.commands.build_utils.manifest import ManifestBuilder
+from runpod_flash.cli.commands.build_utils.manifest import ManifestBuilder
 from pathlib import Path
 
 print("  Verifying imports...")
-print(f"    ✓ TETRA_CPU_LB_IMAGE imported: {TETRA_CPU_LB_IMAGE}")
-print(f"    ✓ TETRA_LB_IMAGE imported: {TETRA_LB_IMAGE}")
+print(f"    ✓ FLASH_CPU_LB_IMAGE imported: {FLASH_CPU_LB_IMAGE}")
+print(f"    ✓ FLASH_LB_IMAGE imported: {FLASH_LB_IMAGE}")
 print(f"    ✓ DEFAULT_WORKERS_MIN imported: {DEFAULT_WORKERS_MIN}")
 print(f"    ✓ DEFAULT_WORKERS_MAX imported: {DEFAULT_WORKERS_MAX}")
 
@@ -162,11 +162,11 @@ mothership = builder._create_mothership_resource({
     "app_variable": "app"
 })
 
-assert mothership["imageName"] == TETRA_CPU_LB_IMAGE, f"Wrong image: {mothership['imageName']}"
+assert mothership["imageName"] == FLASH_CPU_LB_IMAGE, f"Wrong image: {mothership['imageName']}"
 assert mothership["workersMin"] == DEFAULT_WORKERS_MIN, f"Wrong min workers: {mothership['workersMin']}"
 assert mothership["workersMax"] == DEFAULT_WORKERS_MAX, f"Wrong max workers: {mothership['workersMax']}"
 
-print(f"    ✓ Mothership uses TETRA_CPU_LB_IMAGE: {mothership['imageName']}")
+print(f"    ✓ Mothership uses FLASH_CPU_LB_IMAGE: {mothership['imageName']}")
 print(f"    ✓ Mothership uses DEFAULT_WORKERS_MIN: {mothership['workersMin']}")
 print(f"    ✓ Mothership uses DEFAULT_WORKERS_MAX: {mothership['workersMax']}")
 PYTHON
@@ -202,8 +202,8 @@ if [ $FAILED -eq 0 ]; then
     echo ""
     echo "Summary of verified functionality:"
     echo "  ✓ Default behavior uses :latest tag"
-    echo "  ✓ TETRA_IMAGE_TAG environment variable works"
-    echo "  ✓ Individual image overrides work (TETRA_CPU_LB_IMAGE, etc.)"
+    echo "  ✓ FLASH_IMAGE_TAG environment variable works"
+    echo "  ✓ Individual image overrides work (FLASH_CPU_LB_IMAGE, etc.)"
     echo "  ✓ Constants are properly centralized in constants.py"
     echo "  ✓ Manifest builder uses constants for mothership resources"
     echo "  ✓ All unit tests pass"

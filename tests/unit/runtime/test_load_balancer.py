@@ -2,8 +2,8 @@
 
 import pytest
 
-from tetra_rp.runtime.load_balancer import LoadBalancer
-from tetra_rp.runtime.reliability_config import LoadBalancerStrategy
+from runpod_flash.runtime.load_balancer import LoadBalancer
+from runpod_flash.runtime.reliability_config import LoadBalancerStrategy
 
 
 class TestLoadBalancer:
@@ -106,7 +106,7 @@ class TestLoadBalancer:
                 self.open_endpoints = open_endpoints
 
             def get_state(self, endpoint):
-                from tetra_rp.runtime.circuit_breaker import CircuitState
+                from runpod_flash.runtime.circuit_breaker import CircuitState
 
                 if endpoint in self.open_endpoints:
                     return CircuitState.OPEN
@@ -126,7 +126,7 @@ class TestLoadBalancer:
 
         class MockCircuitBreaker:
             def get_state(self, endpoint):
-                from tetra_rp.runtime.circuit_breaker import CircuitState
+                from runpod_flash.runtime.circuit_breaker import CircuitState
 
                 return CircuitState.OPEN
 

@@ -148,7 +148,7 @@ This document focuses on the `LoadBalancerSlsResource` class implementation and 
 ### Basic Provisioning
 
 ```python
-from tetra_rp import LoadBalancerSlsResource
+from runpod_flash import LoadBalancerSlsResource
 
 # Create a load-balanced endpoint
 mothership = LoadBalancerSlsResource(

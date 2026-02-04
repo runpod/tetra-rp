@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tetra_rp.cli.commands.resource import generate_resource_table, report_command
+from runpod_flash.cli.commands.resource import generate_resource_table, report_command
 
 
 @pytest.fixture
@@ -294,8 +294,8 @@ class TestGenerateResourceTableResourceTypes:
             pytest.fail(f"generate_resource_table raised {type(e).__name__}: {e}")
 
 
-@patch("tetra_rp.cli.commands.resource.ResourceManager")
-@patch("tetra_rp.cli.commands.resource.console")
+@patch("runpod_flash.cli.commands.resource.ResourceManager")
+@patch("runpod_flash.cli.commands.resource.console")
 def test_report_command_static_mode(mock_console, mock_resource_manager_class):
     """Test report_command in static (non-live) mode."""
     mock_manager_instance = MagicMock()
@@ -311,10 +311,10 @@ def test_report_command_static_mode(mock_console, mock_resource_manager_class):
     mock_console.print.assert_called_once()
 
 
-@patch("tetra_rp.cli.commands.resource.time")
-@patch("tetra_rp.cli.commands.resource.Live")
-@patch("tetra_rp.cli.commands.resource.ResourceManager")
-@patch("tetra_rp.cli.commands.resource.console")
+@patch("runpod_flash.cli.commands.resource.time")
+@patch("runpod_flash.cli.commands.resource.Live")
+@patch("runpod_flash.cli.commands.resource.ResourceManager")
+@patch("runpod_flash.cli.commands.resource.console")
 def test_report_command_live_mode(
     mock_console, mock_resource_manager_class, mock_live_class, mock_time
 ):
@@ -346,8 +346,8 @@ def test_report_command_live_mode(
     assert any("stopped" in str(c).lower() for c in mock_console.print.call_args_list)
 
 
-@patch("tetra_rp.cli.commands.resource.ResourceManager")
-@patch("tetra_rp.cli.commands.resource.console")
+@patch("runpod_flash.cli.commands.resource.ResourceManager")
+@patch("runpod_flash.cli.commands.resource.console")
 def test_report_command_with_custom_refresh(mock_console, mock_resource_manager_class):
     """Test report_command accepts custom refresh interval."""
     mock_manager_instance = MagicMock()
@@ -361,8 +361,8 @@ def test_report_command_with_custom_refresh(mock_console, mock_resource_manager_
     mock_console.print.assert_called_once()
 
 
-@patch("tetra_rp.cli.commands.resource.ResourceManager")
-@patch("tetra_rp.cli.commands.resource.console")
+@patch("runpod_flash.cli.commands.resource.ResourceManager")
+@patch("runpod_flash.cli.commands.resource.console")
 def test_report_command_instantiates_resource_manager(
     mock_console, mock_resource_manager_class
 ):
@@ -377,9 +377,9 @@ def test_report_command_instantiates_resource_manager(
     mock_resource_manager_class.assert_called_once_with()
 
 
-@patch("tetra_rp.cli.commands.resource.generate_resource_table")
-@patch("tetra_rp.cli.commands.resource.ResourceManager")
-@patch("tetra_rp.cli.commands.resource.console")
+@patch("runpod_flash.cli.commands.resource.generate_resource_table")
+@patch("runpod_flash.cli.commands.resource.ResourceManager")
+@patch("runpod_flash.cli.commands.resource.console")
 def test_report_command_calls_generate_table(
     mock_console, mock_resource_manager_class, mock_generate_table
 ):

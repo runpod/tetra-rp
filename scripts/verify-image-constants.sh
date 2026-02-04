@@ -10,9 +10,9 @@
 # This script can be retained and re-run to verify the fix after any changes.
 # It tests the following scenarios:
 #   1. Default behavior (no env vars set) - uses :latest tag
-#   2. TETRA_IMAGE_TAG=local override - uses :local tag
-#   3. TETRA_IMAGE_TAG=dev override - uses :dev tag
-#   4. Individual TETRA_CPU_LB_IMAGE override
+#   2. FLASH_IMAGE_TAG=local override - uses :local tag
+#   3. FLASH_IMAGE_TAG=dev override - uses :dev tag
+#   4. Individual FLASH_CPU_LB_IMAGE override
 #   5. Flash build integration test with environment variables
 #
 # Exit codes:
@@ -76,7 +76,7 @@ EOF
 
     # Create gpu_worker.py with LiveServerless resource
     cat > "$TEST_PROJECT_DIR/gpu_worker.py" << 'EOF'
-from tetra_rp import remote, LiveServerless
+from runpod_flash import remote, LiveServerless
 
 gpu_config = LiveServerless(name="gpu_worker")
 
@@ -87,7 +87,7 @@ EOF
 
     # Create mothership.py with explicit CpuLiveLoadBalancer
     cat > "$TEST_PROJECT_DIR/mothership.py" << 'EOF'
-from tetra_rp import CpuLiveLoadBalancer
+from runpod_flash import CpuLiveLoadBalancer
 
 mothership = CpuLiveLoadBalancer(
     name="test-mothership",
@@ -114,7 +114,7 @@ EOF
 
     # Run flash build
     export PYTHONPATH="$REPO_ROOT/src:$PYTHONPATH"
-    python3 -m tetra_rp.cli.main build --no-docker --generate-file-structure 2>&1 | head -20 || true
+    python3 -m runpod_flash.cli.main build --no-docker --generate-file-structure 2>&1 | head -20 || true
 
     # Check the generated manifest
     if [ ! -f ".flash/flash_manifest.json" ]; then
@@ -164,40 +164,40 @@ PYSCRIPT
 # Test 1: Default behavior (no env vars)
 echo ""
 echo -e "${YELLOW}Test Suite 1: Default Behavior${NC}"
-unset TETRA_IMAGE_TAG
-unset TETRA_CPU_LB_IMAGE
-unset TETRA_LB_IMAGE
+unset FLASH_IMAGE_TAG
+unset FLASH_CPU_LB_IMAGE
+unset FLASH_LB_IMAGE
 run_test "Default (should use :latest)" \
-    "runpod/tetra-rp-lb-cpu:latest" \
-    "runpod/tetra-rp:latest" \
+    "runpod/flash-lb-cpu:latest" \
+    "runpod/flash:latest" \
     "" || exit 1
 
-# Test 2: TETRA_IMAGE_TAG=local
+# Test 2: FLASH_IMAGE_TAG=local
 echo ""
-echo -e "${YELLOW}Test Suite 2: TETRA_IMAGE_TAG Environment Variable${NC}"
-unset TETRA_CPU_LB_IMAGE
-unset TETRA_LB_IMAGE
-run_test "TETRA_IMAGE_TAG=local" \
-    "runpod/tetra-rp-lb-cpu:local" \
-    "runpod/tetra-rp:local" \
-    "TETRA_IMAGE_TAG=local" || exit 1
+echo -e "${YELLOW}Test Suite 2: FLASH_IMAGE_TAG Environment Variable${NC}"
+unset FLASH_CPU_LB_IMAGE
+unset FLASH_LB_IMAGE
+run_test "FLASH_IMAGE_TAG=local" \
+    "runpod/flash-lb-cpu:local" \
+    "runpod/flash:local" \
+    "FLASH_IMAGE_TAG=local" || exit 1
 
-# Test 3: TETRA_IMAGE_TAG=dev
-unset TETRA_CPU_LB_IMAGE
-unset TETRA_LB_IMAGE
-run_test "TETRA_IMAGE_TAG=dev" \
-    "runpod/tetra-rp-lb-cpu:dev" \
-    "runpod/tetra-rp:dev" \
-    "TETRA_IMAGE_TAG=dev" || exit 1
+# Test 3: FLASH_IMAGE_TAG=dev
+unset FLASH_CPU_LB_IMAGE
+unset FLASH_LB_IMAGE
+run_test "FLASH_IMAGE_TAG=dev" \
+    "runpod/flash-lb-cpu:dev" \
+    "runpod/flash:dev" \
+    "FLASH_IMAGE_TAG=dev" || exit 1
 
 # Test 4: Individual image override
 echo ""
 echo -e "${YELLOW}Test Suite 3: Individual Image Overrides${NC}"
-unset TETRA_IMAGE_TAG
-run_test "Custom TETRA_CPU_LB_IMAGE" \
+unset FLASH_IMAGE_TAG
+run_test "Custom FLASH_CPU_LB_IMAGE" \
     "custom/lb-cpu:v1" \
-    "runpod/tetra-rp:latest" \
-    "TETRA_CPU_LB_IMAGE=custom/lb-cpu:v1" || exit 1
+    "runpod/flash:latest" \
+    "FLASH_CPU_LB_IMAGE=custom/lb-cpu:v1" || exit 1
 
 # Test 5: Unit tests for constants
 echo ""
@@ -216,34 +216,34 @@ import sys
 sys.path.insert(0, 'src')
 
 # Reset environment to test defaults
-for var in ['TETRA_IMAGE_TAG', 'TETRA_GPU_IMAGE', 'TETRA_CPU_IMAGE', 'TETRA_LB_IMAGE', 'TETRA_CPU_LB_IMAGE']:
+for var in ['FLASH_IMAGE_TAG', 'FLASH_GPU_IMAGE', 'FLASH_CPU_IMAGE', 'FLASH_LB_IMAGE', 'FLASH_CPU_LB_IMAGE']:
     if var in os.environ:
         del os.environ[var]
 
-from tetra_rp.core.resources.constants import (
-    TETRA_IMAGE_TAG,
-    TETRA_GPU_IMAGE,
-    TETRA_CPU_IMAGE,
-    TETRA_LB_IMAGE,
-    TETRA_CPU_LB_IMAGE,
+from runpod_flash.core.resources.constants import (
+    FLASH_IMAGE_TAG,
+    FLASH_GPU_IMAGE,
+    FLASH_CPU_IMAGE,
+    FLASH_LB_IMAGE,
+    FLASH_CPU_LB_IMAGE,
     DEFAULT_WORKERS_MIN,
     DEFAULT_WORKERS_MAX,
 )
 
-print(f"✓ TETRA_IMAGE_TAG: {TETRA_IMAGE_TAG}")
-print(f"✓ TETRA_GPU_IMAGE: {TETRA_GPU_IMAGE}")
-print(f"✓ TETRA_CPU_IMAGE: {TETRA_CPU_IMAGE}")
-print(f"✓ TETRA_LB_IMAGE: {TETRA_LB_IMAGE}")
-print(f"✓ TETRA_CPU_LB_IMAGE: {TETRA_CPU_LB_IMAGE}")
+print(f"✓ FLASH_IMAGE_TAG: {FLASH_IMAGE_TAG}")
+print(f"✓ FLASH_GPU_IMAGE: {FLASH_GPU_IMAGE}")
+print(f"✓ FLASH_CPU_IMAGE: {FLASH_CPU_IMAGE}")
+print(f"✓ FLASH_LB_IMAGE: {FLASH_LB_IMAGE}")
+print(f"✓ FLASH_CPU_LB_IMAGE: {FLASH_CPU_LB_IMAGE}")
 print(f"✓ DEFAULT_WORKERS_MIN: {DEFAULT_WORKERS_MIN}")
 print(f"✓ DEFAULT_WORKERS_MAX: {DEFAULT_WORKERS_MAX}")
 
 # Verify defaults
-assert TETRA_IMAGE_TAG == "latest", f"Expected 'latest', got {TETRA_IMAGE_TAG}"
-assert TETRA_GPU_IMAGE == "runpod/tetra-rp:latest", f"Unexpected GPU image: {TETRA_GPU_IMAGE}"
-assert TETRA_CPU_IMAGE == "runpod/tetra-rp-cpu:latest", f"Unexpected CPU image: {TETRA_CPU_IMAGE}"
-assert TETRA_LB_IMAGE == "runpod/tetra-rp-lb:latest", f"Unexpected LB image: {TETRA_LB_IMAGE}"
-assert TETRA_CPU_LB_IMAGE == "runpod/tetra-rp-lb-cpu:latest", f"Unexpected CPU LB image: {TETRA_CPU_LB_IMAGE}"
+assert FLASH_IMAGE_TAG == "latest", f"Expected 'latest', got {FLASH_IMAGE_TAG}"
+assert FLASH_GPU_IMAGE == "runpod/flash:latest", f"Unexpected GPU image: {FLASH_GPU_IMAGE}"
+assert FLASH_CPU_IMAGE == "runpod/flash-cpu:latest", f"Unexpected CPU image: {FLASH_CPU_IMAGE}"
+assert FLASH_LB_IMAGE == "runpod/flash-lb:latest", f"Unexpected LB image: {FLASH_LB_IMAGE}"
+assert FLASH_CPU_LB_IMAGE == "runpod/flash-lb-cpu:latest", f"Unexpected CPU LB image: {FLASH_CPU_LB_IMAGE}"
 assert DEFAULT_WORKERS_MIN == 1
 assert DEFAULT_WORKERS_MAX == 3
 
@@ -261,7 +261,7 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 echo "Summary:"
 echo "  ✓ Default behavior uses :latest tag"
-echo "  ✓ TETRA_IMAGE_TAG environment variable works"
+echo "  ✓ FLASH_IMAGE_TAG environment variable works"
 echo "  ✓ Individual image overrides work"
 echo "  ✓ Constants are properly centralized"
 echo "  ✓ Flash manifest generation uses constants"

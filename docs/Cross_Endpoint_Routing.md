@@ -77,7 +77,7 @@ export RUNPOD_ENDPOINT_ID=gpu-endpoint-123
 Define functions normally. The routing system decides execution location:
 
 ```python
-from tetra_rp import stub
+from runpod_flash import stub
 
 @stub.function()
 async def process_image(image_path: str) -> dict:
@@ -385,7 +385,7 @@ graph TD
 
 #### 1. ProductionWrapper
 
-**Location**: `src/tetra_rp/runtime/production_wrapper.py`
+**Location**: `src/runpod_flash/runtime/production_wrapper.py`
 
 Intercepts function calls at the stub layer and routes to local or remote execution:
 
@@ -440,7 +440,7 @@ args = cloudpickle.loads(base64.b64decode(serialized))
 
 #### 2. ServiceRegistry
 
-**Location**: `src/tetra_rp/runtime/service_registry.py`
+**Location**: `src/runpod_flash/runtime/service_registry.py`
 
 Manages service discovery and manifest loading:
 
@@ -529,7 +529,7 @@ class ServiceRegistry:
 
 #### 3. StateManagerClient
 
-**Location**: `src/tetra_rp/runtime/state_manager_client.py`
+**Location**: `src/runpod_flash/runtime/state_manager_client.py`
 
 GraphQL client for State Manager manifest persistence (used by mothership auto-provisioning):
 
@@ -574,7 +574,7 @@ class StateManagerClient:
 
 #### 5. Exception Hierarchy
 
-**Location**: `src/tetra_rp/runtime/exceptions.py`
+**Location**: `src/runpod_flash/runtime/exceptions.py`
 
 Custom exceptions for cross-endpoint routing:
 
@@ -618,7 +618,7 @@ except ManifestServiceUnavailableError as e:
 
 #### Stub Layer Integration
 
-ProductionWrapper integrates with the stub execution layer in `src/tetra_rp/stubs/registry.py`:
+ProductionWrapper integrates with the stub execution layer in `src/runpod_flash/stubs/registry.py`:
 
 ```python
 # Before: Direct stub execution
@@ -654,7 +654,7 @@ endpoint_url = endpoint.url  # e.g., "https://api.runpod.ai/v2/abc123"
 
 #### Runtime Config
 
-**Location**: `src/tetra_rp/runtime/config.py`
+**Location**: `src/runpod_flash/runtime/config.py`
 
 Centralized configuration constants:
 

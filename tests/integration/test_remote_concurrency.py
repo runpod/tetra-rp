@@ -16,16 +16,19 @@ from typing import Dict, Any
 
 import pytest
 
-from tetra_rp import remote
-from tetra_rp.core.resources.resource_manager import (
+from runpod_flash import remote
+from runpod_flash.core.resources.resource_manager import (
     ResourceManager,
     RESOURCE_STATE_FILE,
 )
-from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
-from tetra_rp.core.resources.serverless import JobOutput, ServerlessEndpoint
-from tetra_rp.core.resources.live_serverless import LiveServerless, CpuLiveServerless
-from tetra_rp.core.utils.singleton import SingletonMixin
-from tetra_rp.protos.remote_execution import FunctionResponse
+from runpod_flash.core.resources.serverless_cpu import CpuServerlessEndpoint
+from runpod_flash.core.resources.serverless import JobOutput, ServerlessEndpoint
+from runpod_flash.core.resources.live_serverless import (
+    LiveServerless,
+    CpuLiveServerless,
+)
+from runpod_flash.core.utils.singleton import SingletonMixin
+from runpod_flash.protos.remote_execution import FunctionResponse
 
 
 @pytest.mark.serial
@@ -47,14 +50,14 @@ class TestRemoteConcurrency:
         self.original_state_file = RESOURCE_STATE_FILE
 
         # Patch the state file location
-        import tetra_rp.core.resources.resource_manager as rm_module
+        import runpod_flash.core.resources.resource_manager as rm_module
 
         rm_module.RESOURCE_STATE_FILE = Path(self.temp_dir) / "test_resources.pkl"
 
     def teardown_method(self):
         """Clean up test environment."""
         # Restore original state file
-        import tetra_rp.core.resources.resource_manager as rm_module
+        import runpod_flash.core.resources.resource_manager as rm_module
 
         rm_module.RESOURCE_STATE_FILE = self.original_state_file
 
@@ -111,7 +114,7 @@ class TestRemoteConcurrency:
 
             # Mock the actual function execution to avoid network calls
             with patch(
-                "tetra_rp.stubs.serverless.ServerlessEndpointStub.execute",
+                "runpod_flash.stubs.serverless.ServerlessEndpointStub.execute",
                 return_value=JobOutput(
                     id="mock-job-1",
                     workerId="mock-worker-1",
@@ -205,7 +208,7 @@ class TestRemoteConcurrency:
 
             # Mock the actual function execution to avoid network calls
             with patch(
-                "tetra_rp.stubs.serverless.ServerlessEndpointStub.execute",
+                "runpod_flash.stubs.serverless.ServerlessEndpointStub.execute",
                 return_value=JobOutput(
                     id="mock-job-2",
                     workerId="mock-worker-2",
@@ -272,7 +275,7 @@ class TestRemoteConcurrency:
 
             # Mock the actual function execution to avoid network calls
             with patch(
-                "tetra_rp.stubs.serverless.ServerlessEndpointStub.execute",
+                "runpod_flash.stubs.serverless.ServerlessEndpointStub.execute",
                 return_value=JobOutput(
                     id="mock-job-3",
                     workerId="mock-worker-3",
@@ -350,7 +353,7 @@ class TestRemoteConcurrency:
 
             # Mock the actual function execution to avoid network calls
             with patch(
-                "tetra_rp.stubs.serverless.ServerlessEndpointStub.execute",
+                "runpod_flash.stubs.serverless.ServerlessEndpointStub.execute",
                 return_value=JobOutput(
                     id="mock-job-4",
                     workerId="mock-worker-4",
@@ -438,7 +441,7 @@ class TestRemoteConcurrency:
 
             # Mock the actual function execution to avoid network calls
             with patch(
-                "tetra_rp.stubs.serverless.ServerlessEndpointStub.execute",
+                "runpod_flash.stubs.serverless.ServerlessEndpointStub.execute",
                 return_value=JobOutput(
                     id="mock-job-serverless",
                     workerId="mock-worker-serverless",
@@ -535,7 +538,7 @@ class TestRemoteConcurrency:
 
             # Mock the actual function execution to avoid network calls
             with patch(
-                "tetra_rp.stubs.serverless.ServerlessEndpointStub.execute",
+                "runpod_flash.stubs.serverless.ServerlessEndpointStub.execute",
                 return_value=JobOutput(
                     id="mock-job-serverless-race",
                     workerId="mock-worker-serverless-race",
@@ -626,7 +629,7 @@ class TestRemoteConcurrency:
             mock_result = {"result": "mocked_response"}
             with (
                 patch(
-                    "tetra_rp.stubs.live_serverless.LiveServerlessStub.ExecuteFunction",
+                    "runpod_flash.stubs.live_serverless.LiveServerlessStub.ExecuteFunction",
                     return_value=FunctionResponse(
                         success=True,
                         result=base64.b64encode(cloudpickle.dumps(mock_result)).decode(
@@ -637,7 +640,7 @@ class TestRemoteConcurrency:
                     ),
                 ),
                 patch(
-                    "tetra_rp.stubs.live_serverless.get_function_source",
+                    "runpod_flash.stubs.live_serverless.get_function_source",
                     return_value=(
                         "def test_function(value):\n    return {'result': f'processed_{value}'}",
                         "mock_hash",
@@ -732,7 +735,7 @@ class TestRemoteConcurrency:
             mock_result = "mocked_result"
             with (
                 patch(
-                    "tetra_rp.stubs.live_serverless.LiveServerlessStub.ExecuteFunction",
+                    "runpod_flash.stubs.live_serverless.LiveServerlessStub.ExecuteFunction",
                     return_value=FunctionResponse(
                         success=True,
                         result=base64.b64encode(cloudpickle.dumps(mock_result)).decode(
@@ -743,7 +746,7 @@ class TestRemoteConcurrency:
                     ),
                 ),
                 patch(
-                    "tetra_rp.stubs.live_serverless.get_function_source",
+                    "runpod_flash.stubs.live_serverless.get_function_source",
                     return_value=(
                         "def test_function(value):\n    return f'result_{value}'",
                         "mock_hash",
@@ -830,7 +833,7 @@ class TestRemoteConcurrency:
             mock_result = {"result": "mocked_response"}
             with (
                 patch(
-                    "tetra_rp.stubs.live_serverless.LiveServerlessStub.ExecuteFunction",
+                    "runpod_flash.stubs.live_serverless.LiveServerlessStub.ExecuteFunction",
                     return_value=FunctionResponse(
                         success=True,
                         result=base64.b64encode(cloudpickle.dumps(mock_result)).decode(
@@ -841,7 +844,7 @@ class TestRemoteConcurrency:
                     ),
                 ),
                 patch(
-                    "tetra_rp.stubs.live_serverless.get_function_source",
+                    "runpod_flash.stubs.live_serverless.get_function_source",
                     return_value=(
                         "def test_function(value):\n    return {'result': f'processed_{value}'}",
                         "mock_hash",
@@ -936,7 +939,7 @@ class TestRemoteConcurrency:
             mock_result = "mocked_result"
             with (
                 patch(
-                    "tetra_rp.stubs.live_serverless.LiveServerlessStub.ExecuteFunction",
+                    "runpod_flash.stubs.live_serverless.LiveServerlessStub.ExecuteFunction",
                     return_value=FunctionResponse(
                         success=True,
                         result=base64.b64encode(cloudpickle.dumps(mock_result)).decode(
@@ -947,7 +950,7 @@ class TestRemoteConcurrency:
                     ),
                 ),
                 patch(
-                    "tetra_rp.stubs.live_serverless.get_function_source",
+                    "runpod_flash.stubs.live_serverless.get_function_source",
                     return_value=(
                         "def test_function(value):\n    return f'result_{value}'",
                         "mock_hash",

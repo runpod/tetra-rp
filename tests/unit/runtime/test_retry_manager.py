@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from tetra_rp.runtime.retry_manager import RetryExhaustedError, retry_with_backoff
+from runpod_flash.runtime.retry_manager import RetryExhaustedError, retry_with_backoff
 
 
 class TestRetryWithBackoff:
@@ -149,7 +149,7 @@ class TestRetryWithBackoff:
 
         class MockCircuitBreaker:
             def get_state(self):
-                from tetra_rp.runtime.circuit_breaker import CircuitState
+                from runpod_flash.runtime.circuit_breaker import CircuitState
 
                 return CircuitState.OPEN
 

@@ -21,7 +21,7 @@ class TestDotenvLoading:
         # Note: Resources are imported directly at module initialization
 
         init_file = (
-            Path(__file__).parent.parent.parent / "src" / "tetra_rp" / "__init__.py"
+            Path(__file__).parent.parent.parent / "src" / "runpod_flash" / "__init__.py"
         )
         content = init_file.read_text()
         lines = content.split("\n")
@@ -61,8 +61,8 @@ class TestDotenvLoading:
             env_content = """
 # Test environment variables
 RUNPOD_API_KEY=test_api_key_from_file
-TETRA_GPU_IMAGE=test_gpu_image:v1.0
-TETRA_CPU_IMAGE=test_cpu_image:v2.0
+FLASH_GPU_IMAGE=test_gpu_image:v1.0
+FLASH_CPU_IMAGE=test_cpu_image:v2.0
 LOG_LEVEL=DEBUG
 RUNPOD_API_BASE_URL=https://test-api.runpod.io
 CUSTOM_TEST_VAR=file_value
@@ -77,8 +77,8 @@ CUSTOM_TEST_VAR=file_value
                 # Clear any existing env vars that might interfere
                 test_vars = [
                     "RUNPOD_API_KEY",
-                    "TETRA_GPU_IMAGE",
-                    "TETRA_CPU_IMAGE",
+                    "FLASH_GPU_IMAGE",
+                    "FLASH_CPU_IMAGE",
                     "LOG_LEVEL",
                     "RUNPOD_API_BASE_URL",
                     "CUSTOM_TEST_VAR",
@@ -101,8 +101,8 @@ CUSTOM_TEST_VAR=file_value
 
                 # Verify the environment variables were loaded
                 assert os.environ.get("RUNPOD_API_KEY") == "test_api_key_from_file"
-                assert os.environ.get("TETRA_GPU_IMAGE") == "test_gpu_image:v1.0"
-                assert os.environ.get("TETRA_CPU_IMAGE") == "test_cpu_image:v2.0"
+                assert os.environ.get("FLASH_GPU_IMAGE") == "test_gpu_image:v1.0"
+                assert os.environ.get("FLASH_CPU_IMAGE") == "test_cpu_image:v2.0"
                 assert os.environ.get("LOG_LEVEL") == "DEBUG"
                 assert (
                     os.environ.get("RUNPOD_API_BASE_URL")
@@ -151,14 +151,14 @@ CUSTOM_TEST_VAR=file_value
                 elif "TEST_OVERRIDE_VAR" in os.environ:
                     del os.environ["TEST_OVERRIDE_VAR"]
 
-    def test_env_vars_available_after_tetra_import(self):
-        """Test that env vars are available when tetra_rp modules are imported."""
+    def test_env_vars_available_after_flash_import(self):
+        """Test that env vars are available when runpod_flash modules are imported."""
 
         # Set up test environment variables
         test_env_vars = {
             "RUNPOD_API_KEY": "test_key_12345",
-            "TETRA_GPU_IMAGE": "test/gpu:latest",
-            "TETRA_CPU_IMAGE": "test/cpu:latest",
+            "FLASH_GPU_IMAGE": "test/gpu:latest",
+            "FLASH_CPU_IMAGE": "test/cpu:latest",
             "LOG_LEVEL": "WARNING",
         }
 
@@ -168,32 +168,34 @@ CUSTOM_TEST_VAR=file_value
             os.environ[var] = value
 
         try:
-            # Remove tetra_rp from sys.modules to force fresh import
+            # Remove runpod_flash from sys.modules to force fresh import
             modules_to_remove = [
-                name for name in sys.modules.keys() if name.startswith("tetra_rp")
+                name for name in sys.modules.keys() if name.startswith("runpod_flash")
             ]
             for module_name in modules_to_remove:
                 del sys.modules[module_name]
 
-            # Import tetra_rp (this will trigger __init__.py and load_dotenv())
+            # Import runpod_flash (this will trigger __init__.py and load_dotenv())
 
             # Clear any cached modules to ensure fresh import with new env vars
             modules_to_clear = [
-                name for name in sys.modules.keys() if name.startswith("tetra_rp.core")
+                name
+                for name in sys.modules.keys()
+                if name.startswith("runpod_flash.core")
             ]
             for module_name in modules_to_clear:
                 del sys.modules[module_name]
 
             # Import specific modules that use environment variables
-            from tetra_rp.core.api.runpod import RunpodGraphQLClient
-            from tetra_rp.core.resources.live_serverless import (
-                TETRA_GPU_IMAGE,
-                TETRA_CPU_IMAGE,
+            from runpod_flash.core.api.runpod import RunpodGraphQLClient
+            from runpod_flash.core.resources.live_serverless import (
+                FLASH_GPU_IMAGE,
+                FLASH_CPU_IMAGE,
             )
 
             # Verify that the environment variables are accessible in imported modules
-            assert TETRA_GPU_IMAGE == "test/gpu:latest"
-            assert TETRA_CPU_IMAGE == "test/cpu:latest"
+            assert FLASH_GPU_IMAGE == "test/gpu:latest"
+            assert FLASH_CPU_IMAGE == "test/cpu:latest"
 
             # Test that RunpodGraphQLClient can access the API key
             try:
@@ -288,13 +290,13 @@ ANOTHER_VALID=another_value
             modules_to_clear = [
                 name
                 for name in sys.modules.keys()
-                if name.startswith("tetra_rp.core.api")
+                if name.startswith("runpod_flash.core.api")
             ]
             for module_name in modules_to_clear:
                 del sys.modules[module_name]
 
             # Test RunpodGraphQLClient uses RUNPOD_API_KEY
-            from tetra_rp.core.api.runpod import RunpodGraphQLClient
+            from runpod_flash.core.api.runpod import RunpodGraphQLClient
 
             try:
                 client = RunpodGraphQLClient()
@@ -304,7 +306,7 @@ ANOTHER_VALID=another_value
                 assert os.environ.get("RUNPOD_API_KEY") == "test_api_key_12345"
 
             # Test RUNPOD_API_BASE_URL is used (now imports with fresh env)
-            from tetra_rp.core.api.runpod import RUNPOD_API_BASE_URL
+            from runpod_flash.core.api.runpod import RUNPOD_API_BASE_URL
 
             assert RUNPOD_API_BASE_URL == "https://custom-api.runpod.io"
 
@@ -324,7 +326,7 @@ ANOTHER_VALID=another_value
         """Test that dotenv import is actually present in __init__.py."""
 
         init_file = (
-            Path(__file__).parent.parent.parent / "src" / "tetra_rp" / "__init__.py"
+            Path(__file__).parent.parent.parent / "src" / "runpod_flash" / "__init__.py"
         )
         content = init_file.read_text()
 

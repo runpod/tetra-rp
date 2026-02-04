@@ -7,7 +7,7 @@ from rich.panel import Panel
 from rich.table import Table
 from typer.testing import CliRunner
 
-from tetra_rp.cli.main import app
+from runpod_flash.cli.main import app
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def runner():
 
 @pytest.fixture
 def patched_console():
-    with patch("tetra_rp.cli.commands.apps.console") as mock_console:
+    with patch("runpod_flash.cli.commands.apps.console") as mock_console:
         status_cm = MagicMock()
         status_cm.__enter__.return_value = None
         status_cm.__exit__.return_value = None
@@ -33,7 +33,7 @@ class TestAppsGroup:
 
 
 class TestAppsCreate:
-    @patch("tetra_rp.cli.commands.apps.FlashApp.create", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.create", new_callable=AsyncMock)
     def test_create_app_success(
         self, mock_create, runner, mock_asyncio_run_coro, patched_console
     ):
@@ -42,7 +42,8 @@ class TestAppsCreate:
         mock_create.return_value = created
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "create", "demo-app"])
 
@@ -54,14 +55,15 @@ class TestAppsCreate:
         assert "demo-app" in panel.renderable
         assert panel.title == "✅ App Created"
 
-    @patch("tetra_rp.cli.commands.apps.FlashApp.create", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.create", new_callable=AsyncMock)
     def test_create_app_failure_bubbles_error(
         self, mock_create, runner, mock_asyncio_run_coro
     ):
         mock_create.side_effect = RuntimeError("boom")
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "create", "demo-app"])
 
@@ -70,21 +72,22 @@ class TestAppsCreate:
 
 
 class TestAppsList:
-    @patch("tetra_rp.cli.commands.apps.FlashApp.list", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.list", new_callable=AsyncMock)
     def test_list_apps_empty(
         self, mock_list, runner, mock_asyncio_run_coro, patched_console
     ):
         mock_list.return_value = []
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "list"])
 
         assert result.exit_code == 0
         patched_console.print.assert_called_with("No Flash apps found.")
 
-    @patch("tetra_rp.cli.commands.apps.FlashApp.list", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.list", new_callable=AsyncMock)
     def test_list_apps_with_data(
         self, mock_list, runner, mock_asyncio_run_coro, patched_console
     ):
@@ -120,7 +123,8 @@ class TestAppsList:
         ]
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "list"])
 
@@ -132,14 +136,15 @@ class TestAppsList:
         assert "dev, prod" in columns[2]._cells[0]
         assert "build-1" in columns[3]._cells[0]
 
-    @patch("tetra_rp.cli.commands.apps.FlashApp.list", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.list", new_callable=AsyncMock)
     def test_list_and_ls_share_logic(
         self, mock_list, runner, mock_asyncio_run_coro, patched_console
     ):
         mock_list.return_value = []
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result_ls = runner.invoke(app, ["app", "ls"])
             result_list = runner.invoke(app, ["app", "list"])
@@ -150,7 +155,7 @@ class TestAppsList:
 
 
 class TestAppsGet:
-    @patch("tetra_rp.cli.commands.apps.FlashApp.from_name", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.from_name", new_callable=AsyncMock)
     def test_get_app_details(
         self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
     ):
@@ -174,7 +179,8 @@ class TestAppsGet:
         mock_from_name.return_value = flash_app
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "get", "demo"])
 
@@ -190,7 +196,7 @@ class TestAppsGet:
         assert isinstance(env_table, Table)
         assert isinstance(build_table, Table)
 
-    @patch("tetra_rp.cli.commands.apps.FlashApp.from_name", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.from_name", new_callable=AsyncMock)
     def test_get_app_without_related_data(
         self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
     ):
@@ -202,7 +208,8 @@ class TestAppsGet:
         mock_from_name.return_value = flash_app
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "get", "demo"])
 
@@ -213,14 +220,15 @@ class TestAppsGet:
 
 
 class TestAppsDelete:
-    @patch("tetra_rp.cli.commands.apps.FlashApp.delete", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.delete", new_callable=AsyncMock)
     def test_delete_app_success(
         self, mock_delete, runner, mock_asyncio_run_coro, patched_console
     ):
         mock_delete.return_value = True
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "delete", "--app-name", "demo"])
 
@@ -230,22 +238,23 @@ class TestAppsDelete:
             "✅ Flash app 'demo' deleted successfully"
         )
 
-    @patch("tetra_rp.cli.commands.apps.FlashApp.delete", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.FlashApp.delete", new_callable=AsyncMock)
     def test_delete_app_failure_raises_exit(
         self, mock_delete, runner, mock_asyncio_run_coro, patched_console
     ):
         mock_delete.return_value = False
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "delete", "--app-name", "demo"])
 
         assert result.exit_code == 1
         patched_console.print.assert_called_with("❌ Failed to delete flash app 'demo'")
 
-    @patch("tetra_rp.cli.commands.apps.discover_flash_project")
-    @patch("tetra_rp.cli.commands.apps.FlashApp.delete", new_callable=AsyncMock)
+    @patch("runpod_flash.cli.commands.apps.discover_flash_project")
+    @patch("runpod_flash.cli.commands.apps.FlashApp.delete", new_callable=AsyncMock)
     def test_delete_app_uses_discovered_name(
         self,
         mock_delete,
@@ -258,7 +267,8 @@ class TestAppsDelete:
         mock_discover.return_value = ("/tmp/flash", "derived")
 
         with patch(
-            "tetra_rp.cli.commands.apps.asyncio.run", side_effect=mock_asyncio_run_coro
+            "runpod_flash.cli.commands.apps.asyncio.run",
+            side_effect=mock_asyncio_run_coro,
         ):
             result = runner.invoke(app, ["app", "delete", "--app-name", ""])
 

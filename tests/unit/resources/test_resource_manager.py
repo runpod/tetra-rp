@@ -3,10 +3,10 @@
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
-from tetra_rp.core.resources.resource_manager import ResourceManager
-from tetra_rp.core.utils.singleton import SingletonMixin
-from tetra_rp.core.resources.serverless import ServerlessResource
-from tetra_rp.core.exceptions import RunpodAPIKeyError
+from runpod_flash.core.resources.resource_manager import ResourceManager
+from runpod_flash.core.utils.singleton import SingletonMixin
+from runpod_flash.core.resources.serverless import ServerlessResource
+from runpod_flash.core.exceptions import RunpodAPIKeyError
 
 
 class TestResourceManager:
@@ -31,9 +31,9 @@ class TestResourceManager:
     @pytest.fixture
     def mock_resource_file(self, tmp_path):
         """Mock the resource state file path."""
-        resource_file = tmp_path / ".tetra_resources.pkl"
+        resource_file = tmp_path / ".runpod" / "resources.pkl"
         with patch(
-            "tetra_rp.core.resources.resource_manager.RESOURCE_STATE_FILE",
+            "runpod_flash.core.resources.resource_manager.RESOURCE_STATE_FILE",
             resource_file,
         ):
             yield resource_file
@@ -423,14 +423,14 @@ class TestCpuEndpointConfigHash:
 
     def test_cpu_config_hash_excludes_env(self):
         """Test that CPU endpoint config_hash excludes env to prevent drift."""
-        from tetra_rp.core.resources.serverless_cpu import CpuServerlessEndpoint
+        from runpod_flash.core.resources.serverless_cpu import CpuServerlessEndpoint
 
         config1 = CpuServerlessEndpoint(
             name="test-cpu",
             workersMax=3,
             workersMin=0,
             flashboot=False,
-            imageName="runpod/tetra-rp-cpu:latest",
+            imageName="runpod/flash-cpu:latest",
         )
 
         config2 = CpuServerlessEndpoint(
@@ -438,7 +438,7 @@ class TestCpuEndpointConfigHash:
             workersMax=3,
             workersMin=0,
             flashboot=False,
-            imageName="runpod/tetra-rp-cpu:latest",
+            imageName="runpod/flash-cpu:latest",
             env={"DIFFERENT_ENV": "value"},
         )
 

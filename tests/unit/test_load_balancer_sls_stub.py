@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import cloudpickle
 
-from tetra_rp import LoadBalancerSlsResource
-from tetra_rp.stubs.load_balancer_sls import LoadBalancerSlsStub
+from runpod_flash import LoadBalancerSlsResource
+from runpod_flash.stubs.load_balancer_sls import LoadBalancerSlsStub
 
 
 # Create test resources
@@ -180,7 +180,9 @@ class TestLoadBalancerSlsStubExecuteFunction:
 
         import httpx
 
-        with patch("tetra_rp.stubs.load_balancer_sls.httpx.AsyncClient") as mock_client:
+        with patch(
+            "runpod_flash.stubs.load_balancer_sls.httpx.AsyncClient"
+        ) as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                 side_effect=httpx.TimeoutException("Timeout")
             )
@@ -207,7 +209,9 @@ class TestLoadBalancerSlsStubExecuteFunction:
         mock_response.status_code = 500
         mock_response.text = "Internal server error"
 
-        with patch("tetra_rp.stubs.load_balancer_sls.httpx.AsyncClient") as mock_client:
+        with patch(
+            "runpod_flash.stubs.load_balancer_sls.httpx.AsyncClient"
+        ) as mock_client:
             error = httpx.HTTPStatusError(
                 "Error", request=MagicMock(), response=mock_response
             )
@@ -270,8 +274,8 @@ class TestLoadBalancerSlsStubRouting:
 
     def test_should_use_execute_for_live_load_balancer(self):
         """Test that LiveLoadBalancer always uses /execute endpoint."""
-        from tetra_rp import LiveLoadBalancer
-        from tetra_rp import remote
+        from runpod_flash import LiveLoadBalancer
+        from runpod_flash import remote
 
         lb = LiveLoadBalancer(name="test-live")
         stub = LoadBalancerSlsStub(lb)
@@ -284,7 +288,7 @@ class TestLoadBalancerSlsStubRouting:
 
     def test_should_use_user_route_for_deployed_lb(self):
         """Test that deployed LoadBalancerSlsResource uses user-defined route."""
-        from tetra_rp import remote
+        from runpod_flash import remote
 
         lb = LoadBalancerSlsResource(name="test-deployed", imageName="test:latest")
         stub = LoadBalancerSlsStub(lb)
@@ -332,7 +336,9 @@ class TestLoadBalancerSlsStubRouting:
         mock_response = MagicMock()
         mock_response.json.return_value = {"result": 8}
 
-        with patch("tetra_rp.stubs.load_balancer_sls.httpx.AsyncClient") as mock_client:
+        with patch(
+            "runpod_flash.stubs.load_balancer_sls.httpx.AsyncClient"
+        ) as mock_client:
             mock_client.return_value.__aenter__.return_value.request = AsyncMock(
                 return_value=mock_response
             )
@@ -364,7 +370,9 @@ class TestLoadBalancerSlsStubRouting:
         mock_response = MagicMock()
         mock_response.json.return_value = "Hi, Alice!"
 
-        with patch("tetra_rp.stubs.load_balancer_sls.httpx.AsyncClient") as mock_client:
+        with patch(
+            "runpod_flash.stubs.load_balancer_sls.httpx.AsyncClient"
+        ) as mock_client:
             mock_client.return_value.__aenter__.return_value.request = AsyncMock(
                 return_value=mock_response
             )

@@ -23,7 +23,7 @@ graph LR
 Each resource computes a hash excluding runtime-assigned fields:
 
 ```python
-# File: src/tetra_rp/core/resources/serverless.py
+# File: src/runpod_flash/core/resources/serverless.py
 
 RUNTIME_FIELDS: ClassVar[Set[str]] = {
     "template",           # Assigned by API
@@ -66,7 +66,7 @@ def config_hash(self) -> str:
 When ResourceManager registers a resource, it stores the hash:
 
 ```python
-# File: src/tetra_rp/core/resources/resource_manager.py
+# File: src/runpod_flash/core/resources/resource_manager.py
 
 def _add_resource(self, uid: str, resource: DeployableResource):
     """Add a resource to the manager."""
@@ -108,7 +108,7 @@ async def get_or_deploy_resource(self, config: DeployableResource):
 CPU LoadBalancers have a customized hash that includes only CPU-relevant fields:
 
 ```python
-# File: src/tetra_rp/core/resources/load_balancer_sls_resource.py
+# File: src/runpod_flash/core/resources/load_balancer_sls_resource.py
 
 @property
 def config_hash(self) -> str:
@@ -141,7 +141,7 @@ def config_hash(self) -> str:
 ### Basic Deployment with Auto Drift Detection
 
 ```python
-from tetra_rp import CpuLoadBalancerSlsResource
+from runpod_flash import CpuLoadBalancerSlsResource
 
 # Define resource
 lb = CpuLoadBalancerSlsResource(
@@ -350,9 +350,9 @@ cpu_fields = {
 
 ## Related Files
 
-- **Implementation:** `src/tetra_rp/core/resources/serverless.py` (config_hash)
-- **CPU Variant:** `src/tetra_rp/core/resources/load_balancer_sls_resource.py` (config_hash override)
-- **Resource Manager:** `src/tetra_rp/core/resources/resource_manager.py` (drift detection logic)
+- **Implementation:** `src/runpod_flash/core/resources/serverless.py` (config_hash)
+- **CPU Variant:** `src/runpod_flash/core/resources/load_balancer_sls_resource.py` (config_hash override)
+- **Resource Manager:** `src/runpod_flash/core/resources/resource_manager.py` (drift detection logic)
 - **Tests:** `tests/unit/resources/test_load_balancer_drift.py` (42 tests)
 
 ---

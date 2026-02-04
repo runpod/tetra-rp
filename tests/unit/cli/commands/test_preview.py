@@ -6,7 +6,7 @@ import pytest
 
 from unittest.mock import MagicMock, patch
 
-from tetra_rp.cli.commands.preview import (
+from runpod_flash.cli.commands.preview import (
     CONTAINER_ARCHIVE_PATH,
     ContainerInfo,
     _assign_container_port,
@@ -310,8 +310,8 @@ class TestDisplayPreviewInfo:
 class TestVerifyContainerHealth:
     """Tests for _verify_container_health function."""
 
-    @patch("tetra_rp.cli.commands.preview.subprocess.run")
-    @patch("tetra_rp.cli.commands.preview.time.sleep")
+    @patch("runpod_flash.cli.commands.preview.subprocess.run")
+    @patch("runpod_flash.cli.commands.preview.time.sleep")
     def test_container_running_succeeds(self, mock_sleep, mock_run):
         """Test that running container passes health check."""
         # Mock docker inspect to return 'running' status
@@ -324,8 +324,8 @@ class TestVerifyContainerHealth:
         _verify_container_health("abc123", "test_resource")
         mock_sleep.assert_called_once_with(2)
 
-    @patch("tetra_rp.cli.commands.preview.subprocess.run")
-    @patch("tetra_rp.cli.commands.preview.time.sleep")
+    @patch("runpod_flash.cli.commands.preview.subprocess.run")
+    @patch("runpod_flash.cli.commands.preview.time.sleep")
     def test_container_exited_raises_error(self, mock_sleep, mock_run):
         """Test that exited container raises error."""
         # Mock docker inspect to return 'exited' status
@@ -338,8 +338,8 @@ class TestVerifyContainerHealth:
         with pytest.raises(Exception, match="failed to start"):
             _verify_container_health("abc123", "test_resource")
 
-    @patch("tetra_rp.cli.commands.preview.subprocess.run")
-    @patch("tetra_rp.cli.commands.preview.time.sleep")
+    @patch("runpod_flash.cli.commands.preview.subprocess.run")
+    @patch("runpod_flash.cli.commands.preview.time.sleep")
     def test_container_health_check_includes_logs(self, mock_sleep, mock_run):
         """Test that error message includes container logs."""
         error_log = "FileNotFoundError: artifact.tar.gz not found"
@@ -360,7 +360,7 @@ class TestStartResourceContainer:
 
     def test_archive_path_validation(self, tmp_path):
         """Test that missing archive raises FileNotFoundError."""
-        from tetra_rp.cli.commands.preview import _start_resource_container
+        from runpod_flash.cli.commands.preview import _start_resource_container
 
         build_dir = tmp_path / ".flash" / ".build"
         build_dir.mkdir(parents=True)
@@ -376,11 +376,11 @@ class TestStartResourceContainer:
                 network="test-network",
             )
 
-    @patch("tetra_rp.cli.commands.preview.subprocess.run")
-    @patch("tetra_rp.cli.commands.preview._verify_container_health")
+    @patch("runpod_flash.cli.commands.preview.subprocess.run")
+    @patch("runpod_flash.cli.commands.preview._verify_container_health")
     def test_archive_mount_in_docker_command(self, mock_health, mock_run, tmp_path):
         """Test that archive is mounted at correct location."""
-        from tetra_rp.cli.commands.preview import _start_resource_container
+        from runpod_flash.cli.commands.preview import _start_resource_container
 
         build_dir = tmp_path / ".flash" / ".build"
         build_dir.mkdir(parents=True)

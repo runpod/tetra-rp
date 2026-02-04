@@ -15,7 +15,7 @@ graph TD
     A["User Code"] -->|flash build| B["Package Application"]
     B -->|FastAPI App| C["Flash Manifest"]
     C -->|flash deploy| D["Push to RunPod"]
-    D -->|Create Container| E["RunPod Container<br/>tetra-rp-lb image"]
+    D -->|Create Container| E["RunPod Container<br/>runpod-flash-lb image"]
     E --> F["FastAPI Server<br/>uvicorn on port 8000"]
     F --> G["Load your application"]
     G --> H["Endpoint Ready"]
@@ -45,7 +45,7 @@ The runtime loads your application using the manifest and route registry:
 # and executes your @remote decorated functions via FastAPI
 
 from fastapi import FastAPI
-from tetra_rp.runtime.lb_handler import create_lb_handler
+from runpod_flash.runtime.lb_handler import create_lb_handler
 
 # User functions are discovered and registered at runtime
 # Routes are configured based on @remote decorators with HTTP method and path
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 ```
 
 **Container Setup:**
-- Base image: `runpod/tetra-rp-lb:latest` (contains FastAPI, uvicorn, dependencies)
+- Base image: `runpod/runpod-flash-lb:latest` (contains FastAPI, uvicorn, dependencies)
 - Entrypoint: Loads manifest and starts FastAPI server
 - Port: 8000 (internal)
 - RunPod exposes this via HTTPS endpoint URL
@@ -170,7 +170,7 @@ sequenceDiagram
 ```python
 # Local code - after deployment
 api = LoadBalancerSlsResource(name="user-service",
-                            imageName="runpod/tetra-rp-lb:latest")
+                            imageName="runpod/runpod-flash-lb:latest")
 
 # Deploy the endpoint (generates endpoint_url automatically)
 await api.deploy()
@@ -634,9 +634,9 @@ RunPod polls /ping every 30 seconds
 ### Image Selection
 
 ```
-tetra-rp-lb:latest (default)
+runpod-flash-lb:latest (default)
 - FastAPI + uvicorn pre-installed
-- Tetra runtime dependencies
+- Flash runtime dependencies
 - Optimized for LB endpoints
 
 Custom image:
@@ -650,7 +650,7 @@ Custom image:
 ```python
 LoadBalancerSlsResource(
     name="my-api",
-    imageName="runpod/tetra-rp-lb:latest",
+    imageName="runpod/runpod-flash-lb:latest",
     gpus=[GpuGroup.AMPERE_80],      # Optional: if compute needed
     instanceIds=[...],               # Or specify CPU instances
     workersMax=5,                    # Max concurrent workers
