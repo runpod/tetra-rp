@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.2](https://github.com/runpod/tetra-rp/compare/v0.25.1...v0.25.2) (2026-02-04)
+
+
+### Bug Fixes
+
+* 0.25.3 ([#173](https://github.com/runpod/tetra-rp/issues/173)) ([98b1ed7](https://github.com/runpod/tetra-rp/commit/98b1ed7c98ee8bbab43b4c880210579c1cab6a37))
+
 ## [0.25.2](https://github.com/runpod/tetra-rp/compare/v0.25.1...v0.25.2) (2026-02-03)
 
 ### ⚠️ DEPRECATED
