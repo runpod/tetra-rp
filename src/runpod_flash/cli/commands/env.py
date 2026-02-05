@@ -84,7 +84,7 @@ async def _undeploy_environment_resources(env_name: str, env: dict) -> None:
 
 def list_command(
     app_name: str | None = typer.Option(
-        None, "--app-name", "-a", help="Flash app name to inspect"
+        None, "--app", "-a", help="Flash app name to inspect"
     ),
 ):
     """Show available deployment environments."""
@@ -120,7 +120,7 @@ async def _list_environments(app_name: str):
 
 def create_command(
     app_name: str | None = typer.Option(
-        None, "--app-name", "-a", help="Flash app name to create a new environment in"
+        None, "--app", "-a", help="Flash app name to create a new environment in"
     ),
     name: str = typer.Argument(
         ..., help="Name of the deployment environment to create"
@@ -161,7 +161,7 @@ async def _create_environment(app_name: str, env_name: str):
 
 def info_command(
     env_name: str = typer.Argument(..., help="Name of the deployment environment"),
-    app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name"),
+    app_name: str = typer.Option(None, "--app", "-a", help="Flash app name"),
 ):
     """Show detailed information about a deployment environment."""
     if not app_name:
@@ -214,7 +214,7 @@ def delete_command(
     env_name: str = typer.Argument(
         ..., help="Name of the deployment environment to delete"
     ),
-    app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name"),
+    app_name: str = typer.Option(None, "--app", "-a", help="Flash app name"),
 ):
     """Delete a deployment environment."""
     if not app_name:

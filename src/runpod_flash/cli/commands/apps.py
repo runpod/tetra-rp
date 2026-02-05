@@ -37,7 +37,7 @@ def ls():
 )
 def delete(
     app_name: str = typer.Option(
-        ..., "--app-name", "-a", help="Flash app name to delete"
+        ..., "--app", "-a", help="Flash app name to delete"
     ),
 ):
     if not app_name:
