@@ -164,14 +164,12 @@ flash run
 
 ### Deploy to Production
 ```bash
-# Discover and configure handlers
-flash build
+# Build and deploy in one step
+flash deploy
 
-# Create deployment environment
-flash deploy new production
-
-# Deploy to Runpod
-flash deploy send production
+# Or deploy to a specific environment
+flash env create production
+flash deploy --env production
 ```
 
 ## Adding New Workers
