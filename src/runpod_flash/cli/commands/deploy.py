@@ -78,22 +78,7 @@ def deploy_command(
             _launch_preview(project_dir)
             return
 
-        resolved_env_name = asyncio.run(
-            _resolve_environment(app_name, env_name)
-        )
-
-        console.print(f"\nDeploying to '[bold]{resolved_env_name}[/bold]'...")
-
-        asyncio.run(deploy_to_environment(app_name, resolved_env_name, archive_path))
-
-        console.print(
-            Panel(
-                f"Deployed to '[bold]{resolved_env_name}[/bold]' successfully\n\n"
-                f"App: {app_name}",
-                title="Deployment Complete",
-                expand=False,
-            )
-        )
+        asyncio.run(_resolve_and_deploy(app_name, env_name, archive_path))
 
         build_dir = project_dir / ".flash" / ".build"
         if build_dir.exists():
@@ -128,10 +113,29 @@ def _launch_preview(project_dir):
         raise typer.Exit(1)
 
 
+async def _resolve_and_deploy(app_name: str, env_name: str | None, archive_path) -> None:
+    resolved_env_name = await _resolve_environment(app_name, env_name)
+
+    console.print(f"\nDeploying to '[bold]{resolved_env_name}[/bold]'...")
+
+    await deploy_to_environment(app_name, resolved_env_name, archive_path)
+
+    console.print(
+        Panel(
+            f"Deployed to '[bold]{resolved_env_name}[/bold]' successfully\n\n"
+            f"App: {app_name}",
+            title="Deployment Complete",
+            expand=False,
+        )
+    )
+
+
 async def _resolve_environment(app_name: str, env_name: str | None) -> str:
     try:
         app = await FlashApp.from_name(app_name)
-    except Exception:
+    except Exception as exc:
+        if "app not found" not in str(exc).lower():
+            raise
         target = env_name or "production"
         console.print(
             f"[dim]No app '{app_name}' found. Creating app and '{target}' environment...[/dim]"
