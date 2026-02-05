@@ -447,7 +447,7 @@ def run_build(
                 Panel(
                     f"[yellow bold]⚠ WARNING: Archive exceeds RunPod limit[/yellow bold]\n\n"
                     f"[yellow]Archive size:[/yellow] {size_mb:.1f} MB\n"
-                    f"[yellow]RunPod limit:[/yellow] {RUNPOD_MAX_ARCHIVE_SIZE_MB} MB\n"
+                    f"[yellow]Runpod limit:[/yellow] {RUNPOD_MAX_ARCHIVE_SIZE_MB} MB\n"
                     f"[yellow]Over by:[/yellow] {size_mb - RUNPOD_MAX_ARCHIVE_SIZE_MB:.1f} MB\n\n"
                     f"[dim]Use --exclude to skip packages in base image:\n"
                     f"  flash deploy --exclude torch,torchvision,torchaudio[/dim]",
