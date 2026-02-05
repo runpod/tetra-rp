@@ -55,7 +55,7 @@ graph TB
 
 ### Key Concepts
 
-**Mothership**: The orchestration endpoint responsible for deployment, resource provisioning, and manifest distribution. Created via `flash deploy new <env_name>`.
+**Mothership**: The orchestration endpoint responsible for deployment, resource provisioning, and manifest distribution. Created via `flash deploy create <env_name>`.
 
 **Child Endpoints**: Worker endpoints that execute `@remote` functions. One per resource config (e.g., `gpu_config`, `cpu_config`).
 
@@ -69,12 +69,12 @@ graph TB
 
 ## CLI Commands Reference
 
-### flash deploy new
+### flash deploy create
 
 Create a new deployment environment (mothership).
 
 ```bash
-flash deploy new <env_name> [--app-name <app_name>]
+flash deploy create <env_name> [--app-name <app_name>]
 ```
 
 **Arguments:**
@@ -90,7 +90,7 @@ flash deploy new <env_name> [--app-name <app_name>]
 
 **Example:**
 ```bash
-flash deploy new production
+flash deploy create production
 # Output: Environment 'production' created successfully
 # Environment ID: flash-prod-abc123
 # Next: flash deploy send production
@@ -154,12 +154,12 @@ flash deploy list [--app-name <app_name>]
 
 ---
 
-### flash deploy info
+### flash deploy get
 
 Show detailed information about a deployment environment.
 
 ```bash
-flash deploy info <env_name> [--app-name <app_name>]
+flash deploy get <env_name> [--app-name <app_name>]
 ```
 
 **Arguments:**
