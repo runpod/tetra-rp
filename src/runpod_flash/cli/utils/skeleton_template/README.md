@@ -168,7 +168,6 @@ flash run
 flash deploy
 
 # Or deploy to a specific environment
-flash env create production
 flash deploy --env production
 ```
 
