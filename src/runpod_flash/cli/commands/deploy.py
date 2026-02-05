@@ -22,9 +22,7 @@ def deploy_command(
     env_name: str | None = typer.Option(
         None, "--env", "-e", help="Target environment name"
     ),
-    app_name: str | None = typer.Option(
-        None, "--app", "-a", help="Flash app name"
-    ),
+    app_name: str | None = typer.Option(None, "--app", "-a", help="Flash app name"),
     no_deps: bool = typer.Option(
         False, "--no-deps", help="Skip transitive dependencies during pip install"
     ),
@@ -113,7 +111,9 @@ def _launch_preview(project_dir):
         raise typer.Exit(1)
 
 
-async def _resolve_and_deploy(app_name: str, env_name: str | None, archive_path) -> None:
+async def _resolve_and_deploy(
+    app_name: str, env_name: str | None, archive_path
+) -> None:
     resolved_env_name = await _resolve_environment(app_name, env_name)
 
     console.print(f"\nDeploying to '[bold]{resolved_env_name}[/bold]'...")

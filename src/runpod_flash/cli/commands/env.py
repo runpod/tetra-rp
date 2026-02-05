@@ -71,9 +71,7 @@ async def _undeploy_environment_resources(env_name: str, env: dict) -> None:
                         )
 
     if failures:
-        console.print(
-            "Failed to undeploy all resources; environment deletion aborted."
-        )
+        console.print("Failed to undeploy all resources; environment deletion aborted.")
         for message in failures:
             console.print(f"  - {message}")
         raise typer.Exit(1)
