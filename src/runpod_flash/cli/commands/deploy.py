@@ -264,10 +264,10 @@ def new_command(
 def send_command(
     env_name: str = typer.Argument(..., help="Name of the deployment environment"),
     app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name"),
-    require_auth: bool = typer.Option(
+    enable_auth: bool = typer.Option(
         False,
-        "--require-auth",
-        help="Require auth on load-balanced endpoints (omit FLASH_DISABLE_RP_AUTH)",
+        "--enable-auth",
+        help="Enable auth on mothership (sets FLASH_DISABLE_RP_AUTH=false)",
     ),
 ):
     """Deploy project to deployment environment."""
@@ -290,7 +290,7 @@ def send_command(
                 app_name,
                 env_name,
                 build_path,
-                require_auth=require_auth,
+                enable_auth=enable_auth,
             )
         )
 

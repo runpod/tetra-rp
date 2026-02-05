@@ -225,7 +225,7 @@ def create_resource_from_manifest(
     resource_data: Dict[str, Any],
     mothership_url: str = "",
     flash_environment_id: Optional[str] = None,
-    require_auth: bool = False,
+    enable_auth: bool = False,
 ) -> DeployableResource:
     """Create DeployableResource config from manifest entry.
 
@@ -234,7 +234,7 @@ def create_resource_from_manifest(
         resource_data: Resource configuration from manifest
         mothership_url: Optional mothership URL (for future use with child env vars)
         flash_environment_id: Optional flash environment ID to attach
-        require_auth: If True, do not set FLASH_DISABLE_RP_AUTH on LB endpoints
+        enable_auth: If True, explicitly enable auth on mothership
 
     Returns:
         Configured DeployableResource ready for deployment
@@ -279,12 +279,6 @@ def create_resource_from_manifest(
         "FLASH_RESOURCE_NAME": resource_name,
     }
 
-    is_load_balanced = resource_data.get("is_load_balanced")
-    if is_load_balanced is None:
-        is_load_balanced = "LoadBalancer" in resource_type
-    if is_load_balanced and not require_auth:
-        env["FLASH_DISABLE_RP_AUTH"] = "true"
-
     # Only set FLASH_MOTHERSHIP_ID when running in mothership context
     # (i.e., when RUNPOD_ENDPOINT_ID is available).
     # During CLI provisioning, RUNPOD_ENDPOINT_ID is not set, so we don't
@@ -301,6 +295,10 @@ def create_resource_from_manifest(
             env["FLASH_MAIN_FILE"] = resource_data["main_file"]
         if "app_variable" in resource_data:
             env["FLASH_APP_VARIABLE"] = resource_data["app_variable"]
+        if enable_auth:
+            env["FLASH_DISABLE_RP_AUTH"] = "false"
+        else:
+            env["FLASH_DISABLE_RP_AUTH"] = "true"
 
     # Add "tmp-" prefix for test-mothership deployments
     # Check environment variable set by test-mothership command

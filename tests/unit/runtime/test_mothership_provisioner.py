@@ -457,8 +457,8 @@ class TestCreateResourceFromManifest:
             assert isinstance(resource, ServerlessResource)
             assert resource_name in resource.name
 
-    def test_create_resource_from_manifest_lb_sets_disable_auth(self):
-        """Test that LB endpoints default to FLASH_DISABLE_RP_AUTH=true."""
+    def test_create_resource_from_manifest_mothership_sets_disable_auth(self):
+        """Test that mothership defaults to FLASH_DISABLE_RP_AUTH=true."""
         from runpod_flash.core.resources.load_balancer_sls_resource import (
             LoadBalancerSlsResource,
         )
@@ -468,6 +468,7 @@ class TestCreateResourceFromManifest:
             "resource_type": "LoadBalancerSlsResource",
             "imageName": "runpod/flash-lb:latest",
             "is_load_balanced": True,
+            "is_mothership": True,
         }
 
         with patch.dict(os.environ, {}, clear=True):
@@ -476,8 +477,8 @@ class TestCreateResourceFromManifest:
             assert isinstance(resource, LoadBalancerSlsResource)
             assert resource.env["FLASH_DISABLE_RP_AUTH"] == "true"
 
-    def test_create_resource_from_manifest_lb_require_auth(self):
-        """Test that require_auth omits FLASH_DISABLE_RP_AUTH on LB endpoints."""
+    def test_create_resource_from_manifest_mothership_enable_auth(self):
+        """Test that enable_auth sets FLASH_DISABLE_RP_AUTH=false on mothership."""
         from runpod_flash.core.resources.load_balancer_sls_resource import (
             LoadBalancerSlsResource,
         )
@@ -487,15 +488,16 @@ class TestCreateResourceFromManifest:
             "resource_type": "LoadBalancerSlsResource",
             "imageName": "runpod/flash-lb:latest",
             "is_load_balanced": True,
+            "is_mothership": True,
         }
 
         with patch.dict(os.environ, {}, clear=True):
             resource = create_resource_from_manifest(
-                resource_name, resource_data, require_auth=True
+                resource_name, resource_data, enable_auth=True
             )
 
             assert isinstance(resource, LoadBalancerSlsResource)
-            assert "FLASH_DISABLE_RP_AUTH" not in resource.env
+            assert resource.env["FLASH_DISABLE_RP_AUTH"] == "false"
 
     def test_create_resource_from_manifest_cli_context_no_runpod_endpoint_id(self):
         """Test resource creation in CLI context without RUNPOD_ENDPOINT_ID.
