@@ -264,6 +264,11 @@ def new_command(
 def send_command(
     env_name: str = typer.Argument(..., help="Name of the deployment environment"),
     app_name: str = typer.Option(None, "--app-name", "-a", help="Flash app name"),
+    require_auth: bool = typer.Option(
+        False,
+        "--require-auth",
+        help="Require auth on load-balanced endpoints (omit FLASH_DISABLE_RP_AUTH)",
+    ),
 ):
     """Deploy project to deployment environment."""
 
@@ -280,7 +285,14 @@ def send_command(
     console.print(f"🚀 Deploying to '[bold]{env_name}[/bold]'...")
 
     try:
-        asyncio.run(deploy_to_environment(app_name, env_name, build_path))
+        asyncio.run(
+            deploy_to_environment(
+                app_name,
+                env_name,
+                build_path,
+                require_auth=require_auth,
+            )
+        )
 
         panel_content = f"Deployed to '[bold]{env_name}[/bold]' successfully\n\n"
 

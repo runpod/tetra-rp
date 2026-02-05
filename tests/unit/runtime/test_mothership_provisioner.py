@@ -457,6 +457,46 @@ class TestCreateResourceFromManifest:
             assert isinstance(resource, ServerlessResource)
             assert resource_name in resource.name
 
+    def test_create_resource_from_manifest_lb_sets_disable_auth(self):
+        """Test that LB endpoints default to FLASH_DISABLE_RP_AUTH=true."""
+        from runpod_flash.core.resources.load_balancer_sls_resource import (
+            LoadBalancerSlsResource,
+        )
+
+        resource_name = "lb-api"
+        resource_data = {
+            "resource_type": "LoadBalancerSlsResource",
+            "imageName": "runpod/flash-lb:latest",
+            "is_load_balanced": True,
+        }
+
+        with patch.dict(os.environ, {}, clear=True):
+            resource = create_resource_from_manifest(resource_name, resource_data)
+
+            assert isinstance(resource, LoadBalancerSlsResource)
+            assert resource.env["FLASH_DISABLE_RP_AUTH"] == "true"
+
+    def test_create_resource_from_manifest_lb_require_auth(self):
+        """Test that require_auth omits FLASH_DISABLE_RP_AUTH on LB endpoints."""
+        from runpod_flash.core.resources.load_balancer_sls_resource import (
+            LoadBalancerSlsResource,
+        )
+
+        resource_name = "lb-api"
+        resource_data = {
+            "resource_type": "LoadBalancerSlsResource",
+            "imageName": "runpod/flash-lb:latest",
+            "is_load_balanced": True,
+        }
+
+        with patch.dict(os.environ, {}, clear=True):
+            resource = create_resource_from_manifest(
+                resource_name, resource_data, require_auth=True
+            )
+
+            assert isinstance(resource, LoadBalancerSlsResource)
+            assert "FLASH_DISABLE_RP_AUTH" not in resource.env
+
     def test_create_resource_from_manifest_cli_context_no_runpod_endpoint_id(self):
         """Test resource creation in CLI context without RUNPOD_ENDPOINT_ID.
 

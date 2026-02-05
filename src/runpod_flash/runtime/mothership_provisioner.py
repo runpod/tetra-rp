@@ -225,6 +225,7 @@ def create_resource_from_manifest(
     resource_data: Dict[str, Any],
     mothership_url: str = "",
     flash_environment_id: Optional[str] = None,
+    require_auth: bool = False,
 ) -> DeployableResource:
     """Create DeployableResource config from manifest entry.
 
@@ -233,6 +234,7 @@ def create_resource_from_manifest(
         resource_data: Resource configuration from manifest
         mothership_url: Optional mothership URL (for future use with child env vars)
         flash_environment_id: Optional flash environment ID to attach
+        require_auth: If True, do not set FLASH_DISABLE_RP_AUTH on LB endpoints
 
     Returns:
         Configured DeployableResource ready for deployment
@@ -276,6 +278,12 @@ def create_resource_from_manifest(
     env = {
         "FLASH_RESOURCE_NAME": resource_name,
     }
+
+    is_load_balanced = resource_data.get("is_load_balanced")
+    if is_load_balanced is None:
+        is_load_balanced = "LoadBalancer" in resource_type
+    if is_load_balanced and not require_auth:
+        env["FLASH_DISABLE_RP_AUTH"] = "true"
 
     # Only set FLASH_MOTHERSHIP_ID when running in mothership context
     # (i.e., when RUNPOD_ENDPOINT_ID is available).
