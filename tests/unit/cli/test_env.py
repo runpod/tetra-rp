@@ -26,9 +26,7 @@ def patched_console():
 
 
 class TestEnvList:
-    @patch(
-        "runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock
-    )
+    @patch("runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock)
     def test_list_environments_empty(
         self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
     ):
@@ -46,9 +44,7 @@ class TestEnvList:
         patched_console.print.assert_called_with("No environments found for 'demo'.")
         mock_from_name.assert_awaited_once_with("demo")
 
-    @patch(
-        "runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock
-    )
+    @patch("runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock)
     def test_list_environments_with_data(
         self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
     ):
@@ -78,9 +74,7 @@ class TestEnvList:
         assert table.columns[2]._cells[0] == "build-1"
 
     @patch("runpod_flash.cli.commands.env.discover_flash_project")
-    @patch(
-        "runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock
-    )
+    @patch("runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock)
     def test_list_envs_uses_discovery(
         self,
         mock_from_name,
@@ -139,9 +133,7 @@ class TestEnvCreate:
 
 
 class TestEnvInfo:
-    @patch(
-        "runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock
-    )
+    @patch("runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock)
     def test_info_includes_children(
         self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
     ):
@@ -173,9 +165,7 @@ class TestEnvInfo:
         assert isinstance(endpoint_table, Table)
         assert isinstance(network_table, Table)
 
-    @patch(
-        "runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock
-    )
+    @patch("runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock)
     def test_info_without_children(
         self, mock_from_name, runner, mock_asyncio_run_coro, patched_console
     ):
@@ -211,9 +201,7 @@ class TestEnvDelete:
         new_callable=AsyncMock,
     )
     @patch("runpod_flash.cli.commands.env.questionary")
-    @patch(
-        "runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock
-    )
+    @patch("runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock)
     def test_delete_environment_success(
         self,
         mock_from_name,
@@ -244,25 +232,19 @@ class TestEnvDelete:
             "runpod_flash.cli.commands.env.asyncio.run",
             side_effect=mock_asyncio_run_coro,
         ):
-            result = runner.invoke(
-                app, ["env", "delete", "dev", "--app", "demo"]
-            )
+            result = runner.invoke(app, ["env", "delete", "dev", "--app", "demo"])
 
         assert result.exit_code == 0
         mock_questionary.confirm.assert_called_once()
         flash_app.delete_environment.assert_awaited_once_with("dev")
-        patched_console.print.assert_any_call(
-            "Environment 'dev' deleted successfully"
-        )
+        patched_console.print.assert_any_call("Environment 'dev' deleted successfully")
 
     @patch(
         "runpod_flash.cli.commands.env._fetch_environment_info",
         new_callable=AsyncMock,
     )
     @patch("runpod_flash.cli.commands.env.questionary")
-    @patch(
-        "runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock
-    )
+    @patch("runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock)
     def test_delete_environment_cancelled(
         self,
         mock_from_name,
@@ -289,9 +271,7 @@ class TestEnvDelete:
             "runpod_flash.cli.commands.env.asyncio.run",
             side_effect=mock_asyncio_run_coro,
         ):
-            result = runner.invoke(
-                app, ["env", "delete", "dev", "--app", "demo"]
-            )
+            result = runner.invoke(app, ["env", "delete", "dev", "--app", "demo"])
 
         assert result.exit_code == 0
         mock_questionary.confirm.assert_called_once()
@@ -303,9 +283,7 @@ class TestEnvDelete:
         new_callable=AsyncMock,
     )
     @patch("runpod_flash.cli.commands.env.questionary")
-    @patch(
-        "runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock
-    )
+    @patch("runpod_flash.cli.commands.env.FlashApp.from_name", new_callable=AsyncMock)
     def test_delete_environment_failure(
         self,
         mock_from_name,
@@ -336,9 +314,7 @@ class TestEnvDelete:
             "runpod_flash.cli.commands.env.asyncio.run",
             side_effect=mock_asyncio_run_coro,
         ):
-            result = runner.invoke(
-                app, ["env", "delete", "dev", "--app", "demo"]
-            )
+            result = runner.invoke(app, ["env", "delete", "dev", "--app", "demo"])
 
         assert result.exit_code == 1
         flash_app.delete_environment.assert_awaited_once_with("dev")

@@ -26,8 +26,12 @@ def patched_console():
 
 
 class TestDeployCommand:
-    @patch("runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock)
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock
+    )
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_single_env_auto_selects(
@@ -49,18 +53,25 @@ class TestDeployCommand:
         )
         mock_from_name.return_value = flash_app
 
-        with patch(
-            "runpod_flash.cli.commands.deploy.asyncio.run",
-            side_effect=mock_asyncio_run_coro,
-        ), patch("runpod_flash.cli.commands.deploy.shutil"):
+        with (
+            patch(
+                "runpod_flash.cli.commands.deploy.asyncio.run",
+                side_effect=mock_asyncio_run_coro,
+            ),
+            patch("runpod_flash.cli.commands.deploy.shutil"),
+        ):
             result = runner.invoke(app, ["deploy"])
 
         assert result.exit_code == 0
         mock_build.assert_called_once()
         mock_deploy_to_env.assert_awaited_once()
 
-    @patch("runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock)
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock
+    )
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_with_explicit_env(
@@ -85,10 +96,13 @@ class TestDeployCommand:
         )
         mock_from_name.return_value = flash_app
 
-        with patch(
-            "runpod_flash.cli.commands.deploy.asyncio.run",
-            side_effect=mock_asyncio_run_coro,
-        ), patch("runpod_flash.cli.commands.deploy.shutil"):
+        with (
+            patch(
+                "runpod_flash.cli.commands.deploy.asyncio.run",
+                side_effect=mock_asyncio_run_coro,
+            ),
+            patch("runpod_flash.cli.commands.deploy.shutil"),
+        ):
             result = runner.invoke(app, ["deploy", "--env", "staging"])
 
         assert result.exit_code == 0
@@ -96,7 +110,9 @@ class TestDeployCommand:
         call_args = mock_deploy_to_env.call_args
         assert call_args[0][1] == "staging"
 
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_multiple_envs_no_flag_errors(
@@ -132,8 +148,12 @@ class TestDeployCommand:
         "runpod_flash.cli.commands.deploy.FlashApp.create_environment_and_app",
         new_callable=AsyncMock,
     )
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
-    @patch("runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
+    @patch(
+        "runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_no_app_creates_app_and_env(
@@ -152,16 +172,21 @@ class TestDeployCommand:
         mock_from_name.side_effect = Exception("GraphQL errors: app not found")
         mock_create.return_value = (MagicMock(), {"id": "env-1", "name": "production"})
 
-        with patch(
-            "runpod_flash.cli.commands.deploy.asyncio.run",
-            side_effect=mock_asyncio_run_coro,
-        ), patch("runpod_flash.cli.commands.deploy.shutil"):
+        with (
+            patch(
+                "runpod_flash.cli.commands.deploy.asyncio.run",
+                side_effect=mock_asyncio_run_coro,
+            ),
+            patch("runpod_flash.cli.commands.deploy.shutil"),
+        ):
             result = runner.invoke(app, ["deploy"])
 
         assert result.exit_code == 0
         mock_create.assert_awaited_once_with("my-app", "production")
 
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_non_app_error_propagates(
@@ -186,8 +211,12 @@ class TestDeployCommand:
 
         assert result.exit_code == 1
 
-    @patch("runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock)
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock
+    )
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_auto_creates_nonexistent_env(
@@ -210,17 +239,24 @@ class TestDeployCommand:
         flash_app.create_environment = AsyncMock()
         mock_from_name.return_value = flash_app
 
-        with patch(
-            "runpod_flash.cli.commands.deploy.asyncio.run",
-            side_effect=mock_asyncio_run_coro,
-        ), patch("runpod_flash.cli.commands.deploy.shutil"):
+        with (
+            patch(
+                "runpod_flash.cli.commands.deploy.asyncio.run",
+                side_effect=mock_asyncio_run_coro,
+            ),
+            patch("runpod_flash.cli.commands.deploy.shutil"),
+        ):
             result = runner.invoke(app, ["deploy", "--env", "staging"])
 
         assert result.exit_code == 0
         flash_app.create_environment.assert_awaited_once_with("staging")
 
-    @patch("runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock)
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock
+    )
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_zero_envs_creates_production(
@@ -241,17 +277,24 @@ class TestDeployCommand:
         flash_app.create_environment = AsyncMock()
         mock_from_name.return_value = flash_app
 
-        with patch(
-            "runpod_flash.cli.commands.deploy.asyncio.run",
-            side_effect=mock_asyncio_run_coro,
-        ), patch("runpod_flash.cli.commands.deploy.shutil"):
+        with (
+            patch(
+                "runpod_flash.cli.commands.deploy.asyncio.run",
+                side_effect=mock_asyncio_run_coro,
+            ),
+            patch("runpod_flash.cli.commands.deploy.shutil"),
+        ):
             result = runner.invoke(app, ["deploy"])
 
         assert result.exit_code == 0
         flash_app.create_environment.assert_awaited_once_with("production")
 
-    @patch("runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock)
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock
+    )
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_shows_completion_panel(
@@ -273,10 +316,13 @@ class TestDeployCommand:
         )
         mock_from_name.return_value = flash_app
 
-        with patch(
-            "runpod_flash.cli.commands.deploy.asyncio.run",
-            side_effect=mock_asyncio_run_coro,
-        ), patch("runpod_flash.cli.commands.deploy.shutil"):
+        with (
+            patch(
+                "runpod_flash.cli.commands.deploy.asyncio.run",
+                side_effect=mock_asyncio_run_coro,
+            ),
+            patch("runpod_flash.cli.commands.deploy.shutil"),
+        ):
             result = runner.invoke(app, ["deploy"])
 
         assert result.exit_code == 0
@@ -288,8 +334,12 @@ class TestDeployCommand:
         ]
         assert any(p.title == "Deployment Complete" for p in panels)
 
-    @patch("runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock)
-    @patch("runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock)
+    @patch(
+        "runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock
+    )
+    @patch(
+        "runpod_flash.cli.commands.deploy.FlashApp.from_name", new_callable=AsyncMock
+    )
     @patch("runpod_flash.cli.commands.deploy.run_build")
     @patch("runpod_flash.cli.commands.deploy.discover_flash_project")
     def test_deploy_uses_app_flag(
@@ -311,10 +361,13 @@ class TestDeployCommand:
         )
         mock_from_name.return_value = flash_app
 
-        with patch(
-            "runpod_flash.cli.commands.deploy.asyncio.run",
-            side_effect=mock_asyncio_run_coro,
-        ), patch("runpod_flash.cli.commands.deploy.shutil"):
+        with (
+            patch(
+                "runpod_flash.cli.commands.deploy.asyncio.run",
+                side_effect=mock_asyncio_run_coro,
+            ),
+            patch("runpod_flash.cli.commands.deploy.shutil"),
+        ):
             result = runner.invoke(app, ["deploy", "--app", "custom-app"])
 
         assert result.exit_code == 0
