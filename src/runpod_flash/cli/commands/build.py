@@ -445,7 +445,7 @@ def run_build(
             console.print()
             console.print(
                 Panel(
-                    f"[yellow bold]⚠ WARNING: Archive exceeds RunPod limit[/yellow bold]\n\n"
+                    f"[yellow bold]⚠ WARNING: Archive exceeds Runpod limit[/yellow bold]\n\n"
                     f"[yellow]Archive size:[/yellow] {size_mb:.1f} MB\n"
                     f"[yellow]Runpod limit:[/yellow] {RUNPOD_MAX_ARCHIVE_SIZE_MB} MB\n"
                     f"[yellow]Over by:[/yellow] {size_mb - RUNPOD_MAX_ARCHIVE_SIZE_MB:.1f} MB\n\n"
