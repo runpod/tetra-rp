@@ -230,7 +230,7 @@ class TestAppsDelete:
             "runpod_flash.cli.commands.apps.asyncio.run",
             side_effect=mock_asyncio_run_coro,
         ):
-            result = runner.invoke(app, ["app", "delete", "--app-name", "demo"])
+            result = runner.invoke(app, ["app", "delete", "--app", "demo"])
 
         assert result.exit_code == 0
         mock_delete.assert_awaited_once_with(app_name="demo")
@@ -248,7 +248,7 @@ class TestAppsDelete:
             "runpod_flash.cli.commands.apps.asyncio.run",
             side_effect=mock_asyncio_run_coro,
         ):
-            result = runner.invoke(app, ["app", "delete", "--app-name", "demo"])
+            result = runner.invoke(app, ["app", "delete", "--app", "demo"])
 
         assert result.exit_code == 1
         patched_console.print.assert_called_with("❌ Failed to delete flash app 'demo'")
@@ -270,7 +270,7 @@ class TestAppsDelete:
             "runpod_flash.cli.commands.apps.asyncio.run",
             side_effect=mock_asyncio_run_coro,
         ):
-            result = runner.invoke(app, ["app", "delete", "--app-name", ""])
+            result = runner.invoke(app, ["app", "delete", "--app", ""])
 
         assert result.exit_code == 0
         mock_discover.assert_called_once()
