@@ -227,7 +227,7 @@ def run_build(
 
     # Display configuration
     _display_build_config(
-        project_dir, app_name, no_deps, True, output_name, excluded_packages
+        project_dir, app_name, no_deps, output_name, excluded_packages
     )
 
     # Execute build
@@ -988,7 +988,6 @@ def _display_build_config(
     project_dir: Path,
     app_name: str,
     no_deps: bool,
-    keep_build: bool,
     output_name: str | None,
     excluded_packages: list[str],
 ):
@@ -999,8 +998,7 @@ def _display_build_config(
         f"[bold]Project:[/bold] {app_name}\n"
         f"[bold]Directory:[/bold] {project_dir}\n"
         f"[bold]Archive:[/bold] .flash/{archive_name}\n"
-        f"[bold]Skip transitive deps:[/bold] {no_deps}\n"
-        f"[bold]Keep build dir:[/bold] {keep_build}"
+        f"[bold]Skip transitive deps:[/bold] {no_deps}"
     )
 
     if excluded_packages:
