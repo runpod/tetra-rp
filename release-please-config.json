@@ -4,7 +4,6 @@
     ".": {
       "package-name": "runpod-flash",
       "release-type": "python",
-      "release-as": "1.1.0",
       "include-component-in-tag": false,
       "changelog-sections": [
         {"type": "feat", "section": "Features"},
