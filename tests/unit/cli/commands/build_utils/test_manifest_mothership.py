@@ -196,7 +196,11 @@ def root():
 
                 # Check all expected fields
                 assert mothership["resource_type"] == "CpuLiveLoadBalancer"
-                assert mothership["functions"] == []
+                # Functions should include the FastAPI route
+                assert len(mothership["functions"]) == 1
+                assert mothership["functions"][0]["name"] == "root"
+                assert mothership["functions"][0]["http_method"] == "GET"
+                assert mothership["functions"][0]["http_path"] == "/"
                 assert mothership["is_load_balanced"] is True
                 assert mothership["is_live_resource"] is True
                 assert mothership["imageName"] == FLASH_CPU_LB_IMAGE

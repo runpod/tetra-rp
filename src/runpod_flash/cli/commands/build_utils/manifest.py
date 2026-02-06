@@ -23,6 +23,31 @@ logger = logging.getLogger(__name__)
 RESERVED_PATHS = ["/execute", "/ping"]
 
 
+def _serialize_routes(routes: List[RemoteFunctionMetadata]) -> List[Dict[str, Any]]:
+    """Convert RemoteFunctionMetadata to manifest dict format.
+
+    Args:
+        routes: List of route metadata objects
+
+    Returns:
+        List of dicts with route information for manifest
+    """
+    return [
+        {
+            "name": route.function_name,
+            "module": route.module_path,
+            "is_async": route.is_async,
+            "is_class": route.is_class,
+            "is_load_balanced": route.is_load_balanced,
+            "is_live_resource": route.is_live_resource,
+            "config_variable": route.config_variable,
+            "http_method": route.http_method,
+            "http_path": route.http_path,
+        }
+        for route in routes
+    ]
+
+
 @dataclass
 class ManifestFunction:
     """Function entry in manifest."""
@@ -192,14 +217,18 @@ class ManifestBuilder:
         """Create implicit mothership resource from main.py.
 
         Args:
-            main_app_config: Dict with 'file_path', 'app_variable', 'has_routes' keys
+            main_app_config: Dict with 'file_path', 'app_variable', 'has_routes', 'fastapi_routes' keys
 
         Returns:
             Dictionary representing the mothership resource for the manifest
         """
+        # Extract FastAPI routes if present
+        fastapi_routes = main_app_config.get("fastapi_routes", [])
+        functions_list = _serialize_routes(fastapi_routes)
+
         return {
             "resource_type": "CpuLiveLoadBalancer",
-            "functions": [],
+            "functions": functions_list,
             "is_load_balanced": True,
             "is_live_resource": True,
             "is_mothership": True,
@@ -229,9 +258,14 @@ class ManifestBuilder:
             # No FastAPI app found, use defaults
             main_file = "main.py"
             app_variable = "app"
+            fastapi_routes = []
         else:
             main_file = main_app_config["file_path"].name
             app_variable = main_app_config["app_variable"]
+            fastapi_routes = main_app_config.get("fastapi_routes", [])
+
+        # Extract FastAPI routes into functions list
+        functions_list = _serialize_routes(fastapi_routes)
 
         # Map resource type to image name
         resource_type = explicit_config.get("resource_type", "CpuLiveLoadBalancer")
@@ -242,7 +276,7 @@ class ManifestBuilder:
 
         return {
             "resource_type": resource_type,
-            "functions": [],
+            "functions": functions_list,
             "is_load_balanced": True,
             "is_live_resource": True,
             "is_mothership": True,
@@ -407,6 +441,17 @@ class ManifestBuilder:
                 # Create mothership resource from auto-detection (legacy behavior)
                 mothership_resource = self._create_mothership_resource(main_app_config)
                 resources_dict[mothership_name] = mothership_resource
+
+        # Extract routes from mothership resources
+        for resource_name, resource in resources_dict.items():
+            if resource.get("is_mothership") and resource.get("functions"):
+                mothership_routes = {}
+                for func in resource["functions"]:
+                    if func.get("http_method") and func.get("http_path"):
+                        route_key = f"{func['http_method']} {func['http_path']}"
+                        mothership_routes[route_key] = func["name"]
+                if mothership_routes:
+                    routes_dict[resource_name] = mothership_routes
 
         manifest = {
             "version": "1.0",

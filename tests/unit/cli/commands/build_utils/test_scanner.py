@@ -511,3 +511,370 @@ async def health():
         health_func = next(f for f in functions if f.function_name == "health")
         assert health_func.http_method == "GET"
         assert health_func.http_path == "/health"
+
+
+def test_extract_fastapi_routes():
+    """Test that FastAPI routes are extracted from decorators."""
+    import ast
+    from runpod_flash.cli.commands.build_utils.scanner import _extract_fastapi_routes
+
+    code = """
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def home():
+    return {"hello": "world"}
+
+@app.post("/api/users")
+async def create_user():
+    return {}
+
+@app.put("/api/users/{id}")
+async def update_user(id: int):
+    return {"id": id}
+"""
+
+    tree = ast.parse(code)
+    routes = _extract_fastapi_routes(tree, "app", "main")
+
+    assert len(routes) == 3
+
+    # Check first route (GET /)
+    home_route = next(r for r in routes if r.function_name == "home")
+    assert home_route.http_method == "GET"
+    assert home_route.http_path == "/"
+    assert home_route.is_async is False
+    assert home_route.is_load_balanced is True
+    assert home_route.is_live_resource is True
+
+    # Check second route (POST /api/users)
+    create_route = next(r for r in routes if r.function_name == "create_user")
+    assert create_route.http_method == "POST"
+    assert create_route.http_path == "/api/users"
+    assert create_route.is_async is True
+
+    # Check third route (PUT /api/users/{id})
+    update_route = next(r for r in routes if r.function_name == "update_user")
+    assert update_route.http_method == "PUT"
+    assert update_route.http_path == "/api/users/{id}"
+    assert update_route.is_async is True
+
+
+def test_extract_fastapi_routes_with_different_app_variable():
+    """Test that FastAPI routes work with different app variable names."""
+    import ast
+    from runpod_flash.cli.commands.build_utils.scanner import _extract_fastapi_routes
+
+    code = """
+from fastapi import FastAPI
+
+router = FastAPI()
+
+@router.get("/health")
+def health_check():
+    return {"status": "ok"}
+"""
+
+    tree = ast.parse(code)
+    routes = _extract_fastapi_routes(tree, "router", "main")
+
+    assert len(routes) == 1
+    assert routes[0].function_name == "health_check"
+    assert routes[0].http_method == "GET"
+    assert routes[0].http_path == "/health"
+
+
+def test_extract_fastapi_routes_ignores_non_matching():
+    """Test that only matching app variable routes are extracted."""
+    import ast
+    from runpod_flash.cli.commands.build_utils.scanner import _extract_fastapi_routes
+
+    code = """
+from fastapi import FastAPI
+
+app = FastAPI()
+other_app = FastAPI()
+
+@app.get("/")
+def home():
+    return {}
+
+@other_app.get("/other")
+def other():
+    return {}
+"""
+
+    tree = ast.parse(code)
+    routes = _extract_fastapi_routes(tree, "app", "main")
+
+    # Should only extract routes from 'app', not 'other_app'
+    assert len(routes) == 1
+    assert routes[0].function_name == "home"
+
+
+def test_extract_routes_from_single_included_router():
+    """Test that routes from a single included router are discovered."""
+    from runpod_flash.cli.commands.build_utils.scanner import detect_main_app
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+
+        # Create main.py with router include
+        main_file = project_root / "main.py"
+        main_file.write_text("""
+from fastapi import FastAPI
+from routers import user_router
+
+app = FastAPI()
+app.include_router(user_router, prefix="/users")
+
+@app.get("/")
+def home():
+    return {"msg": "Home"}
+""")
+
+        # Create routers/__init__.py
+        routers_dir = project_root / "routers"
+        routers_dir.mkdir()
+        (routers_dir / "__init__.py").write_text("""
+from fastapi import APIRouter
+
+user_router = APIRouter()
+
+@user_router.get("/")
+def list_users():
+    return []
+
+@user_router.post("/")
+def create_user():
+    return {}
+""")
+
+        # Detect routes
+        main_app_config = detect_main_app(
+            project_root, explicit_mothership_exists=False
+        )
+
+        assert main_app_config is not None
+        routes = main_app_config["fastapi_routes"]
+
+        # Should find 3 routes total: app.get + 2 router routes
+        assert len(routes) == 3
+
+        # Check home route
+        home = next(r for r in routes if r.function_name == "home")
+        assert home.http_path == "/"
+        assert home.http_method == "GET"
+
+        # Check router routes have prefix applied
+        list_users = next(r for r in routes if r.function_name == "list_users")
+        assert list_users.http_path == "/users/"
+        assert list_users.http_method == "GET"
+
+        create_user = next(r for r in routes if r.function_name == "create_user")
+        assert create_user.http_path == "/users/"
+        assert create_user.http_method == "POST"
+
+
+def test_multiple_included_routers():
+    """Test multiple routers with different prefixes."""
+    from runpod_flash.cli.commands.build_utils.scanner import detect_main_app
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+
+        main_file = project_root / "main.py"
+        main_file.write_text("""
+from fastapi import FastAPI
+from routers import user_router, admin_router
+
+app = FastAPI()
+app.include_router(user_router, prefix="/users")
+app.include_router(admin_router, prefix="/admin")
+""")
+
+        routers_dir = project_root / "routers"
+        routers_dir.mkdir()
+        (routers_dir / "__init__.py").write_text("""
+from fastapi import APIRouter
+
+user_router = APIRouter()
+admin_router = APIRouter()
+
+@user_router.get("/list")
+def list_users():
+    return []
+
+@admin_router.get("/dashboard")
+def admin_dashboard():
+    return {}
+""")
+
+        main_app_config = detect_main_app(
+            project_root, explicit_mothership_exists=False
+        )
+
+        routes = main_app_config["fastapi_routes"]
+        assert len(routes) == 2
+
+        user_route = next(r for r in routes if "users" in r.http_path)
+        assert user_route.http_path == "/users/list"
+
+        admin_route = next(r for r in routes if "admin" in r.http_path)
+        assert admin_route.http_path == "/admin/dashboard"
+
+
+def test_router_import_not_found():
+    """Test that missing router files are handled gracefully."""
+    from runpod_flash.cli.commands.build_utils.scanner import detect_main_app
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+
+        main_file = project_root / "main.py"
+        main_file.write_text("""
+from fastapi import FastAPI
+from nonexistent import some_router
+
+app = FastAPI()
+app.include_router(some_router, prefix="/api")
+
+@app.get("/")
+def home():
+    return {}
+""")
+
+        main_app_config = detect_main_app(
+            project_root, explicit_mothership_exists=False
+        )
+
+        # Should still work, just skip the missing router
+        routes = main_app_config["fastapi_routes"]
+        assert len(routes) == 1  # Only the home route
+        assert routes[0].http_path == "/"
+
+
+def test_router_with_no_prefix():
+    """Test router included without a prefix."""
+    from runpod_flash.cli.commands.build_utils.scanner import detect_main_app
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+
+        main_file = project_root / "main.py"
+        main_file.write_text("""
+from fastapi import FastAPI
+from routers import api_router
+
+app = FastAPI()
+app.include_router(api_router)
+
+@app.get("/")
+def home():
+    return {}
+""")
+
+        routers_dir = project_root / "routers"
+        routers_dir.mkdir()
+        (routers_dir / "__init__.py").write_text("""
+from fastapi import APIRouter
+
+api_router = APIRouter()
+
+@api_router.get("/data")
+def get_data():
+    return {}
+""")
+
+        main_app_config = detect_main_app(
+            project_root, explicit_mothership_exists=False
+        )
+
+        routes = main_app_config["fastapi_routes"]
+        assert len(routes) == 2
+
+        # Router route should not have prefix
+        data_route = next(r for r in routes if r.function_name == "get_data")
+        assert data_route.http_path == "/data"
+
+
+def test_router_in_separate_module_file():
+    """Test router defined in a separate .py file (not __init__.py)."""
+    from runpod_flash.cli.commands.build_utils.scanner import detect_main_app
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+
+        main_file = project_root / "main.py"
+        main_file.write_text("""
+from fastapi import FastAPI
+from routers.users import user_router
+
+app = FastAPI()
+app.include_router(user_router, prefix="/users")
+""")
+
+        routers_dir = project_root / "routers"
+        routers_dir.mkdir()
+        (routers_dir / "__init__.py").write_text("")  # Empty init
+
+        # Router in separate file
+        (routers_dir / "users.py").write_text("""
+from fastapi import APIRouter
+
+user_router = APIRouter()
+
+@user_router.get("/{user_id}")
+def get_user(user_id: int):
+    return {}
+""")
+
+        main_app_config = detect_main_app(
+            project_root, explicit_mothership_exists=False
+        )
+
+        routes = main_app_config["fastapi_routes"]
+        assert len(routes) == 1
+        assert routes[0].http_path == "/users/{user_id}"
+        assert routes[0].function_name == "get_user"
+
+
+def test_router_with_async_handlers():
+    """Test router with async route handlers."""
+    from runpod_flash.cli.commands.build_utils.scanner import detect_main_app
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        project_root = Path(tmpdir)
+
+        main_file = project_root / "main.py"
+        main_file.write_text("""
+from fastapi import FastAPI
+from routers import async_router
+
+app = FastAPI()
+app.include_router(async_router, prefix="/api")
+""")
+
+        routers_dir = project_root / "routers"
+        routers_dir.mkdir()
+        (routers_dir / "__init__.py").write_text("""
+from fastapi import APIRouter
+
+async_router = APIRouter()
+
+@async_router.post("/process")
+async def process_data():
+    return {}
+""")
+
+        main_app_config = detect_main_app(
+            project_root, explicit_mothership_exists=False
+        )
+
+        routes = main_app_config["fastapi_routes"]
+        assert len(routes) == 1
+        assert routes[0].http_path == "/api/process"
+        assert routes[0].is_async is True
+        assert routes[0].http_method == "POST"

@@ -125,7 +125,7 @@ flash deploy send <env_name> [--app-name <app_name>]
 **Example:**
 ```bash
 flash deploy send production
-# Output: 🚀 Deploying to 'production'...
+# Output: ⏳ Deploying to 'production'...
 # Deployment Complete
 ```
 

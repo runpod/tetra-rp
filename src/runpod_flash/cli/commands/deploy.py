@@ -1,12 +1,14 @@
 """Flash deploy command - build and deploy in one step."""
 
 import asyncio
+import json
 import logging
 import shutil
+import textwrap
 
 import typer
+from pathlib import Path
 from rich.console import Console
-from rich.panel import Panel
 
 from ..utils.app import discover_flash_project
 from ..utils.deployment import deploy_to_environment
@@ -93,6 +95,106 @@ def deploy_command(
         raise typer.Exit(1)
 
 
+def _display_post_deployment_guidance(env_name: str) -> None:
+    """Display helpful next steps after successful deployment."""
+    # Try to read manifest for endpoint information
+    manifest_path = Path.cwd() / ".flash" / "flash_manifest.json"
+    mothership_url = None
+    mothership_routes = {}
+
+    try:
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+            resources_endpoints = manifest.get("resources_endpoints", {})
+            resources = manifest.get("resources", {})
+            routes = manifest.get("routes", {})
+
+            # Find mothership URL and routes
+            for resource_name, url in resources_endpoints.items():
+                if resources.get(resource_name, {}).get("is_mothership", False):
+                    mothership_url = url
+                    mothership_routes = routes.get(resource_name, {})
+                    break
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.debug(f"Could not read manifest: {e}")
+
+    console.print("\n[bold]Next Steps:[/bold]\n")
+
+    # 1. Authentication
+    console.print("[bold cyan]1. Authentication Required[/bold cyan]")
+    console.print(
+        "   All endpoints require authentication. Set your API key as an environment "
+        "variable. Avoid typing secrets directly into shell commands, as they may be "
+        "stored in your shell history."
+    )
+    console.print(
+        "   [dim]# Recommended: store RUNPOD_API_KEY in a .env file or your shell profile[/dim]"
+    )
+    console.print(
+        "   [dim]# Or securely prompt for it without echo (Bash example):[/dim]"
+    )
+    console.print("   [dim]read -s RUNPOD_API_KEY && export RUNPOD_API_KEY[/dim]\n")
+
+    # 2. Calling functions
+    console.print("[bold cyan]2. Call Your Functions[/bold cyan]")
+
+    if mothership_url:
+        console.print(
+            f"   Your mothership is deployed at:\n   [link]{mothership_url}[/link]\n"
+        )
+
+    console.print("   [bold]Using HTTP/curl:[/bold]")
+    if mothership_url:
+        curl_example = textwrap.dedent(f"""
+            curl -X POST {mothership_url}/YOUR_PATH \\
+                -H "Authorization: Bearer $RUNPOD_API_KEY" \\
+                -H "Content-Type: application/json" \\
+                -d '{{"param1": "value1"}}'
+        """).strip()
+    else:
+        curl_example = textwrap.dedent("""
+            curl -X POST https://YOUR_ENDPOINT_URL/YOUR_PATH \\
+                -H "Authorization: Bearer $RUNPOD_API_KEY" \\
+                -H "Content-Type: application/json" \\
+                -d '{"param1": "value1"}'
+        """).strip()
+    console.print(f"   [dim]{curl_example}[/dim]\n")
+
+    # 3. Available routes
+    console.print("[bold cyan]3. Available Routes[/bold cyan]")
+    if mothership_routes:
+        for route_key in sorted(mothership_routes.keys()):
+            # route_key format: "POST /api/hello"
+            method, path = route_key.split(" ", 1)
+            console.print(f"   [cyan]{method:6s}[/cyan] {path}")
+        console.print()
+    else:
+        # Routes not found - could mean manifest missing, no LB endpoints, or no routes defined
+        if mothership_url:
+            console.print(
+                "   [dim]No routes found in manifest. Check @remote decorators in your code.[/dim]\n"
+            )
+        else:
+            console.print(
+                "   Check your code for @remote decorators to find available endpoints:"
+            )
+            console.print(
+                '   [dim]@remote(mothership, method="POST", path="/api/process")[/dim]\n'
+            )
+
+    # 4. Monitor & Debug
+    console.print("[bold cyan]4. Monitor & Debug[/bold cyan]")
+    console.print(f"   [dim]flash env info {env_name}[/dim]  - View environment status")
+    console.print(
+        "   [dim]Runpod Console[/dim]  - View logs and metrics at https://console.runpod.io/serverless\n"
+    )
+
+    # 5. Update & Teardown
+    console.print("[bold cyan]5. Update or Remove Deployment[/bold cyan]")
+    console.print(f"   [dim]flash deploy --env {env_name}[/dim]  - Update deployment")
+    console.print(f"   [dim]flash env delete {env_name}[/dim]  - Remove deployment\n")
+
+
 def _launch_preview(project_dir):
     build_dir = project_dir / ".flash" / ".build"
     console.print("\n[bold cyan]Launching multi-container preview...[/bold cyan]")
@@ -120,14 +222,8 @@ async def _resolve_and_deploy(
 
     await deploy_to_environment(app_name, resolved_env_name, archive_path)
 
-    console.print(
-        Panel(
-            f"Deployed to '[bold]{resolved_env_name}[/bold]' successfully\n\n"
-            f"App: {app_name}",
-            title="Deployment Complete",
-            expand=False,
-        )
-    )
+    # Display next steps guidance
+    _display_post_deployment_guidance(resolved_env_name)
 
 
 async def _resolve_environment(app_name: str, env_name: str | None) -> str:
