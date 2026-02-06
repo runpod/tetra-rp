@@ -458,7 +458,7 @@ class TestCreateResourceFromManifest:
             assert resource_name in resource.name
 
     def test_create_resource_from_manifest_mothership_sets_disable_auth(self):
-        """Test that mothership defaults to FLASH_DISABLE_RP_AUTH=true."""
+        """Test that mothership defaults to RUNPOD_DISABLE_AUTH=true."""
         from runpod_flash.core.resources.load_balancer_sls_resource import (
             LoadBalancerSlsResource,
         )
@@ -475,10 +475,10 @@ class TestCreateResourceFromManifest:
             resource = create_resource_from_manifest(resource_name, resource_data)
 
             assert isinstance(resource, LoadBalancerSlsResource)
-            assert resource.env["FLASH_DISABLE_RP_AUTH"] == "true"
+            assert resource.env["RUNPOD_DISABLE_AUTH"] == "true"
 
     def test_create_resource_from_manifest_mothership_enable_auth(self):
-        """Test that enable_auth sets FLASH_DISABLE_RP_AUTH=false on mothership."""
+        """Test that enable_auth sets RUNPOD_DISABLE_AUTH=false on mothership."""
         from runpod_flash.core.resources.load_balancer_sls_resource import (
             LoadBalancerSlsResource,
         )
@@ -497,7 +497,7 @@ class TestCreateResourceFromManifest:
             )
 
             assert isinstance(resource, LoadBalancerSlsResource)
-            assert resource.env["FLASH_DISABLE_RP_AUTH"] == "false"
+            assert resource.env["RUNPOD_DISABLE_AUTH"] == "false"
 
     def test_create_resource_from_manifest_cli_context_no_runpod_endpoint_id(self):
         """Test resource creation in CLI context without RUNPOD_ENDPOINT_ID.

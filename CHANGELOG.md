@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/runpod/flash/compare/v1.0.0...v1.1.0) (2026-02-06)
+
+
+### Features
+
+* flash deploy auto builds, automatic app & env management ([#178](https://github.com/runpod/flash/issues/178)) ([cee5e74](https://github.com/runpod/flash/commit/cee5e74ea90d766933aba7adcf8ae55454dba9c2))
+* improve deployment guidance and route discovery ([#181](https://github.com/runpod/flash/issues/181)) ([11681b5](https://github.com/runpod/flash/commit/11681b553aa6d05deb8169f7fd6e35e662c3afed))
+
+
+### Performance Improvements
+
+* fail build fast on size limit, remove blocking LB health check ([#182](https://github.com/runpod/flash/issues/182)) ([5278449](https://github.com/runpod/flash/commit/527844961a206fb6f7f656bc476a711896c001d9))
+
 ## [1.0.0](https://github.com/runpod/flash/compare/v0.25.1...v1.0.0) (2026-02-04)
 
 

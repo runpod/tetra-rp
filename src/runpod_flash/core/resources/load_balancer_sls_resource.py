@@ -231,20 +231,18 @@ class LoadBalancerSlsResource(ServerlessResource):
 
     async def _do_deploy(self) -> "LoadBalancerSlsResource":
         """
-        Deploy LB endpoint and wait for health.
+        Deploy LB endpoint without blocking on health checks.
 
         Deployment flow:
         1. Validate LB configuration
         2. Call parent deploy (creates endpoint in RunPod)
-        3. Poll /ping endpoint until healthy or timeout
-        4. Return deployed resource
+        3. Return deployed resource immediately
 
         Returns:
             Deployed LoadBalancerSlsResource instance
 
         Raises:
             ValueError: If LB configuration invalid or deployment fails
-            TimeoutError: If /ping endpoint doesn't respond in time
         """
         # Validate before deploying
         self._validate_lb_configuration()
@@ -264,27 +262,7 @@ class LoadBalancerSlsResource(ServerlessResource):
             log.info(f"Deploying LB endpoint {self.name}...")
             deployed = await super()._do_deploy()
 
-            # Wait for /ping endpoint to become available
-            timeout_seconds = (
-                DEFAULT_HEALTH_CHECK_RETRIES * DEFAULT_HEALTH_CHECK_INTERVAL
-            )
-            log.info(
-                f"Endpoint created, waiting for /ping to respond "
-                f"({timeout_seconds}s timeout)..."
-            )
-
-            healthy = await self._wait_for_health(
-                max_retries=DEFAULT_HEALTH_CHECK_RETRIES,
-                retry_interval=DEFAULT_HEALTH_CHECK_INTERVAL,
-            )
-
-            if not healthy:
-                raise TimeoutError(
-                    f"LB endpoint {self.name} ({deployed.id}) failed to become "
-                    f"healthy within {timeout_seconds}s"
-                )
-
-            log.info(f"LB endpoint {self.name} ({deployed.id}) deployed and healthy")
+            log.info(f"LB endpoint {self.name} ({deployed.id}) deployed successfully")
             return deployed
 
         except Exception as e:

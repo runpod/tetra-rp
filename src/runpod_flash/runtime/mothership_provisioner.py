@@ -296,9 +296,9 @@ def create_resource_from_manifest(
         if "app_variable" in resource_data:
             env["FLASH_APP_VARIABLE"] = resource_data["app_variable"]
         if enable_auth:
-            env["FLASH_DISABLE_RP_AUTH"] = "false"
+            env["RUNPOD_DISABLE_AUTH"] = "false"
         else:
-            env["FLASH_DISABLE_RP_AUTH"] = "true"
+            env["RUNPOD_DISABLE_AUTH"] = "true"
 
     # Add "tmp-" prefix for test-mothership deployments
     # Check environment variable set by test-mothership command

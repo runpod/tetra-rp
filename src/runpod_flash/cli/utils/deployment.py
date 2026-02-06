@@ -316,7 +316,7 @@ async def reconcile_and_provision_resources(
                 action_label = (
                     "✓ Provisioned" if action_type == "provision" else "✓ Updated"
                 )
-                print(f"  {action_label}: {resource_name} → {endpoint_url}")
+                print(f"{action_label}: {resource_name} → {endpoint_url}")
 
     # Validate mothership was provisioned
     mothership_resources = [
@@ -351,11 +351,8 @@ async def reconcile_and_provision_resources(
     if show_progress:
         print("✓ State Manager manifest updated")
         print()
-        print("=" * 70)
-        print("PROVISIONED ENDPOINTS")
-        print("=" * 70)
 
-        # Display mothership first
+        # Display mothership in simplified format
         resources_endpoints = local_manifest.get("resources_endpoints", {})
         resources = local_manifest.get("resources", {})
 
@@ -364,29 +361,11 @@ async def reconcile_and_provision_resources(
             is_mothership = resource_config.get("is_mothership", False)
 
             if is_mothership:
-                print()
-                print(f"  🚀 MOTHERSHIP: {resource_name}")
-                resource_type = resource_config.get("resource_type", "Unknown")
-                print(f"     Type: {resource_type}")
-                print(f"     URL:  {resources_endpoints[resource_name]}")
+                print(f"🚀 Deployed: {app.name}")
+                print(f"   Environment: {environment_name}")
+                print(f"   URL:  {resources_endpoints[resource_name]}")
                 print()
                 break
-
-        # Display children
-        child_count = 0
-        for resource_name in sorted(resources_endpoints.keys()):
-            resource_config = resources.get(resource_name, {})
-            is_mothership = resource_config.get("is_mothership", False)
-
-            if not is_mothership:
-                if child_count == 0:
-                    print("  Child Endpoints:")
-                child_count += 1
-                resource_type = resource_config.get("resource_type", "Unknown")
-                print(f"    • {resource_name:20s} ({resource_type})")
-                print(f"      {resources_endpoints[resource_name]}")
-
-        print("=" * 70)
 
     return local_manifest.get("resources_endpoints", {})
 
@@ -406,7 +385,7 @@ def validate_local_manifest() -> Dict[str, Any]:
     if not manifest_path.exists():
         raise FileNotFoundError(
             f"Manifest not found at {manifest_path}. "
-            "Run 'flash build' before deploying."
+            "Run 'flash deploy' to build and deploy your project."
         )
 
     try:
@@ -461,7 +440,7 @@ async def deploy_to_environment(
             show_progress=True,
             enable_auth=enable_auth,
         )
-        log.info(f"Provisioned {len(resources_endpoints)} resources for {env_name}")
+        log.debug(f"Provisioned {len(resources_endpoints)} resources for {env_name}")
     except Exception as e:
         log.error(f"Resource provisioning failed: {e}")
         raise
