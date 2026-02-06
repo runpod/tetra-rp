@@ -3194,6 +3194,7 @@ dependencies = [
 dev = [
     { name = "mcp" },
     { name = "mypy" },
+    { name = "pytest" },
     { name = "ruff" },
 ]
 test = [
@@ -3222,6 +3223,7 @@ requires-dist = [
 dev = [
     { name = "mcp", specifier = ">=1.0.0" },
     { name = "mypy", specifier = ">=1.16.1" },
+    { name = "pytest", specifier = ">=9.0.2" },
     { name = "ruff", specifier = ">=0.11.9" },
 ]
 test = [

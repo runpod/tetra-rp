@@ -178,6 +178,7 @@ async def reconcile_and_provision_resources(
     local_manifest: Dict[str, Any],
     environment_id: str | None = None,
     show_progress: bool = True,
+    enable_auth: bool = False,
 ) -> Dict[str, str]:
     """Reconcile local manifest with State Manager and provision resources.
 
@@ -193,6 +194,7 @@ async def reconcile_and_provision_resources(
         local_manifest: Local manifest dictionary
         environment_id: Optional environment ID for endpoint provisioning
         show_progress: Whether to show CLI progress
+        enable_auth: If True, enable auth on mothership
 
     Returns:
         Updated manifest with deployment information
@@ -233,6 +235,7 @@ async def reconcile_and_provision_resources(
             resource_config,
             mothership_url="",
             flash_environment_id=environment_id,
+            enable_auth=enable_auth,
         )
         actions.append(
             ("provision", resource_name, manager.get_or_deploy_resource(resource))
@@ -257,6 +260,7 @@ async def reconcile_and_provision_resources(
                 local_config,
                 mothership_url="",
                 flash_environment_id=environment_id,
+                enable_auth=enable_auth,
             )
             actions.append(
                 ("update", resource_name, manager.get_or_deploy_resource(resource))
@@ -399,9 +403,15 @@ def validate_local_manifest() -> Dict[str, Any]:
 
 
 async def deploy_to_environment(
-    app_name: str, env_name: str, build_path: Path
+    app_name: str, env_name: str, build_path: Path, enable_auth: bool = False
 ) -> Dict[str, Any]:
     """Deploy current project to environment.
+
+    Args:
+        app_name: Flash application name
+        env_name: Environment name
+        build_path: Path to build artifact
+        enable_auth: If True, enable auth on mothership
 
     Raises:
         runpod_flash.core.resources.app.FlashEnvironmentNotFoundError: If the environment does not exist
@@ -428,6 +438,7 @@ async def deploy_to_environment(
             local_manifest,
             environment_id=environment.get("id"),
             show_progress=True,
+            enable_auth=enable_auth,
         )
         log.debug(f"Provisioned {len(resources_endpoints)} resources for {env_name}")
     except Exception as e:

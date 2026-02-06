@@ -82,6 +82,7 @@ flash deploy new <env_name> [--app-name <app_name>]
 
 **Options:**
 - `--app-name <app_name>`: Flash app name (auto-detected if not provided)
+- `--enable-auth`: Enable auth on mothership (sets `RUNPOD_DISABLE_AUTH=false`)
 
 **What it does:**
 1. Creates a FlashApp in RunPod (if first environment for the app)
@@ -1010,6 +1011,11 @@ graph LR
 **RUNPOD_ENDPOINT_ID** (Set by RunPod)
 - This endpoint's ID
 - Used for logging and identification
+
+**RUNPOD_DISABLE_AUTH** (Optional, mothership)
+- Value: `"true"` to disable RunPod auth requirement
+- Set by `flash deploy send` by default for mothership
+- Use `--enable-auth` to set `"false"`
 
 ---
 

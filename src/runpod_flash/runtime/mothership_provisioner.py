@@ -225,6 +225,7 @@ def create_resource_from_manifest(
     resource_data: Dict[str, Any],
     mothership_url: str = "",
     flash_environment_id: Optional[str] = None,
+    enable_auth: bool = False,
 ) -> DeployableResource:
     """Create DeployableResource config from manifest entry.
 
@@ -233,6 +234,7 @@ def create_resource_from_manifest(
         resource_data: Resource configuration from manifest
         mothership_url: Optional mothership URL (for future use with child env vars)
         flash_environment_id: Optional flash environment ID to attach
+        enable_auth: If True, explicitly enable auth on mothership
 
     Returns:
         Configured DeployableResource ready for deployment
@@ -293,6 +295,10 @@ def create_resource_from_manifest(
             env["FLASH_MAIN_FILE"] = resource_data["main_file"]
         if "app_variable" in resource_data:
             env["FLASH_APP_VARIABLE"] = resource_data["app_variable"]
+        if enable_auth:
+            env["RUNPOD_DISABLE_AUTH"] = "false"
+        else:
+            env["RUNPOD_DISABLE_AUTH"] = "true"
 
     # Add "tmp-" prefix for test-mothership deployments
     # Check environment variable set by test-mothership command
