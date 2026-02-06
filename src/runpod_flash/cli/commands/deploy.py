@@ -8,7 +8,6 @@ import shutil
 import typer
 from pathlib import Path
 from rich.console import Console
-from rich.panel import Panel
 
 from ..utils.app import discover_flash_project
 from ..utils.deployment import deploy_to_environment
@@ -115,8 +114,8 @@ def _display_post_deployment_guidance(env_name: str) -> None:
                     mothership_url = url
                     mothership_routes = routes.get(resource_name, {})
                     break
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.debug(f"Could not read manifest: {e}")
 
     console.print("\n[bold]Next Steps:[/bold]\n")
 
@@ -151,24 +150,28 @@ def _display_post_deployment_guidance(env_name: str) -> None:
     # 3. Available routes
     console.print("[bold cyan]3. Available Routes[/bold cyan]")
     if mothership_routes:
-        for route_key, function_name in sorted(mothership_routes.items()):
+        for route_key in sorted(mothership_routes.keys()):
             # route_key format: "POST /api/hello"
             method, path = route_key.split(" ", 1)
             console.print(f"   [cyan]{method:6s}[/cyan] {path}")
         console.print()
     else:
-        console.print(
-            "   Check your code for @remote decorators to find available endpoints:"
-        )
-        console.print(
-            '   [dim]@remote(mothership, method="POST", path="/api/process")[/dim]\n'
-        )
+        # Routes not found - could mean manifest missing, no LB endpoints, or no routes defined
+        if mothership_url:
+            console.print(
+                "   [dim]No routes found in manifest. Check @remote decorators in your code.[/dim]\n"
+            )
+        else:
+            console.print(
+                "   Check your code for @remote decorators to find available endpoints:"
+            )
+            console.print(
+                '   [dim]@remote(mothership, method="POST", path="/api/process")[/dim]\n'
+            )
 
     # 4. Monitor & Debug
     console.print("[bold cyan]4. Monitor & Debug[/bold cyan]")
-    console.print(
-        f"   [dim]flash env info {env_name}[/dim]  - View environment status"
-    )
+    console.print(f"   [dim]flash env info {env_name}[/dim]  - View environment status")
     console.print(
         "   [dim]Runpod Console[/dim]  - View logs and metrics at https://console.runpod.io/serverless\n"
     )

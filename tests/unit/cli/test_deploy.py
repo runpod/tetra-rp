@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from rich.panel import Panel
 from typer.testing import CliRunner
 
 from runpod_flash.cli.main import app
@@ -326,13 +325,14 @@ class TestDeployCommand:
             result = runner.invoke(app, ["deploy"])
 
         assert result.exit_code == 0
-        # Find the Panel print call
-        panels = [
-            call.args[0]
+        # Check that post-deployment guidance was displayed
+        printed_output = [
+            str(call.args[0]) if call.args else ""
             for call in patched_console.print.call_args_list
-            if call.args and isinstance(call.args[0], Panel)
         ]
-        assert any(p.title == "Deployment Complete" for p in panels)
+        guidance_text = " ".join(printed_output)
+        assert "Next Steps:" in guidance_text
+        assert "Authentication Required" in guidance_text
 
     @patch(
         "runpod_flash.cli.commands.deploy.deploy_to_environment", new_callable=AsyncMock

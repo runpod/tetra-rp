@@ -6,7 +6,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -450,10 +450,58 @@ def detect_main_app(
                                 # Check for custom routes (not just @remote)
                                 has_routes = _has_custom_routes(tree, app_variable)
 
+                                # 1. Extract direct app routes
+                                module_path = filename.replace(".py", "")
+                                app_routes = _extract_fastapi_routes(
+                                    tree, app_variable, module_path
+                                )
+
+                                # 2. Find included routers
+                                included_routers = _find_included_routers(
+                                    tree, app_variable
+                                )
+
+                                # 3. Extract routes from each included router
+                                router_routes = []
+                                for router_var, prefix in included_routers:
+                                    router_file = _resolve_router_import(
+                                        router_var, tree, main_path, project_root
+                                    )
+                                    if router_file and router_file.exists():
+                                        try:
+                                            router_content = router_file.read_text(
+                                                encoding="utf-8"
+                                            )
+                                            router_tree = ast.parse(router_content)
+                                            router_module = router_file.stem
+
+                                            routes = _extract_router_routes(
+                                                router_tree,
+                                                router_var,
+                                                router_module,
+                                                prefix,
+                                                router_file,
+                                            )
+                                            router_routes.extend(routes)
+                                        except (UnicodeDecodeError, SyntaxError) as e:
+                                            logger.debug(
+                                                f"Failed to parse router file {router_file}: {e}"
+                                            )
+
+                                # 4. Combine all routes
+                                all_fastapi_routes = app_routes + router_routes
+
+                                # 5. Update file_path for all routes
+                                for route in all_fastapi_routes:
+                                    if route.file_path == Path(module_path):
+                                        route.file_path = main_path
+
                                 return {
                                     "file_path": main_path,
                                     "app_variable": app_variable,
-                                    "has_routes": has_routes,
+                                    "has_routes": has_routes
+                                    or bool(all_fastapi_routes),
+                                    "fastapi_routes": all_fastapi_routes,
                                 }
         except UnicodeDecodeError:
             logger.debug(f"Skipping non-UTF-8 file: {main_path}")
@@ -498,6 +546,248 @@ def _has_custom_routes(tree: ast.AST, app_variable: str) -> bool:
                         return True
 
     return False
+
+
+def _find_included_routers(tree: ast.AST, app_variable: str) -> List[Tuple[str, str]]:
+    """Find all routers included in FastAPI app via include_router().
+
+    Args:
+        tree: AST of the main file
+        app_variable: FastAPI app variable name (e.g., 'app')
+
+    Returns:
+        List of (router_variable_name, prefix) tuples
+        Example: [('user_router', '/users'), ('api_router', '/api')]
+    """
+    included_routers = []
+
+    for node in ast.walk(tree):
+        # Look for: app.include_router(router_var, prefix="/path", ...)
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            call = node.value
+
+            # Check if it's app.include_router
+            if (
+                isinstance(call.func, ast.Attribute)
+                and call.func.attr == "include_router"
+                and isinstance(call.func.value, ast.Name)
+                and call.func.value.id == app_variable
+            ):
+                # Extract router variable from first positional arg
+                if call.args and isinstance(call.args[0], ast.Name):
+                    router_var = call.args[0].id
+
+                    # Extract prefix from keyword args
+                    prefix = ""
+                    for keyword in call.keywords:
+                        if keyword.arg == "prefix" and isinstance(
+                            keyword.value, ast.Constant
+                        ):
+                            prefix = keyword.value.value
+
+                    included_routers.append((router_var, prefix))
+
+    return included_routers
+
+
+def _resolve_router_import(
+    router_variable: str, tree: ast.AST, main_file_path: Path, project_root: Path
+) -> Optional[Path]:
+    """Resolve router variable to its source file via import statements.
+
+    Args:
+        router_variable: Name like 'user_router'
+        tree: AST of main.py
+        main_file_path: Path to main.py
+        project_root: Project root directory
+
+    Returns:
+        Path to module defining the router, or None if not found
+    """
+    for node in ast.walk(tree):
+        # Handle: from module import router_variable
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                imported_name = alias.asname if alias.asname else alias.name
+                if imported_name == router_variable:
+                    # Found the import!
+                    module_path = node.module
+                    if not module_path:
+                        continue
+
+                    # Handle relative imports
+                    if node.level > 0:
+                        # Relative import (e.g., from .routers import user_router)
+                        parent_dir = main_file_path.parent
+                        for _ in range(node.level - 1):
+                            parent_dir = parent_dir.parent
+                        module_parts = module_path.split(".") if module_path else []
+                        target_path = parent_dir.joinpath(*module_parts)
+                    else:
+                        # Absolute import (e.g., from routers.users import user_router)
+                        module_parts = module_path.split(".")
+                        target_path = project_root.joinpath(*module_parts)
+
+                    # Try both .py file and __init__.py in package
+                    py_file = target_path.with_suffix(".py")
+                    if py_file.exists():
+                        return py_file
+
+                    init_file = target_path / "__init__.py"
+                    if init_file.exists():
+                        return init_file
+
+    return None
+
+
+def _extract_router_routes(
+    tree: ast.AST,
+    router_variable: str,
+    module_path: str,
+    url_prefix: str,
+    router_file: Path,
+) -> List[RemoteFunctionMetadata]:
+    """Extract routes from APIRouter decorators (@router.get, etc.).
+
+    Args:
+        tree: AST of module containing the router
+        router_variable: Router variable name (e.g., 'user_router')
+        module_path: Module path for imports
+        url_prefix: URL prefix from include_router (e.g., '/users')
+        router_file: Path to router file
+
+    Returns:
+        Routes with prefixed paths
+    """
+    routes = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        for decorator in node.decorator_list:
+            # Look for @router.METHOD(...) pattern
+            if not isinstance(decorator, ast.Call):
+                continue
+
+            if not isinstance(decorator.func, ast.Attribute):
+                continue
+
+            # Check router variable match
+            if not (
+                isinstance(decorator.func.value, ast.Name)
+                and decorator.func.value.id == router_variable
+            ):
+                continue
+
+            # Get HTTP method
+            method = decorator.func.attr
+            if method not in ["get", "post", "put", "delete", "patch"]:
+                continue
+
+            # Extract path
+            http_path = None
+            if decorator.args and isinstance(decorator.args[0], ast.Constant):
+                http_path = decorator.args[0].value
+
+            if not http_path:
+                continue
+
+            # Apply URL prefix (normalize slashes)
+            full_path = f"{url_prefix.rstrip('/')}/{http_path.lstrip('/')}"
+            if not full_path.startswith("/"):
+                full_path = "/" + full_path
+
+            routes.append(
+                RemoteFunctionMetadata(
+                    function_name=node.name,
+                    module_path=module_path,
+                    resource_config_name="mothership",
+                    resource_type="CpuLiveLoadBalancer",
+                    is_async=isinstance(node, ast.AsyncFunctionDef),
+                    is_class=False,
+                    file_path=router_file,
+                    http_method=method.upper(),
+                    http_path=full_path,
+                    is_load_balanced=True,
+                    is_live_resource=True,
+                    config_variable=None,
+                )
+            )
+            break
+
+    return routes
+
+
+def _extract_fastapi_routes(
+    tree: ast.AST, app_variable: str, module_path: str
+) -> List[RemoteFunctionMetadata]:
+    """Extract routes from FastAPI decorators (@app.get, @app.post, etc.).
+
+    Args:
+        tree: AST tree of the file
+        app_variable: FastAPI app variable name (e.g., 'app', 'router')
+        module_path: Module import path (e.g., 'main')
+
+    Returns:
+        List of RemoteFunctionMetadata for each FastAPI route found
+    """
+    routes = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        for decorator in node.decorator_list:
+            # Only handle @app.METHOD(...) pattern
+            if not isinstance(decorator, ast.Call):
+                continue
+
+            if not isinstance(decorator.func, ast.Attribute):
+                continue
+
+            # Check if it's the correct app variable
+            if not (
+                isinstance(decorator.func.value, ast.Name)
+                and decorator.func.value.id == app_variable
+            ):
+                continue
+
+            # Get HTTP method
+            method = decorator.func.attr
+            if method not in ["get", "post", "put", "delete", "patch"]:
+                continue
+
+            # Extract path from first positional argument
+            http_path = None
+            if decorator.args and isinstance(decorator.args[0], ast.Constant):
+                http_path = decorator.args[0].value
+
+            if not http_path:
+                continue
+
+            # Create RemoteFunctionMetadata for this route
+            routes.append(
+                RemoteFunctionMetadata(
+                    function_name=node.name,
+                    module_path=module_path,
+                    resource_config_name="mothership",  # FastAPI routes belong to mothership
+                    resource_type="CpuLiveLoadBalancer",  # Default mothership type
+                    is_async=isinstance(node, ast.AsyncFunctionDef),
+                    is_class=False,
+                    file_path=Path(
+                        module_path
+                    ),  # Will be updated by caller with actual path
+                    http_method=method.upper(),
+                    http_path=http_path,
+                    is_load_balanced=True,  # FastAPI routes are always LB
+                    is_live_resource=True,  # Mothership is live
+                    config_variable=None,  # No explicit config for FastAPI routes
+                )
+            )
+            break  # Only process first matching decorator per function
+
+    return routes
 
 
 def detect_explicit_mothership(project_root: Path) -> Optional[Dict]:
