@@ -459,6 +459,7 @@ def run_build(
             console.print()
 
             # Cleanup: Remove invalid artifacts
+            console.print("[dim]Cleaning up invalid artifacts...[/dim]")
             if archive_path.exists():
                 archive_path.unlink()
             if build_dir.exists():

@@ -421,7 +421,7 @@ class TestLoadBalancerSlsResourceDeployment:
             result = await resource._do_deploy()
 
             assert result == mock_deployed
-            # Health check should NOT be called during deployment
+            # Health check should not be called during deployment
             mock_wait.assert_not_called()
 
     @pytest.mark.asyncio
