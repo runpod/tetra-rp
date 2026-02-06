@@ -1,5 +1,77 @@
 # Changelog
 
+## [1.1.0](https://github.com/runpod/flash/compare/v1.1.0...v1.1.0) (2026-02-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* flash deploy auto builds, automatic app & env management ([#178](https://github.com/runpod/flash/issues/178))
+* rename tetra to flash ([#165](https://github.com/runpod/flash/issues/165))
+
+### Features
+
+* `flash build --preview` in local docker for smoke-testing deployments ([#167](https://github.com/runpod/flash/issues/167)) ([a2cc56c](https://github.com/runpod/flash/commit/a2cc56c755ae6badb4f00ad8fe62c2e3d89af9bd))
+* add "live-" prefix to live serverless endpoints ([#150](https://github.com/runpod/flash/issues/150)) ([5c8fa33](https://github.com/runpod/flash/commit/5c8fa33326eb6f4d1bff4cc8d8e09d7eb97821dc))
+* add generic handler factory and build integration for Flash ([#130](https://github.com/runpod/flash/issues/130)) ([8c1e6b8](https://github.com/runpod/flash/commit/8c1e6b86022a0c5f91dcf1832adf467607004f01))
+* add GET /manifest endpoint for mothership service discovery ([#139](https://github.com/runpod/flash/issues/139)) ([2956f09](https://github.com/runpod/flash/commit/2956f09318b459183b21a387c10d49bad03f19ee))
+* add user-friendly error messages for missing RUNPOD_API_KEY ([#117](https://github.com/runpod/flash/issues/117)) ([32dc093](https://github.com/runpod/flash/commit/32dc0937dda02a8b6178f3f5b2219f18de1f933e))
+* AE-1202 add flash cli cmd init and run ([#96](https://github.com/runpod/flash/issues/96)) ([75b2baf](https://github.com/runpod/flash/commit/75b2baf4a35c9e6f3fc973ed287bd8da9285c607))
+* AE-1512: deploy() and undeploy() deployable resources directly ([#126](https://github.com/runpod/flash/issues/126)) ([3deac3a](https://github.com/runpod/flash/commit/3deac3a91b84fa4cf07cf553c46431907290a61c))
+* AE-1741 manifest management via gql for flash client ([#144](https://github.com/runpod/flash/issues/144)) ([83979e7](https://github.com/runpod/flash/commit/83979e7a80e6789931f555cd882ca77398a43615))
+* **build:** Add cross-platform build support and package exclusion ([#135](https://github.com/runpod/flash/issues/135)) ([68e0539](https://github.com/runpod/flash/commit/68e05391250a1232d4382baefedea81e45ca2f66))
+* **cli:** Add --auto-provision flag to flash run command ([#125](https://github.com/runpod/flash/issues/125)) ([ee5793c](https://github.com/runpod/flash/commit/ee5793c33537acc15e26b680e3bac5aedb3c0735))
+* **cli:** Add `flash undeploy` command for endpoint management ([#121](https://github.com/runpod/flash/issues/121)) ([cd32ffc](https://github.com/runpod/flash/commit/cd32ffc40ac26c2f1aaa1235b044798ec7b9f605))
+* **cli:** Add flash init with project skeleton template and in-place initialization ([#110](https://github.com/runpod/flash/issues/110)) ([155d6ee](https://github.com/runpod/flash/commit/155d6ee64014936c082173751d0978c7cba39092))
+* **client:** add async function support to remote decorator ([#112](https://github.com/runpod/flash/issues/112)) ([b0222e0](https://github.com/runpod/flash/commit/b0222e006ca9b3e7cd8ea0b55804dcabf6d8fce8))
+* code intelligence indexer service for Claude Code ([#158](https://github.com/runpod/flash/issues/158)) ([69b3887](https://github.com/runpod/flash/commit/69b38875b9991d8e8095b39d98382f99487adfad))
+* complete `[@remote](https://github.com/remote)` support for LoadBalancer endpoints ([#131](https://github.com/runpod/flash/issues/131)) ([f2f34c0](https://github.com/runpod/flash/commit/f2f34c07b0d02a7c42c51789cb25c2f5eaaacc41))
+* cross-endpoint routing for serverless functions ([#129](https://github.com/runpod/flash/issues/129)) ([57ff437](https://github.com/runpod/flash/commit/57ff437f916ffbd0b29ec989a0361d6af674ca58))
+* disable EU-RO-1 lock in non production environments ([5f4772d](https://github.com/runpod/flash/commit/5f4772df988da5db54476cc9f14f71cb6727f516))
+* flash deploy auto builds, automatic app & env management ([#178](https://github.com/runpod/flash/issues/178)) ([cee5e74](https://github.com/runpod/flash/commit/cee5e74ea90d766933aba7adcf8ae55454dba9c2))
+* implement cross-endpoint routing reliability infrastructure ([#149](https://github.com/runpod/flash/issues/149)) ([cb6a226](https://github.com/runpod/flash/commit/cb6a2268836d449e4d3445ef787c5b7c184bbea6))
+* implement upfront resource provisioning in deployment flow ([#152](https://github.com/runpod/flash/issues/152)) ([b9c5571](https://github.com/runpod/flash/commit/b9c5571db3e260b0456e62dd77329db6e754822b))
+* improve deployment guidance and route discovery ([#181](https://github.com/runpod/flash/issues/181)) ([11681b5](https://github.com/runpod/flash/commit/11681b553aa6d05deb8169f7fd6e35e662c3afed))
+* mothership manifest sync and caching ([#140](https://github.com/runpod/flash/issues/140)) ([20490ea](https://github.com/runpod/flash/commit/20490ea3a749e93a33daf41cc98cebbc30669b5b))
+* **mothership:** implement auto-provisioning with manifest ([#136](https://github.com/runpod/flash/issues/136)) ([14effd4](https://github.com/runpod/flash/commit/14effd4ab5ed506206c36153dd9c72485deafa37))
+* pull in endpoint base from runpod-python ([a970406](https://github.com/runpod/flash/commit/a970406444af3db4a8232a4903d87332a2fd12ab))
+* **resources:** Support for Serverless.type QB|LB ([#109](https://github.com/runpod/flash/issues/109)) ([6e63459](https://github.com/runpod/flash/commit/6e63459d1a174836912c7b72590341ea6b3cf2b6))
+* support specific GPU ids in serverless resource config ([#143](https://github.com/runpod/flash/issues/143)) ([86fde45](https://github.com/runpod/flash/commit/86fde45d64e3936a79d41be19321088f0e4f4c96))
+* undeploy resources during flash deploy delete ([#155](https://github.com/runpod/flash/issues/155)) ([5256821](https://github.com/runpod/flash/commit/5256821c8698116b6b05c8f7b836cecfccf0d22f))
+
+
+### Bug Fixes
+
+* 0.25.3 ([#173](https://github.com/runpod/flash/issues/173)) ([98b1ed7](https://github.com/runpod/flash/commit/98b1ed7c98ee8bbab43b4c880210579c1cab6a37))
+* add flash env id to saveendpoint during flash deploy ([#161](https://github.com/runpod/flash/issues/161)) ([d5c000e](https://github.com/runpod/flash/commit/d5c000e861d81a68cdb5f2426a989ebc3ddfc174))
+* **deploy:** apply CPU disk auto-sizing to load balancers ([#156](https://github.com/runpod/flash/issues/156)) ([334d582](https://github.com/runpod/flash/commit/334d5825592f514482c95c4b6f15a4f25ce03ba5))
+* **drift:** Exclude runtime fields from config hash to prevent false positives ([#132](https://github.com/runpod/flash/issues/132)) ([13ced50](https://github.com/runpod/flash/commit/13ced50558be287c235b272f3419babf168b6af1))
+* exclude NetworkVolume from undeploy list command ([#164](https://github.com/runpod/flash/issues/164)) ([b0960d9](https://github.com/runpod/flash/commit/b0960d967b588b43c0970a42e8fa8c69c7e83077))
+* fix usage on VPNs because aiodns is flaky ([c55c97b](https://github.com/runpod/flash/commit/c55c97b0696aeb3632ce8623d1a1b8c9058831cf))
+* set build id for env before deploying resources ([#169](https://github.com/runpod/flash/issues/169)) ([e5d38d6](https://github.com/runpod/flash/commit/e5d38d61c6daf12a482341c5675b9125431f6d05))
+* **skeleton:** Fix flash init missing hidden files in wheel distributions ([#115](https://github.com/runpod/flash/issues/115)) ([c3bf137](https://github.com/runpod/flash/commit/c3bf1376382cad8dcfb5c33d33e8876b97585384))
+
+
+### Code Refactoring
+
+* **build:** remove deprecated handler generator and add verification scripts ([#166](https://github.com/runpod/flash/issues/166)) ([5a253af](https://github.com/runpod/flash/commit/5a253af047052acdf1874072ddb8864bbdfa1679))
+* move endpoint deletion logic to proper abstraction layers ([#124](https://github.com/runpod/flash/issues/124)) ([c253d3b](https://github.com/runpod/flash/commit/c253d3b6f959dc8514b91b5e79f6f73fe9593b89))
+* rename archive.tar.gz to artifact.tar.gz ([#170](https://github.com/runpod/flash/issues/170)) ([1f033c3](https://github.com/runpod/flash/commit/1f033c39ec71f1291d5c261aa5d88bb0182c2270))
+* rename tetra to flash ([#165](https://github.com/runpod/flash/issues/165)) ([7546eaf](https://github.com/runpod/flash/commit/7546eaf4e65cc828c46cf53b57ea41b8f7374d64))
+* use env vars FLASH_HOST and FLASH_PORT ([#128](https://github.com/runpod/flash/issues/128)) ([117a6ae](https://github.com/runpod/flash/commit/117a6aea91b9ca53fc3671150f746766307dbab4))
+
+
+### Performance Improvements
+
+* fail build fast on size limit, remove blocking LB health check ([#182](https://github.com/runpod/flash/issues/182)) ([5278449](https://github.com/runpod/flash/commit/527844961a206fb6f7f656bc476a711896c001d9))
+* **tests:** make parallel test execution the default ([#145](https://github.com/runpod/flash/issues/145)) ([3faf170](https://github.com/runpod/flash/commit/3faf1706fa7252c56c8fab68e7dc95b570845245))
+
+
+### Documentation
+
+* **architecture:** Add deployment architecture specification ([#141](https://github.com/runpod/flash/issues/141)) ([b1de925](https://github.com/runpod/flash/commit/b1de9251a5c90dbfdfe7288a161f7bef51b4fa7f))
+* improved flash init skeleton, contributing, and misc cleanup ([#118](https://github.com/runpod/flash/issues/118)) ([91acf1a](https://github.com/runpod/flash/commit/91acf1a87b5cdcf7f66c2bfa976f6132a8ca3cea))
+* update readme for alpha release ([#120](https://github.com/runpod/flash/issues/120)) ([e8093d8](https://github.com/runpod/flash/commit/e8093d8ac878c13e578dc0ded823dfe8c73120f3))
+
 ## [1.1.0](https://github.com/runpod/flash/compare/v1.0.0...v1.1.0) (2026-02-06)
 
 
