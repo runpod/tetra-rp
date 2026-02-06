@@ -23,6 +23,8 @@ try:
 except ImportError:
     import tomli as tomllib  # Python 3.9-3.10
 
+from runpod_flash.core.resources.constants import MAX_TARBALL_SIZE_MB
+
 from ..utils.ignore import get_file_tree, load_ignore_patterns
 from .build_utils.manifest import ManifestBuilder
 from .build_utils.scanner import RemoteDecoratorScanner
@@ -38,9 +40,6 @@ PIP_INSTALL_TIMEOUT_SECONDS = 600
 ENSUREPIP_TIMEOUT_SECONDS = 30
 # Timeout for version checks (should be instant)
 VERSION_CHECK_TIMEOUT_SECONDS = 5
-
-# RunPod serverless deployment limit (hard limit enforced by platform)
-RUNPOD_MAX_ARCHIVE_SIZE_MB = 500
 
 # RunPod Serverless platform specifications
 # RunPod serverless runs on x86_64 Linux, regardless of build platform
@@ -210,7 +209,7 @@ def run_build(
         Path to the created artifact archive
 
     Raises:
-        typer.Exit: On build failure
+        typer.Exit: On build failure (including when archive exceeds 500 MB)
     """
     if not validate_project_structure(project_dir):
         console.print("[red]Error:[/red] Not a valid Flash project")
@@ -440,22 +439,33 @@ def run_build(
         )
         progress.stop_task(archive_task)
 
-        # Warning for size limit
-        if size_mb > RUNPOD_MAX_ARCHIVE_SIZE_MB:
+        # Fail build if archive exceeds size limit
+        if size_mb > MAX_TARBALL_SIZE_MB:
             console.print()
             console.print(
                 Panel(
-                    f"[yellow bold]⚠ WARNING: Archive exceeds Runpod limit[/yellow bold]\n\n"
-                    f"[yellow]Archive size:[/yellow] {size_mb:.1f} MB\n"
-                    f"[yellow]Runpod limit:[/yellow] {RUNPOD_MAX_ARCHIVE_SIZE_MB} MB\n"
-                    f"[yellow]Over by:[/yellow] {size_mb - RUNPOD_MAX_ARCHIVE_SIZE_MB:.1f} MB\n\n"
-                    f"[dim]Use --exclude to skip packages in base image:\n"
-                    f"  flash deploy --exclude torch,torchvision,torchaudio[/dim]",
-                    title="Deployment Size Warning",
-                    border_style="yellow",
+                    f"[red bold]✗ BUILD FAILED: Archive exceeds RunPod limit[/red bold]\n\n"
+                    f"[red]Archive size:[/red] {size_mb:.1f} MB\n"
+                    f"[red]RunPod limit:[/red] {MAX_TARBALL_SIZE_MB} MB\n"
+                    f"[red]Over by:[/red] {size_mb - MAX_TARBALL_SIZE_MB:.1f} MB\n\n"
+                    f"[bold]Solutions:[/bold]\n"
+                    f"  1. Use --exclude to skip packages in base image:\n"
+                    f"     [dim]flash deploy --exclude torch,torchvision,torchaudio[/dim]\n\n"
+                    f"  2. Reduce dependencies in requirements.txt",
+                    title="Build Artifact Too Large",
+                    border_style="red",
                 )
             )
             console.print()
+
+            # Cleanup: Remove invalid artifacts
+            console.print("[dim]Cleaning up invalid artifacts...[/dim]")
+            if archive_path.exists():
+                archive_path.unlink()
+            if build_dir.exists():
+                shutil.rmtree(build_dir)
+
+            raise typer.Exit(1)
 
     # Success summary
     _display_build_summary(archive_path, app_name, len(files), len(requirements))

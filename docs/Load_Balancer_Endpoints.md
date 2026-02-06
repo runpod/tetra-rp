@@ -50,17 +50,13 @@ graph TD
     B --> C["Check if already<br/>deployed"]
     C -->|Already deployed| D["Return existing<br/>endpoint"]
     C -->|New deployment| E["Call parent _do_deploy<br/>Create via RunPod API"]
-    E --> F["Poll /ping endpoint<br/>until healthy"]
-    F -->|Health check fails| G["Raise TimeoutError<br/>Deployment failed"]
-    F -->|Health check passes| H["Return deployed<br/>endpoint"]
+    E --> F["Return deployed<br/>endpoint immediately"]
 
     style A fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
     style B fill:#ff6b35,stroke:#c41e0f,stroke-width:3px,color:#fff
     style C fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
     style E fill:#1976d2,stroke:#0d47a1,stroke-width:3px,color:#fff
     style F fill:#0d7f1f,stroke:#0d4f1f,stroke-width:3px,color:#fff
-    style G fill:#c41e0f,stroke:#a41100,stroke-width:3px,color:#fff
-    style H fill:#0d7f1f,stroke:#0d4f1f,stroke-width:3px,color:#fff
 ```
 
 ### Configuration Hierarchy
@@ -162,12 +158,17 @@ mothership = LoadBalancerSlsResource(
     }
 )
 
-# Deploy endpoint
+# Deploy endpoint (returns immediately)
 deployed = await mothership.deploy()
 
-# Endpoint is now deployed and healthy
+# Endpoint is now deployed (may still be initializing)
 print(f"Endpoint ID: {deployed.id}")
 print(f"Endpoint URL: {deployed.endpoint_url}")
+
+# Optional: Wait for endpoint to become healthy before routing traffic
+healthy = await deployed._wait_for_health()
+if healthy:
+    print("Endpoint is ready to receive traffic")
 ```
 
 ### Configuration Options
@@ -249,11 +250,13 @@ try:
         imageName="my-image:latest",
     )
     deployed = await endpoint.deploy()
-except TimeoutError as e:
-    # Health check failed after max retries
-    # Error: LB endpoint mothership (endpoint-id) failed to become
-    # healthy within 60s
-    print(f"Deployment failed: {e}")
+
+    # Deployment returns immediately
+    # Optionally verify health before routing traffic
+    healthy = await deployed._wait_for_health(max_retries=10)
+    if not healthy:
+        print("Warning: Endpoint deployed but not yet healthy")
+
 except ValueError as e:
     # RunPod API error or configuration issue
     print(f"Deployment error: {e}")
@@ -281,22 +284,25 @@ assert endpoint.type == ServerlessType.LB  # Always LB
 | Phase | Duration | Notes |
 |-------|----------|-------|
 | API call | < 1s | RunPod endpoint creation |
-| Worker initialization | 30-60s | Endpoint starts up |
-| Health check polling | 5-50s | Depends on app startup time (10 retries × 5s = 50s max) |
-| **Total** | **35-110s** | Typical: 60-90s |
+| Deployment complete | **< 5s** | Returns immediately after API call |
 
-### Health Check Polling
+**Note**: Worker initialization (30-60s) and health checks happen asynchronously in the background. The endpoint is considered "deployed" as soon as RunPod creates it. You can manually verify health using `_wait_for_health()` if needed.
 
+### Manual Health Check (Optional)
+
+If you need to verify the endpoint is ready before routing traffic:
+
+```python
+# Deploy returns immediately
+mothership = await LoadBalancerSlsResource(name="my-lb", ...).deploy()
+
+# Optional: Wait for endpoint to become healthy
+healthy = await mothership._wait_for_health(max_retries=10, retry_interval=5)
+if not healthy:
+    print("Warning: Endpoint deployed but not yet healthy")
 ```
-Attempt 1: GET /ping → No response (endpoint starting)
-  Wait 5s
-Attempt 2: GET /ping → 204 No Content (initializing)
-  Wait 5s
-Attempt 3: GET /ping → 200 OK (healthy) ✓
-  Deployment complete
-```
 
-Default configuration:
+Default health check configuration:
 - Max retries: 10
 - Retry interval: 5 seconds
 - Timeout per request: 5 seconds
@@ -352,21 +358,26 @@ LoadBalancerSlsResource (class)
 
 ## Troubleshooting
 
-### Health Check Timeout
+### Endpoint Not Ready After Deployment
 
-**Problem**: Deployment times out at health check step
+**Problem**: Endpoint deploys successfully but isn't responding to requests
 
 **Causes**:
-- Endpoint failed to start (wrong image, runtime error)
+- Endpoint is still initializing (30-60s startup time)
+- Wrong image or runtime error during startup
 - `/ping` endpoint not implemented
-- `/ping` endpoint not responding within timeout
-- Firewall/network blocking requests
+- Application failed to start
 
 **Solution**:
-- Verify image exists and runs correctly: `docker run my-image:latest`
-- Implement `/ping` endpoint that returns 200 OK
-- Check logs: `runpod-cli logs <endpoint-id>`
-- Increase timeout: `await endpoint._wait_for_health(max_retries=20)`
+- Wait for endpoint to initialize (typically 30-60s)
+- Optionally verify health manually:
+  ```python
+  healthy = await endpoint._wait_for_health(max_retries=20, retry_interval=5)
+  if not healthy:
+      print("Endpoint not healthy yet, check logs")
+  ```
+- Verify image runs correctly: `docker run my-image:latest`
+- Check logs: `runpod-cli logs <endpoint-id>` or use RunPod dashboard
 
 ### Configuration Validation Errors
 
