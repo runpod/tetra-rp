@@ -23,6 +23,31 @@ logger = logging.getLogger(__name__)
 RESERVED_PATHS = ["/execute", "/ping"]
 
 
+def _serialize_routes(routes: List[RemoteFunctionMetadata]) -> List[Dict[str, Any]]:
+    """Convert RemoteFunctionMetadata to manifest dict format.
+
+    Args:
+        routes: List of route metadata objects
+
+    Returns:
+        List of dicts with route information for manifest
+    """
+    return [
+        {
+            "name": route.function_name,
+            "module": route.module_path,
+            "is_async": route.is_async,
+            "is_class": route.is_class,
+            "is_load_balanced": route.is_load_balanced,
+            "is_live_resource": route.is_live_resource,
+            "config_variable": route.config_variable,
+            "http_method": route.http_method,
+            "http_path": route.http_path,
+        }
+        for route in routes
+    ]
+
+
 @dataclass
 class ManifestFunction:
     """Function entry in manifest."""
@@ -199,20 +224,7 @@ class ManifestBuilder:
         """
         # Extract FastAPI routes if present
         fastapi_routes = main_app_config.get("fastapi_routes", [])
-        functions_list = [
-            {
-                "name": route.function_name,
-                "module": route.module_path,
-                "is_async": route.is_async,
-                "is_class": route.is_class,
-                "is_load_balanced": route.is_load_balanced,
-                "is_live_resource": route.is_live_resource,
-                "config_variable": route.config_variable,
-                "http_method": route.http_method,
-                "http_path": route.http_path,
-            }
-            for route in fastapi_routes
-        ]
+        functions_list = _serialize_routes(fastapi_routes)
 
         return {
             "resource_type": "CpuLiveLoadBalancer",
@@ -253,20 +265,7 @@ class ManifestBuilder:
             fastapi_routes = main_app_config.get("fastapi_routes", [])
 
         # Extract FastAPI routes into functions list
-        functions_list = [
-            {
-                "name": route.function_name,
-                "module": route.module_path,
-                "is_async": route.is_async,
-                "is_class": route.is_class,
-                "is_load_balanced": route.is_load_balanced,
-                "is_live_resource": route.is_live_resource,
-                "config_variable": route.config_variable,
-                "http_method": route.http_method,
-                "http_path": route.http_path,
-            }
-            for route in fastapi_routes
-        ]
+        functions_list = _serialize_routes(fastapi_routes)
 
         # Map resource type to image name
         resource_type = explicit_config.get("resource_type", "CpuLiveLoadBalancer")

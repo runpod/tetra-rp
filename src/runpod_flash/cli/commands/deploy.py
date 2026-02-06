@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import shutil
+import textwrap
 
 import typer
 from pathlib import Path
@@ -136,16 +137,20 @@ def _display_post_deployment_guidance(env_name: str) -> None:
 
     console.print("   [bold]Using HTTP/curl:[/bold]")
     if mothership_url:
-        curl_example = f"""   curl -X POST {mothership_url}/YOUR_PATH \\
-        -H "Authorization: Bearer $RUNPOD_API_KEY" \\
-        -H "Content-Type: application/json" \\
-        -d '{{"param1": "value1"}}'"""
+        curl_example = textwrap.dedent(f"""
+            curl -X POST {mothership_url}/YOUR_PATH \\
+                -H "Authorization: Bearer $RUNPOD_API_KEY" \\
+                -H "Content-Type: application/json" \\
+                -d '{{"param1": "value1"}}'
+        """).strip()
     else:
-        curl_example = """   curl -X POST https://YOUR_ENDPOINT_URL/YOUR_PATH \\
-        -H "Authorization: Bearer $RUNPOD_API_KEY" \\
-        -H "Content-Type: application/json" \\
-        -d '{"param1": "value1"}'"""
-    console.print(f"[dim]{curl_example}[/dim]\n")
+        curl_example = textwrap.dedent("""
+            curl -X POST https://YOUR_ENDPOINT_URL/YOUR_PATH \\
+                -H "Authorization: Bearer $RUNPOD_API_KEY" \\
+                -H "Content-Type: application/json" \\
+                -d '{"param1": "value1"}'
+        """).strip()
+    console.print(f"   [dim]{curl_example}[/dim]\n")
 
     # 3. Available routes
     console.print("[bold cyan]3. Available Routes[/bold cyan]")

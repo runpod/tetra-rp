@@ -483,7 +483,12 @@ def detect_main_app(
                                                 router_file,
                                             )
                                             router_routes.extend(routes)
-                                        except (UnicodeDecodeError, SyntaxError) as e:
+                                        except (
+                                            UnicodeDecodeError,
+                                            SyntaxError,
+                                            PermissionError,
+                                            OSError,
+                                        ) as e:
                                             logger.debug(
                                                 f"Failed to parse router file {router_file}: {e}"
                                             )
@@ -640,6 +645,115 @@ def _resolve_router_import(
     return None
 
 
+# Supported HTTP methods for route extraction
+SUPPORTED_HTTP_METHODS = ["get", "post", "put", "delete", "patch", "options", "head"]
+
+
+def _normalize_route_path(url_prefix: str, http_path: str) -> str:
+    """Normalize URL path by combining prefix and path with proper slashes.
+
+    Args:
+        url_prefix: URL prefix (e.g., '/users' or '')
+        http_path: HTTP path (e.g., '/' or '/list')
+
+    Returns:
+        Normalized path starting with '/' (e.g., '/users/list')
+    """
+    # Handle empty cases
+    if not url_prefix and not http_path:
+        return "/"
+    if not url_prefix:
+        return f"/{http_path.lstrip('/')}" if http_path else "/"
+    if not http_path or http_path == "/":
+        # When path is just "/", append it to prefix
+        return f"/{url_prefix.strip('/')}/"
+
+    # Combine prefix and path
+    prefix_part = url_prefix.strip("/")
+    path_part = http_path.lstrip("/")
+
+    return f"/{prefix_part}/{path_part}"
+
+
+def _extract_routes_from_decorator(
+    tree: ast.AST,
+    decorator_object: str,
+    module_path: str,
+    url_prefix: str,
+    file_path: Path,
+) -> List[RemoteFunctionMetadata]:
+    """Extract routes from decorators (@app.get, @router.post, etc.).
+
+    Unified implementation for both FastAPI app and APIRouter route extraction.
+
+    Args:
+        tree: AST of the file
+        decorator_object: Variable name ('app', 'user_router', etc.)
+        module_path: Module path for imports
+        url_prefix: URL prefix to prepend (empty string for no prefix)
+        file_path: Path to the source file
+
+    Returns:
+        List of RemoteFunctionMetadata for discovered routes
+    """
+    routes = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        for decorator in node.decorator_list:
+            # Look for @decorator_object.METHOD(...) pattern
+            if not isinstance(decorator, ast.Call):
+                continue
+
+            if not isinstance(decorator.func, ast.Attribute):
+                continue
+
+            # Check decorator object match
+            if not (
+                isinstance(decorator.func.value, ast.Name)
+                and decorator.func.value.id == decorator_object
+            ):
+                continue
+
+            # Get HTTP method
+            method = decorator.func.attr
+            if method not in SUPPORTED_HTTP_METHODS:
+                continue
+
+            # Extract path from first positional argument
+            http_path = None
+            if decorator.args and isinstance(decorator.args[0], ast.Constant):
+                http_path = decorator.args[0].value
+
+            if not http_path:
+                continue
+
+            # Normalize path with prefix
+            full_path = _normalize_route_path(url_prefix, http_path)
+
+            routes.append(
+                RemoteFunctionMetadata(
+                    function_name=node.name,
+                    module_path=module_path,
+                    resource_config_name="mothership",
+                    resource_type="CpuLiveLoadBalancer",
+                    is_async=isinstance(node, ast.AsyncFunctionDef),
+                    is_class=False,
+                    file_path=file_path,
+                    http_method=method.upper(),
+                    http_path=full_path,
+                    is_load_balanced=True,
+                    is_live_resource=True,
+                    config_variable=None,
+                )
+            )
+            break  # Only process first matching decorator per function
+
+    return routes
+
+
 def _extract_router_routes(
     tree: ast.AST,
     router_variable: str,
@@ -659,64 +773,9 @@ def _extract_router_routes(
     Returns:
         Routes with prefixed paths
     """
-    routes = []
-
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-
-        for decorator in node.decorator_list:
-            # Look for @router.METHOD(...) pattern
-            if not isinstance(decorator, ast.Call):
-                continue
-
-            if not isinstance(decorator.func, ast.Attribute):
-                continue
-
-            # Check router variable match
-            if not (
-                isinstance(decorator.func.value, ast.Name)
-                and decorator.func.value.id == router_variable
-            ):
-                continue
-
-            # Get HTTP method
-            method = decorator.func.attr
-            if method not in ["get", "post", "put", "delete", "patch"]:
-                continue
-
-            # Extract path
-            http_path = None
-            if decorator.args and isinstance(decorator.args[0], ast.Constant):
-                http_path = decorator.args[0].value
-
-            if not http_path:
-                continue
-
-            # Apply URL prefix (normalize slashes)
-            full_path = f"{url_prefix.rstrip('/')}/{http_path.lstrip('/')}"
-            if not full_path.startswith("/"):
-                full_path = "/" + full_path
-
-            routes.append(
-                RemoteFunctionMetadata(
-                    function_name=node.name,
-                    module_path=module_path,
-                    resource_config_name="mothership",
-                    resource_type="CpuLiveLoadBalancer",
-                    is_async=isinstance(node, ast.AsyncFunctionDef),
-                    is_class=False,
-                    file_path=router_file,
-                    http_method=method.upper(),
-                    http_path=full_path,
-                    is_load_balanced=True,
-                    is_live_resource=True,
-                    config_variable=None,
-                )
-            )
-            break
-
-    return routes
+    return _extract_routes_from_decorator(
+        tree, router_variable, module_path, url_prefix, router_file
+    )
 
 
 def _extract_fastapi_routes(
@@ -732,62 +791,11 @@ def _extract_fastapi_routes(
     Returns:
         List of RemoteFunctionMetadata for each FastAPI route found
     """
-    routes = []
-
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-
-        for decorator in node.decorator_list:
-            # Only handle @app.METHOD(...) pattern
-            if not isinstance(decorator, ast.Call):
-                continue
-
-            if not isinstance(decorator.func, ast.Attribute):
-                continue
-
-            # Check if it's the correct app variable
-            if not (
-                isinstance(decorator.func.value, ast.Name)
-                and decorator.func.value.id == app_variable
-            ):
-                continue
-
-            # Get HTTP method
-            method = decorator.func.attr
-            if method not in ["get", "post", "put", "delete", "patch"]:
-                continue
-
-            # Extract path from first positional argument
-            http_path = None
-            if decorator.args and isinstance(decorator.args[0], ast.Constant):
-                http_path = decorator.args[0].value
-
-            if not http_path:
-                continue
-
-            # Create RemoteFunctionMetadata for this route
-            routes.append(
-                RemoteFunctionMetadata(
-                    function_name=node.name,
-                    module_path=module_path,
-                    resource_config_name="mothership",  # FastAPI routes belong to mothership
-                    resource_type="CpuLiveLoadBalancer",  # Default mothership type
-                    is_async=isinstance(node, ast.AsyncFunctionDef),
-                    is_class=False,
-                    file_path=Path(
-                        module_path
-                    ),  # Will be updated by caller with actual path
-                    http_method=method.upper(),
-                    http_path=http_path,
-                    is_load_balanced=True,  # FastAPI routes are always LB
-                    is_live_resource=True,  # Mothership is live
-                    config_variable=None,  # No explicit config for FastAPI routes
-                )
-            )
-            break  # Only process first matching decorator per function
-
-    return routes
+    # Use unified extraction with no prefix and placeholder path
+    # The caller will update file_path with the actual path
+    return _extract_routes_from_decorator(
+        tree, app_variable, module_path, "", Path(module_path)
+    )
 
 
 def detect_explicit_mothership(project_root: Path) -> Optional[Dict]:
