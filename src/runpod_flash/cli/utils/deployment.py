@@ -402,7 +402,7 @@ def validate_local_manifest() -> Dict[str, Any]:
     if not manifest_path.exists():
         raise FileNotFoundError(
             f"Manifest not found at {manifest_path}. "
-            "Run 'flash build' before deploying."
+            "Run 'flash deploy' to build and deploy your project."
         )
 
     try:

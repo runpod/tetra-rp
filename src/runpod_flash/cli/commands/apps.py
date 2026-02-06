@@ -36,9 +36,7 @@ def ls():
     "delete", short_help="Delete an existing flash app and all its associated resources"
 )
 def delete(
-    app_name: str = typer.Option(
-        ..., "--app-name", "-a", help="Flash app name to delete"
-    ),
+    app_name: str = typer.Option(..., "--app", "-a", help="Flash app name to delete"),
 ):
     if not app_name:
         _, app_name = discover_flash_project()
