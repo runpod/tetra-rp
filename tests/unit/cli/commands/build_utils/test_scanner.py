@@ -614,8 +614,8 @@ def other():
     assert routes[0].function_name == "home"
 
 
-def test_extract_routes_from_included_router():
-    """Test that routes from included routers are discovered."""
+def test_extract_routes_from_single_included_router():
+    """Test that routes from a single included router are discovered."""
     from runpod_flash.cli.commands.build_utils.scanner import detect_main_app
 
     with tempfile.TemporaryDirectory() as tmpdir:

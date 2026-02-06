@@ -123,9 +123,17 @@ def _display_post_deployment_guidance(env_name: str) -> None:
     # 1. Authentication
     console.print("[bold cyan]1. Authentication Required[/bold cyan]")
     console.print(
-        "   All endpoints require authentication. Set your API key in the environment:"
+        "   All endpoints require authentication. Set your API key as an environment "
+        "variable. Avoid typing secrets directly into shell commands, as they may be "
+        "stored in your shell history."
     )
-    console.print('   [dim]export RUNPOD_API_KEY="your-api-key"[/dim]\n')
+    console.print(
+        "   [dim]# Recommended: store RUNPOD_API_KEY in a .env file or your shell profile[/dim]"
+    )
+    console.print(
+        "   [dim]# Or securely prompt for it without echo (Bash example):[/dim]"
+    )
+    console.print("   [dim]read -s RUNPOD_API_KEY && export RUNPOD_API_KEY[/dim]\n")
 
     # 2. Calling functions
     console.print("[bold cyan]2. Call Your Functions[/bold cyan]")
